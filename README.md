@@ -1,4 +1,4 @@
-# Skeleton: Evolutionary Architecture (Golang)
+# Personal Knowledge Base
 
 This repo is an example for golang template project, modules name, functionality is just an example
 
@@ -54,3 +54,76 @@ type Fetcher  interface { FetchFile(ctx context.Context, path, sha string) (stri
 * **Markdown Parser:** Goldmark
 * **Vector DB:** Qdrant (local Docker or Cloud)
 * **Embeddings:** Ollama (`nomic-embed-text`) — local, private
+
+#### Retrieval Improvement Roadmap
+
+Ordered by ROI. Each item includes tradeoffs.
+
+---
+
+**1. Strip markdown before embedding** *(do first — easy win)*
+
+Emit plain text from AST walk instead of raw markdown. Drop `##`, `**`, `_`, fences, `[text](url)`.
+
+| Pro | Con |
+|-----|-----|
+| Embedding model sees clean semantic signal | Lose inline code formatting cues (minor) |
+| No dilution from syntax noise | Need to update chunker AST output |
+| Improves cosine similarity accuracy | — |
+
+---
+
+**2. Hybrid search: BM25 + vector** *(highest recall improvement)*
+
+Add Qdrant sparse vector index (or payload full-text index) alongside dense cosine search. Merge scores (Reciprocal Rank Fusion or weighted sum).
+
+| Pro | Con |
+|-----|-----|
+| Exact keyword match for proper nouns, code, IDs | Qdrant sparse vectors require reindex |
+| Catches what vector misses (low-frequency terms) | Score fusion adds tuning surface |
+| No external service needed — Qdrant native | Slightly higher query latency |
+
+---
+
+**3. Keyword filter endpoint** *(cheap debug + power-user path)*
+
+Add `POST /search` optional `keyword` field → Qdrant payload full-text filter (requires text index on `text` field).
+
+| Pro | Con |
+|-----|-----|
+| Deterministic, inspectable results | No semantic understanding |
+| Useful for debugging retrieval gaps | Requires creating payload index in Qdrant |
+| Zero extra latency | — |
+
+---
+
+**4. Fix chunk ID collision** *(correctness, low urgency)*
+
+Current `chunkID` = FNV hash of `filePath+lineStart`. Two different files can collide.
+
+Replace with UUIDv5(`namespace`, `filePath+":"+strconv.Itoa(lineStart)`) or SHA256-truncated-to-uint64.
+
+| Pro | Con |
+|-----|-----|
+| Eliminates silent overwrites | Requires re-ingest to regenerate IDs |
+| Deterministic and collision-resistant | — |
+
+---
+
+**5. Multi-sentence / multi-concept query splitting** *(diminishing returns)*
+
+Break query on `.` / `?` / `;`, embed each fragment, merge result sets, deduplicate by score.
+
+| Pro | Con |
+|-----|-----|
+| Better recall for compound questions | 2–3× embed calls per query |
+| Surfaces results for each sub-concept | Complexity: need merge + dedup logic |
+| — | Marginal gain for single-concept queries (majority of PKB searches) |
+
+---
+
+**Skipped / deferred:**
+
+* **HyDE** (generate hypothetical answer, embed that): significant quality gain but requires LLM call per query — breaks sub-second latency goal.
+* **Re-ranking** (cross-encoder on top-K): high precision but adds ~200–500ms; revisit if precision becomes bottleneck after hybrid search.
+* **Chunk size tuning**: empirical — run 20–30 real queries against your notes and measure MRR@5 before tuning.

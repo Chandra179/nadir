@@ -30,19 +30,32 @@ func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
 
 func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
-	if err == nil {
-		return nil
-	}
-	_, err = s.collection.Create(ctx, &qdrant.CreateCollection{
-		CollectionName: s.name,
-		VectorsConfig: &qdrant.VectorsConfig{
-			Config: &qdrant.VectorsConfig_Params{
-				Params: &qdrant.VectorParams{
-					Size:     uint64(dimensions),
-					Distance: qdrant.Distance_Cosine,
+	if err != nil {
+		_, err = s.collection.Create(ctx, &qdrant.CreateCollection{
+			CollectionName: s.name,
+			VectorsConfig: &qdrant.VectorsConfig{
+				Config: &qdrant.VectorsConfig_Params{
+					Params: &qdrant.VectorParams{
+						Size:     uint64(dimensions),
+						Distance: qdrant.Distance_Cosine,
+					},
 				},
 			},
-		},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	// Ensure full-text index on text field for BM25 hybrid search.
+	ft := qdrant.FieldType_FieldTypeText
+	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
+		CollectionName: s.name,
+		FieldName:      "text",
+		FieldType:      &ft,
+		FieldIndexParams: qdrant.NewPayloadIndexParamsText(&qdrant.TextIndexParams{
+			Tokenizer: qdrant.TokenizerType_Word,
+			Lowercase: qdrant.PtrOf(true),
+		}),
 	})
 	return err
 }
@@ -93,6 +106,48 @@ func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
 		},
 	})
 	return err
+}
+
+func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+	prefetchLimit := uint64(topK * 3)
+	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
+		CollectionName: s.name,
+		Prefetch: []*qdrant.PrefetchQuery{
+			{
+				Query: qdrant.NewQueryNearest(qdrant.NewVectorInput(vector...)),
+				Limit: &prefetchLimit,
+			},
+			{
+				Filter: &qdrant.Filter{
+					Must: []*qdrant.Condition{
+						qdrant.NewMatchText("text", query),
+					},
+				},
+				Limit: &prefetchLimit,
+			},
+		},
+		Query:       qdrant.NewQueryFusion(qdrant.Fusion_RRF),
+		WithPayload: qdrant.NewWithPayload(true),
+		Limit:       qdrant.PtrOf(uint64(topK)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ScoredChunk, len(resp.Result))
+	for i, r := range resp.Result {
+		p := r.Payload
+		results[i] = ScoredChunk{
+			DocumentChunk: DocumentChunk{
+				Text:      pbStr(p, "text"),
+				FilePath:  pbStr(p, "file_path"),
+				Header:    pbStr(p, "header"),
+				LineStart: int(pbInt(p, "line_start")),
+			},
+			SourceSHA: pbStr(p, "source_sha"),
+			Score:     r.Score,
+		}
+	}
+	return results, nil
 }
 
 func (s *QdrantStore) Search(ctx context.Context, vector []float32, topK int) ([]ScoredChunk, error) {

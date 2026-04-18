@@ -8,6 +8,53 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+// nodeToPlainText extracts readable text from an AST node, stripping markdown syntax.
+func nodeToPlainText(n ast.Node, src []byte) string {
+	var sb strings.Builder
+	ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch v := node.(type) {
+		case *ast.Text:
+			sb.Write(v.Segment.Value(src))
+			if v.SoftLineBreak() || v.HardLineBreak() {
+				sb.WriteByte(' ')
+			}
+		case *ast.String:
+			sb.Write(v.Value)
+		case *ast.CodeSpan:
+			// collect raw bytes inside code span
+			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
+				if t, ok := c.(*ast.Text); ok {
+					sb.Write(t.Segment.Value(src))
+				}
+			}
+			return ast.WalkSkipChildren, nil
+		case *ast.FencedCodeBlock:
+			for i := 0; i < v.Lines().Len(); i++ {
+				line := v.Lines().At(i)
+				sb.Write(line.Value(src))
+			}
+			return ast.WalkSkipChildren, nil
+		case *ast.Link:
+			// emit link text, skip URL/title
+			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
+				sb.WriteString(nodeToPlainText(c, src))
+			}
+			return ast.WalkSkipChildren, nil
+		case *ast.Image:
+			// emit alt text only
+			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
+				sb.WriteString(nodeToPlainText(c, src))
+			}
+			return ast.WalkSkipChildren, nil
+		}
+		return ast.WalkContinue, nil
+	})
+	return sb.String()
+}
+
 // RecursiveChunker splits markdown into chunks using a recursive character strategy.
 // It first extracts sections by heading, then splits oversized sections by paragraph,
 // then by sentence, preserving overlap between adjacent chunks.
@@ -87,21 +134,10 @@ func extractSections(rawText string) []section {
 			if seg != nil && seg.Len() > 0 {
 				currentLine = lineOf(seg.At(0).Start)
 			}
-			var hb strings.Builder
-			for child := h.FirstChild(); child != nil; child = child.NextSibling() {
-				if t, ok := child.(*ast.Text); ok {
-					hb.Write(t.Segment.Value(src))
-				}
-			}
-			currentHeader = hb.String()
+			currentHeader = strings.TrimSpace(nodeToPlainText(h, src))
 		} else if p, ok := n.(*ast.Paragraph); ok {
-			var sb strings.Builder
-			segs := p.Lines()
-			for i := 0; i < segs.Len(); i++ {
-				seg := segs.At(i)
-				sb.Write(seg.Value(src))
-			}
-			currentLines = append(currentLines, sb.String())
+			currentLines = append(currentLines, nodeToPlainText(p, src))
+			return ast.WalkSkipChildren, nil
 		}
 		return ast.WalkContinue, nil
 	})

@@ -8,14 +8,14 @@ import (
 )
 
 type Config struct {
-	HTTP       HTTPConfig       `yaml:"http"`
-	Middleware MiddlewareConfig `yaml:"middleware"`
+	HTTP          HTTPConfig          `yaml:"http"`
+	Middleware    MiddlewareConfig    `yaml:"middleware"`
 	KnowledgeBase KnowledgeBaseConfig `yaml:"knowledge_base"`
-	PKB        PKBConfig        `yaml:"pkb"`
-	Qdrant     QdrantConfig     `yaml:"qdrant"`
-	Embedder   EmbedderConfig   `yaml:"embedder"`
-	Chunker    ChunkerConfig    `yaml:"chunker"`
-	Retry      RetryConfig      `yaml:"retry"`
+	PKB           PKBConfig           `yaml:"pkb"`
+	Qdrant        QdrantConfig        `yaml:"qdrant"`
+	Embedder      EmbedderConfig      `yaml:"embedder"`
+	Chunker       ChunkerConfig       `yaml:"chunker"`
+	Retry         RetryConfig         `yaml:"retry"`
 }
 
 type HTTPConfig struct {
@@ -83,15 +83,5 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	overrideFromEnv(&cfg)
 	return &cfg, nil
-}
-
-func overrideFromEnv(cfg *Config) {
-	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
-		cfg.Embedder.APIKey = v
-	}
-	if v := os.Getenv("NOTES_PATH"); v != "" {
-		cfg.KnowledgeBase.Path = v
-	}
 }

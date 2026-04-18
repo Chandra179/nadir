@@ -17,5 +17,7 @@ ingest:
 search:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"math","top_k":5}'
+		-d '{"query":"system design","top_k":5}'
 
+d:
+	curl -X DELETE localhost:6333/collections/pkb_chunks

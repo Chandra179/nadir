@@ -54,7 +54,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chunks, err := h.store.Search(r.Context(), vec, topK)
+	chunks, err := h.store.HybridSearch(r.Context(), vec, req.Query, topK)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
