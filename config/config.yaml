@@ -4,10 +4,49 @@ http:
   write_timeout: 35s
   idle_timeout: 120s
 
-grpc:
-  addr: ":9090"
-
 middleware:
   timeout: 30s
   logger:
     level: dev  # dev | prod
+
+knowledge_base:
+  path: "gitbook"  # any local dir of markdown files; override: NOTES_PATH
+
+pkb:
+  ignore_patterns:
+    - ".gitbook/**"
+    - ".git/**"
+    - "node_modules/**"
+    - "dist/**"
+    - ".wrangler/**"
+    - "scripts/**"
+    - "diagrams/**"
+    - ".claude/**"
+    - "package.json"
+    - "package-lock.json"
+    - "*.config.js"
+    - "*.jsonc"
+    - "build.sh"
+    - "CLAUDE.md"
+
+qdrant:
+  addr: "localhost:6334"
+  collection: "pkb_chunks"
+  top_k: 5
+
+embedder:
+  provider: "ollama"
+  model: "nomic-embed-text"
+  ollama_addr: "http://localhost:11434"
+  dimensions: 768
+
+chunker:
+  provider: "recursive"  # recursive | ast
+  chunk_size: 512
+  chunk_overlap: 64
+
+retry:
+  max_attempts: 3
+  initial_interval: 500ms
+  max_interval: 10s
+  multiplier: 2.0

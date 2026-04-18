@@ -4,8 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"brook/config"
-	"brook/internal/middleware"
+	"nadir/config"
+	"nadir/internal/middleware"
+	"nadir/internal/pkb"
 
 	"github.com/Chandra179/gosdk/logger"
 )
@@ -22,16 +23,39 @@ func Server(cfg *config.Config) {
 		)
 	}
 
+	store, err := pkb.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection)
+	if err != nil {
+		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
+		return
+	}
+
+	embedder := pkb.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
+
+	if err := store.EnsureCollection(context.Background(), embedder.Dimensions()); err != nil {
+		log.Error(context.Background(), "qdrant ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
+		return
+	}
+
+	chunker := pkb.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
+	fetcher := pkb.NewLocalFetcher(cfg.KnowledgeBase.Path)
+
+	pipeline := pkb.NewPipeline(chunker, embedder, store, pkb.PipelineConfig{
+		MaxAttempts:     cfg.Retry.MaxAttempts,
+		InitialInterval: cfg.Retry.InitialInterval,
+		MaxInterval:     cfg.Retry.MaxInterval,
+		Multiplier:      cfg.Retry.Multiplier,
+	})
+	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
+	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK)
+	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log)
+
 	mux := http.NewServeMux()
-	mux.Handle("POST /orders", globalChain(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusCreated)
-		}),
-	))
+	mux.Handle("POST /search", globalChain(searchHandler))
+	mux.Handle("POST /ingest", globalChain(ingestHandler))
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler:      globalChain(mux),
+		Handler:      mux,
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,

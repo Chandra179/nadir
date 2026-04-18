@@ -32,3 +32,6 @@ go.work.sum
 # .vscode/
 
 vendor
+
+# Personal knowledge base content — users supply their own via knowledge_base.path config
+gitbook/

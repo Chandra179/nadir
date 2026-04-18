@@ -6,49 +6,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Vendor dependencies
-make vendor           # runs: go mod tidy && go mod vendor
-
-# Run HTTP server
-go run cmd/http/main.go
-
-# Run gRPC server
-go run cmd/grpc/main.go
+make vendor          # go mod tidy && go mod vendor
 
 # Build
-go build ./...
+go build ./cmd/http
+
+# Run
+go run ./cmd/http
 
 # Test
 go test ./...
-go test ./internal/middleware/...   # test a specific package
+go test ./internal/pkb/...   # single package
 
-# Single test
-go test -run TestFunctionName ./internal/middleware/...
+# Docker (includes Qdrant)
+docker compose up --build
 ```
 
-Config is loaded from `config/config.yaml` (HTTP addr, gRPC addr, timeouts, logger level).
+Config loads from `config/config.yaml`. Secrets override via env: `GITHUB_WEBHOOK_SECRET`, `GITHUB_API_TOKEN`, `OPENAI_API_KEY`.
 
 ## Architecture
 
-This is a Go skeleton with two separate server binaries (HTTP and gRPC), sharing middleware and config. Dependencies are only the standard library plus `github.com/Chandra179/gosdk` for logging.
+Single HTTP binary (`cmd/http/main.go`) — no gRPC entrypoint currently active.
 
-**Entry points**:
-- `cmd/http/main.go` → `httpserver.Server(cfg)` in `internal/httpserver/server.go`
-- `cmd/grpc/main.go` → `grpcserver.Server(cfg)` in `internal/grpcserver/server.go`
+**Request flow:** `main` → `httpserver.Server` wires middleware chain + handlers → serves two routes:
+- `POST /webhook/github` → `WebhookHandler` → `Pipeline.Ingest/Delete`
+- `POST /search` → `SearchHandler` → `Embedder` + `Store.Search`
 
-**`internal/httpserver/server.go`** wires the HTTP server:
-- Creates a `Dependencies` struct (holds the logger)
-- Builds a `globalChain` applied to all routes: Recovery → RequestID → Timeout
-- Registers routes on `http.ServeMux` with per-route middleware chains on top
+**`internal/pkb/` — core PKB engine (interfaces + orchestration):**
+- `Chunker` interface: splits markdown into `DocumentChunk` (text + source pointer)
+- `Embedder` interface: `Embed(ctx, text) []float32` — swappable OpenAI / Ollama
+- `Store` interface: Qdrant-backed upsert/delete/search over `ScoredChunk`
+- `Fetcher` interface: pulls raw file content from GitHub REST API
+- `Pipeline`: chunks → embeds (with exponential backoff retry) → upserts; called async from webhook handler
+- Concrete implementations of all four interfaces are **not yet built** — `httpserver.Server` passes `nil` until they exist
 
-**`internal/grpcserver/server.go`** wires the gRPC server:
-- Uses `grpc.ChainUnaryInterceptor` with `middleware.RequestIDUnaryInterceptor`
-- Register service implementations here via `pb.RegisterXxxServer(srv, &impl{})`
+**`internal/middleware/`:** stdlib-only chain (`Recovery → RequestID → Timeout`). `Chain()` applies outermost-first. Add new middleware by appending to the `globalChain` call in `httpserver.Server`.
 
-**`internal/middleware/`** contains all middleware:
-- `chain.go` — `Chain(handler, ...Middleware)` applies middlewares outermost-first
-- `dependencies.go` — `Dependencies` struct; middleware needing shared state (logger) are methods on it
-- `request_id.go` — HTTP middleware + gRPC unary interceptor; propagates/generates `X-Request-ID` / `x-request-id`
-- `request_validation.go` — generic `Validate[T]` helper using struct tags
-- `recovery.go`, `timeout.go` — standard HTTP middleware
+**`config/`:** Single `Config` struct decoded from YAML, then env vars overlay sensitive fields. All subsystem configs (retry, embedder, chunker, qdrant) live here.
 
-**Pattern**: stateless middleware are plain `func(...) Middleware` constructors. Middleware needing the logger are methods on `*Dependencies`.
+## Key design rules
+
+- Modules must not import `httpserver` or `middleware` — dependency flows inward only.
+- New capabilities go in `internal/pkb/` as a new file implementing one of the four interfaces.
+- Retry logic lives in `Pipeline`, not in `Embedder`/`Store` implementations.

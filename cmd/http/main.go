@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"brook/config"
-	"brook/internal/httpserver"
+	"nadir/config"
+	"nadir/internal/httpserver"
 )
 
 func main() {
