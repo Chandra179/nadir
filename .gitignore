@@ -43,4 +43,3 @@ package-lock.json
 tailwind.config.js
 wrangler.jsonc
 vendor/
-gen-qrels
