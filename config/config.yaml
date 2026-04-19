@@ -51,6 +51,10 @@ retry:
   max_interval: 10s
   multiplier: 2.0
 
+sparse_scorer:
+  provider: "splade"  # tf (default, zero deps) | splade (requires cmd/splade sidecar)
+  addr: "http://localhost:5001"
+
 eval:
   llm_base_url: "http://localhost:11434/v1"
   llm_model: "llama3.1:8b-instruct-q4_K_M"

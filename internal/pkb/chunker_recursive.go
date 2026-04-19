@@ -106,8 +106,6 @@ func extractSections(rawText string) []section {
 	currentLine := 1
 	var currentLines []string
 
-	lines := strings.Split(rawText, "\n")
-
 	flush := func() {
 		if len(currentLines) > 0 {
 			sections = append(sections, section{
@@ -122,7 +120,6 @@ func extractSections(rawText string) []section {
 		return strings.Count(rawText[:offset], "\n") + 1
 	}
 
-	_ = lines
 	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil

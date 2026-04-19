@@ -28,6 +28,10 @@ func Server(cfg *config.Config) {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
+	if cfg.SparseScorer.Provider == "splade" {
+		store.WithSparseScorer(pkb.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
+		log.Info(context.Background(), "splade sparse scorer enabled", logger.Field{Key: "addr", Value: cfg.SparseScorer.Addr})
+	}
 
 	embedder := pkb.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
 

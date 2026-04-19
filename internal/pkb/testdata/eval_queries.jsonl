@@ -1,0 +1,20 @@
+{"query": "How does the Go GPM scheduler work with goroutines and OS threads?"}
+{"query": "What causes goroutine leaks and how do you prevent them?"}
+{"query": "How do Go channels work internally with sendq and recvq?"}
+{"query": "What changed in Go 1.22 loop variable scoping semantics?"}
+{"query": "How does strings.Builder improve concatenation performance?"}
+{"query": "How does consistent hashing minimize data movement when adding servers?"}
+{"query": "What is the Snowflake ID structure and how does it handle clock skew?"}
+{"query": "How does rate limiting work with Redis and what is thundering herd jitter protection?"}
+{"query": "How does cache stampede prevention work with request coalescing?"}
+{"query": "How do virtual nodes in consistent hashing improve load distribution?"}
+{"query": "What is the difference between B-Tree and LSM Tree storage engines for databases?"}
+{"query": "How do ACID transactions handle isolation levels?"}
+{"query": "What is the N+1 query problem and how do you solve it?"}
+{"query": "How does Kafka partition routing work for producers?"}
+{"query": "What is the CPU fetch-execute cycle?"}
+{"query": "How does gradient descent minimize the loss function and how does backpropagation calculate gradients?"}
+{"query": "What are activation functions like sigmoid tanh and ReLU and when should you use each?"}
+{"query": "How does dropout regularization prevent overfitting during neural network training?"}
+{"query": "What is Mixture of Experts MoE and how does the router select expert sub-networks?"}
+{"query": "How do transformers and attention mechanisms work for sequence to sequence tasks?"}

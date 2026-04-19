@@ -95,7 +95,7 @@ func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int) ([]
 	for _, frag := range fragments {
 		vec, err := h.embedder.Embed(r.Context(), frag)
 		if err != nil {
-			return nil, fmt.Errorf("embed failed")
+			return nil, fmt.Errorf("embed: %w", err)
 		}
 		results, err := h.store.HybridSearch(r.Context(), vec, frag, topK)
 		if err != nil {

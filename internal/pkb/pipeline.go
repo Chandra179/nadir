@@ -19,14 +19,21 @@ type PipelineConfig struct {
 
 // Pipeline orchestrates chunk → embed → store for a single file.
 type Pipeline struct {
-	chunker  Chunker
-	embedder Embedder
-	store    Store
-	cfg      PipelineConfig
+	chunker        Chunker
+	embedder       Embedder
+	sparseEmbedder SparseEmbedder // optional; when set, sparse vectors are stored alongside dense
+	store          Store
+	cfg            PipelineConfig
 }
 
 func NewPipeline(chunker Chunker, embedder Embedder, store Store, cfg PipelineConfig) *Pipeline {
 	return &Pipeline{chunker: chunker, embedder: embedder, store: store, cfg: cfg}
+}
+
+// WithSparseEmbedder enables sparse vector indexing at ingest time.
+func (p *Pipeline) WithSparseEmbedder(se SparseEmbedder) *Pipeline {
+	p.sparseEmbedder = se
+	return p
 }
 
 // Ingest chunks, embeds, and upserts a single markdown file.
@@ -48,11 +55,20 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 		if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
 			return fmt.Errorf("embed chunk in %s: %w", filePath, err)
 		}
-		scored = append(scored, ScoredChunk{
+		sc := ScoredChunk{
 			DocumentChunk: c,
 			Vector:        vec,
 			SourceSHA:     sourceSHA,
-		})
+		}
+		if p.sparseEmbedder != nil {
+			idx, vals, serr := p.sparseEmbedder.EmbedSparse(ctx, embedText, "passage")
+			if serr != nil {
+				return fmt.Errorf("sparse embed chunk in %s: %w", filePath, serr)
+			}
+			sc.SparseIndices = idx
+			sc.SparseValues = vals
+		}
+		scored = append(scored, sc)
 	}
 
 	if err := p.store.Upsert(ctx, scored); err != nil {

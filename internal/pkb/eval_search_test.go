@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,53 +19,90 @@ import (
 
 // evalCase is one query for search evaluation.
 type evalCase struct {
-	Query string
+	Query string `json:"query"`
 }
 
-var evalCases = []evalCase{
-	{Query: "How does the Go GPM scheduler work with goroutines and OS threads?"},
-	{Query: "What causes goroutine leaks and how do you prevent them?"},
-	{Query: "How do Go channels work internally with sendq and recvq?"},
-	{Query: "What changed in Go 1.22 loop variable scoping semantics?"},
-	{Query: "How does strings.Builder improve concatenation performance?"},
-	{Query: "How does consistent hashing minimize data movement when adding servers?"},
-	{Query: "What is the Snowflake ID structure and how does it handle clock skew?"},
-	{Query: "How does rate limiting work with Redis and what is thundering herd jitter protection?"},
-	{Query: "How does cache stampede prevention work with request coalescing?"},
-	{Query: "How do virtual nodes in consistent hashing improve load distribution?"},
-	{Query: "What is the difference between B-Tree and LSM Tree storage engines for databases?"},
-	{Query: "How do ACID transactions handle isolation levels?"},
-	{Query: "What is the N+1 query problem and how do you solve it?"},
-	{Query: "How does Kafka partition routing work for producers?"},
-	{Query: "What is the CPU fetch-execute cycle?"},
-	{Query: "How does gradient descent minimize the loss function and how does backpropagation calculate gradients?"},
-	{Query: "What are activation functions like sigmoid tanh and ReLU and when should you use each?"},
-	{Query: "How does dropout regularization prevent overfitting during neural network training?"},
-	{Query: "What is Mixture of Experts MoE and how does the router select expert sub-networks?"},
-	{Query: "How do transformers and attention mechanisms work for sequence to sequence tasks?"},
+func loadEvalCases(t *testing.T) []evalCase {
+	t.Helper()
+	path := filepath.Join("testdata", "eval_queries.jsonl")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("load eval queries %s: %v", path, err)
+	}
+	var cases []evalCase
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if line == "" {
+			continue
+		}
+		var c evalCase
+		if err := json.Unmarshal([]byte(line), &c); err != nil {
+			t.Fatalf("parse eval query line: %v", err)
+		}
+		cases = append(cases, c)
+	}
+	if len(cases) == 0 {
+		t.Fatalf("no eval queries found in %s", path)
+	}
+	return cases
 }
 
 // evalMetrics holds computed IR metrics for one eval run.
 type evalMetrics struct {
-	MRR       float64
-	Recall    float64
-	NDCG      float64
+	MRR      float64
+	HitRate  float64 // fraction of queries with at least one relevant result in top-K (Success@K)
+	NDCG     float64
 	Precision float64
+}
+
+// evalProfile defines one retrieval configuration to benchmark.
+type evalProfile struct {
+	Name         string `json:"name"`
+	SparseScorer string `json:"sparse_scorer"` // "tf" | "splade"
+	ChunkSize    int    `json:"chunk_size"`
+	ChunkOverlap int    `json:"chunk_overlap"`
+}
+
+func loadEvalProfiles(t *testing.T) []evalProfile {
+	t.Helper()
+	path := filepath.Join("testdata", "eval_profiles.jsonl")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("load eval profiles %s: %v", path, err)
+	}
+	var profiles []evalProfile
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if line == "" {
+			continue
+		}
+		var p evalProfile
+		if err := json.Unmarshal([]byte(line), &p); err != nil {
+			t.Fatalf("parse eval profile line: %v", err)
+		}
+		profiles = append(profiles, p)
+	}
+	if len(profiles) == 0 {
+		t.Fatalf("no eval profiles found in %s", path)
+	}
+	return profiles
 }
 
 // evalHistoryEntry is one run appended to the history file.
 type evalHistoryEntry struct {
-	Timestamp  string  `json:"timestamp"`
-	Mode       string  `json:"mode"`
-	Judge      string  `json:"judge"`
-	Collection string  `json:"collection"`
-	Model      string  `json:"model"`
-	Queries    int     `json:"queries"`
-	TopK       int     `json:"top_k"`
-	MRR        float64 `json:"mrr"`
-	Recall     float64 `json:"recall"`
-	NDCG       float64 `json:"ndcg"`
-	Precision  float64 `json:"precision"`
+	Timestamp    string  `json:"timestamp"`
+	Profile      string  `json:"profile"`
+	SparseScorer string  `json:"sparse_scorer"`
+	ChunkSize    int     `json:"chunk_size"`
+	ChunkOverlap int     `json:"chunk_overlap"`
+	Mode         string  `json:"mode"`
+	Judge        string  `json:"judge"`
+	Collection   string  `json:"collection"`
+	Model        string  `json:"model"`
+	Queries      int     `json:"queries"`
+	TopK         int     `json:"top_k"`
+	MRR          float64 `json:"mrr"`
+	HitRate      float64 `json:"hit_rate"`
+	NDCG         float64 `json:"ndcg"`
+	Precision    float64 `json:"precision"`
 }
 
 // loadConfig loads config/config.yaml relative to the repo root (two levels up from internal/pkb/).
@@ -90,7 +128,7 @@ func loadQrelsJudge(path string) (*qrelsJudge, error) {
 		return nil, err
 	}
 	m := make(map[string]map[string]bool)
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "" {
 			continue
 		}
@@ -148,12 +186,23 @@ func buildJudge(t *testing.T, cfg *config.Config) (RelevanceJudge, string) {
 	return j, "qrels"
 }
 
-// buildStore returns either a live Qdrant store (EVAL_MODE=live) or spins up a testcontainer.
-// Live mode skips ingestion and uses the existing collection.
+// buildStore selects the Qdrant backend based on EVAL_STORE:
+//
+//	EVAL_STORE=live      → connect to running Qdrant; skip ingest (data already there)
+//	EVAL_STORE=container → spin up ephemeral testcontainer; ingest required
+//
+// Override addr/collection via EVAL_QDRANT_ADDR / EVAL_QDRANT_COLLECTION.
+// Returns (store, skipIngest, modeName, collectionName).
 func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *config.Config) (Store, bool, string, string) {
 	t.Helper()
 
-	if os.Getenv("EVAL_MODE") == "live" {
+	evalStore := os.Getenv("EVAL_STORE")
+	if evalStore == "" {
+		evalStore = "live" // default: fast path, no Docker pull
+	}
+
+	switch evalStore {
+	case "live":
 		addr := os.Getenv("EVAL_QDRANT_ADDR")
 		if addr == "" {
 			addr = cfg.Qdrant.Addr
@@ -166,32 +215,37 @@ func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *confi
 		if err != nil {
 			t.Fatalf("live qdrant store: %v", err)
 		}
-		t.Logf("mode=live qdrant=%s collection=%s", addr, collection)
+		t.Logf("store=live qdrant=%s collection=%s", addr, collection)
 		return store, true, "live", collection
-	}
 
-	container, err := qdrantcontainer.Run(ctx, "qdrant/qdrant:latest")
-	if err != nil {
-		t.Fatalf("start qdrant container: %v", err)
-	}
-	t.Cleanup(func() { _ = container.Terminate(ctx) })
+	case "container":
+		container, err := qdrantcontainer.Run(ctx, "qdrant/qdrant:latest")
+		if err != nil {
+			t.Fatalf("start qdrant container: %v", err)
+		}
+		t.Cleanup(func() { _ = container.Terminate(ctx) })
 
-	grpcEndpoint, err := container.GRPCEndpoint(ctx)
-	if err != nil {
-		t.Fatalf("qdrant grpc endpoint: %v", err)
-	}
+		grpcEndpoint, err := container.GRPCEndpoint(ctx)
+		if err != nil {
+			t.Fatalf("qdrant grpc endpoint: %v", err)
+		}
 
-	store, err := NewQdrantStore(grpcEndpoint, "eval")
-	if err != nil {
-		t.Fatalf("new qdrant store: %v", err)
-	}
+		store, err := NewQdrantStore(grpcEndpoint, "eval")
+		if err != nil {
+			t.Fatalf("new qdrant store: %v", err)
+		}
 
-	if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
-		t.Fatalf("ensure collection: %v", err)
-	}
+		if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
+			t.Fatalf("ensure collection: %v", err)
+		}
 
-	t.Log("mode=container")
-	return store, false, "container", "eval"
+		t.Log("store=container")
+		return store, false, "container", "eval"
+
+	default:
+		t.Fatalf("unknown EVAL_STORE=%q — valid values: live, container", evalStore)
+		return nil, false, "", ""
+	}
 }
 
 // saveHistory appends a run result to the history file (JSONL).
@@ -229,79 +283,125 @@ func TestSearchEval(t *testing.T) {
 	}
 
 	ctx := context.Background()
-
 	embedder := NewOllamaEmbedder(ollamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
-
-	store, skipIngest, mode, collection := buildStore(t, ctx, embedder, cfg)
 	judge, judgeName := buildJudge(t, cfg)
-
-	if !skipIngest {
-		pipeline := NewPipeline(
-			NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap),
-			embedder,
-			store,
-			PipelineConfig{
-				MaxAttempts:     cfg.Retry.MaxAttempts,
-				InitialInterval: cfg.Retry.InitialInterval,
-				MaxInterval:     cfg.Retry.MaxInterval,
-				Multiplier:      cfg.Retry.Multiplier,
-			},
-		)
-
-		gitbookRoot := filepath.Join("..", "..", "gitbook")
-		ingestedFiles := 0
-		err := filepath.Walk(gitbookRoot, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil
-			}
-			if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
-				return nil
-			}
-			content, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return nil
-			}
-			rel, _ := filepath.Rel(gitbookRoot, path)
-			if ingestErr := pipeline.Ingest(ctx, rel, string(content), "eval"); ingestErr != nil {
-				t.Logf("warn: ingest %s: %v", rel, ingestErr)
-			} else {
-				ingestedFiles++
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("walk gitbook: %v", err)
-		}
-		t.Logf("ingested %d files", ingestedFiles)
-	}
-
 	topK := cfg.Qdrant.TopK
-	metrics := runEval(t, ctx, evalCases, embedder, store, judge, topK)
+	evalCases := loadEvalCases(t)
+	profiles := loadEvalProfiles(t)
 
-	fmt.Printf("\n=== Search Eval Results (%s, topK=%d) ===\n", cfg.Embedder.Model, topK)
-	fmt.Printf("Queries:      %d\n", len(evalCases))
-	fmt.Printf("MRR@%d:        %.4f\n", topK, metrics.MRR)
-	fmt.Printf("Recall@%d:     %.4f\n", topK, metrics.Recall)
-	fmt.Printf("NDCG@%d:       %.4f\n", topK, metrics.NDCG)
-	fmt.Printf("Precision@%d:  %.4f\n", topK, metrics.Precision)
-	fmt.Printf("Ollama:       %s\n\n", ollamaAddr)
+	for _, profile := range profiles {
+		t.Run(profile.Name, func(t *testing.T) {
+			if profile.SparseScorer == "splade" && !checkSPLADESidecar(cfg.SparseScorer.Addr) {
+				t.Skipf("splade sidecar not reachable at %s — run: python cmd/splade/main.py", cfg.SparseScorer.Addr)
+			}
 
-	t.Logf("MRR@%d=%.4f Recall@%d=%.4f NDCG@%d=%.4f Precision@%d=%.4f",
-		topK, metrics.MRR, topK, metrics.Recall, topK, metrics.NDCG, topK, metrics.Precision)
+			store, skipIngest, mode, collection := buildStore(t, ctx, embedder, cfg)
 
-	saveHistory(t, cfg, evalHistoryEntry{
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		Mode:       mode,
-		Judge:      judgeName,
-		Collection: collection,
-		Model:      cfg.Embedder.Model,
-		Queries:    len(evalCases),
-		TopK:       topK,
-		MRR:        metrics.MRR,
-		Recall:     metrics.Recall,
-		NDCG:       metrics.NDCG,
-		Precision:  metrics.Precision,
-	})
+			var sparseEmb SparseEmbedder
+			if profile.SparseScorer == "splade" {
+				sparseEmb = NewSPLADESparseScorer(cfg.SparseScorer.Addr)
+				if qs, ok := store.(*QdrantStore); ok {
+					store = qs.WithSparseEmbedder(sparseEmb)
+				}
+			} else {
+				scorer := buildSparseScorer(profile, cfg)
+				if qs, ok := store.(*QdrantStore); ok {
+					store = qs.WithSparseScorer(scorer)
+				}
+			}
+
+			if !skipIngest {
+				pipeline := NewPipeline(
+					NewRecursiveChunker(profile.ChunkSize, profile.ChunkOverlap),
+					embedder,
+					store,
+					PipelineConfig{
+						MaxAttempts:     cfg.Retry.MaxAttempts,
+						InitialInterval: cfg.Retry.InitialInterval,
+						MaxInterval:     cfg.Retry.MaxInterval,
+						Multiplier:      cfg.Retry.Multiplier,
+					},
+				)
+				if sparseEmb != nil {
+					pipeline.WithSparseEmbedder(sparseEmb)
+				}
+
+				gitbookRoot := filepath.Join("..", "..", "gitbook")
+				ingestedFiles := 0
+				err := filepath.Walk(gitbookRoot, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return nil
+					}
+					if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
+						return nil
+					}
+					content, readErr := os.ReadFile(path)
+					if readErr != nil {
+						return nil
+					}
+					rel, _ := filepath.Rel(gitbookRoot, path)
+					if ingestErr := pipeline.Ingest(ctx, rel, string(content), "eval"); ingestErr != nil {
+						t.Logf("warn: ingest %s: %v", rel, ingestErr)
+					} else {
+						ingestedFiles++
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("walk gitbook: %v", err)
+				}
+				t.Logf("ingested %d files", ingestedFiles)
+			}
+
+			metrics := runEval(t, ctx, evalCases, embedder, store, judge, topK)
+
+			fmt.Printf("\n=== Search Eval: %s (model=%s topK=%d) ===\n", profile.Name, cfg.Embedder.Model, topK)
+			fmt.Printf("SparseScorer:  %s\n", profile.SparseScorer)
+			fmt.Printf("ChunkSize:     %d  ChunkOverlap: %d\n", profile.ChunkSize, profile.ChunkOverlap)
+			fmt.Printf("Queries:       %d\n", len(evalCases))
+			fmt.Printf("MRR@%d:          %.4f\n", topK, metrics.MRR)
+			fmt.Printf("HitRate@%d:      %.4f\n", topK, metrics.HitRate)
+			fmt.Printf("NDCG@%d:         %.4f\n", topK, metrics.NDCG)
+			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
+
+			saveHistory(t, cfg, evalHistoryEntry{
+				Timestamp:    time.Now().UTC().Format(time.RFC3339),
+				Profile:      profile.Name,
+				SparseScorer: profile.SparseScorer,
+				ChunkSize:    profile.ChunkSize,
+				ChunkOverlap: profile.ChunkOverlap,
+				Mode:         mode,
+				Judge:        judgeName,
+				Collection:   collection,
+				Model:        cfg.Embedder.Model,
+				Queries:      len(evalCases),
+				TopK:         topK,
+				MRR:          metrics.MRR,
+				HitRate:      metrics.HitRate,
+				NDCG:         metrics.NDCG,
+				Precision:    metrics.Precision,
+			})
+		})
+	}
+}
+
+// buildSparseScorer returns TFSparseScorer for the client-side BM25 leg.
+// SPLADE profiles use SparseEmbedder (server-side) and do not call this.
+func buildSparseScorer(profile evalProfile, cfg *config.Config) SparseScorer {
+	_ = profile
+	_ = cfg
+	return TFSparseScorer{}
+}
+
+// checkSPLADESidecar returns false if sidecar is unreachable.
+func checkSPLADESidecar(addr string) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(addr + "/health")
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 func runEval(
@@ -315,7 +415,7 @@ func runEval(
 ) evalMetrics {
 	t.Helper()
 
-	var mrr, recall, ndcg, precision float64
+	var mrr, hitRate, ndcg, precision float64
 
 	for _, tc := range cases {
 		vec, err := embedder.Embed(ctx, tc.Query)
@@ -353,7 +453,7 @@ func runEval(
 			mrr += 1.0 / float64(firstRank)
 		}
 		if anyRelevant {
-			recall++
+			hitRate++
 		}
 		precision += float64(relevantCount) / float64(topK)
 
@@ -368,9 +468,9 @@ func runEval(
 
 	n := float64(len(cases))
 	return evalMetrics{
-		MRR:       mrr / n,
-		Recall:    recall / n,
-		NDCG:      ndcg / n,
+		MRR:      mrr / n,
+		HitRate:  hitRate / n,
+		NDCG:     ndcg / n,
 		Precision: precision / n,
 	}
 }

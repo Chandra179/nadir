@@ -17,6 +17,7 @@ type Config struct {
 	Chunker       ChunkerConfig       `yaml:"chunker"`
 	Retry         RetryConfig         `yaml:"retry"`
 	Eval          EvalConfig          `yaml:"eval"`
+	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
 }
 
 type HTTPConfig struct {
@@ -70,6 +71,11 @@ type RetryConfig struct {
 
 type PKBConfig struct {
 	IgnorePatterns []string `yaml:"ignore_patterns"`
+}
+
+type SparseScorerConfig struct {
+	Provider string `yaml:"provider"` // "tf" (default) | "splade"
+	Addr     string `yaml:"addr"`     // sidecar addr for splade, e.g. http://localhost:5001
 }
 
 type EvalConfig struct {

@@ -1,0 +1,2 @@
+{"name": "tf-recursive64", "sparse_scorer": "tf", "chunk_size": 512, "chunk_overlap": 64}
+{"name": "splade-recursive64", "sparse_scorer": "splade", "chunk_size": 512, "chunk_overlap": 64}

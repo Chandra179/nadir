@@ -2,207 +2,162 @@
 
 #### Concept
 
-An intelligent search and retrieval layer for Markdown-based knowledge bases. It transforms static notes into a queryable brain by combining traditional text processing with vector embeddings.
+Intelligent search and retrieval layer for Markdown-based knowledge bases. Transforms static notes into a queryable brain via dense vector search, sparse lexical search (SPLADE), and RRF fusion.
 
 #### Goals
 
-* **High Precision Retrieval:** Ensure users find the exact context, not just the file.
-* **Architectural Modularity:** Decouple the chunking logic and retrieval strategies to allow for experimentation with different LLMs or Vector DBs.
-* **Cost Efficiency & Privacy:** Minimize token usage via RAG and support local embedding models to keep personal data private.
-* **Low Latency:** Provide sub-second search results using optimized vector indexing.
+* **High Precision Retrieval:** Find exact context, not just the file.
+* **Architectural Modularity:** Decouple chunking and retrieval strategies for experimentation with different LLMs or vector DBs.
+* **Cost Efficiency & Privacy:** Minimize token usage via RAG; local embedding models keep data private.
+* **Low Latency:** Sub-second search via optimized vector indexing.
+
+---
 
 #### Engine Components
 
-* **Chunker** (`RecursiveChunker`): splits by heading → paragraph → sentence → word with configurable size + overlap. Goldmark-parsed headings become source pointers.
-* **Embedder** (`OllamaEmbedder`): local Ollama instance (e.g. `nomic-embed-text`). Swappable via `Embedder` interface.
-* **Store** (`QdrantStore`): Qdrant via gRPC. Upsert, delete-by-file, cosine similarity search, SHA-based dedup.
-* **Pipeline**: chunk → embed (exponential backoff retry) → upsert. SHA dedup skips unchanged files.
-* **Ingestion source**: git submodule (`gitbook/`). `LocalFileLister` walks for `.md` files; `LocalFetcher` reads content.
+* **Chunker** (`RecursiveChunker`): Goldmark AST walk → splits by heading → paragraph → sentence → word. Configurable size + overlap. Lists and blockquotes captured. Plain text emitted (strips `##`, `**`, `_`, fences, links).
+* **Embedder** (`OllamaEmbedder`): local Ollama (`nomic-embed-text`, 768-dim). Swappable via `Embedder` interface.
+* **Sparse Scorer** (`TFSparseScorer` / `SPLADESparseScorer`): client-side BM25 leg. TF-proxy by default; SPLADE opt-in for true IDF semantics.
+* **Store** (`QdrantStore`): Qdrant via gRPC. Upsert, delete-by-file, cosine similarity search, SHA-based dedup. Hybrid search: dense + sparse via RRF (server-side QueryPoints or client-side scroll+merge).
+* **Pipeline**: chunk → contextual prefix → embed (exponential backoff retry) → sparse embed (optional) → upsert. SHA dedup skips unchanged files.
+* **Ingestion source**: `LocalFileLister` walks `knowledge_base.path` for `.md` files; `LocalFetcher` reads content.
 
 #### API
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/ingest` | Walk submodule, skip unchanged (SHA match), ingest new/modified files |
-| `POST` | `/search` | Embed query → vector search → return ranked chunks with file+header+line pointers |
+| `POST` | `/ingest` | Walk KB dir, skip unchanged (SHA match), ingest new/modified files |
+| `POST` | `/search` | Embed query → hybrid search → ranked chunks with file+header+line pointers |
+
+**Search request:**
+```json
+{ "query": "...", "top_k": 5 }
+```
+Keyword-only mode: `{ "keyword": "..." }`. Multi-sentence queries auto-split on `.`/`?`/`;`, results merged by best score.
 
 #### Interfaces (extension points)
 
 ```go
-type Chunker  interface { Chunk(text, filePath string) ([]DocumentChunk, error) }
-type Embedder interface { Embed(ctx context.Context, text string) ([]float32, error); Dimensions() int }
-type Store    interface { Upsert/DeleteByFile/Search/EnsureCollection/GetFileSHA }
-type Fetcher  interface { FetchFile(ctx context.Context, path, sha string) (string, error) }
+type Chunker       interface { Chunk(text, filePath string) ([]DocumentChunk, error) }
+type Embedder      interface { Embed(ctx context.Context, text string) ([]float32, error); Dimensions() int }
+type SparseEmbedder interface { EmbedSparse(ctx, text, mode) (indices []uint32, values []float32, err error) }
+type SparseScorer  interface { Score(query, text string) float64 }
+type Store         interface { Upsert / DeleteByFile / Search / HybridSearch / KeywordSearch / EnsureCollection / GetFileSHA }
+type Fetcher       interface { FetchFile(ctx context.Context, path, sha string) (string, error) }
+type FileLister    interface { ListMarkdownFiles(ctx, rootDir, sha string) ([]FileEntry, error) }
 ```
 
 #### Dependencies
 
-* **Language:** Go
+* **Language:** Go + Python sidecar (SPLADE only)
 * **Markdown Parser:** Goldmark
 * **Vector DB:** Qdrant (local Docker or Cloud)
 * **Embeddings:** Ollama (`nomic-embed-text`) — local, private
-
-#### Retrieval Improvement Roadmap
-
-Ordered by ROI. Each item includes tradeoffs. ✅ = implemented.
-
----
-
-**1. Strip markdown before embedding** ✅ *(done)*
-
-Plain text emitted from Goldmark AST walk. Strips `##`, `**`, `_`, fences, `[text](url)`.
-
----
-
-**2. Hybrid search: dense + client-side BM25 RRF** ✅ *(done)*
-
-Dense cosine search + Qdrant payload full-text filter merged via Reciprocal Rank Fusion (k=60, Cormack 2009). TF scoring used to rank BM25 candidates before RRF.
-
-| Pro | Con |
-|-----|-----|
-| Exact keyword match for proper nouns, code, IDs | Extra Scroll call per query (~2ms) |
-| Catches what vector misses (low-frequency terms) | TF proxy less accurate than true BM25 IDF |
-| No external service or sparse vectors needed | — |
-
-**Upgrade path**: replace TF proxy with Qdrant native sparse vectors (SPLADE) when KB grows large enough for IDF to matter.
-
----
-
-**3. Contextual chunk enrichment** ✅ *(done)*
-
-Before embedding, each chunk is prefixed with `filePath > heading`. Anchors semantic space to document structure. Based on Anthropic 2024 "Contextual Retrieval".
-
-| Pro | Con |
-|-----|-----|
-| +5% Recall@5 observed on 20-query eval | Re-ingest required after change |
-| Improves retrieval of topic-scoped content | Slightly longer embed input (+~20 tokens) |
-
----
-
-**4. Chunker: lists and blockquotes** ✅ *(done)*
-
-`RecursiveChunker` now captures `*ast.List` and `*ast.Blockquote` nodes, not just paragraphs. Previously these were silently dropped.
-
----
-
-**5. Fix chunk ID collision** *(correctness, low urgency)* ✅ *(done)*
-
-Current `chunkID` = SHA256-truncated `filePath+lineStart`. Collision probability low but non-zero across large corpora.
-
-Replace with UUIDv5(`namespace`, `filePath+":"+strconv.Itoa(lineStart)`) for true collision resistance.
-
----
-
-**6. SPLADE sparse vectors** *(medium effort, high gain on large KB)*
-
-`SparseScorer` interface wired — `TFSparseScorer` is default. Swap in SPLADE via `store.WithSparseScorer(...)`. Implement SPLADE model (DistilSPLADE or naver/splade-v3) as `SparseScorer` to get true IDF-weighted scoring.
-
-| Pro | Con |
-|-----|-----|
-| True IDF-weighted BM25 semantics | Second embedder at ingest + query time |
-| +5-10% NDCG vs TF proxy | Requires Qdrant sparse vector collection config |
-| Interface already wired — drop-in swap | — |
-
----
-
-**7. Multi-sentence / multi-concept query splitting** *(diminishing returns)*
-
-Break query on `.` / `?` / `;`, embed each fragment, merge result sets, deduplicate by score.
-
----
-
-**Skipped / deferred:**
-
-* **HyDE** (generate hypothetical answer, embed that): significant quality gain but requires LLM call per query — breaks sub-second latency goal.
-* **Re-ranking** (cross-encoder on top-K): high precision but adds ~200–500ms; revisit if precision becomes bottleneck after hybrid search.
-* **Chunk size tuning**: empirical — run 20–30 real queries against your notes and measure MRR@5 before tuning.
-
----
-
-#### Recent Improvements (2026-04-19, round 2)
-
-**Eval query set fixed** (`eval_search_test.go`)
-- 6 queries rewrote to match actual gitbook content (Q8, Q11, Q16–Q20)
-- Q8: rate limiting → thundering herd jitter framing matches `rate-limit.md`
-- Q11: B-Tree vs LSM → exact Q&A framing matches `database.md`
-- Q16–Q20: ML queries reframed to match stub content in `ml/README.md`
-- qrels must be regenerated after this change (`make gen-qrels`)
-
-**SparseScorer abstraction** (`embedder.go`, `sparse_scorer.go`, `store_qdrant.go`)
-- Extracted BM25 leg scoring into `SparseScorer` interface: `Score(query, text string) float64`
-- `TFSparseScorer` (TF-proxy) is default — zero behaviour change
-- Swap to SPLADE: `store.WithSparseScorer(mySPLADEScorer)` — no store rebuild needed
-- `QdrantStore` keeps TF-proxy by default; SPLADE opt-in when KB grows large enough for IDF to matter
-
----
-
-#### Recent Improvements (2026-04-19)
-
-Three retrieval enhancements shipped. Measured on 20-query eval set, qrels judge (gold), topK=5.
-
-| Metric | Before | After | Delta |
-|--------|--------|-------|-------|
-| MRR@5 | 0.5708 | 0.5625 | −0.008 |
-| Recall@5 | 0.7000 | **0.7500** | **+0.050** |
-| NDCG@5 | 0.5932 | 0.5974 | +0.004 |
-| Precision@5 | 0.3600 | 0.3500 | −0.010 |
-
-LLM judge (silver): MRR 0.608 vs 0.571 prior — improvement consistent across both judges.
-
-**What changed:**
-
-**Chunker: lists + blockquotes captured** (`chunker_recursive.go`)
-- Before: `extractSections` walked `*ast.Paragraph` only — lists/blockquotes silently dropped
-- After: `*ast.List` and `*ast.Blockquote` nodes collected into section text
-- Impact: content previously invisible to embedder now indexed
-
-**Contextual chunk enrichment** (`pipeline.go`)
-- Before: raw `chunk.Text` sent to embedder
-- After: `filePath > header\nchunk.Text` sent to embedder; stored text unchanged
-- Based on Anthropic 2024 "Contextual Retrieval" — prepending document structure anchors embedding to topic
-- Impact: primary driver of Recall@5 +5%
-
-**Client-side BM25 RRF** (`store_qdrant.go`)
-- Before: BM25 prefetch leg used `Filter`-only (unscored) — Qdrant RRF received unranked candidate list, degrading to dense-only re-rank
-- After: separate dense `Search` + `Scroll` with TF scoring → client-side RRF fusion (k=60, Cormack 2009)
-- TF score = sum of query term occurrences in chunk text; used only for BM25 rank ordering before RRF
-- Trade-off: extra Scroll call per query (~2ms); TF proxy less accurate than true BM25 IDF
-
-**Next improvement candidates:**
-1. SPLADE sparse vectors — swap `TFSparseScorer` for a SPLADE-backed impl; `SparseScorer` interface already wired
-2. Sentence-window indexing — index sentence-level chunks, expand to paragraph at retrieval; expect +5-10% Recall
+* **Sparse Embeddings:** `fastembed` + `Qdrant/splade-v3-distilbert` (optional)
 
 ---
 
 #### Search Evaluation
 
-Integration test at `internal/pkb/eval_search_test.go`. Spins up Qdrant via testcontainers, ingests `gitbook/` markdown, runs 20 real queries, reports MRR@5 and Recall@5.
+Integration test at `internal/pkb/eval_search_test.go`. Runs 20 real queries against ingested markdown, judges relevance, reports MRR@5 / Recall@5 / NDCG@5 / Precision@5.
 
-**Live mode example** (skip Docker, use running stack):
+See `internal/pkb/EVAL.md` for full decision tree.
+
+| Target | When to use | Prereqs |
+|--------|-------------|---------|
+| `make eval-tf` | Fast daily feedback, TF sparse | `make up && make ingest` |
+| `make eval-splade` | Compare TF vs SPLADE on live Qdrant | `make splade` + above |
+| `make eval-fresh` | Self-contained CI, full re-ingest | none (pulls Docker) |
+| `make eval-llm` | LLM judges live, no qrels needed | `make up && make ingest` |
+
+**Key env vars:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EVAL_STORE` | `live` | `live` or `container` Qdrant backend |
+| `EVAL_JUDGE` | `qrels` | `qrels` (gold) or `llm` (silver) |
+| `EVAL_QDRANT_ADDR` | from config | Override Qdrant gRPC addr |
+
+**Generate qrels** (after major index changes):
 ```bash
-EVAL_MODE=live EVAL_JUDGE=folder go test -v -timeout 120s -run TestSearchEval ./internal/pkb/
-```
-
-**LLM judge example** (silver standard — per-chunk relevance via local LLM):
-```bash
-EVAL_MODE=live EVAL_JUDGE=llm EVAL_LLM_MODEL=llama3 go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
-```
-
-**Relevance judge levels:**
-
-| Judge | Accuracy | Cost | When to use |
-|-------|----------|------|-------------|
-| `llm` | Silver — per-chunk LLM verdict | ~0.01$/pair | Before tuning, catch regressions |
-| `qrels` | Gold — human/LLM pre-labeled | One-time | Stable benchmark, reproducible |
-
-**Generate qrels** (run once after major index changes, commit `testdata/qrels.jsonl`):
-```bash
-make gen-qrels        # LLM judges all queries against live Qdrant, writes testdata/qrels.jsonl
-make eval-qrels       # deterministic eval against committed qrels
+make eval-tf    # runs gen-qrels then deterministic eval
 ```
 
 **Metrics:**
-* **MRR@5** (Mean Reciprocal Rank): average of `1/rank` for first relevant result in top-5. 1.0 = always #1. 0.0 = never in top-5.
-* **Recall@5**: fraction of queries where at least one relevant result appears in top-5.
-* **NDCG@5** (Normalized Discounted Cumulative Gain): weights hits by rank position — rank 1 worth more than rank 5. `DCG / IDCG` where IDCG = perfect ordering. Penalizes burying relevant results.
-* **Precision@5**: fraction of top-5 results that are relevant. High recall + low precision = noisy results.
+* **MRR@5**: `mean(1/rank)` for first relevant result in top-5. 1.0 = always #1.
+* **Recall@5**: fraction of queries with ≥1 relevant result in top-5.
+* **NDCG@5**: rank-discounted gain. `DCG / IDCG`. Penalizes burying relevant results.
+* **Precision@5**: fraction of top-5 that are relevant. High recall + low precision = noisy.
+
+---
+
+#### Retrieval Roadmap
+
+Ordered by ROI. ✅ = implemented.
+
+**Baseline (2026-04-19):** MRR@5=0.60 · Recall@5=0.60 · NDCG@5=0.583 · Precision@5=0.32 · 20 queries · SPLADE+nomic-embed-text · chunk=512/64
+
+Recall@5=0.60 is the binding constraint — 40% of queries return nothing relevant in top-5. Fix recall before chasing precision.
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | Strip markdown before embedding | ✅ | Goldmark AST → plain text |
+| 2 | Hybrid search: dense + BM25 RRF | ✅ | k=60, Cormack 2009; TF proxy by default |
+| 3 | Contextual chunk enrichment | ✅ | `filePath > heading\nchunk`; +5% Recall@5 |
+| 4 | Chunker: lists + blockquotes | ✅ | Previously silently dropped |
+| 5 | SPLADE sparse vectors | ✅ | Python sidecar; true IDF; +5-10% NDCG |
+| 6 | Multi-sentence query splitting | ✅ | Split on `.`/`?`/`;`, merge by best score |
+| 7 | Fix chunk ID collision | **next** | Replace FNV hash with UUIDv5; correctness prerequisite for sentence-window |
+| 8 | Sentence-window indexing | **next** | Index sentences, expand to paragraph at retrieval; expected +5-10% Recall@5 |
+| 9 | Expand eval set (20 → 50+ queries) | **next** | 20 queries = high variance; small deltas are noise; need more signal before chunk ablation |
+| 10 | Chunk size ablation (512 → 256, try 128) | pending | Smaller chunks → more precise hits → recall+precision; run after eval set expanded |
+| 11 | Payload index on `file_path` | pending | Currently full collection scan on every SHA check; fast perf win from debt list |
+| 12 | Re-ranking (cross-encoder) | deferred | +precision but +200-500ms; revisit after recall ≥ 0.75 |
+| 13 | HyDE | deferred | LLM call per query breaks latency goal |
+
+**Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
+
+---
+
+#### Technical Debt & Optimization Backlog
+
+Issues found during analysis, grouped by impact.
+
+##### Correctness
+
+* **`EnsureCollection` catches all errors from `Get`, not just `NotFound`** (`store_qdrant.go`). A transient network error triggers a spurious `Create` call. Fix: check for `codes.NotFound` gRPC status.
+* **`SPLADESparseScorer.Score` uses `context.Background()`** instead of the caller's context — HTTP calls inside are not cancellable. Fix: thread context through `SparseScorer.Score`.
+* **SPLADE sidecar failure silently zeros scores** in client-side hybrid search path, degrading to dense-only with no error surfaced to caller.
+
+##### Redundant Code
+
+* **`chunkKey` duplicated three times**: `store_qdrant.go`, `handler_search.go`, `eval_search_test.go` all build `filePath + ":" + strconv.Itoa(lineStart)`. Add `(c DocumentChunk) ID() string` method.
+* **Qdrant payload extraction duplicated**: the 5-field extraction (`text`, `file_path`, `header`, `line_start`, `source_sha`) is written in `Search`, `hybridSearchServer`, `hybridSearchClient`, and `KeywordSearch`. Extract `chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk`.
+* **`PipelineConfig` == `config.RetryConfig`**: identical four fields copied manually at every call site. Embed or alias one from the other.
+* **`EmbedderConfig.Provider` and `ChunkerConfig.Provider`**: populated in config, never dispatched on — no runtime effect.
+* **`buildSparseScorer` in eval test**: always returns `TFSparseScorer{}` regardless of arguments. Replace with a direct literal.
+* **`FolderJudge` reference** in `eval_judge.go` comment — type does not exist.
+
+##### Performance
+
+* **Sequential SHA-check RPCs during ingest** (`handler_ingest.go`): N files = N Qdrant scrolls. Add a bulk `GetAllFileSHAs() map[string]string` to `Store` interface.
+* **Sequential per-file ingestion**: bounded-concurrency parallel ingest via `errgroup` + semaphore would reduce ingest time proportionally.
+* **Sequential dense + sparse embedding per chunk** (`pipeline.go`): two calls are independent — run concurrently with `errgroup`.
+* **No batch embedding API**: `Embedder` interface is single-text only. Ollama `/api/embed` accepts arrays. Batch would cut HTTP round-trips from O(chunks) to O(1) per file.
+* **`file_path` has no Qdrant payload index**: `GetFileSHA` and `DeleteByFile` do full collection scans. Add payload index on `file_path` in `EnsureCollection`.
+* **`len([]rune(s))` allocates** in `chunker_recursive.go` — use `utf8.RuneCountInString(s)`.
+* **`filepath.Walk` → `filepath.WalkDir`** in `file_lister_local.go` (avoids extra `os.Lstat` per file, available since Go 1.16).
+* **`fileContentSHA` reads file twice** — once for SHA, once in `FetchFile`. Compute SHA during fetch.
+
+##### Maintainability & Structure
+
+* **`EvalConfig` in production `Config`**: eval/LLM judge settings (history path, model) ship in the production config struct and file. Move to a separate `EvalConfig` loaded only by the eval harness.
+* **`EnsureCollection` in `Store` interface**: mixes lifecycle with query operations. Split into `StoreAdmin` interface so handlers only receive query capability.
+* **`SparseScorer` and `Embedder`/`SparseEmbedder` in `embedder.go`**: scoring ≠ embedding. Move `SparseScorer` to `sparse_scorer.go` where its implementations live.
+* **`IngestHandler.ServeHTTP` contains full ingest loop**: fetch + SHA-check + pipeline logic belongs in a service method, not the HTTP handler.
+* **`multiSearch` and `splitFragments` in `handler_search.go`**: query decomposition strategy embedded in handler — not unit-testable. Extract to a `QueryStrategy` or `search.go` helper.
+* **`runEval` / `evalMetrics` in `_test.go`**: eval is a first-class concern per `EVAL.md`. Metrics code should live in a `cmd/eval` binary, callable without `go test`.
+* **No `Config.Validate()`**: zero `Qdrant.TopK`, empty `Embedder.Model`, or zero dimensions silently produce a broken runtime. Add validation.
+* **`QdrantStore` has no `Close()`**: gRPC connection is never explicitly closed. Fine for process-lifetime use but blocks clean testing with multiple store instances.
+* **`LocalFetcher.Root` is a public field** — should be unexported like `LocalFileLister`.
+* **`WithSparseScorer` fluent pattern misleads**: mutates in place AND returns `*QdrantStore`; call site in `httpserver/server.go` discards the return value. Either make it a pure setter (no return) or enforce the chaining pattern with documentation.

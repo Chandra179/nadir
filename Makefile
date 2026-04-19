@@ -1,4 +1,4 @@
-.PHONY: vendor up run sm ingest search d eval-llm eval-qrels gen-qrels
+.PHONY: vendor up run sm ingest search d eval-fresh eval-llm splade splade-install
 
 vendor:
 	go mod tidy && go mod vendor
@@ -24,23 +24,46 @@ search:
 d:
 	curl -X DELETE localhost:6333/collections/pkb_chunks
 
+# splade-install — install Python deps for SPLADE sidecar (one-time)
+splade-install:
+	pip install fastembed fastapi uvicorn
 
-#   ┌─────────────────┬───────┬──────────────────────────────┐
-#   │     Target      │ Judge │             Mode             │
-#   ├─────────────────┼───────┼──────────────────────────────┤
-#   │ make eval-llm   │ LLM   │ live Qdrant, silver standard │
-#   ├─────────────────┼───────┼──────────────────────────────┤
-#   │ make eval-qrels │ qrels │ live Qdrant, gold standard   │
-#   └─────────────────┴───────┴──────────────────────────────┘
+# splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
+splade:
+	python cmd/splade/main.py
 
-                                                            
-# eval-llm — LLM judges relevance in real-time. No pre-built ground truth needed. Flexible but slow + costs tokens. "Silver standard" = LLM can be wrong.                                                                                                                 
-eval-llm:
-	EVAL_MODE=live EVAL_JUDGE=llm go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
-	
-# eval-qrels — Pre-computed testdata/qrels.jsonl judges relevance. Fast, deterministic, reproducible. "Gold standard" = human-curated  correct answers.   
-eval-qrels:
-	EVAL_MODE=live go test -v -timeout 120s -run TestSearchEval ./internal/pkb/
 
-gen-qrels:
+# =============================================================================
+# EVAL TARGETS
+# =============================================================================
+#
+#   eval-fresh  Self-contained. Spins ephemeral Qdrant, re-ingests fresh, runs
+#               all profiles (tf + splade). Only accurate scorer comparison.
+#               Slow (~5-10 min). Pulls qdrant/qdrant Docker image on first run.
+#
+#   eval-llm    LLM judges relevance live. No qrels needed. Slow + costs tokens.
+#               Prereq: make up && make ingest
+#
+# Environment variables (all optional):
+#   EVAL_JUDGE          qrels (default) | llm        — relevance judge
+#   EVAL_QDRANT_ADDR    override Qdrant addr (default: from config.yaml)
+#   EVAL_QDRANT_COLLECTION  override collection name
+#   EVAL_LLM_BASE_URL   LLM judge base URL
+#   EVAL_LLM_MODEL      LLM judge model name
+#   EVAL_LLM_API_KEY    LLM judge API key
+#   EVAL_QRELS_PATH     override qrels file path (default: testdata/qrels.jsonl)
+#
+# Compare results across runs:
+#   cat eval_history.jsonl | jq '{profile,mrr,hit_rate,ndcg,precision}'
+# =============================================================================
+
+# eval-fresh — ephemeral Qdrant container, full re-ingest, all profiles, qrels judge.
+# Self-contained. No prereqs. Pulls qdrant/qdrant Docker image on first run.
+eval-fresh:
 	go run ./cmd/gen-qrels
+	EVAL_STORE=container go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
+
+# eval-llm — LLM judges relevance live. No qrels needed. Slow + costs tokens.
+# Prereq: make up && make ingest
+eval-llm:
+	EVAL_STORE=live EVAL_JUDGE=llm go test -v -timeout 600s -run TestSearchEval ./internal/pkb/

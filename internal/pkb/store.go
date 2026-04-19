@@ -5,9 +5,11 @@ import "context"
 // ScoredChunk is a retrieved chunk with its similarity score.
 type ScoredChunk struct {
 	DocumentChunk
-	Vector    []float32 // populated during ingest; empty after retrieval
-	SourceSHA string
-	Score     float32 // populated by Store.Search; zero during ingest
+	Vector        []float32  // dense vector; populated during ingest
+	SparseIndices []uint32   // sparse vector indices; populated during ingest when SparseEmbedder is set
+	SparseValues  []float32  // sparse vector values; parallel to SparseIndices
+	SourceSHA     string
+	Score         float32 // populated by Store.Search; zero during ingest
 }
 
 // Store persists and retrieves chunk vectors.

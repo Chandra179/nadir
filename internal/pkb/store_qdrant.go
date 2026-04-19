@@ -15,10 +15,13 @@ import (
 
 // QdrantStore implements Store backed by Qdrant via gRPC.
 type QdrantStore struct {
-	points        qdrant.PointsClient
-	collection    qdrant.CollectionsClient
-	name          string
-	sparseScorer  SparseScorer
+	points       qdrant.PointsClient
+	collection   qdrant.CollectionsClient
+	name         string
+	sparseScorer SparseScorer
+	// sparseEmbedder, when set, enables server-side hybrid search via QueryPoints.
+	// At query time, the query is embedded as a sparse vector and sent alongside the dense vector.
+	sparseEmbedder SparseEmbedder
 }
 
 func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
@@ -34,11 +37,20 @@ func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
 	}, nil
 }
 
-// WithSparseScorer swaps the BM25 leg scorer (e.g. SPLADE). Default: TFSparseScorer.
+// WithSparseScorer swaps the client-side BM25 leg scorer. Default: TFSparseScorer.
 func (s *QdrantStore) WithSparseScorer(scorer SparseScorer) *QdrantStore {
 	s.sparseScorer = scorer
 	return s
 }
+
+// WithSparseEmbedder enables server-side hybrid search via Qdrant QueryPoints.
+// Requires sparse vectors to have been stored at ingest time.
+func (s *QdrantStore) WithSparseEmbedder(se SparseEmbedder) *QdrantStore {
+	s.sparseEmbedder = se
+	return s
+}
+
+const sparseVectorName = "sparse"
 
 func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
@@ -53,6 +65,9 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 					},
 				},
 			},
+			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
+				sparseVectorName: {Modifier: qdrant.Modifier_Idf.Enum()},
+			}),
 		})
 		if err != nil {
 			return err
@@ -76,9 +91,35 @@ func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := chunkID(c.FilePath, c.LineStart)
+		var vectors *qdrant.Vectors
+		if len(c.SparseIndices) > 0 {
+			vectors = &qdrant.Vectors{
+				VectorsOptions: &qdrant.Vectors_Vectors{
+					Vectors: &qdrant.NamedVectors{
+						Vectors: map[string]*qdrant.Vector{
+							"": {
+								Vector: &qdrant.Vector_Dense{
+									Dense: &qdrant.DenseVector{Data: c.Vector},
+								},
+							},
+							sparseVectorName: {
+								Vector: &qdrant.Vector_Sparse{
+									Sparse: &qdrant.SparseVector{
+										Indices: c.SparseIndices,
+										Values:  c.SparseValues,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		} else {
+			vectors = qdrant.NewVectors(c.Vector...)
+		}
 		points[i] = &qdrant.PointStruct{
 			Id:      qdrant.NewIDNum(id),
-			Vectors: qdrant.NewVectors(c.Vector...),
+			Vectors: vectors,
 			Payload: map[string]*qdrant.Value{
 				"file_path":  strVal(c.FilePath),
 				"header":     strVal(c.Header),
@@ -120,13 +161,68 @@ func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
 	return err
 }
 
-// HybridSearch combines dense vector search with client-side BM25 via RRF.
-// Qdrant's payload full-text filter is unscored, so we fetch candidates from both
-// modalities separately and merge using Reciprocal Rank Fusion (k=60, Cormack 2009).
+// HybridSearch combines dense and sparse retrieval via RRF.
+// When sparseEmbedder is set, uses Qdrant server-side QueryPoints with prefetch (true hybrid).
+// Otherwise falls back to client-side scroll+rescore with sparseScorer.
 func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+	if s.sparseEmbedder != nil {
+		return s.hybridSearchServer(ctx, vector, query, topK)
+	}
+	return s.hybridSearchClient(ctx, vector, query, topK)
+}
+
+// hybridSearchServer uses Qdrant QueryPoints with dense+sparse prefetch legs and server-side RRF.
+func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+	fetchN := uint64(topK * 5)
+
+	sparseIdx, sparseVals, err := s.sparseEmbedder.EmbedSparse(ctx, query, "query")
+	if err != nil {
+		return nil, fmt.Errorf("sparse embed query: %w", err)
+	}
+
+	limit := uint64(topK)
+	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
+		CollectionName: s.name,
+		Prefetch: []*qdrant.PrefetchQuery{
+			{
+				Query: qdrant.NewQueryDense(vector),
+				Limit: &fetchN,
+			},
+			{
+				Query: qdrant.NewQuerySparse(sparseIdx, sparseVals),
+				Using: qdrant.PtrOf(sparseVectorName),
+				Limit: &fetchN,
+			},
+		},
+		Query:       qdrant.NewQueryFusion(qdrant.Fusion_RRF),
+		Limit:       &limit,
+		WithPayload: qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hybrid search: %w", err)
+	}
+
+	results := make([]ScoredChunk, len(resp.Result))
+	for i, r := range resp.Result {
+		p := r.Payload
+		results[i] = ScoredChunk{
+			DocumentChunk: DocumentChunk{
+				Text:      pbStr(p, "text"),
+				FilePath:  pbStr(p, "file_path"),
+				Header:    pbStr(p, "header"),
+				LineStart: int(pbInt(p, "line_start")),
+			},
+			SourceSHA: pbStr(p, "source_sha"),
+			Score:     r.Score,
+		}
+	}
+	return results, nil
+}
+
+// hybridSearchClient fetches dense + text-filtered candidates, reranks sparse leg client-side, fuses via RRF.
+func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
 	fetchN := topK * 5
 
-	// Dense retrieval leg.
 	denseResp, err := s.points.Search(ctx, &qdrant.SearchPoints{
 		CollectionName: s.name,
 		Vector:         vector,
@@ -137,7 +233,6 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 		return nil, fmt.Errorf("dense search: %w", err)
 	}
 
-	// BM25 leg: fetch text-matched candidates and score with TF-IDF approximation.
 	scrollLimit := uint32(fetchN)
 	bm25Resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 		CollectionName: s.name,
@@ -153,10 +248,9 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 		return nil, fmt.Errorf("bm25 search: %w", err)
 	}
 
-	// Build chunk map and ranked lists for RRF.
 	type entry struct {
 		chunk    ScoredChunk
-		denseRnk int // 1-indexed rank; 0 = not present
+		denseRnk int
 		bm25Rnk  int
 	}
 	byID := make(map[string]*entry)
@@ -197,13 +291,11 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 		}
 		bm25Hits = append(bm25Hits, bm25Hit{key: k, score: s.sparseScorer.Score(query, c.Text)})
 	}
-	// Sort BM25 hits by TF score descending to assign ranks.
 	sort.Slice(bm25Hits, func(i, j int) bool { return bm25Hits[i].score > bm25Hits[j].score })
 	for rank, h := range bm25Hits {
 		byID[h.key].bm25Rnk = rank + 1
 	}
 
-	// RRF fusion (k=60).
 	const rrfK = 60.0
 	type scored struct {
 		key   string
@@ -211,16 +303,15 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 	}
 	var fused []scored
 	for k, e := range byID {
-		var s float64
+		var sc float64
 		if e.denseRnk > 0 {
-			s += 1.0 / (rrfK + float64(e.denseRnk))
+			sc += 1.0 / (rrfK + float64(e.denseRnk))
 		}
 		if e.bm25Rnk > 0 {
-			s += 1.0 / (rrfK + float64(e.bm25Rnk))
+			sc += 1.0 / (rrfK + float64(e.bm25Rnk))
 		}
-		fused = append(fused, scored{key: k, score: s})
+		fused = append(fused, scored{key: k, score: sc})
 	}
-	// Sort by RRF score descending.
 	sort.Slice(fused, func(i, j int) bool { return fused[i].score > fused[j].score })
 
 	n := topK
