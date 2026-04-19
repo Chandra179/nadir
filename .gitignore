@@ -35,3 +35,12 @@ vendor
 
 # Personal knowledge base content — users supply their own via knowledge_base.path config
 gitbook/
+
+src/
+build.sh
+package.json
+package-lock.json
+tailwind.config.js
+wrangler.jsonc
+vendor/
+gen-qrels

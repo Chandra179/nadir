@@ -2,7 +2,11 @@ package pkb
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"sort"
+	"strconv"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
@@ -11,9 +15,10 @@ import (
 
 // QdrantStore implements Store backed by Qdrant via gRPC.
 type QdrantStore struct {
-	points     qdrant.PointsClient
-	collection qdrant.CollectionsClient
-	name       string
+	points        qdrant.PointsClient
+	collection    qdrant.CollectionsClient
+	name          string
+	sparseScorer  SparseScorer
 }
 
 func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
@@ -22,10 +27,17 @@ func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
 		return nil, fmt.Errorf("qdrant dial %s: %w", addr, err)
 	}
 	return &QdrantStore{
-		points:     qdrant.NewPointsClient(conn),
-		collection: qdrant.NewCollectionsClient(conn),
-		name:       collection,
+		points:       qdrant.NewPointsClient(conn),
+		collection:   qdrant.NewCollectionsClient(conn),
+		name:         collection,
+		sparseScorer: TFSparseScorer{},
 	}, nil
+}
+
+// WithSparseScorer swaps the BM25 leg scorer (e.g. SPLADE). Default: TFSparseScorer.
+func (s *QdrantStore) WithSparseScorer(scorer SparseScorer) *QdrantStore {
+	s.sparseScorer = scorer
+	return s
 }
 
 func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
@@ -108,27 +120,132 @@ func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
 	return err
 }
 
+// HybridSearch combines dense vector search with client-side BM25 via RRF.
+// Qdrant's payload full-text filter is unscored, so we fetch candidates from both
+// modalities separately and merge using Reciprocal Rank Fusion (k=60, Cormack 2009).
 func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
-	prefetchLimit := uint64(topK * 3)
-	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
+	fetchN := topK * 5
+
+	// Dense retrieval leg.
+	denseResp, err := s.points.Search(ctx, &qdrant.SearchPoints{
 		CollectionName: s.name,
-		Prefetch: []*qdrant.PrefetchQuery{
-			{
-				Query: qdrant.NewQueryNearest(qdrant.NewVectorInput(vector...)),
-				Limit: &prefetchLimit,
-			},
-			{
-				Filter: &qdrant.Filter{
-					Must: []*qdrant.Condition{
-						qdrant.NewMatchText("text", query),
-					},
-				},
-				Limit: &prefetchLimit,
+		Vector:         vector,
+		Limit:          uint64(fetchN),
+		WithPayload:    qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("dense search: %w", err)
+	}
+
+	// BM25 leg: fetch text-matched candidates and score with TF-IDF approximation.
+	scrollLimit := uint32(fetchN)
+	bm25Resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
+		CollectionName: s.name,
+		Filter: &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewMatchText("text", query),
 			},
 		},
-		Query:       qdrant.NewQueryFusion(qdrant.Fusion_RRF),
+		Limit:       &scrollLimit,
 		WithPayload: qdrant.NewWithPayload(true),
-		Limit:       qdrant.PtrOf(uint64(topK)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("bm25 search: %w", err)
+	}
+
+	// Build chunk map and ranked lists for RRF.
+	type entry struct {
+		chunk    ScoredChunk
+		denseRnk int // 1-indexed rank; 0 = not present
+		bm25Rnk  int
+	}
+	byID := make(map[string]*entry)
+
+	toChunk := func(p map[string]*qdrant.Value) ScoredChunk {
+		return ScoredChunk{
+			DocumentChunk: DocumentChunk{
+				Text:      pbStr(p, "text"),
+				FilePath:  pbStr(p, "file_path"),
+				Header:    pbStr(p, "header"),
+				LineStart: int(pbInt(p, "line_start")),
+			},
+			SourceSHA: pbStr(p, "source_sha"),
+		}
+	}
+	chunkKey := func(c ScoredChunk) string {
+		return c.FilePath + ":" + strconv.Itoa(c.LineStart)
+	}
+
+	for rank, r := range denseResp.Result {
+		c := toChunk(r.Payload)
+		k := chunkKey(c)
+		if byID[k] == nil {
+			byID[k] = &entry{chunk: c}
+		}
+		byID[k].denseRnk = rank + 1
+	}
+	type bm25Hit struct {
+		key   string
+		score float64
+	}
+	var bm25Hits []bm25Hit
+	for _, r := range bm25Resp.Result {
+		c := toChunk(r.Payload)
+		k := chunkKey(c)
+		if byID[k] == nil {
+			byID[k] = &entry{chunk: c}
+		}
+		bm25Hits = append(bm25Hits, bm25Hit{key: k, score: s.sparseScorer.Score(query, c.Text)})
+	}
+	// Sort BM25 hits by TF score descending to assign ranks.
+	sort.Slice(bm25Hits, func(i, j int) bool { return bm25Hits[i].score > bm25Hits[j].score })
+	for rank, h := range bm25Hits {
+		byID[h.key].bm25Rnk = rank + 1
+	}
+
+	// RRF fusion (k=60).
+	const rrfK = 60.0
+	type scored struct {
+		key   string
+		score float64
+	}
+	var fused []scored
+	for k, e := range byID {
+		var s float64
+		if e.denseRnk > 0 {
+			s += 1.0 / (rrfK + float64(e.denseRnk))
+		}
+		if e.bm25Rnk > 0 {
+			s += 1.0 / (rrfK + float64(e.bm25Rnk))
+		}
+		fused = append(fused, scored{key: k, score: s})
+	}
+	// Sort by RRF score descending.
+	sort.Slice(fused, func(i, j int) bool { return fused[i].score > fused[j].score })
+
+	n := topK
+	if n > len(fused) {
+		n = len(fused)
+	}
+	results := make([]ScoredChunk, n)
+	for i := 0; i < n; i++ {
+		e := byID[fused[i].key]
+		e.chunk.Score = float32(fused[i].score)
+		results[i] = e.chunk
+	}
+	return results, nil
+}
+
+func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK int) ([]ScoredChunk, error) {
+	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
+		CollectionName: s.name,
+		Filter: &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewMatchText("text", keyword),
+			},
+		},
+		Limit:       qdrant.PtrOf(uint32(topK)),
+		WithPayload: qdrant.NewWithPayload(true),
 	})
 	if err != nil {
 		return nil, err
@@ -144,7 +261,6 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 				LineStart: int(pbInt(p, "line_start")),
 			},
 			SourceSHA: pbStr(p, "source_sha"),
-			Score:     r.Score,
 		}
 	}
 	return results, nil
@@ -208,14 +324,9 @@ func (s *QdrantStore) GetFileSHA(ctx context.Context, filePath string) (string, 
 }
 
 func chunkID(filePath string, lineStart int) uint64 {
-	h := uint64(14695981039346656037)
-	for _, b := range []byte(filePath) {
-		h ^= uint64(b)
-		h *= 1099511628211
-	}
-	h ^= uint64(lineStart)
-	h *= 1099511628211
-	return h
+	key := filePath + ":" + strconv.Itoa(lineStart)
+	sum := sha256.Sum256([]byte(key))
+	return binary.LittleEndian.Uint64(sum[:8])
 }
 
 func strVal(s string) *qdrant.Value {

@@ -2,12 +2,18 @@ package pkb
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 type searchRequest struct {
-	Query string `json:"query"`
-	TopK  int    `json:"top_k"`
+	Query   string `json:"query"`
+	TopK    int    `json:"top_k"`
+	Keyword string `json:"keyword"`
 }
 
 type searchResult struct {
@@ -39,8 +45,8 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if req.Query == "" {
-		http.Error(w, "query required", http.StatusBadRequest)
+	if req.Query == "" && req.Keyword == "" {
+		http.Error(w, "query or keyword required", http.StatusBadRequest)
 		return
 	}
 	topK := h.topK
@@ -48,16 +54,21 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		topK = req.TopK
 	}
 
-	vec, err := h.embedder.Embed(r.Context(), req.Query)
-	if err != nil {
-		http.Error(w, "embed failed", http.StatusInternalServerError)
-		return
-	}
-
-	chunks, err := h.store.HybridSearch(r.Context(), vec, req.Query, topK)
-	if err != nil {
-		http.Error(w, "search failed", http.StatusInternalServerError)
-		return
+	var chunks []ScoredChunk
+	if req.Keyword != "" {
+		var err error
+		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, topK)
+		if err != nil {
+			http.Error(w, "search failed", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		var err error
+		chunks, err = h.multiSearch(r, req.Query, topK)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	results := make([]searchResult, len(chunks))
@@ -73,4 +84,51 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(searchResponse{Results: results})
+}
+
+var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
+
+// multiSearch splits query into fragments, embeds each, merges results deduped by FilePath+LineStart keeping best score.
+func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int) ([]ScoredChunk, error) {
+	fragments := splitFragments(query)
+	seen := make(map[string]ScoredChunk)
+	for _, frag := range fragments {
+		vec, err := h.embedder.Embed(r.Context(), frag)
+		if err != nil {
+			return nil, fmt.Errorf("embed failed")
+		}
+		results, err := h.store.HybridSearch(r.Context(), vec, frag, topK)
+		if err != nil {
+			return nil, fmt.Errorf("search failed")
+		}
+		for _, c := range results {
+			key := c.FilePath + ":" + strconv.Itoa(c.LineStart)
+			if existing, ok := seen[key]; !ok || c.Score > existing.Score {
+				seen[key] = c
+			}
+		}
+	}
+	merged := make([]ScoredChunk, 0, len(seen))
+	for _, c := range seen {
+		merged = append(merged, c)
+	}
+	sort.Slice(merged, func(i, j int) bool { return merged[i].Score > merged[j].Score })
+	if len(merged) > topK {
+		merged = merged[:topK]
+	}
+	return merged, nil
+}
+
+func splitFragments(query string) []string {
+	parts := sentenceSplit.Split(strings.TrimSpace(query), -1)
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return []string{query}
+	}
+	return out
 }

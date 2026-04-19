@@ -47,7 +47,7 @@ func Server(cfg *config.Config) {
 	})
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
 	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK)
-	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log)
+	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, embedder, log)
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /search", globalChain(searchHandler))

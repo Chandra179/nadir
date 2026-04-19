@@ -16,6 +16,7 @@ type Config struct {
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
 	Retry         RetryConfig         `yaml:"retry"`
+	Eval          EvalConfig          `yaml:"eval"`
 }
 
 type HTTPConfig struct {
@@ -69,6 +70,12 @@ type RetryConfig struct {
 
 type PKBConfig struct {
 	IgnorePatterns []string `yaml:"ignore_patterns"`
+}
+
+type EvalConfig struct {
+	LLMBaseURL  string `yaml:"llm_base_url"`
+	LLMModel    string `yaml:"llm_model"`
+	HistoryPath string `yaml:"history_path"`
 }
 
 func Load(path string) (*Config, error) {

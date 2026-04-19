@@ -138,6 +138,12 @@ func extractSections(rawText string) []section {
 		} else if p, ok := n.(*ast.Paragraph); ok {
 			currentLines = append(currentLines, nodeToPlainText(p, src))
 			return ast.WalkSkipChildren, nil
+		} else if list, ok := n.(*ast.List); ok {
+			currentLines = append(currentLines, nodeToPlainText(list, src))
+			return ast.WalkSkipChildren, nil
+		} else if bq, ok := n.(*ast.Blockquote); ok {
+			currentLines = append(currentLines, nodeToPlainText(bq, src))
+			return ast.WalkSkipChildren, nil
 		}
 		return ast.WalkContinue, nil
 	})

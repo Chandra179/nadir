@@ -3,6 +3,7 @@ package pkb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -38,9 +39,10 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 	scored := make([]ScoredChunk, 0, len(chunks))
 	for _, c := range chunks {
 		var vec []float32
+		embedText := contextualText(c)
 		op := func() error {
 			var e error
-			vec, e = p.embedder.Embed(ctx, c.Text)
+			vec, e = p.embedder.Embed(ctx, embedText)
 			return e
 		}
 		if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
@@ -62,6 +64,20 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 // Delete removes all chunks for a file.
 func (p *Pipeline) Delete(ctx context.Context, filePath string) error {
 	return p.store.DeleteByFile(ctx, filePath)
+}
+
+// contextualText prepends file + heading context to chunk text before embedding.
+// Improves retrieval by anchoring semantics to document structure (Anthropic 2024).
+func contextualText(c DocumentChunk) string {
+	var sb strings.Builder
+	sb.WriteString(c.FilePath)
+	if c.Header != "" {
+		sb.WriteString(" > ")
+		sb.WriteString(c.Header)
+	}
+	sb.WriteString("\n")
+	sb.WriteString(c.Text)
+	return sb.String()
 }
 
 func (p *Pipeline) newBackoff() backoff.BackOff {

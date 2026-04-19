@@ -20,6 +20,8 @@ type Store interface {
 	Search(ctx context.Context, vector []float32, topK int) ([]ScoredChunk, error)
 	// HybridSearch combines dense vector search with BM25 full-text search via RRF.
 	HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error)
+	// KeywordSearch filters by full-text match on the text payload field. No vector required.
+	KeywordSearch(ctx context.Context, keyword string, topK int) ([]ScoredChunk, error)
 	// EnsureCollection creates the collection if it does not exist.
 	EnsureCollection(ctx context.Context, dimensions int) error
 	// GetFileSHA returns the stored source_sha for a file, or "" if not found.

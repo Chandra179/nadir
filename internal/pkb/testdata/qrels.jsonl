@@ -1,0 +1,100 @@
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:290","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":false}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"system-design/distributed-task-scheduler.md:29","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":true}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":true}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:290","file_path":"golang/goroutine.md","relevant":true}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:484","file_path":"golang/goroutine.md","relevant":true}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:328","file_path":"golang/goroutine.md","relevant":false}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"fundamental/api-design-guidelines.md:41","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"fundamental/networking.md:71","file_path":"fundamental/networking.md","relevant":false}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"golang/goroutine.md:73","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"p2p-chat.md:29","file_path":"p2p-chat.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:86","file_path":"golang/compiler.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:280","file_path":"golang/compiler.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:287","file_path":"golang/compiler.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/goroutine.md:94","file_path":"golang/goroutine.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:192","file_path":"golang/compiler.md","relevant":false}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:44","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:1","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:50","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:22","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:65","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:1","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:128","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:61","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:94","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:16","file_path":"system-design/id-generator.md","relevant":true}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:47","file_path":"system-design/id-generator.md","relevant":false}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:36","file_path":"system-design/id-generator.md","relevant":false}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"math/trigonometry.md:382","file_path":"math/trigonometry.md","relevant":false}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does rate limiting use Redis with thundering herd protection?","chunk_id":"system-design/rate-limit.md:14","file_path":"system-design/rate-limit.md","relevant":false}
+{"query":"How does rate limiting use Redis with thundering herd protection?","chunk_id":"system-design/notification-system.md:64","file_path":"system-design/notification-system.md","relevant":false}
+{"query":"How does rate limiting use Redis with thundering herd protection?","chunk_id":"system-design/rate-limit.md:1","file_path":"system-design/rate-limit.md","relevant":false}
+{"query":"How does rate limiting use Redis with thundering herd protection?","chunk_id":"system-design/rate-limit.md:35","file_path":"system-design/rate-limit.md","relevant":true}
+{"query":"How does rate limiting use Redis with thundering herd protection?","chunk_id":"system-design/rate-limit.md:24","file_path":"system-design/rate-limit.md","relevant":true}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:77","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:55","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":false}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:70","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/rate-limit.md:24","file_path":"system-design/rate-limit.md","relevant":false}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:94","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:74","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:128","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:1","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"What is the difference between B-Tree and LSM Tree for database storage?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between B-Tree and LSM Tree for database storage?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between B-Tree and LSM Tree for database storage?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the difference between B-Tree and LSM Tree for database storage?","chunk_id":"fundamental/database.md:154","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between B-Tree and LSM Tree for database storage?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":true}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:138","file_path":"fundamental/database.md","relevant":true}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:190","file_path":"fundamental/database.md","relevant":true}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/networking.md:3","file_path":"fundamental/networking.md","relevant":false}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/api-design-guidelines.md:24","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:32","file_path":"fundamental/database.md","relevant":true}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:18","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:14","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:34","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/networking.md:63","file_path":"fundamental/networking.md","relevant":false}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/networking.md:37","file_path":"fundamental/networking.md","relevant":false}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/api-design-guidelines.md:9","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/computing.md:31","file_path":"fundamental/computing.md","relevant":true}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:154","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does gradient descent work with backpropagation?","chunk_id":"ml/README.md:3","file_path":"ml/README.md","relevant":true}
+{"query":"How does gradient descent work with backpropagation?","chunk_id":"math/precalculus/summary.md:19","file_path":"math/precalculus/summary.md","relevant":false}
+{"query":"How does gradient descent work with backpropagation?","chunk_id":"ml/README.md:27","file_path":"ml/README.md","relevant":false}
+{"query":"How does gradient descent work with backpropagation?","chunk_id":"ml/README.md:39","file_path":"ml/README.md","relevant":false}
+{"query":"How does gradient descent work with backpropagation?","chunk_id":"math/precalculus/README.md:436","file_path":"math/precalculus/README.md","relevant":false}
+{"query":"What activation functions should you use and when?","chunk_id":"system-design/notification-system.md:70","file_path":"system-design/notification-system.md","relevant":false}
+{"query":"What activation functions should you use and when?","chunk_id":"fundamental/api-design-guidelines.md:30","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What activation functions should you use and when?","chunk_id":"fundamental/api-design-guidelines.md:9","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What activation functions should you use and when?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
+{"query":"What activation functions should you use and when?","chunk_id":"fundamental/api-design-guidelines.md:18","file_path":"fundamental/api-design-guidelines.md","relevant":true}
+{"query":"How does dropout prevent overfitting in neural networks?","chunk_id":"ml/README.md:3","file_path":"ml/README.md","relevant":true}
+{"query":"How does dropout prevent overfitting in neural networks?","chunk_id":"ml/README.md:27","file_path":"ml/README.md","relevant":true}
+{"query":"How does dropout prevent overfitting in neural networks?","chunk_id":"ml/README.md:39","file_path":"ml/README.md","relevant":false}
+{"query":"How does dropout prevent overfitting in neural networks?","chunk_id":"ml/README.md:20","file_path":"ml/README.md","relevant":true}
+{"query":"How does dropout prevent overfitting in neural networks?","chunk_id":"system-design/distributed-cache.md:85","file_path":"system-design/distributed-cache.md","relevant":false}
+{"query":"What is Mixture of Experts architecture in large language models?","chunk_id":"fundamental/software-architecture.md:12","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is Mixture of Experts architecture in large language models?","chunk_id":"fundamental/software-architecture.md:38","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is Mixture of Experts architecture in large language models?","chunk_id":"fundamental/software-architecture.md:61","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is Mixture of Experts architecture in large language models?","chunk_id":"fundamental/software-architecture.md:91","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is Mixture of Experts architecture in large language models?","chunk_id":"domain.md:21","file_path":"domain.md","relevant":false}
+{"query":"How does the transformer attention mechanism work?","chunk_id":"ml/README.md:27","file_path":"ml/README.md","relevant":false}
+{"query":"How does the transformer attention mechanism work?","chunk_id":"golang/goroutine.md:140","file_path":"golang/goroutine.md","relevant":false}
+{"query":"How does the transformer attention mechanism work?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does the transformer attention mechanism work?","chunk_id":"ml/README.md:39","file_path":"ml/README.md","relevant":false}
+{"query":"How does the transformer attention mechanism work?","chunk_id":"system-design/distributed-task-scheduler.md:20","file_path":"system-design/distributed-task-scheduler.md","relevant":false}

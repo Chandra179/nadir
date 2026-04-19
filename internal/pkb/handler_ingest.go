@@ -13,15 +13,17 @@ type IngestHandler struct {
 	pipeline *Pipeline
 	fetcher  Fetcher
 	store    Store
+	embedder Embedder
 	log      logger.Logger
 }
 
-func NewIngestHandler(lister FileLister, pipeline *Pipeline, fetcher Fetcher, store Store, log logger.Logger) *IngestHandler {
+func NewIngestHandler(lister FileLister, pipeline *Pipeline, fetcher Fetcher, store Store, embedder Embedder, log logger.Logger) *IngestHandler {
 	return &IngestHandler{
 		lister:   lister,
 		pipeline: pipeline,
 		fetcher:  fetcher,
 		store:    store,
+		embedder: embedder,
 		log:      log,
 	}
 }
@@ -35,6 +37,14 @@ type IngestResponse struct {
 
 func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if err := h.store.EnsureCollection(ctx, h.embedder.Dimensions()); err != nil {
+		h.log.Error(ctx, "ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(IngestResponse{Error: err.Error()})
+		return
+	}
 
 	files, err := h.lister.ListMarkdownFiles(ctx, "")
 	if err != nil {
