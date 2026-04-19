@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 )
@@ -38,19 +37,16 @@ func NewSPLADESparseScorer(addr string) *SPLADESparseScorer {
 	}
 }
 
-func (s *SPLADESparseScorer) Score(query, text string) float64 {
-	ctx := context.Background()
+func (s *SPLADESparseScorer) Score(ctx context.Context, query, text string) (float64, error) {
 	qVec, err := s.embed(ctx, query, "query")
 	if err != nil {
-		log.Printf("splade: embed query failed (sidecar down?): %v", err)
-		return 0
+		return 0, fmt.Errorf("splade embed query: %w", err)
 	}
 	dVec, err := s.embed(ctx, text, "passage")
 	if err != nil {
-		log.Printf("splade: embed passage failed: %v", err)
-		return 0
+		return 0, fmt.Errorf("splade embed passage: %w", err)
 	}
-	return dotProduct(qVec, dVec)
+	return dotProduct(qVec, dVec), nil
 }
 
 // EmbedSparse implements SparseEmbedder. embedType: "query" or "passage".

@@ -48,9 +48,9 @@ func loadEvalCases(t *testing.T) []evalCase {
 
 // evalMetrics holds computed IR metrics for one eval run.
 type evalMetrics struct {
-	MRR      float64
-	HitRate  float64 // fraction of queries with at least one relevant result in top-K (Success@K)
-	NDCG     float64
+	MRR       float64
+	HitRate   float64 // fraction of queries with at least one relevant result in top-K (Success@K)
+	NDCG      float64
 	Precision float64
 }
 
@@ -304,7 +304,7 @@ func TestSearchEval(t *testing.T) {
 					store = qs.WithSparseEmbedder(sparseEmb)
 				}
 			} else {
-				scorer := buildSparseScorer(profile, cfg)
+				scorer := buildSparseScorer(ctx, profile, cfg)
 				if qs, ok := store.(*QdrantStore); ok {
 					store = qs.WithSparseScorer(scorer)
 				}
@@ -387,7 +387,7 @@ func TestSearchEval(t *testing.T) {
 
 // buildSparseScorer returns TFSparseScorer for the client-side BM25 leg.
 // SPLADE profiles use SparseEmbedder (server-side) and do not call this.
-func buildSparseScorer(profile evalProfile, cfg *config.Config) SparseScorer {
+func buildSparseScorer(_ context.Context, profile evalProfile, cfg *config.Config) SparseScorer {
 	_ = profile
 	_ = cfg
 	return TFSparseScorer{}
@@ -468,9 +468,9 @@ func runEval(
 
 	n := float64(len(cases))
 	return evalMetrics{
-		MRR:      mrr / n,
-		HitRate:  hitRate / n,
-		NDCG:     ndcg / n,
+		MRR:       mrr / n,
+		HitRate:   hitRate / n,
+		NDCG:      ndcg / n,
 		Precision: precision / n,
 	}
 }

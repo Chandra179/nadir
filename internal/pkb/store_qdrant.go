@@ -10,7 +10,9 @@ import (
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // QdrantStore implements Store backed by Qdrant via gRPC.
@@ -55,6 +57,9 @@ const sparseVectorName = "sparse"
 func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
 	if err != nil {
+		if status.Code(err) != codes.NotFound {
+			return fmt.Errorf("qdrant get collection: %w", err)
+		}
 		_, err = s.collection.Create(ctx, &qdrant.CreateCollection{
 			CollectionName: s.name,
 			VectorsConfig: &qdrant.VectorsConfig{
@@ -70,7 +75,7 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 			}),
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("qdrant create collection: %w", err)
 		}
 	}
 	// Ensure full-text index on text field for BM25 hybrid search.
@@ -84,7 +89,10 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 			Lowercase: qdrant.PtrOf(true),
 		}),
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("qdrant create text index: %w", err)
+	}
+	return nil
 }
 
 func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
@@ -289,7 +297,11 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 		if byID[k] == nil {
 			byID[k] = &entry{chunk: c}
 		}
-		bm25Hits = append(bm25Hits, bm25Hit{key: k, score: s.sparseScorer.Score(query, c.Text)})
+		score, err := s.sparseScorer.Score(ctx, query, c.Text)
+		if err != nil {
+			return nil, fmt.Errorf("sparse score: %w", err)
+		}
+		bm25Hits = append(bm25Hits, bm25Hit{key: k, score: score})
 	}
 	sort.Slice(bm25Hits, func(i, j int) bool { return bm25Hits[i].score > bm25Hits[j].score })
 	for rank, h := range bm25Hits {

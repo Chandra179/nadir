@@ -4,8 +4,9 @@ import "context"
 
 // SparseScorer scores a chunk against a query for client-side BM25 reranking.
 // Kept for compatibility; prefer SparseEmbedder for indexed hybrid search.
+// The context is passed through to allow cancellation of HTTP calls in implementations.
 type SparseScorer interface {
-	Score(query, text string) float64
+	Score(ctx context.Context, query, text string) (float64, error)
 }
 
 // Embedder converts text into a vector.

@@ -112,8 +112,8 @@ Recall@5=0.60 is the binding constraint — 40% of queries return nothing releva
 | 9 | Expand eval set (20 → 50+ queries) | **next** | 20 queries = high variance; small deltas are noise; need more signal before chunk ablation |
 | 10 | Chunk size ablation (512 → 256, try 128) | pending | Smaller chunks → more precise hits → recall+precision; run after eval set expanded |
 | 11 | Payload index on `file_path` | pending | Currently full collection scan on every SHA check; fast perf win from debt list |
-| 12 | Re-ranking (cross-encoder) | deferred | +precision but +200-500ms; revisit after recall ≥ 0.75 |
-| 13 | HyDE | deferred | LLM call per query breaks latency goal |
+| 12 | Re-ranking (cross-encoder) | pending | +precision but +200-500ms; revisit after recall ≥ 0.75 |
+| 13 | HyDE | pending | LLM call per query breaks latency goal |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
 
