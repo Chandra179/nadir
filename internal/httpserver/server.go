@@ -82,6 +82,31 @@ func Server(cfg *config.Config) {
 		searchHandler.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
+	if cfg.SemanticCache.Enabled {
+		col := cfg.SemanticCache.Collection
+		if col == "" {
+			col = "pkb_cache"
+		}
+		threshold := cfg.SemanticCache.Threshold
+		if threshold == 0 {
+			threshold = 0.90
+		}
+		sc, err := pkb.NewSemanticCache(cfg.Qdrant.Addr, col, embedder, threshold, cfg.SemanticCache.TTL)
+		if err != nil {
+			log.Error(context.Background(), "semantic cache init failed", logger.Field{Key: "error", Value: err.Error()})
+		} else {
+			if err := sc.EnsureCollection(context.Background()); err != nil {
+				log.Error(context.Background(), "semantic cache ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
+			} else {
+				searchHandler.WithSemanticCache(sc)
+				log.Info(context.Background(), "semantic cache enabled",
+					logger.Field{Key: "collection", Value: col},
+					logger.Field{Key: "threshold", Value: threshold},
+				)
+			}
+		}
+	}
+
 	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log)
 
 	mux := http.NewServeMux()

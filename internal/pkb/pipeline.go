@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"nadir/config"
 
@@ -40,49 +39,52 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 		return fmt.Errorf("chunk %s: %w", filePath, err)
 	}
 
-	scored := make([]ScoredChunk, 0, len(chunks))
-	for _, c := range chunks {
-		embedText := contextualText(c)
+	embedTexts := make([]string, len(chunks))
+	for i, c := range chunks {
+		embedTexts[i] = contextualText(c)
+	}
 
-		var (
-			vec           []float32
-			sparseIndices []uint32
-			sparseValues  []float32
-			embedErr      error
-			sparseErr     error
-		)
-
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	// Batch embed all chunks in one round-trip when possible.
+	var vecs [][]float32
+	if be, ok := p.embedder.(BatchEmbedder); ok {
+		op := func() error {
+			var e error
+			vecs, e = be.EmbedBatch(ctx, embedTexts)
+			return e
+		}
+		if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
+			return fmt.Errorf("batch embed %s: %w", filePath, err)
+		}
+	} else {
+		vecs = make([][]float32, len(chunks))
+		for i, t := range embedTexts {
 			op := func() error {
 				var e error
-				vec, e = p.embedder.Embed(ctx, embedText)
+				vecs[i], e = p.embedder.Embed(ctx, t)
 				return e
 			}
-			embedErr = backoff.RetryNotify(op, p.newBackoff(), nil)
-		}()
+			if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
+				return fmt.Errorf("embed chunk in %s: %w", filePath, err)
+			}
+		}
+	}
 
+	scored := make([]ScoredChunk, 0, len(chunks))
+	for i, c := range chunks {
+		var (
+			sparseIndices []uint32
+			sparseValues  []float32
+			sparseErr     error
+		)
 		if p.sparseEmbedder != nil {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				sparseIndices, sparseValues, sparseErr = p.sparseEmbedder.EmbedSparse(ctx, embedText, "passage")
-			}()
+			sparseIndices, sparseValues, sparseErr = p.sparseEmbedder.EmbedSparse(ctx, embedTexts[i], "passage")
+			if sparseErr != nil {
+				return fmt.Errorf("sparse embed chunk in %s: %w", filePath, sparseErr)
+			}
 		}
-		wg.Wait()
-
-		if embedErr != nil {
-			return fmt.Errorf("embed chunk in %s: %w", filePath, embedErr)
-		}
-		if sparseErr != nil {
-			return fmt.Errorf("sparse embed chunk in %s: %w", filePath, sparseErr)
-		}
-
 		scored = append(scored, ScoredChunk{
 			DocumentChunk: c,
-			Vector:        vec,
+			Vector:        vecs[i],
 			SparseIndices: sparseIndices,
 			SparseValues:  sparseValues,
 			SourceSHA:     sourceSHA,

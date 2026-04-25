@@ -1,6 +1,7 @@
 package pkb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,12 +30,13 @@ type searchResponse struct {
 
 // SearchHandler handles POST /search.
 type SearchHandler struct {
-	embedder     Embedder
-	store        Store
-	topK         int
-	reranker     Reranker     // nil = disabled
-	candidateMul int          // fetch topK*candidateMul candidates when reranking (default 3)
-	hyde         *HyDESearcher // nil = disabled; replaces embedding step when set
+	embedder      Embedder
+	store         Store
+	topK          int
+	reranker      Reranker       // nil = disabled
+	candidateMul  int            // fetch topK*candidateMul candidates when reranking (default 3)
+	hyde          *HyDESearcher  // nil = disabled; replaces embedding step when set
+	semanticCache *SemanticCache // nil = disabled
 }
 
 func NewSearchHandler(embedder Embedder, store Store, topK int) *SearchHandler {
@@ -59,6 +61,13 @@ func (h *SearchHandler) WithHyDE(s *HyDESearcher) *SearchHandler {
 	return h
 }
 
+// WithSemanticCache enables query-result caching. Cache is checked before any embedding or search.
+// On miss, results are written to the cache after retrieval.
+func (h *SearchHandler) WithSemanticCache(sc *SemanticCache) *SearchHandler {
+	h.semanticCache = sc
+	return h
+}
+
 func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -72,6 +81,32 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	topK := h.topK
 	if req.TopK > 0 {
 		topK = req.TopK
+	}
+
+	// semantic cache: only applies to vector queries (not keyword-only)
+	if h.semanticCache != nil && req.Query != "" {
+		if cached, hit, err := h.semanticCache.Get(r.Context(), req.Query); err == nil && hit {
+			if len(cached) > topK {
+				cached = cached[:topK]
+			}
+			results := make([]searchResult, len(cached))
+			for i, c := range cached {
+				text := c.WindowText
+				if text == "" {
+					text = c.Text
+				}
+				results[i] = searchResult{
+					FilePath:  c.FilePath,
+					Header:    c.Header,
+					LineStart: c.LineStart,
+					Score:     c.Score,
+					Text:      text,
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(searchResponse{Results: results})
+			return
+		}
 	}
 
 	fetchN := topK
@@ -117,6 +152,13 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if len(chunks) > topK {
 			chunks = chunks[:topK]
 		}
+	}
+
+	// populate cache on miss (fire-and-forget; don't block response)
+	if h.semanticCache != nil && req.Query != "" && len(chunks) > 0 {
+		go func() {
+			_ = h.semanticCache.Set(context.Background(), req.Query, chunks)
+		}()
 	}
 
 	results := make([]searchResult, len(chunks))

@@ -20,6 +20,7 @@ type Config struct {
 	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	HyDE          HyDEConfig          `yaml:"hyde"`
+	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 }
 
 type HTTPConfig struct {
@@ -92,6 +93,13 @@ type HyDEConfig struct {
 	OllamaAddr string `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
 	Model      string `yaml:"model"`       // LLM model for generation, e.g. llama3.1:8b-instruct-q4_K_M
 	NumDocs    int    `yaml:"num_docs"`    // hypothetical docs to generate per query (default 1; paper uses 8)
+}
+
+type SemanticCacheConfig struct {
+	Enabled    bool          `yaml:"enabled"`
+	Collection string        `yaml:"collection"`  // Qdrant collection name for cache (default: pkb_cache)
+	Threshold  float32       `yaml:"threshold"`   // cosine similarity cutoff, e.g. 0.90
+	TTL        time.Duration `yaml:"ttl"`         // zero = no expiry
 }
 
 type EvalConfig struct {

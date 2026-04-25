@@ -88,8 +88,8 @@ Ordered by ROI. ✅ = implemented.
 | 11 | Payload index on `file_path` | ✅ | Keyword index created in `EnsureCollection`; eliminates full-scan in `GetFileSHA` + `DeleteByFile` |
 | 12 | Re-ranking (cross-encoder) | ✅ | `cross-encoder/ms-marco-MiniLM-L-6-v2` Python sidecar; `candidate_mul=3` oversampling; enable via `reranker.enabled: true` + `python cmd/reranker/main.py` |
 | 13 | HyDE | ✅ | Ollama LLM generates hypothetical doc; embed doc instead of raw query; avg N embeddings (L2-norm); falls back to standard search on failure; `num_docs=1` default (fast); `num_docs=8` per paper |
-| 14 | Semantic cache | pending | Embed query → vector search cache at 0.85–0.95 threshold → return cached result; up to 68.8% LLM call reduction, 65× faster hits; new `SemanticCache` interface wrapping `Store.Search` |
-| 15 | Batch embedding API | pending | `Embedder` is single-text; Ollama `/api/embed` accepts arrays — batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface |
+| 14 | Semantic cache | ✅ | Qdrant-backed `SemanticCache`; cosine threshold (default 0.90); lazy TTL expiry; fire-and-forget write; enable via `semantic_cache.enabled: true` |
+| 15 | Batch embedding API | ✅ | `Embedder` is single-text; Ollama `/api/embed` accepts arrays — batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface |
 | 16 | Observability / metrics | pending | Runtime counters: cache hit rate, retrieval precision, rerank delta, embedding latency; instrument via `expvar` or Prometheus; blind in prod without this |
 | 17 | Rate limiting (multi-level) | pending | User/tenant + LLM API + vector DB + system tiers; stdlib `golang.org/x/time/rate` sufficient for single-node; needed before public exposure |
 | 18 | Bulk SHA check at ingest | ✅ | `Store.GetAllFileSHAs()` added; single paginated scroll replaces O(N) RPCs |

@@ -8,6 +8,13 @@ type Embedder interface {
 	Dimensions() int
 }
 
+// BatchEmbedder embeds multiple texts in a single API call.
+// Implementations should satisfy Embedder as well.
+type BatchEmbedder interface {
+	Embedder
+	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
+}
+
 // SparseEmbedder produces sparse vectors for indexing and querying.
 // Implementations: SPLADESparseScorer (neural), TFSparseScorer (fallback).
 type SparseEmbedder interface {

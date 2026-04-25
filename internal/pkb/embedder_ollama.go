@@ -28,8 +28,17 @@ func NewOllamaEmbedder(addr, model string, dimensions int) *OllamaEmbedder {
 func (e *OllamaEmbedder) Dimensions() int { return e.dimensions }
 
 func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
-	body, _ := json.Marshal(map[string]string{"model": e.model, "prompt": text})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.addr+"/api/embeddings", bytes.NewReader(body))
+	vecs, err := e.EmbedBatch(ctx, []string{text})
+	if err != nil {
+		return nil, err
+	}
+	return vecs[0], nil
+}
+
+// EmbedBatch calls /api/embed which accepts an array of inputs in one round-trip.
+func (e *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	body, _ := json.Marshal(map[string]any{"model": e.model, "input": texts})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.addr+"/api/embed", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -37,22 +46,22 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 	resp, err := e.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ollama embed: %w", err)
+		return nil, fmt.Errorf("ollama embed batch: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ollama embed: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("ollama embed batch: status %d", resp.StatusCode)
 	}
 
 	var result struct {
-		Embedding []float32 `json:"embedding"`
+		Embeddings [][]float32 `json:"embeddings"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("ollama embed decode: %w", err)
+		return nil, fmt.Errorf("ollama embed batch decode: %w", err)
 	}
-	if len(result.Embedding) == 0 {
-		return nil, fmt.Errorf("ollama embed: empty embedding")
+	if len(result.Embeddings) != len(texts) {
+		return nil, fmt.Errorf("ollama embed batch: got %d embeddings for %d inputs", len(result.Embeddings), len(texts))
 	}
-	return result.Embedding, nil
+	return result.Embeddings, nil
 }
