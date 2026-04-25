@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -16,9 +17,9 @@ type Config struct {
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
 	Retry         RetryConfig         `yaml:"retry"`
-	Eval          EvalConfig          `yaml:"eval"`
 	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
+	HyDE          HyDEConfig          `yaml:"hyde"`
 }
 
 type HTTPConfig struct {
@@ -86,10 +87,34 @@ type RerankerConfig struct {
 	CandidateMul int    `yaml:"candidate_mul"` // fetch topK*candidate_mul before reranking (default 3)
 }
 
+type HyDEConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	OllamaAddr string `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
+	Model      string `yaml:"model"`       // LLM model for generation, e.g. llama3.1:8b-instruct-q4_K_M
+	NumDocs    int    `yaml:"num_docs"`    // hypothetical docs to generate per query (default 1; paper uses 8)
+}
+
 type EvalConfig struct {
 	LLMBaseURL  string `yaml:"llm_base_url"`
 	LLMModel    string `yaml:"llm_model"`
 	HistoryPath string `yaml:"history_path"`
+}
+
+// LoadEval loads only eval-specific config from a YAML file.
+// Kept separate so EvalConfig does not ship in the production Config struct.
+func LoadEval(path string) (*EvalConfig, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var wrapper struct {
+		Eval EvalConfig `yaml:"eval"`
+	}
+	if err := yaml.NewDecoder(f).Decode(&wrapper); err != nil {
+		return nil, err
+	}
+	return &wrapper.Eval, nil
 }
 
 func Load(path string) (*Config, error) {
@@ -103,6 +128,27 @@ func Load(path string) (*Config, error) {
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}
-
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if c.Qdrant.TopK <= 0 {
+		return fmt.Errorf("config: qdrant.top_k must be > 0")
+	}
+	if c.Embedder.Model == "" {
+		return fmt.Errorf("config: embedder.model must not be empty")
+	}
+	if c.Embedder.Dimensions <= 0 {
+		return fmt.Errorf("config: embedder.dimensions must be > 0")
+	}
+	if c.Qdrant.Addr == "" {
+		return fmt.Errorf("config: qdrant.addr must not be empty")
+	}
+	if c.Qdrant.Collection == "" {
+		return fmt.Errorf("config: qdrant.collection must not be empty")
+	}
+	return nil
 }

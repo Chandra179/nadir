@@ -87,7 +87,7 @@ Ordered by ROI. ✅ = implemented.
 | 10 | Chunk size ablation (512 → 256, try 128) | ✅ | Profiles: tf/splade × 512/256/128; overlap scales proportionally (12.5%); run `make eval-fresh` |
 | 11 | Payload index on `file_path` | ✅ | Keyword index created in `EnsureCollection`; eliminates full-scan in `GetFileSHA` + `DeleteByFile` |
 | 12 | Re-ranking (cross-encoder) | ✅ | `cross-encoder/ms-marco-MiniLM-L-6-v2` Python sidecar; `candidate_mul=3` oversampling; enable via `reranker.enabled: true` + `python cmd/reranker/main.py` |
-| 13 | HyDE | pending | LLM call per query breaks latency goal |
+| 13 | HyDE | ✅ | Ollama LLM generates hypothetical doc; embed doc instead of raw query; avg N embeddings (L2-norm); falls back to standard search on failure; `num_docs=1` default (fast); `num_docs=8` per paper |
 | 14 | Semantic cache | pending | Embed query → vector search cache at 0.85–0.95 threshold → return cached result; up to 68.8% LLM call reduction, 65× faster hits; new `SemanticCache` interface wrapping `Store.Search` |
 | 15 | Batch embedding API | pending | `Embedder` is single-text; Ollama `/api/embed` accepts arrays — batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface |
 | 16 | Observability / metrics | pending | Runtime counters: cache hit rate, retrieval precision, rerank delta, embedding latency; instrument via `expvar` or Prometheus; blind in prod without this |
@@ -96,6 +96,8 @@ Ordered by ROI. ✅ = implemented.
 | 19 | Concurrent dense+sparse embed | ✅ | Dense + sparse embed run concurrently per chunk via `sync.WaitGroup`; per-file ingestion still sequential |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
+
+**Enable HyDE:** set `hyde.enabled: true` and `hyde.model: <ollama-llm>` in `config/config.yaml`. Ollama LLM must be pulled (`ollama pull <model>`). `num_docs: 1` (default) adds ~1-2s latency per query; `num_docs: 8` matches paper accuracy at ~8× latency (parallelized to ~1-2s via goroutines). Falls back to standard hybrid search on generation failure.
 
 **Enable re-ranking:** set `reranker.enabled: true` in `config/config.yaml`, then run `python cmd/reranker/main.py` (`pip install sentence-transformers fastapi uvicorn`). Fetches `topK * candidate_mul` candidates from hybrid search, scores all with `cross-encoder/ms-marco-MiniLM-L-6-v2`, returns top-k. Adds ~100-400ms on CPU.
 
@@ -107,14 +109,6 @@ Clarrify:
 
 #### Technical Debt & Optimization Backlog
 
-##### Performance
-* **Sequential per-file ingestion**: bounded-concurrency parallel ingest via `errgroup` + semaphore; ingest time ∝ 1/workers. `fileContentSHA` also reads each file twice (once for SHA in lister, once in fetcher) — merge if moving to concurrent path.
-* **No batch embedding API**: `Embedder` is single-text; Ollama `/api/embed` accepts arrays. Batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface.
-
 ##### Maintainability & Structure
-* **`EvalConfig` in production `Config`**: eval/LLM judge settings ship in production config struct. Move to separate `EvalConfig` loaded only by eval harness.
-* **`EnsureCollection` in `Store` interface**: mixes lifecycle with query ops. Split into `StoreAdmin` so handlers only receive query capability.
 * **`IngestHandler.ServeHTTP` contains full ingest loop**: fetch + SHA-check + pipeline logic belongs in a service method, not the HTTP handler.
 * **`runEval` / `evalMetrics` in `_test.go`**: eval is first-class concern. Move to `cmd/eval` binary, callable without `go test`.
-* **No `Config.Validate()`**: zero `Qdrant.TopK`, empty `Embedder.Model`, zero dimensions silently produce broken runtime. Add validation.
-* **`QdrantStore` has no `Close()`**: gRPC `conn` not stored — constructor must retain it. Fine for process-lifetime but blocks multi-store testing.

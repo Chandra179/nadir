@@ -61,6 +61,19 @@ func Server(cfg *config.Config) {
 	})
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
 	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK)
+	if cfg.HyDE.Enabled {
+		ollamaAddr := cfg.HyDE.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		hydeGen := pkb.NewOllamaHyDEGenerator(ollamaAddr, cfg.HyDE.Model)
+		hydeSearcher := pkb.NewHyDESearcher(hydeGen, embedder, store, cfg.HyDE.NumDocs)
+		searchHandler.WithHyDE(hydeSearcher)
+		log.Info(context.Background(), "HyDE enabled",
+			logger.Field{Key: "model", Value: cfg.HyDE.Model},
+			logger.Field{Key: "num_docs", Value: cfg.HyDE.NumDocs},
+		)
+	}
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
@@ -69,7 +82,7 @@ func Server(cfg *config.Config) {
 		searchHandler.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
-	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, embedder, log)
+	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log)
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /search", globalChain(searchHandler))

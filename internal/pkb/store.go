@@ -24,11 +24,15 @@ type Store interface {
 	HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error)
 	// KeywordSearch filters by full-text match on the text payload field. No vector required.
 	KeywordSearch(ctx context.Context, keyword string, topK int) ([]ScoredChunk, error)
-	// EnsureCollection creates the collection if it does not exist.
-	EnsureCollection(ctx context.Context, dimensions int) error
 	// GetFileSHA returns the stored source_sha for a file, or "" if not found.
 	GetFileSHA(ctx context.Context, filePath string) (string, error)
 	// GetAllFileSHAs returns a map of filePath → source_sha for all indexed files.
 	// Single RPC; use at ingest time instead of N GetFileSHA calls.
 	GetAllFileSHAs(ctx context.Context) (map[string]string, error)
+}
+
+// StoreAdmin handles collection lifecycle. Separate from Store so handlers
+// only receive query/write capability, not schema mutation.
+type StoreAdmin interface {
+	EnsureCollection(ctx context.Context, dimensions int) error
 }

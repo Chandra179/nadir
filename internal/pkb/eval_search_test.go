@@ -2,301 +2,13 @@ package pkb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"math"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"nadir/config"
-
-	qdrantcontainer "github.com/testcontainers/testcontainers-go/modules/qdrant"
 )
-
-// evalCase is one query for search evaluation.
-type evalCase struct {
-	Query string `json:"query"`
-}
-
-func loadEvalCases(t *testing.T) []evalCase {
-	t.Helper()
-	path := filepath.Join("testdata", "eval_queries.jsonl")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("load eval queries %s: %v", path, err)
-	}
-	var cases []evalCase
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if line == "" {
-			continue
-		}
-		var c evalCase
-		if err := json.Unmarshal([]byte(line), &c); err != nil {
-			t.Fatalf("parse eval query line: %v", err)
-		}
-		cases = append(cases, c)
-	}
-	if len(cases) == 0 {
-		t.Fatalf("no eval queries found in %s", path)
-	}
-	return cases
-}
-
-// evalMetrics holds computed IR metrics for one eval run.
-type evalMetrics struct {
-	MRR       float64
-	HitRate   float64 // fraction of queries with at least one relevant result in top-K (Success@K)
-	NDCG      float64
-	Precision float64
-}
-
-// evalProfile defines one retrieval configuration to benchmark.
-type evalProfile struct {
-	Name            string `json:"name"`
-	SparseScorer    string `json:"sparse_scorer"` // "tf" | "splade"
-	Reranker        string `json:"reranker"`      // "" | "cross-encoder"
-	ChunkSize       int    `json:"chunk_size"`
-	ChunkOverlap    int    `json:"chunk_overlap"`
-	ChunkerProvider string `json:"chunker_provider"` // "recursive" | "sentence-window"; default "recursive"
-}
-
-func loadEvalProfiles(t *testing.T) []evalProfile {
-	t.Helper()
-	path := filepath.Join("testdata", "eval_profiles.jsonl")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("load eval profiles %s: %v", path, err)
-	}
-	var profiles []evalProfile
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if line == "" {
-			continue
-		}
-		var p evalProfile
-		if err := json.Unmarshal([]byte(line), &p); err != nil {
-			t.Fatalf("parse eval profile line: %v", err)
-		}
-		profiles = append(profiles, p)
-	}
-	if len(profiles) == 0 {
-		t.Fatalf("no eval profiles found in %s", path)
-	}
-	return profiles
-}
-
-// evalHistoryEntry is one run appended to the history file.
-type evalHistoryEntry struct {
-	Timestamp       string  `json:"timestamp"`
-	Profile         string  `json:"profile"`
-	SparseScorer    string  `json:"sparse_scorer"`
-	ChunkSize       int     `json:"chunk_size"`
-	ChunkOverlap    int     `json:"chunk_overlap"`
-	ChunkerProvider string  `json:"chunker_provider"`
-	Mode            string  `json:"mode"`
-	Judge           string  `json:"judge"`
-	Collection      string  `json:"collection"`
-	Model           string  `json:"model"`
-	EmbedderDims    int     `json:"embedder_dims"`
-	Queries         int     `json:"queries"`
-	TopK            int     `json:"top_k"`
-	DocsIngested    int     `json:"docs_ingested"`
-	VectorCount     int64   `json:"vector_count"`
-	QrelsTotal      int     `json:"qrels_total,omitempty"`
-	QrelsRelevant   int     `json:"qrels_relevant,omitempty"`
-	Reranker        string  `json:"reranker,omitempty"`
-	CandidateMul    int     `json:"candidate_mul,omitempty"`
-	MRR             float64 `json:"mrr"`
-	HitRate         float64 `json:"hit_rate"`
-	NDCG            float64 `json:"ndcg"`
-	Precision       float64 `json:"precision"`
-}
-
-// loadConfig loads config/config.yaml relative to the repo root (two levels up from internal/pkb/).
-func loadConfig(t *testing.T) *config.Config {
-	t.Helper()
-	cfg, err := config.Load(filepath.Join("..", "..", "config", "config.yaml"))
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	return cfg
-}
-
-// qrelsJudge wraps a pre-computed qrels file as a RelevanceJudge.
-// Returns false for any chunk not present in the qrels file.
-type qrelsJudge struct {
-	// qrels[query][chunkID] = true/false
-	qrels map[string]map[string]bool
-}
-
-func loadQrelsJudge(path string) (*qrelsJudge, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string]map[string]bool)
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if line == "" {
-			continue
-		}
-		var q Qrel
-		if err := json.Unmarshal([]byte(line), &q); err != nil {
-			return nil, fmt.Errorf("parse qrel line: %w", err)
-		}
-		if m[q.Query] == nil {
-			m[q.Query] = make(map[string]bool)
-		}
-		m[q.Query][q.ChunkID] = q.Relevant
-	}
-	return &qrelsJudge{qrels: m}, nil
-}
-
-func (j *qrelsJudge) IsRelevant(_ context.Context, query string, chunk ScoredChunk) (bool, error) {
-	entries, ok := j.qrels[query]
-	if !ok {
-		return false, nil
-	}
-	chunkID := chunk.Key()
-	return entries[chunkID], nil
-}
-
-// buildJudge selects the relevance judge based on env vars:
-//
-//	EVAL_JUDGE=llm   → LLMJudge; base URL + model read from config (override: EVAL_LLM_BASE_URL, EVAL_LLM_MODEL)
-//	default          → qrels judge from testdata/qrels.jsonl (override: EVAL_QRELS_PATH)
-func buildJudge(t *testing.T, cfg *config.Config) (RelevanceJudge, string) {
-	t.Helper()
-
-	if os.Getenv("EVAL_JUDGE") == "llm" {
-		baseURL := os.Getenv("EVAL_LLM_BASE_URL")
-		if baseURL == "" {
-			baseURL = cfg.Eval.LLMBaseURL
-		}
-		model := os.Getenv("EVAL_LLM_MODEL")
-		if model == "" {
-			model = cfg.Eval.LLMModel
-		}
-		apiKey := os.Getenv("EVAL_LLM_API_KEY")
-		t.Logf("judge=LLM base=%s model=%s", baseURL, model)
-		return NewLLMJudge(baseURL, model, apiKey), "llm"
-	}
-
-	qrelsPath := os.Getenv("EVAL_QRELS_PATH")
-	if qrelsPath == "" {
-		qrelsPath = filepath.Join("testdata", "qrels.jsonl")
-	}
-	j, err := loadQrelsJudge(qrelsPath)
-	if err != nil {
-		t.Fatalf("load qrels %s: %v", qrelsPath, err)
-	}
-	t.Logf("judge=qrels path=%s", qrelsPath)
-	return j, "qrels"
-}
-
-// buildStore selects the Qdrant backend based on EVAL_STORE:
-//
-//	EVAL_STORE=live      → connect to running Qdrant; skip ingest (data already there)
-//	EVAL_STORE=container → spin up ephemeral testcontainer; ingest required
-//
-// Override addr/collection via EVAL_QDRANT_ADDR / EVAL_QDRANT_COLLECTION.
-// Returns (store, skipIngest, modeName, collectionName).
-func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *config.Config) (Store, bool, string, string) {
-	t.Helper()
-
-	evalStore := os.Getenv("EVAL_STORE")
-	if evalStore == "" {
-		evalStore = "live" // default: fast path, no Docker pull
-	}
-
-	switch evalStore {
-	case "live":
-		addr := os.Getenv("EVAL_QDRANT_ADDR")
-		if addr == "" {
-			addr = cfg.Qdrant.Addr
-		}
-		collection := os.Getenv("EVAL_QDRANT_COLLECTION")
-		if collection == "" {
-			collection = cfg.Qdrant.Collection
-		}
-		store, err := NewQdrantStore(addr, collection)
-		if err != nil {
-			t.Fatalf("live qdrant store: %v", err)
-		}
-		t.Logf("store=live qdrant=%s collection=%s", addr, collection)
-		return store, true, "live", collection
-
-	case "container":
-		container, err := qdrantcontainer.Run(ctx, "qdrant/qdrant:latest")
-		if err != nil {
-			t.Fatalf("start qdrant container: %v", err)
-		}
-		t.Cleanup(func() { _ = container.Terminate(ctx) })
-
-		grpcEndpoint, err := container.GRPCEndpoint(ctx)
-		if err != nil {
-			t.Fatalf("qdrant grpc endpoint: %v", err)
-		}
-
-		store, err := NewQdrantStore(grpcEndpoint, "eval")
-		if err != nil {
-			t.Fatalf("new qdrant store: %v", err)
-		}
-
-		if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
-			t.Fatalf("ensure collection: %v", err)
-		}
-
-		t.Log("store=container")
-		return store, false, "container", "eval"
-
-	default:
-		t.Fatalf("unknown EVAL_STORE=%q — valid values: live, container", evalStore)
-		return nil, false, "", ""
-	}
-}
-
-// buildChunker instantiates the chunking strategy based on the profile or config defaults.
-func buildChunker(profile evalProfile, cfg *config.Config) Chunker {
-	provider := profile.ChunkerProvider
-	if provider == "" {
-		provider = cfg.Chunker.Provider
-	}
-
-	switch provider {
-	case "sentence-window":
-		// Fallback to recursive unless you have a NewSentenceWindowChunker implemented
-		fallthrough
-	case "recursive":
-		fallthrough
-	default:
-		return NewRecursiveChunker(profile.ChunkSize, profile.ChunkOverlap)
-	}
-}
-
-// saveHistory appends a run result to the history file (JSONL).
-func saveHistory(t *testing.T, cfg *config.Config, entry evalHistoryEntry) {
-	t.Helper()
-	histPath := cfg.Eval.HistoryPath
-	if histPath == "" {
-		return
-	}
-	// Resolve relative to repo root (two levels up from internal/pkb/).
-	if !filepath.IsAbs(histPath) {
-		histPath = filepath.Join("..", "..", histPath)
-	}
-	f, err := os.OpenFile(histPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		t.Logf("warn: open history file %s: %v", histPath, err)
-		return
-	}
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(entry); err != nil {
-		t.Logf("warn: write history: %v", err)
-	}
-}
 
 func TestSearchEval(t *testing.T) {
 	if testing.Short() {
@@ -304,6 +16,7 @@ func TestSearchEval(t *testing.T) {
 	}
 
 	cfg := loadConfig(t)
+	evalCfg := loadEvalConfig(t)
 
 	ollamaAddr := os.Getenv("OLLAMA_ADDR")
 	if ollamaAddr == "" {
@@ -312,21 +25,22 @@ func TestSearchEval(t *testing.T) {
 
 	ctx := context.Background()
 	embedder := NewOllamaEmbedder(ollamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
-	judge, judgeName := buildJudge(t, cfg)
+	judge, judgeName := buildJudge(t, evalCfg)
 	topK := cfg.Qdrant.TopK
 	evalCases := loadEvalCases(t)
 	profiles := loadEvalProfiles(t)
+	history := newEvalHistoryWriter(t, evalCfg)
 
 	for _, profile := range profiles {
 		t.Run(profile.Name, func(t *testing.T) {
+			t.Parallel()
+
 			if profile.SparseScorer == "splade" && !checkSPLADESidecar(cfg.SparseScorer.Addr) {
 				t.Skipf("splade sidecar not reachable at %s — run: python cmd/splade/main.py", cfg.SparseScorer.Addr)
 			}
 
 			store, skipIngest, mode, collection := buildStore(t, ctx, embedder, cfg)
-
 			rerankerName, reranker := buildReranker(t, profile, cfg)
-			_ = rerankerName // used in saveHistory below
 
 			var sparseEmb SparseEmbedder
 			if profile.SparseScorer == "splade" {
@@ -335,26 +49,15 @@ func TestSearchEval(t *testing.T) {
 					store = qs.WithSparseEmbedder(sparseEmb)
 				}
 			} else {
-				scorer := buildSparseScorer(ctx, profile, cfg)
 				if qs, ok := store.(*QdrantStore); ok {
-					store = qs.WithSparseScorer(scorer)
+					store = qs.WithSparseScorer(buildSparseScorer(ctx, profile, cfg))
 				}
 			}
 
 			docsIngested := 0
 			if !skipIngest {
 				chunker := buildChunker(profile, cfg)
-				pipeline := NewPipeline(
-					chunker,
-					embedder,
-					store,
-					PipelineConfig{
-						MaxAttempts:     cfg.Retry.MaxAttempts,
-						InitialInterval: cfg.Retry.InitialInterval,
-						MaxInterval:     cfg.Retry.MaxInterval,
-						Multiplier:      cfg.Retry.Multiplier,
-					},
-				)
+				pipeline := NewPipeline(chunker, embedder, store, cfg.Retry)
 				if sparseEmb != nil {
 					pipeline.WithSparseEmbedder(sparseEmb)
 				}
@@ -394,23 +97,16 @@ func TestSearchEval(t *testing.T) {
 				}
 			}
 
-			var qrelsTotal, qrelsRelevant int
-			if qj, ok := judge.(*qrelsJudge); ok {
-				for _, entries := range qj.qrels {
-					for _, rel := range entries {
-						qrelsTotal++
-						if rel {
-							qrelsRelevant++
-						}
-					}
-				}
-			}
-			metrics := runEval(t, ctx, evalCases, embedder, store, reranker, judge, topK, cfg.Reranker.CandidateMul)
+			hydeSearcher := buildHyDE(t, profile, cfg, embedder, store)
+
+			qrelsTotal, qrelsRelevant := qrelsStats(judge)
+			metrics := runEval(t, ctx, evalCases, embedder, store, reranker, judge, topK, cfg.Reranker.CandidateMul, hydeSearcher)
 
 			fmt.Printf("\n=== Search Eval: %s (model=%s topK=%d) ===\n", profile.Name, cfg.Embedder.Model, topK)
 			fmt.Printf("SparseScorer:  %s\n", profile.SparseScorer)
 			fmt.Printf("Reranker:      %s\n", rerankerName)
-			fmt.Printf("ChunkSize:     %d  ChunkOverlap: %d\n", profile.ChunkSize, profile.ChunkOverlap)
+			fmt.Printf("Chunker:       %s  ChunkSize: %d  ChunkOverlap: %d\n",
+				profile.ChunkerProvider, profile.ChunkSize, profile.ChunkOverlap)
 			fmt.Printf("Queries:       %d  DocsIngested: %d  Vectors: %d\n", len(evalCases), docsIngested, vectorCount)
 			fmt.Printf("Qrels:         total=%d relevant=%d\n", qrelsTotal, qrelsRelevant)
 			fmt.Printf("MRR@%d:          %.4f\n", topK, metrics.MRR)
@@ -418,7 +114,8 @@ func TestSearchEval(t *testing.T) {
 			fmt.Printf("NDCG@%d:         %.4f\n", topK, metrics.NDCG)
 			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
 
-			saveHistory(t, cfg, evalHistoryEntry{
+			history.write(t, evalHistoryEntry{
+				HyDE: profile.HyDE,
 				Timestamp:       time.Now().UTC().Format(time.RFC3339),
 				Profile:         profile.Name,
 				SparseScorer:    profile.SparseScorer,
@@ -444,128 +141,5 @@ func TestSearchEval(t *testing.T) {
 				Precision:       metrics.Precision,
 			})
 		})
-	}
-}
-
-// buildSparseScorer returns TFSparseScorer for the client-side BM25 leg.
-// SPLADE profiles use SparseEmbedder (server-side) and do not call this.
-func buildSparseScorer(_ context.Context, profile evalProfile, cfg *config.Config) SparseScorer {
-	_ = profile
-	_ = cfg
-	return TFSparseScorer{}
-}
-
-// checkSPLADESidecar returns false if sidecar is unreachable.
-func checkSPLADESidecar(addr string) bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(addr + "/health")
-	if err != nil {
-		return false
-	}
-	resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
-}
-
-// buildReranker returns (name, Reranker) for the profile.
-// "" profile → nil reranker (disabled). Skips if sidecar unreachable.
-func buildReranker(t *testing.T, profile evalProfile, cfg *config.Config) (string, Reranker) {
-	t.Helper()
-	if profile.Reranker == "" {
-		return "", nil
-	}
-	addr := cfg.Reranker.Addr
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(addr + "/health")
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Skipf("reranker sidecar not reachable at %s — run: python cmd/reranker/main.py", addr)
-	}
-	resp.Body.Close()
-	t.Logf("reranker=cross-encoder addr=%s", addr)
-	return "cross-encoder", NewHTTPReranker(addr)
-}
-
-func runEval(
-	t *testing.T,
-	ctx context.Context,
-	cases []evalCase,
-	embedder Embedder,
-	store Store,
-	reranker Reranker,
-	judge RelevanceJudge,
-	topK int,
-	candidateMul int,
-) evalMetrics {
-	t.Helper()
-
-	var mrr, hitRate, ndcg, precision float64
-
-	for _, tc := range cases {
-		vec, err := embedder.Embed(ctx, tc.Query)
-		if err != nil {
-			t.Errorf("embed query %q: %v", tc.Query, err)
-			continue
-		}
-		fetchK := topK
-		if reranker != nil {
-			fetchK = topK * candidateMul
-		}
-		results, err := store.HybridSearch(ctx, vec, tc.Query, fetchK)
-		if err != nil {
-			t.Errorf("search %q: %v", tc.Query, err)
-			continue
-		}
-		if reranker != nil {
-			results, err = reranker.Rerank(ctx, tc.Query, results)
-			if err != nil {
-				t.Logf("warn: rerank %q: %v", tc.Query, err)
-			}
-			if len(results) > topK {
-				results = results[:topK]
-			}
-		}
-
-		firstRank := 0
-		anyRelevant := false
-		relevantCount := 0
-		dcg := 0.0
-
-		for rank, r := range results {
-			rel, err := judge.IsRelevant(ctx, tc.Query, r)
-			if err != nil {
-				t.Logf("warn: judge %q chunk %s:%d: %v", tc.Query, r.FilePath, r.LineStart, err)
-			}
-			if rel {
-				if firstRank == 0 {
-					firstRank = rank + 1
-				}
-				anyRelevant = true
-				relevantCount++
-				dcg += 1.0 / math.Log2(float64(rank+2))
-			}
-		}
-
-		if firstRank > 0 {
-			mrr += 1.0 / float64(firstRank)
-		}
-		if anyRelevant {
-			hitRate++
-		}
-		precision += float64(relevantCount) / float64(topK)
-
-		idcg := 0.0
-		for i := 0; i < relevantCount && i < topK; i++ {
-			idcg += 1.0 / math.Log2(float64(i+2))
-		}
-		if idcg > 0 {
-			ndcg += dcg / idcg
-		}
-	}
-
-	n := float64(len(cases))
-	return evalMetrics{
-		MRR:       mrr / n,
-		HitRate:   hitRate / n,
-		NDCG:      ndcg / n,
-		Precision: precision / n,
 	}
 }

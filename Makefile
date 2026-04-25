@@ -1,4 +1,4 @@
-.PHONY: vendor up run sm ingest search d eval-fresh eval-llm splade splade-install reranker
+.PHONY: vendor up run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker
 
 vendor:
 	go mod tidy && go mod vendor
@@ -38,9 +38,32 @@ reranker:
 
 
 # =============================================================================
+# TESTING
+# =============================================================================
+#
+#   test        Run all unit tests (fast, no external deps).
+#
+#   test-short  Same as test but skips anything requiring Docker/Ollama.
+#
+# =============================================================================
+
+test:
+	go test ./...
+
+test-short:
+	go test -short ./...
+
+# =============================================================================
 # EVAL TARGETS
 # =============================================================================
 #
+# Tests in internal/pkb/ — all config from config/config.yaml; env vars override:
+#
+#   TestSearchEval      Runs retrieval eval across profiles in testdata/eval_profiles.jsonl.
+#                       Queries from testdata/eval_queries.jsonl. Reports MRR, HitRate,
+#                       NDCG, Precision@K. Appends run to eval_history.jsonl.
+#
+# Targets:
 #   eval-fresh  Self-contained. Spins ephemeral Qdrant, re-ingests fresh, runs
 #               all profiles (tf + splade). Only accurate scorer comparison.
 #               Slow (~5-10 min). Pulls qdrant/qdrant Docker image on first run.
@@ -48,14 +71,20 @@ reranker:
 #   eval-llm    LLM judges relevance live. No qrels needed. Slow + costs tokens.
 #               Prereq: make up && make ingest
 #
-# Environment variables (all optional):
-#   EVAL_JUDGE          qrels (default) | llm        — relevance judge
-#   EVAL_QDRANT_ADDR    override Qdrant addr (default: from config.yaml)
-#   EVAL_QDRANT_COLLECTION  override collection name
-#   EVAL_LLM_BASE_URL   LLM judge base URL
-#   EVAL_LLM_MODEL      LLM judge model name
-#   EVAL_LLM_API_KEY    LLM judge API key
-#   EVAL_QRELS_PATH     override qrels file path (default: testdata/qrels.jsonl)
+# Environment variables (all optional — defaults from config/config.yaml):
+#   EVAL_STORE          live (default) | container
+#                         live      = connect to running Qdrant; skip ingest
+#                         container = spin ephemeral Qdrant; full re-ingest
+#   EVAL_JUDGE          qrels (default) | llm
+#                         qrels = pre-computed relevance from testdata/qrels.jsonl
+#                         llm   = LLM judges each result live (slow, costs tokens)
+#   EVAL_QDRANT_ADDR    override qdrant.addr
+#   EVAL_QDRANT_COLLECTION  override qdrant.collection
+#   EVAL_LLM_BASE_URL   override eval.llm_base_url
+#   EVAL_LLM_MODEL      override eval.llm_model
+#   EVAL_LLM_API_KEY    LLM API key (no config.yaml equivalent)
+#   EVAL_QRELS_PATH     override qrels file (default: testdata/qrels.jsonl)
+#   OLLAMA_ADDR         override embedder.ollama_addr
 #
 # Compare results across runs:
 #   cat eval_history.jsonl | jq '{profile,mrr,hit_rate,ndcg,precision}'
@@ -71,3 +100,8 @@ eval-fresh:
 # Prereq: make up && make ingest
 eval-llm:
 	EVAL_STORE=live EVAL_JUDGE=llm go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
+
+# eval-hyde — run only the HyDE profile against live Qdrant + Ollama.
+# Prereq: make up && make ingest && ollama pull llama3.1:8b-instruct-q4_K_M
+eval-hyde:
+	EVAL_STORE=live go test -v -timeout 300s -run 'TestSearchEval/tf-recursive256-hyde' ./internal/pkb/

@@ -16,6 +16,7 @@ import (
 
 // QdrantStore implements Store backed by Qdrant via gRPC.
 type QdrantStore struct {
+	conn         *grpc.ClientConn
 	points       qdrant.PointsClient
 	collection   qdrant.CollectionsClient
 	name         string
@@ -31,11 +32,17 @@ func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
 		return nil, fmt.Errorf("qdrant dial %s: %w", addr, err)
 	}
 	return &QdrantStore{
+		conn:         conn,
 		points:       qdrant.NewPointsClient(conn),
 		collection:   qdrant.NewCollectionsClient(conn),
 		name:         collection,
 		sparseScorer: TFSparseScorer{},
 	}, nil
+}
+
+// Close releases the underlying gRPC connection.
+func (s *QdrantStore) Close() error {
+	return s.conn.Close()
 }
 
 // WithSparseScorer swaps the client-side BM25 leg scorer. Default: TFSparseScorer.

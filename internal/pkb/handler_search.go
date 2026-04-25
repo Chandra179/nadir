@@ -32,8 +32,9 @@ type SearchHandler struct {
 	embedder     Embedder
 	store        Store
 	topK         int
-	reranker     Reranker // nil = disabled
-	candidateMul int      // fetch topK*candidateMul candidates when reranking (default 3)
+	reranker     Reranker     // nil = disabled
+	candidateMul int          // fetch topK*candidateMul candidates when reranking (default 3)
+	hyde         *HyDESearcher // nil = disabled; replaces embedding step when set
 }
 
 func NewSearchHandler(embedder Embedder, store Store, topK int) *SearchHandler {
@@ -47,6 +48,14 @@ func (h *SearchHandler) WithReranker(r Reranker, candidateMul int) *SearchHandle
 		candidateMul = 3
 	}
 	h.candidateMul = candidateMul
+	return h
+}
+
+// WithHyDE enables Hypothetical Document Embedding retrieval.
+// When set, query embedding is replaced by generating a hypothetical document via LLM,
+// embedding that instead, then searching. Falls back to standard search on generation error.
+func (h *SearchHandler) WithHyDE(s *HyDESearcher) *SearchHandler {
+	h.hyde = s
 	return h
 }
 
@@ -77,6 +86,17 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "search failed", http.StatusInternalServerError)
 			return
+		}
+	} else if h.hyde != nil {
+		var err error
+		chunks, err = h.hyde.Search(r.Context(), req.Query, fetchN)
+		if err != nil {
+			// fall back to standard search on HyDE failure
+			chunks, err = h.multiSearch(r, req.Query, fetchN)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	} else {
 		var err error

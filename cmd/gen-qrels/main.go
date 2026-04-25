@@ -68,17 +68,22 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
+	evalCfg, err := config.LoadEval(*configPath)
+	if err != nil {
+		log.Fatalf("load eval config: %v", err)
+	}
+
 	queries, err := loadQueries(*queriesPath)
 	if err != nil {
 		log.Fatalf("load queries %s: %v", *queriesPath, err)
 	}
 	log.Printf("loaded %d queries from %s", len(queries), *queriesPath)
 
-	llmBaseURL := cfg.Eval.LLMBaseURL
+	llmBaseURL := evalCfg.LLMBaseURL
 	if *baseURL != "" {
 		llmBaseURL = *baseURL
 	}
-	llmModel := cfg.Eval.LLMModel
+	llmModel := evalCfg.LLMModel
 	if *model != "" {
 		llmModel = *model
 	}
