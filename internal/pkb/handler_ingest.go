@@ -55,16 +55,22 @@ func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	storedSHAs, err := h.store.GetAllFileSHAs(ctx)
+	if err != nil {
+		h.log.Error(ctx, "get all file shas failed", logger.Field{Key: "error", Value: err.Error()})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(IngestResponse{Error: err.Error()})
+		return
+	}
+
 	processed := 0
 	skipped := 0
 	failed := 0
 	for _, f := range files {
-		if f.SHA != "" {
-			stored, err := h.store.GetFileSHA(ctx, f.Path)
-			if err == nil && stored == f.SHA {
-				skipped++
-				continue
-			}
+		if f.SHA != "" && storedSHAs[f.Path] == f.SHA {
+			skipped++
+			continue
 		}
 		text, err := h.fetcher.FetchFile(ctx, f.Path, "")
 		if err != nil {

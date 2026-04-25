@@ -13,8 +13,8 @@
 {"query": "What is the N+1 query problem and how do you solve it?"}
 {"query": "How does Kafka partition routing work for producers?"}
 {"query": "What is the CPU fetch-execute cycle?"}
-{"query": "How does gradient descent minimize the loss function and how does backpropagation calculate gradients?"}
-{"query": "What are activation functions like sigmoid tanh and ReLU and when should you use each?"}
-{"query": "How does dropout regularization prevent overfitting during neural network training?"}
-{"query": "What is Mixture of Experts MoE and how does the router select expert sub-networks?"}
-{"query": "How do transformers and attention mechanisms work for sequence to sequence tasks?"}
+{"query": "What is escape analysis in Go and how does it decide stack vs heap allocation?"}
+{"query": "How do Go interfaces work at the runtime level with itab and type assertions?"}
+{"query": "What are Go generics type constraints and how does type inference work?"}
+{"query": "How does sync.Mutex work and what is the difference between Mutex and RWMutex?"}
+{"query": "How does Go context cancellation propagate through goroutine trees?"}

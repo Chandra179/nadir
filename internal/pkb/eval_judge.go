@@ -5,7 +5,6 @@ import (
 )
 
 // RelevanceJudge determines whether a chunk is relevant to a query.
-// Implementations: FolderJudge (fast, coarse), LLMJudge (accurate, slow).
 type RelevanceJudge interface {
 	IsRelevant(ctx context.Context, query string, chunk ScoredChunk) (bool, error)
 }

@@ -28,4 +28,7 @@ type Store interface {
 	EnsureCollection(ctx context.Context, dimensions int) error
 	// GetFileSHA returns the stored source_sha for a file, or "" if not found.
 	GetFileSHA(ctx context.Context, filePath string) (string, error)
+	// GetAllFileSHAs returns a map of filePath → source_sha for all indexed files.
+	// Single RPC; use at ingest time instead of N GetFileSHA calls.
+	GetAllFileSHAs(ctx context.Context) (map[string]string, error)
 }

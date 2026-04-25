@@ -18,6 +18,7 @@ type Config struct {
 	Retry         RetryConfig         `yaml:"retry"`
 	Eval          EvalConfig          `yaml:"eval"`
 	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
+	Reranker      RerankerConfig      `yaml:"reranker"`
 }
 
 type HTTPConfig struct {
@@ -60,6 +61,7 @@ type ChunkerConfig struct {
 	Provider     string `yaml:"provider"`
 	ChunkSize    int    `yaml:"chunk_size"`
 	ChunkOverlap int    `yaml:"chunk_overlap"`
+	WindowSize   int    `yaml:"window_size"` // sentences before+after each sentence; used by sentence-window provider
 }
 
 type RetryConfig struct {
@@ -76,6 +78,12 @@ type PKBConfig struct {
 type SparseScorerConfig struct {
 	Provider string `yaml:"provider"` // "tf" (default) | "splade"
 	Addr     string `yaml:"addr"`     // sidecar addr for splade, e.g. http://localhost:5001
+}
+
+type RerankerConfig struct {
+	Enabled      bool   `yaml:"enabled"`
+	Addr         string `yaml:"addr"`          // sidecar addr, e.g. http://localhost:5002
+	CandidateMul int    `yaml:"candidate_mul"` // fetch topK*candidate_mul before reranking (default 3)
 }
 
 type EvalConfig struct {

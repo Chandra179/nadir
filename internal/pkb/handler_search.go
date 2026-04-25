@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -30,13 +29,25 @@ type searchResponse struct {
 
 // SearchHandler handles POST /search.
 type SearchHandler struct {
-	embedder Embedder
-	store    Store
-	topK     int
+	embedder     Embedder
+	store        Store
+	topK         int
+	reranker     Reranker // nil = disabled
+	candidateMul int      // fetch topK*candidateMul candidates when reranking (default 3)
 }
 
 func NewSearchHandler(embedder Embedder, store Store, topK int) *SearchHandler {
 	return &SearchHandler{embedder: embedder, store: store, topK: topK}
+}
+
+// WithReranker enables cross-encoder re-ranking. candidateMul controls oversampling (e.g. 3 → fetch 3× candidates before rerank).
+func (h *SearchHandler) WithReranker(r Reranker, candidateMul int) *SearchHandler {
+	h.reranker = r
+	if candidateMul < 1 {
+		candidateMul = 3
+	}
+	h.candidateMul = candidateMul
+	return h
 }
 
 func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -54,31 +65,52 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		topK = req.TopK
 	}
 
+	fetchN := topK
+	if h.reranker != nil {
+		fetchN = topK * h.candidateMul
+	}
+
 	var chunks []ScoredChunk
 	if req.Keyword != "" {
 		var err error
-		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, topK)
+		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, fetchN)
 		if err != nil {
 			http.Error(w, "search failed", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		var err error
-		chunks, err = h.multiSearch(r, req.Query, topK)
+		chunks, err = h.multiSearch(r, req.Query, fetchN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
+	if h.reranker != nil && len(chunks) > 0 {
+		reranked, err := h.reranker.Rerank(r.Context(), req.Query, chunks)
+		if err != nil {
+			http.Error(w, "rerank failed", http.StatusInternalServerError)
+			return
+		}
+		chunks = reranked
+		if len(chunks) > topK {
+			chunks = chunks[:topK]
+		}
+	}
+
 	results := make([]searchResult, len(chunks))
 	for i, c := range chunks {
+		text := c.WindowText
+		if text == "" {
+			text = c.Text
+		}
 		results[i] = searchResult{
 			FilePath:  c.FilePath,
 			Header:    c.Header,
 			LineStart: c.LineStart,
 			Score:     c.Score,
-			Text:      c.Text,
+			Text:      text,
 		}
 	}
 
@@ -102,7 +134,7 @@ func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int) ([]
 			return nil, fmt.Errorf("search failed")
 		}
 		for _, c := range results {
-			key := c.FilePath + ":" + strconv.Itoa(c.LineStart)
+			key := c.Key()
 			if existing, ok := seen[key]; !ok || c.Score > existing.Score {
 				seen[key] = c
 			}

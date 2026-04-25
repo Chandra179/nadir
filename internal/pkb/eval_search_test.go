@@ -88,21 +88,25 @@ func loadEvalProfiles(t *testing.T) []evalProfile {
 
 // evalHistoryEntry is one run appended to the history file.
 type evalHistoryEntry struct {
-	Timestamp    string  `json:"timestamp"`
-	Profile      string  `json:"profile"`
-	SparseScorer string  `json:"sparse_scorer"`
-	ChunkSize    int     `json:"chunk_size"`
-	ChunkOverlap int     `json:"chunk_overlap"`
-	Mode         string  `json:"mode"`
-	Judge        string  `json:"judge"`
-	Collection   string  `json:"collection"`
-	Model        string  `json:"model"`
-	Queries      int     `json:"queries"`
-	TopK         int     `json:"top_k"`
-	MRR          float64 `json:"mrr"`
-	HitRate      float64 `json:"hit_rate"`
-	NDCG         float64 `json:"ndcg"`
-	Precision    float64 `json:"precision"`
+	Timestamp      string  `json:"timestamp"`
+	Profile        string  `json:"profile"`
+	SparseScorer   string  `json:"sparse_scorer"`
+	ChunkSize      int     `json:"chunk_size"`
+	ChunkOverlap   int     `json:"chunk_overlap"`
+	Mode           string  `json:"mode"`
+	Judge          string  `json:"judge"`
+	Collection     string  `json:"collection"`
+	Model          string  `json:"model"`
+	Queries        int     `json:"queries"`
+	TopK           int     `json:"top_k"`
+	DocsIngested   int     `json:"docs_ingested"`
+	VectorCount    int64   `json:"vector_count"`
+	QrelsTotal     int     `json:"qrels_total,omitempty"`
+	QrelsRelevant  int     `json:"qrels_relevant,omitempty"`
+	MRR            float64 `json:"mrr"`
+	HitRate        float64 `json:"hit_rate"`
+	NDCG           float64 `json:"ndcg"`
+	Precision      float64 `json:"precision"`
 }
 
 // loadConfig loads config/config.yaml relative to the repo root (two levels up from internal/pkb/).
@@ -149,7 +153,7 @@ func (j *qrelsJudge) IsRelevant(_ context.Context, query string, chunk ScoredChu
 	if !ok {
 		return false, nil
 	}
-	chunkID := fmt.Sprintf("%s:%d", chunk.FilePath, chunk.LineStart)
+	chunkID := chunk.Key()
 	return entries[chunkID], nil
 }
 
@@ -310,6 +314,7 @@ func TestSearchEval(t *testing.T) {
 				}
 			}
 
+			docsIngested := 0
 			if !skipIngest {
 				pipeline := NewPipeline(
 					NewRecursiveChunker(profile.ChunkSize, profile.ChunkOverlap),
@@ -327,7 +332,6 @@ func TestSearchEval(t *testing.T) {
 				}
 
 				gitbookRoot := filepath.Join("..", "..", "gitbook")
-				ingestedFiles := 0
 				err := filepath.Walk(gitbookRoot, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						return nil
@@ -343,14 +347,35 @@ func TestSearchEval(t *testing.T) {
 					if ingestErr := pipeline.Ingest(ctx, rel, string(content), "eval"); ingestErr != nil {
 						t.Logf("warn: ingest %s: %v", rel, ingestErr)
 					} else {
-						ingestedFiles++
+						docsIngested++
 					}
 					return nil
 				})
 				if err != nil {
 					t.Fatalf("walk gitbook: %v", err)
 				}
-				t.Logf("ingested %d files", ingestedFiles)
+				t.Logf("ingested %d files", docsIngested)
+			}
+
+			var vectorCount int64
+			if qs, ok := store.(*QdrantStore); ok {
+				if n, err := qs.PointCount(ctx); err == nil {
+					vectorCount = n
+				} else {
+					t.Logf("warn: point count: %v", err)
+				}
+			}
+
+			var qrelsTotal, qrelsRelevant int
+			if qj, ok := judge.(*qrelsJudge); ok {
+				for _, entries := range qj.qrels {
+					for _, rel := range entries {
+						qrelsTotal++
+						if rel {
+							qrelsRelevant++
+						}
+					}
+				}
 			}
 
 			metrics := runEval(t, ctx, evalCases, embedder, store, judge, topK)
@@ -358,28 +383,33 @@ func TestSearchEval(t *testing.T) {
 			fmt.Printf("\n=== Search Eval: %s (model=%s topK=%d) ===\n", profile.Name, cfg.Embedder.Model, topK)
 			fmt.Printf("SparseScorer:  %s\n", profile.SparseScorer)
 			fmt.Printf("ChunkSize:     %d  ChunkOverlap: %d\n", profile.ChunkSize, profile.ChunkOverlap)
-			fmt.Printf("Queries:       %d\n", len(evalCases))
+			fmt.Printf("Queries:       %d  DocsIngested: %d  Vectors: %d\n", len(evalCases), docsIngested, vectorCount)
+			fmt.Printf("Qrels:         total=%d relevant=%d\n", qrelsTotal, qrelsRelevant)
 			fmt.Printf("MRR@%d:          %.4f\n", topK, metrics.MRR)
 			fmt.Printf("HitRate@%d:      %.4f\n", topK, metrics.HitRate)
 			fmt.Printf("NDCG@%d:         %.4f\n", topK, metrics.NDCG)
 			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
 
 			saveHistory(t, cfg, evalHistoryEntry{
-				Timestamp:    time.Now().UTC().Format(time.RFC3339),
-				Profile:      profile.Name,
-				SparseScorer: profile.SparseScorer,
-				ChunkSize:    profile.ChunkSize,
-				ChunkOverlap: profile.ChunkOverlap,
-				Mode:         mode,
-				Judge:        judgeName,
-				Collection:   collection,
-				Model:        cfg.Embedder.Model,
-				Queries:      len(evalCases),
-				TopK:         topK,
-				MRR:          metrics.MRR,
-				HitRate:      metrics.HitRate,
-				NDCG:         metrics.NDCG,
-				Precision:    metrics.Precision,
+				Timestamp:     time.Now().UTC().Format(time.RFC3339),
+				Profile:       profile.Name,
+				SparseScorer:  profile.SparseScorer,
+				ChunkSize:     profile.ChunkSize,
+				ChunkOverlap:  profile.ChunkOverlap,
+				Mode:          mode,
+				Judge:         judgeName,
+				Collection:    collection,
+				Model:         cfg.Embedder.Model,
+				Queries:       len(evalCases),
+				TopK:          topK,
+				DocsIngested:  docsIngested,
+				VectorCount:   vectorCount,
+				QrelsTotal:    qrelsTotal,
+				QrelsRelevant: qrelsRelevant,
+				MRR:           metrics.MRR,
+				HitRate:       metrics.HitRate,
+				NDCG:          metrics.NDCG,
+				Precision:     metrics.Precision,
 			})
 		})
 	}

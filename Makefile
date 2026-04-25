@@ -1,4 +1,4 @@
-.PHONY: vendor up run sm ingest search d eval-fresh eval-llm splade splade-install
+.PHONY: vendor up run sm ingest search d eval-fresh eval-llm splade splade-install reranker
 
 vendor:
 	go mod tidy && go mod vendor
@@ -7,7 +7,7 @@ up:
 	docker compose up -d
 
 run:
-	bash -c 'source .env && go run ./cmd/http' 
+	go run ./cmd/http
 
 sm:
 	git submodule add https://github.com/Chandra179/gitbook gitbook
@@ -31,6 +31,10 @@ splade-install:
 # splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
 splade:
 	python cmd/splade/main.py
+
+# reranker — run RERANKER sidecar on :5002. Reranker in config/config.yaml to activate.
+reranker:
+	python cmd/reranker/main.py
 
 
 # =============================================================================

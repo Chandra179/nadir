@@ -8,6 +8,7 @@
 // Flags:
 //
 //	-config   path to config.yaml (default: config/config.yaml)
+//	-queries  path to eval queries JSONL (default: internal/pkb/testdata/eval_queries.jsonl)
 //	-out      output qrels file   (default: internal/pkb/testdata/qrels.jsonl)
 //	-top-k    results per query   (default: from config)
 //	-base-url LLM base URL        (overrides config eval.llm_base_url)
@@ -16,42 +17,45 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"nadir/config"
 	"nadir/internal/pkb"
 )
 
-var queries = []string{
-	"How does the Go GPM scheduler work with goroutines and OS threads?",
-	"What causes goroutine leaks and how do you prevent them?",
-	"How do Go channels work internally with sendq and recvq?",
-	"What changed in Go 1.22 loop variable scoping semantics?",
-	"How does strings.Builder improve concatenation performance?",
-	"How does consistent hashing minimize data movement when adding servers?",
-	"What is the Snowflake ID structure and how does it handle clock skew?",
-	"How does rate limiting use Redis with thundering herd protection?",
-	"How does cache stampede prevention work with request coalescing?",
-	"How do virtual nodes in consistent hashing improve load distribution?",
-	"What is the difference between B-Tree and LSM Tree for database storage?",
-	"How do ACID transactions handle isolation levels?",
-	"What is the N+1 query problem and how do you solve it?",
-	"How does Kafka partition routing work for producers?",
-	"What is the CPU fetch-execute cycle?",
-	"How does gradient descent work with backpropagation?",
-	"What activation functions should you use and when?",
-	"How does dropout prevent overfitting in neural networks?",
-	"What is Mixture of Experts architecture in large language models?",
-	"How does the transformer attention mechanism work?",
+func loadQueries(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var queries []string
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry struct {
+			Query string `json:"query"`
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			return nil, fmt.Errorf("parse query line %q: %w", line, err)
+		}
+		queries = append(queries, entry.Query)
+	}
+	return queries, scanner.Err()
 }
 
 func main() {
 	configPath := flag.String("config", "config/config.yaml", "path to config.yaml")
+	queriesPath := flag.String("queries", "internal/pkb/testdata/eval_queries.jsonl", "path to eval queries JSONL")
 	outPath := flag.String("out", "internal/pkb/testdata/qrels.jsonl", "output qrels file")
 	topKFlag := flag.Int("top-k", 0, "results per query (0 = use config value)")
 	baseURL := flag.String("base-url", "", "LLM base URL (overrides config)")
@@ -63,6 +67,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
+
+	queries, err := loadQueries(*queriesPath)
+	if err != nil {
+		log.Fatalf("load queries %s: %v", *queriesPath, err)
+	}
+	log.Printf("loaded %d queries from %s", len(queries), *queriesPath)
 
 	llmBaseURL := cfg.Eval.LLMBaseURL
 	if *baseURL != "" {

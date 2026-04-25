@@ -2,6 +2,7 @@ package pkb
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -78,17 +79,20 @@ func (c *RecursiveChunker) Chunk(rawText, filePath string) ([]DocumentChunk, err
 	var chunks []DocumentChunk
 	for _, sec := range sections {
 		parts := c.splitText(sec.text)
+		idx := 0
 		for _, part := range parts {
 			part = strings.TrimSpace(part)
 			if part == "" {
 				continue
 			}
 			chunks = append(chunks, DocumentChunk{
-				Text:      part,
-				FilePath:  filePath,
-				Header:    sec.header,
-				LineStart: sec.lineStart,
+				Text:       part,
+				FilePath:   filePath,
+				Header:     sec.header,
+				LineStart:  sec.lineStart,
+				ChunkIndex: idx,
 			})
+			idx++
 		}
 	}
 	return chunks, nil
@@ -154,7 +158,7 @@ func extractSections(rawText string) []section {
 
 // splitText recursively splits text into chunks of at most chunkSize runes with overlap.
 func (c *RecursiveChunker) splitText(text string) []string {
-	if len([]rune(text)) <= c.chunkSize {
+	if utf8.RuneCountInString(text) <= c.chunkSize {
 		return []string{text}
 	}
 	separators := []string{"\n\n", "\n", ". ", " "}
@@ -177,7 +181,7 @@ func (c *RecursiveChunker) mergeSplits(parts []string, sep string) []string {
 			candidate += sep
 		}
 		candidate += p
-		if len([]rune(candidate)) > c.chunkSize && current != "" {
+		if utf8.RuneCountInString(candidate) > c.chunkSize && current != "" {
 			chunks = append(chunks, current)
 			// start next chunk with overlap from end of current
 			overlap := overlapSuffix(current, c.chunkOverlap)
@@ -204,10 +208,7 @@ func hardSplit(s string, size, overlap int) []string {
 	runes := []rune(s)
 	var chunks []string
 	for start := 0; start < len(runes); start += size - overlap {
-		end := start + size
-		if end > len(runes) {
-			end = len(runes)
-		}
+		end := min(start+size, len(runes))
 		chunks = append(chunks, string(runes[start:end]))
 		if end == len(runes) {
 			break
