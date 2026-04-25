@@ -68,7 +68,7 @@ hyde:
   num_docs: 1         # docs to generate per query (1=fast; paper uses 8 for max accuracy)
 
 semantic_cache:
-  enabled: false     # set true to enable; requires no extra infra (reuses Qdrant)
+  enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
   collection: "pkb_cache"
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
