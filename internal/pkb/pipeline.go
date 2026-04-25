@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"nadir/config"
+	"nadir/pkg/otel"
 
 	"github.com/cenkalti/backoff/v4"
 )
@@ -20,6 +22,7 @@ type Pipeline struct {
 	sparseEmbedder SparseEmbedder // optional; when set, sparse vectors are stored alongside dense
 	store          Store
 	cfg            PipelineConfig
+	metrics        *otel.Metrics // nil = no-op
 }
 
 func NewPipeline(chunker Chunker, embedder Embedder, store Store, cfg PipelineConfig) *Pipeline {
@@ -29,6 +32,12 @@ func NewPipeline(chunker Chunker, embedder Embedder, store Store, cfg PipelineCo
 // WithSparseEmbedder enables sparse vector indexing at ingest time.
 func (p *Pipeline) WithSparseEmbedder(se SparseEmbedder) *Pipeline {
 	p.sparseEmbedder = se
+	return p
+}
+
+// WithMetrics attaches an otel.Metrics recorder.
+func (p *Pipeline) WithMetrics(m *otel.Metrics) *Pipeline {
+	p.metrics = m
 	return p
 }
 
@@ -47,6 +56,7 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 	// Batch embed all chunks in one round-trip when possible.
 	var vecs [][]float32
 	if be, ok := p.embedder.(BatchEmbedder); ok {
+		embedStart := time.Now()
 		op := func() error {
 			var e error
 			vecs, e = be.EmbedBatch(ctx, embedTexts)
@@ -55,9 +65,11 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 		if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
 			return fmt.Errorf("batch embed %s: %w", filePath, err)
 		}
+		p.metrics.RecordEmbed(ctx, time.Since(embedStart), len(embedTexts))
 	} else {
 		vecs = make([][]float32, len(chunks))
 		for i, t := range embedTexts {
+			embedStart := time.Now()
 			op := func() error {
 				var e error
 				vecs[i], e = p.embedder.Embed(ctx, t)
@@ -66,6 +78,7 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 			if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
 				return fmt.Errorf("embed chunk in %s: %w", filePath, err)
 			}
+			p.metrics.RecordEmbed(ctx, time.Since(embedStart), 1)
 		}
 	}
 

@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"nadir/pkg/otel"
 
 	"github.com/Chandra179/gosdk/logger"
 )
@@ -18,6 +21,7 @@ type IngestHandler struct {
 	fetcher  Fetcher
 	store    Store
 	log      logger.Logger
+	metrics  *otel.Metrics // nil = no-op
 }
 
 func NewIngestHandler(lister FileLister, pipeline *Pipeline, fetcher Fetcher, store Store, log logger.Logger) *IngestHandler {
@@ -30,6 +34,12 @@ func NewIngestHandler(lister FileLister, pipeline *Pipeline, fetcher Fetcher, st
 	}
 }
 
+// WithMetrics attaches an otel.Metrics recorder.
+func (h *IngestHandler) WithMetrics(m *otel.Metrics) *IngestHandler {
+	h.metrics = m
+	return h
+}
+
 type IngestResponse struct {
 	Processed int    `json:"processed"`
 	Skipped   int    `json:"skipped"`
@@ -39,6 +49,7 @@ type IngestResponse struct {
 
 func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	start := time.Now()
 
 	files, err := h.lister.ListMarkdownFiles(ctx, "")
 	if err != nil {
@@ -65,6 +76,7 @@ func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, f := range files {
 		if f.SHA != "" && storedSHAs[f.Path] == f.SHA {
 			skipped.Add(1)
+			h.metrics.RecordIngestFile(ctx, "skipped")
 			continue
 		}
 		wg.Add(1)
@@ -77,17 +89,21 @@ func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				h.log.Error(ctx, "fetch file failed", logger.Field{Key: "path", Value: f.Path}, logger.Field{Key: "error", Value: err.Error()})
 				failed.Add(1)
+				h.metrics.RecordIngestFile(ctx, "failed")
 				return
 			}
 			if err := h.pipeline.Ingest(ctx, f.Path, text, f.SHA); err != nil {
 				h.log.Error(ctx, "ingest failed", logger.Field{Key: "path", Value: f.Path}, logger.Field{Key: "error", Value: err.Error()})
 				failed.Add(1)
+				h.metrics.RecordIngestFile(ctx, "failed")
 				return
 			}
 			processed.Add(1)
+			h.metrics.RecordIngestFile(ctx, "processed")
 		}(f)
 	}
 	wg.Wait()
+	h.metrics.RecordIngestRun(ctx, time.Since(start))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(IngestResponse{

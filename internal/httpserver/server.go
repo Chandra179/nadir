@@ -7,6 +7,7 @@ import (
 	"nadir/config"
 	"nadir/internal/middleware"
 	"nadir/internal/pkb"
+	"nadir/pkg/otel"
 
 	"github.com/Chandra179/gosdk/logger"
 )
@@ -14,6 +15,19 @@ import (
 func Server(cfg *config.Config) {
 	log := logger.NewLogger(cfg.Middleware.Logger.Level)
 	deps := middleware.NewDependencies(log)
+
+	otelProvider, err := otel.NewPrometheusProvider()
+	if err != nil {
+		log.Error(context.Background(), "otel provider init failed", logger.Field{Key: "error", Value: err.Error()})
+		return
+	}
+	defer otelProvider.Close()
+
+	metrics, err := otel.New(otelProvider.Meter("nadir/pkb"))
+	if err != nil {
+		log.Error(context.Background(), "otel metrics init failed", logger.Field{Key: "error", Value: err.Error()})
+		return
+	}
 
 	globalChain := func(h http.Handler) http.Handler {
 		return middleware.Chain(h,
@@ -58,9 +72,9 @@ func Server(cfg *config.Config) {
 		InitialInterval: cfg.Retry.InitialInterval,
 		MaxInterval:     cfg.Retry.MaxInterval,
 		Multiplier:      cfg.Retry.Multiplier,
-	})
+	}).WithMetrics(metrics)
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
-	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK)
+	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK).WithMetrics(metrics)
 	if cfg.HyDE.Enabled {
 		ollamaAddr := cfg.HyDE.OllamaAddr
 		if ollamaAddr == "" {
@@ -107,11 +121,12 @@ func Server(cfg *config.Config) {
 		}
 	}
 
-	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log)
+	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /search", globalChain(searchHandler))
 	mux.Handle("POST /ingest", globalChain(ingestHandler))
+	mux.Handle("GET /metrics", otelProvider.HTTPHandler())
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,

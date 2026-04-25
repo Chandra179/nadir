@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
+
+	"nadir/pkg/otel"
 )
 
 type searchRequest struct {
@@ -37,6 +40,7 @@ type SearchHandler struct {
 	candidateMul  int            // fetch topK*candidateMul candidates when reranking (default 3)
 	hyde          *HyDESearcher  // nil = disabled; replaces embedding step when set
 	semanticCache *SemanticCache // nil = disabled
+	metrics       *otel.Metrics  // nil = no-op
 }
 
 func NewSearchHandler(embedder Embedder, store Store, topK int) *SearchHandler {
@@ -68,7 +72,14 @@ func (h *SearchHandler) WithSemanticCache(sc *SemanticCache) *SearchHandler {
 	return h
 }
 
+// WithMetrics attaches an otel.Metrics recorder for instrumentation.
+func (h *SearchHandler) WithMetrics(m *otel.Metrics) *SearchHandler {
+	h.metrics = m
+	return h
+}
+
 func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -103,10 +114,13 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					Text:      text,
 				}
 			}
+			h.metrics.RecordCacheHit(r.Context())
+			h.metrics.RecordSearch(r.Context(), time.Since(start), len(results), h.searchMode(req))
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(searchResponse{Results: results})
 			return
 		}
+		h.metrics.RecordCacheMiss(r.Context())
 	}
 
 	fetchN := topK
@@ -143,11 +157,21 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.reranker != nil && len(chunks) > 0 {
+		rerankStart := time.Now()
+		var scoreBefore float32
+		if len(chunks) > 0 {
+			scoreBefore = chunks[0].Score
+		}
 		reranked, err := h.reranker.Rerank(r.Context(), req.Query, chunks)
 		if err != nil {
 			http.Error(w, "rerank failed", http.StatusInternalServerError)
 			return
 		}
+		var scoreAfter float32
+		if len(reranked) > 0 {
+			scoreAfter = reranked[0].Score
+		}
+		h.metrics.RecordRerank(r.Context(), time.Since(rerankStart), scoreBefore, scoreAfter)
 		chunks = reranked
 		if len(chunks) > topK {
 			chunks = chunks[:topK]
@@ -176,8 +200,22 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.metrics.RecordSearch(r.Context(), time.Since(start), len(results), h.searchMode(req))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(searchResponse{Results: results})
+}
+
+func (h *SearchHandler) searchMode(req searchRequest) string {
+	switch {
+	case req.Keyword != "":
+		return "keyword"
+	case h.hyde != nil:
+		return "hyde"
+	case h.reranker != nil:
+		return "hybrid+rerank"
+	default:
+		return "hybrid"
+	}
 }
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
