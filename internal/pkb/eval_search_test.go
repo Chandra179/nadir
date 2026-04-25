@@ -56,10 +56,12 @@ type evalMetrics struct {
 
 // evalProfile defines one retrieval configuration to benchmark.
 type evalProfile struct {
-	Name         string `json:"name"`
-	SparseScorer string `json:"sparse_scorer"` // "tf" | "splade"
-	ChunkSize    int    `json:"chunk_size"`
-	ChunkOverlap int    `json:"chunk_overlap"`
+	Name            string `json:"name"`
+	SparseScorer    string `json:"sparse_scorer"` // "tf" | "splade"
+	Reranker        string `json:"reranker"`      // "" | "cross-encoder"
+	ChunkSize       int    `json:"chunk_size"`
+	ChunkOverlap    int    `json:"chunk_overlap"`
+	ChunkerProvider string `json:"chunker_provider"` // "recursive" | "sentence-window"; default "recursive"
 }
 
 func loadEvalProfiles(t *testing.T) []evalProfile {
@@ -88,25 +90,29 @@ func loadEvalProfiles(t *testing.T) []evalProfile {
 
 // evalHistoryEntry is one run appended to the history file.
 type evalHistoryEntry struct {
-	Timestamp      string  `json:"timestamp"`
-	Profile        string  `json:"profile"`
-	SparseScorer   string  `json:"sparse_scorer"`
-	ChunkSize      int     `json:"chunk_size"`
-	ChunkOverlap   int     `json:"chunk_overlap"`
-	Mode           string  `json:"mode"`
-	Judge          string  `json:"judge"`
-	Collection     string  `json:"collection"`
-	Model          string  `json:"model"`
-	Queries        int     `json:"queries"`
-	TopK           int     `json:"top_k"`
-	DocsIngested   int     `json:"docs_ingested"`
-	VectorCount    int64   `json:"vector_count"`
-	QrelsTotal     int     `json:"qrels_total,omitempty"`
-	QrelsRelevant  int     `json:"qrels_relevant,omitempty"`
-	MRR            float64 `json:"mrr"`
-	HitRate        float64 `json:"hit_rate"`
-	NDCG           float64 `json:"ndcg"`
-	Precision      float64 `json:"precision"`
+	Timestamp       string  `json:"timestamp"`
+	Profile         string  `json:"profile"`
+	SparseScorer    string  `json:"sparse_scorer"`
+	ChunkSize       int     `json:"chunk_size"`
+	ChunkOverlap    int     `json:"chunk_overlap"`
+	ChunkerProvider string  `json:"chunker_provider"`
+	Mode            string  `json:"mode"`
+	Judge           string  `json:"judge"`
+	Collection      string  `json:"collection"`
+	Model           string  `json:"model"`
+	EmbedderDims    int     `json:"embedder_dims"`
+	Queries         int     `json:"queries"`
+	TopK            int     `json:"top_k"`
+	DocsIngested    int     `json:"docs_ingested"`
+	VectorCount     int64   `json:"vector_count"`
+	QrelsTotal      int     `json:"qrels_total,omitempty"`
+	QrelsRelevant   int     `json:"qrels_relevant,omitempty"`
+	Reranker        string  `json:"reranker,omitempty"`
+	CandidateMul    int     `json:"candidate_mul,omitempty"`
+	MRR             float64 `json:"mrr"`
+	HitRate         float64 `json:"hit_rate"`
+	NDCG            float64 `json:"ndcg"`
+	Precision       float64 `json:"precision"`
 }
 
 // loadConfig loads config/config.yaml relative to the repo root (two levels up from internal/pkb/).
@@ -252,6 +258,24 @@ func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *confi
 	}
 }
 
+// buildChunker instantiates the chunking strategy based on the profile or config defaults.
+func buildChunker(profile evalProfile, cfg *config.Config) Chunker {
+	provider := profile.ChunkerProvider
+	if provider == "" {
+		provider = cfg.Chunker.Provider
+	}
+
+	switch provider {
+	case "sentence-window":
+		// Fallback to recursive unless you have a NewSentenceWindowChunker implemented
+		fallthrough
+	case "recursive":
+		fallthrough
+	default:
+		return NewRecursiveChunker(profile.ChunkSize, profile.ChunkOverlap)
+	}
+}
+
 // saveHistory appends a run result to the history file (JSONL).
 func saveHistory(t *testing.T, cfg *config.Config, entry evalHistoryEntry) {
 	t.Helper()
@@ -301,6 +325,9 @@ func TestSearchEval(t *testing.T) {
 
 			store, skipIngest, mode, collection := buildStore(t, ctx, embedder, cfg)
 
+			rerankerName, reranker := buildReranker(t, profile, cfg)
+			_ = rerankerName // used in saveHistory below
+
 			var sparseEmb SparseEmbedder
 			if profile.SparseScorer == "splade" {
 				sparseEmb = NewSPLADESparseScorer(cfg.SparseScorer.Addr)
@@ -316,8 +343,9 @@ func TestSearchEval(t *testing.T) {
 
 			docsIngested := 0
 			if !skipIngest {
+				chunker := buildChunker(profile, cfg)
 				pipeline := NewPipeline(
-					NewRecursiveChunker(profile.ChunkSize, profile.ChunkOverlap),
+					chunker,
 					embedder,
 					store,
 					PipelineConfig{
@@ -377,11 +405,11 @@ func TestSearchEval(t *testing.T) {
 					}
 				}
 			}
-
-			metrics := runEval(t, ctx, evalCases, embedder, store, judge, topK)
+			metrics := runEval(t, ctx, evalCases, embedder, store, reranker, judge, topK, cfg.Reranker.CandidateMul)
 
 			fmt.Printf("\n=== Search Eval: %s (model=%s topK=%d) ===\n", profile.Name, cfg.Embedder.Model, topK)
 			fmt.Printf("SparseScorer:  %s\n", profile.SparseScorer)
+			fmt.Printf("Reranker:      %s\n", rerankerName)
 			fmt.Printf("ChunkSize:     %d  ChunkOverlap: %d\n", profile.ChunkSize, profile.ChunkOverlap)
 			fmt.Printf("Queries:       %d  DocsIngested: %d  Vectors: %d\n", len(evalCases), docsIngested, vectorCount)
 			fmt.Printf("Qrels:         total=%d relevant=%d\n", qrelsTotal, qrelsRelevant)
@@ -391,25 +419,29 @@ func TestSearchEval(t *testing.T) {
 			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
 
 			saveHistory(t, cfg, evalHistoryEntry{
-				Timestamp:     time.Now().UTC().Format(time.RFC3339),
-				Profile:       profile.Name,
-				SparseScorer:  profile.SparseScorer,
-				ChunkSize:     profile.ChunkSize,
-				ChunkOverlap:  profile.ChunkOverlap,
-				Mode:          mode,
-				Judge:         judgeName,
-				Collection:    collection,
-				Model:         cfg.Embedder.Model,
-				Queries:       len(evalCases),
-				TopK:          topK,
-				DocsIngested:  docsIngested,
-				VectorCount:   vectorCount,
-				QrelsTotal:    qrelsTotal,
-				QrelsRelevant: qrelsRelevant,
-				MRR:           metrics.MRR,
-				HitRate:       metrics.HitRate,
-				NDCG:          metrics.NDCG,
-				Precision:     metrics.Precision,
+				Timestamp:       time.Now().UTC().Format(time.RFC3339),
+				Profile:         profile.Name,
+				SparseScorer:    profile.SparseScorer,
+				Reranker:        rerankerName,
+				ChunkSize:       profile.ChunkSize,
+				ChunkOverlap:    profile.ChunkOverlap,
+				ChunkerProvider: profile.ChunkerProvider,
+				Mode:            mode,
+				Judge:           judgeName,
+				Collection:      collection,
+				Model:           cfg.Embedder.Model,
+				EmbedderDims:    cfg.Embedder.Dimensions,
+				Queries:         len(evalCases),
+				TopK:            topK,
+				DocsIngested:    docsIngested,
+				VectorCount:     vectorCount,
+				QrelsTotal:      qrelsTotal,
+				QrelsRelevant:   qrelsRelevant,
+				CandidateMul:    cfg.Reranker.CandidateMul,
+				MRR:             metrics.MRR,
+				HitRate:         metrics.HitRate,
+				NDCG:            metrics.NDCG,
+				Precision:       metrics.Precision,
 			})
 		})
 	}
@@ -434,14 +466,34 @@ func checkSPLADESidecar(addr string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
+// buildReranker returns (name, Reranker) for the profile.
+// "" profile → nil reranker (disabled). Skips if sidecar unreachable.
+func buildReranker(t *testing.T, profile evalProfile, cfg *config.Config) (string, Reranker) {
+	t.Helper()
+	if profile.Reranker == "" {
+		return "", nil
+	}
+	addr := cfg.Reranker.Addr
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(addr + "/health")
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Skipf("reranker sidecar not reachable at %s — run: python cmd/reranker/main.py", addr)
+	}
+	resp.Body.Close()
+	t.Logf("reranker=cross-encoder addr=%s", addr)
+	return "cross-encoder", NewHTTPReranker(addr)
+}
+
 func runEval(
 	t *testing.T,
 	ctx context.Context,
 	cases []evalCase,
 	embedder Embedder,
 	store Store,
+	reranker Reranker,
 	judge RelevanceJudge,
 	topK int,
+	candidateMul int,
 ) evalMetrics {
 	t.Helper()
 
@@ -453,10 +505,23 @@ func runEval(
 			t.Errorf("embed query %q: %v", tc.Query, err)
 			continue
 		}
-		results, err := store.HybridSearch(ctx, vec, tc.Query, topK)
+		fetchK := topK
+		if reranker != nil {
+			fetchK = topK * candidateMul
+		}
+		results, err := store.HybridSearch(ctx, vec, tc.Query, fetchK)
 		if err != nil {
 			t.Errorf("search %q: %v", tc.Query, err)
 			continue
+		}
+		if reranker != nil {
+			results, err = reranker.Rerank(ctx, tc.Query, results)
+			if err != nil {
+				t.Logf("warn: rerank %q: %v", tc.Query, err)
+			}
+			if len(results) > topK {
+				results = results[:topK]
+			}
 		}
 
 		firstRank := 0

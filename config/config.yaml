@@ -57,9 +57,9 @@ sparse_scorer:
   addr: "http://localhost:5001"
 
 reranker:
-  enabled: ftrue       # set true + run: python cmd/reranker/main.py
+  enabled: true       # set true + run: python cmd/reranker/main.py
   addr: "http://localhost:5002"
-  candidate_mul: 3     # fetch topK*3 candidates before reranking
+  candidate_mul: 10     # fetch topK*3 candidates before reranking
 
 eval:
   llm_base_url: "http://localhost:11434/v1"

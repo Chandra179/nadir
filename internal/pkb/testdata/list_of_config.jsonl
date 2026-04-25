@@ -1,3 +1,10 @@
+{"name": "tf-recursive64", "sparse_scorer": "tf", "chunk_size": 512, "chunk_overlap": 64}
+{"name": "splade-recursive64", "sparse_scorer": "splade", "chunk_size": 512, "chunk_overlap": 64}
+{"name": "tf-recursive256", "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32}
+{"name": "splade-recursive256", "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32}
+{"name": "tf-recursive128", "sparse_scorer": "tf", "chunk_size": 128, "chunk_overlap": 16}
+{"name": "splade-recursive128", "sparse_scorer": "splade", "chunk_size": 128, "chunk_overlap": 16}
+
 {"query": "How does the Go GPM scheduler work with goroutines and OS threads?"}
 {"query": "What causes goroutine leaks and how do you prevent them?"}
 {"query": "How do Go channels work internally with sendq and recvq?"}

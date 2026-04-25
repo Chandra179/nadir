@@ -1,3 +1,5 @@
+# Middleware Guide
+
 1. When implementing middleware within a service (in-process), you typically focus on logic that requires application context or needs to be highly performant without extra network hops.
 
 2. Checks if the user has specific permissions for a specific resource (e.g., "Can User X edit Document Y?").

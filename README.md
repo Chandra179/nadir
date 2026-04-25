@@ -59,30 +59,6 @@ type FileLister    interface { ListMarkdownFiles(ctx, rootDir, sha string) ([]Fi
 
 #### Search Evaluation
 
-Integration test at `internal/pkb/eval_search_test.go`. Runs 20 real queries against ingested markdown, judges relevance, reports MRR@5 / Recall@5 / NDCG@5 / Precision@5.
-
-See `internal/pkb/EVAL.md` for full decision tree.
-
-| Target | When to use | Prereqs |
-|--------|-------------|---------|
-| `make eval-tf` | Fast daily feedback, TF sparse | `make up && make ingest` |
-| `make eval-splade` | Compare TF vs SPLADE on live Qdrant | `make splade` + above |
-| `make eval-fresh` | Self-contained CI, full re-ingest | none (pulls Docker) |
-| `make eval-llm` | LLM judges live, no qrels needed | `make up && make ingest` |
-
-**Key env vars:**
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `EVAL_STORE` | `live` | `live` or `container` Qdrant backend |
-| `EVAL_JUDGE` | `qrels` | `qrels` (gold) or `llm` (silver) |
-| `EVAL_QDRANT_ADDR` | from config | Override Qdrant gRPC addr |
-
-**Generate qrels** (after major index changes):
-```bash
-make eval-tf    # runs gen-qrels then deterministic eval
-```
-
 **Metrics:**
 * **MRR@5**: `mean(1/rank)` for first relevant result in top-5. 1.0 = always #1.
 * **Recall@5**: fraction of queries with ≥1 relevant result in top-5.
@@ -96,8 +72,6 @@ make eval-tf    # runs gen-qrels then deterministic eval
 Ordered by ROI. ✅ = implemented.
 
 **Baseline (2026-04-19):** MRR@5=0.60 · Recall@5=0.60 · NDCG@5=0.583 · Precision@5=0.32 · 20 queries · SPLADE+nomic-embed-text · chunk=512/64
-
-Recall@5=0.60 is the binding constraint — 40% of queries return nothing relevant in top-5. Fix recall before chasing precision.
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
@@ -124,6 +98,10 @@ Recall@5=0.60 is the binding constraint — 40% of queries return nothing releva
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
 
 **Enable re-ranking:** set `reranker.enabled: true` in `config/config.yaml`, then run `python cmd/reranker/main.py` (`pip install sentence-transformers fastapi uvicorn`). Fetches `topK * candidate_mul` candidates from hybrid search, scores all with `cross-encoder/ms-marco-MiniLM-L-6-v2`, returns top-k. Adds ~100-400ms on CPU.
+
+Clarrify:
+1. Time-to-First-Token (TTFT) p90
+2. Agent memory architecture: short-term memory for current session state, long-term memory storing user profiles and preferences through vector embeddings, and episodic memory that helps agents learn from past interactions. Episodic memory is what allows an agent to recall that a particular approach worked well for a similar question yesterday and apply that pattern again. The technical requirements follow from these needs: vector embedding storage for semantic memory, fast retrieval with sub-second latency, and reliable state persistence. Redis works as the memory substrate with vector search for semantic retrieval, key-value operations for state management, and pub/sub for agent communication. This unified data model doesn't require separate infrastructure for each memory type.
 
 ---
 
