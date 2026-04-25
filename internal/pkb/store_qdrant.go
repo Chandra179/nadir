@@ -2,12 +2,11 @@ package pkb
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"sort"
 	"strconv"
 
+	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -92,13 +91,32 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 	if err != nil {
 		return fmt.Errorf("qdrant create text index: %w", err)
 	}
+	// Keyword index on file_path: eliminates full-collection scan in GetFileSHA and DeleteByFile.
+	fk := qdrant.FieldType_FieldTypeKeyword
+	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
+		CollectionName: s.name,
+		FieldName:      "file_path",
+		FieldType:      &fk,
+	})
+	if err != nil {
+		return fmt.Errorf("qdrant create file_path index: %w", err)
+	}
 	return nil
+}
+
+// PointCount returns the number of vectors stored in the collection.
+func (s *QdrantStore) PointCount(ctx context.Context) (int64, error) {
+	resp, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
+	if err != nil {
+		return 0, fmt.Errorf("qdrant get collection info: %w", err)
+	}
+	return int64(resp.Result.GetPointsCount()), nil
 }
 
 func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
-		id := chunkID(c.FilePath, c.LineStart)
+		id := chunkID(c.FilePath, c.LineStart, c.ChunkIndex)
 		var vectors *qdrant.Vectors
 		if len(c.SparseIndices) > 0 {
 			vectors = &qdrant.Vectors{
@@ -126,14 +144,16 @@ func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 			vectors = qdrant.NewVectors(c.Vector...)
 		}
 		points[i] = &qdrant.PointStruct{
-			Id:      qdrant.NewIDNum(id),
+			Id:      qdrant.NewIDUUID(id),
 			Vectors: vectors,
 			Payload: map[string]*qdrant.Value{
-				"file_path":  strVal(c.FilePath),
-				"header":     strVal(c.Header),
-				"line_start": intVal(int64(c.LineStart)),
-				"text":       strVal(c.Text),
-				"source_sha": strVal(c.SourceSHA),
+				"file_path":   strVal(c.FilePath),
+				"header":      strVal(c.Header),
+				"line_start":  intVal(int64(c.LineStart)),
+				"chunk_index": intVal(int64(c.ChunkIndex)),
+				"text":        strVal(c.Text),
+				"window_text": strVal(c.WindowText),
+				"source_sha":  strVal(c.SourceSHA),
 			},
 		}
 	}
@@ -212,17 +232,8 @@ func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, 
 
 	results := make([]ScoredChunk, len(resp.Result))
 	for i, r := range resp.Result {
-		p := r.Payload
-		results[i] = ScoredChunk{
-			DocumentChunk: DocumentChunk{
-				Text:      pbStr(p, "text"),
-				FilePath:  pbStr(p, "file_path"),
-				Header:    pbStr(p, "header"),
-				LineStart: int(pbInt(p, "line_start")),
-			},
-			SourceSHA: pbStr(p, "source_sha"),
-			Score:     r.Score,
-		}
+		results[i] = chunkFromPayload(r.Payload)
+		results[i].Score = r.Score
 	}
 	return results, nil
 }
@@ -263,24 +274,9 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 	}
 	byID := make(map[string]*entry)
 
-	toChunk := func(p map[string]*qdrant.Value) ScoredChunk {
-		return ScoredChunk{
-			DocumentChunk: DocumentChunk{
-				Text:      pbStr(p, "text"),
-				FilePath:  pbStr(p, "file_path"),
-				Header:    pbStr(p, "header"),
-				LineStart: int(pbInt(p, "line_start")),
-			},
-			SourceSHA: pbStr(p, "source_sha"),
-		}
-	}
-	chunkKey := func(c ScoredChunk) string {
-		return c.FilePath + ":" + strconv.Itoa(c.LineStart)
-	}
-
 	for rank, r := range denseResp.Result {
-		c := toChunk(r.Payload)
-		k := chunkKey(c)
+		c := chunkFromPayload(r.Payload)
+		k := c.Key()
 		if byID[k] == nil {
 			byID[k] = &entry{chunk: c}
 		}
@@ -292,8 +288,8 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 	}
 	var bm25Hits []bm25Hit
 	for _, r := range bm25Resp.Result {
-		c := toChunk(r.Payload)
-		k := chunkKey(c)
+		c := chunkFromPayload(r.Payload)
+		k := c.Key()
 		if byID[k] == nil {
 			byID[k] = &entry{chunk: c}
 		}
@@ -355,16 +351,7 @@ func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK in
 	}
 	results := make([]ScoredChunk, len(resp.Result))
 	for i, r := range resp.Result {
-		p := r.Payload
-		results[i] = ScoredChunk{
-			DocumentChunk: DocumentChunk{
-				Text:      pbStr(p, "text"),
-				FilePath:  pbStr(p, "file_path"),
-				Header:    pbStr(p, "header"),
-				LineStart: int(pbInt(p, "line_start")),
-			},
-			SourceSHA: pbStr(p, "source_sha"),
-		}
+		results[i] = chunkFromPayload(r.Payload)
 	}
 	return results, nil
 }
@@ -382,17 +369,8 @@ func (s *QdrantStore) Search(ctx context.Context, vector []float32, topK int) ([
 
 	results := make([]ScoredChunk, len(resp.Result))
 	for i, r := range resp.Result {
-		p := r.Payload
-		results[i] = ScoredChunk{
-			DocumentChunk: DocumentChunk{
-				Text:      pbStr(p, "text"),
-				FilePath:  pbStr(p, "file_path"),
-				Header:    pbStr(p, "header"),
-				LineStart: int(pbInt(p, "line_start")),
-			},
-			SourceSHA: pbStr(p, "source_sha"),
-			Score:     r.Score,
-		}
+		results[i] = chunkFromPayload(r.Payload)
+		results[i].Score = r.Score
 	}
 	return results, nil
 }
@@ -426,10 +404,57 @@ func (s *QdrantStore) GetFileSHA(ctx context.Context, filePath string) (string, 
 	return pbStr(resp.Result[0].Payload, "source_sha"), nil
 }
 
-func chunkID(filePath string, lineStart int) uint64 {
-	key := filePath + ":" + strconv.Itoa(lineStart)
-	sum := sha256.Sum256([]byte(key))
-	return binary.LittleEndian.Uint64(sum[:8])
+// GetAllFileSHAs scrolls the collection once and returns filePath → source_sha for every indexed file.
+// Replaces N GetFileSHA calls during ingest with a single paginated RPC.
+func (s *QdrantStore) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
+	shas := make(map[string]string)
+	var offset *qdrant.PointId
+	pageSize := uint32(1000)
+	for {
+		resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
+			CollectionName: s.name,
+			Limit:          &pageSize,
+			Offset:         offset,
+			WithPayload:    qdrant.NewWithPayloadInclude("file_path", "source_sha"),
+			WithVectors:    qdrant.NewWithVectors(false),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("scroll all file shas: %w", err)
+		}
+		for _, pt := range resp.Result {
+			fp := pbStr(pt.Payload, "file_path")
+			if fp != "" {
+				shas[fp] = pbStr(pt.Payload, "source_sha")
+			}
+		}
+		if resp.NextPageOffset == nil {
+			break
+		}
+		offset = resp.NextPageOffset
+	}
+	return shas, nil
+}
+
+// chunkIDNamespace is a private UUID namespace for deterministic chunk point IDs.
+var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
+
+func chunkID(filePath string, lineStart, idx int) string {
+	key := filePath + ":" + strconv.Itoa(lineStart) + ":" + strconv.Itoa(idx)
+	return uuid.NewSHA1(chunkIDNamespace, []byte(key)).String()
+}
+
+func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
+	return ScoredChunk{
+		DocumentChunk: DocumentChunk{
+			Text:       pbStr(p, "text"),
+			WindowText: pbStr(p, "window_text"),
+			FilePath:   pbStr(p, "file_path"),
+			Header:     pbStr(p, "header"),
+			LineStart:  int(pbInt(p, "line_start")),
+			ChunkIndex: int(pbInt(p, "chunk_index")),
+		},
+		SourceSHA: pbStr(p, "source_sha"),
+	}
 }
 
 func strVal(s string) *qdrant.Value {

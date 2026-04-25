@@ -107,57 +107,36 @@ Recall@5=0.60 is the binding constraint — 40% of queries return nothing releva
 | 4 | Chunker: lists + blockquotes | ✅ | Previously silently dropped |
 | 5 | SPLADE sparse vectors | ✅ | Python sidecar; true IDF; +5-10% NDCG |
 | 6 | Multi-sentence query splitting | ✅ | Split on `.`/`?`/`;`, merge by best score |
-| 7 | Fix chunk ID collision | **next** | Replace FNV hash with UUIDv5; correctness prerequisite for sentence-window |
-| 8 | Sentence-window indexing | **next** | Index sentences, expand to paragraph at retrieval; expected +5-10% Recall@5 |
-| 9 | Expand eval set (20 → 50+ queries) | **next** | 20 queries = high variance; small deltas are noise; need more signal before chunk ablation |
-| 10 | Chunk size ablation (512 → 256, try 128) | pending | Smaller chunks → more precise hits → recall+precision; run after eval set expanded |
-| 11 | Payload index on `file_path` | pending | Currently full collection scan on every SHA check; fast perf win from debt list |
-| 12 | Re-ranking (cross-encoder) | pending | +precision but +200-500ms; revisit after recall ≥ 0.75 |
+| 7 | Fix chunk ID collision | ✅ | Replace FNV hash with UUIDv5; correctness prerequisite for sentence-window |
+| 8 | Sentence-window indexing | ✅ | Index sentences, expand to paragraph at retrieval; expected +5-10% Recall@5 |
+| 9 | Expand eval set (20 → 50+ queries) | ✅ | 20 queries = high variance; small deltas are noise; need more signal before chunk ablation |
+| 10 | Chunk size ablation (512 → 256, try 128) | ✅ | Profiles: tf/splade × 512/256/128; overlap scales proportionally (12.5%); run `make eval-fresh` |
+| 11 | Payload index on `file_path` | ✅ | Keyword index created in `EnsureCollection`; eliminates full-scan in `GetFileSHA` + `DeleteByFile` |
+| 12 | Re-ranking (cross-encoder) | ✅ | `cross-encoder/ms-marco-MiniLM-L-6-v2` Python sidecar; `candidate_mul=3` oversampling; enable via `reranker.enabled: true` + `python cmd/reranker/main.py` |
 | 13 | HyDE | pending | LLM call per query breaks latency goal |
+| 14 | Semantic cache | pending | Embed query → vector search cache at 0.85–0.95 threshold → return cached result; up to 68.8% LLM call reduction, 65× faster hits; new `SemanticCache` interface wrapping `Store.Search` |
+| 15 | Batch embedding API | pending | `Embedder` is single-text; Ollama `/api/embed` accepts arrays — batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface |
+| 16 | Observability / metrics | pending | Runtime counters: cache hit rate, retrieval precision, rerank delta, embedding latency; instrument via `expvar` or Prometheus; blind in prod without this |
+| 17 | Rate limiting (multi-level) | pending | User/tenant + LLM API + vector DB + system tiers; stdlib `golang.org/x/time/rate` sufficient for single-node; needed before public exposure |
+| 18 | Bulk SHA check at ingest | ✅ | `Store.GetAllFileSHAs()` added; single paginated scroll replaces O(N) RPCs |
+| 19 | Concurrent dense+sparse embed | ✅ | Dense + sparse embed run concurrently per chunk via `sync.WaitGroup`; per-file ingestion still sequential |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
+
+**Enable re-ranking:** set `reranker.enabled: true` in `config/config.yaml`, then run `python cmd/reranker/main.py` (`pip install sentence-transformers fastapi uvicorn`). Fetches `topK * candidate_mul` candidates from hybrid search, scores all with `cross-encoder/ms-marco-MiniLM-L-6-v2`, returns top-k. Adds ~100-400ms on CPU.
 
 ---
 
 #### Technical Debt & Optimization Backlog
 
-Issues found during analysis, grouped by impact.
-
-##### Correctness
-
-* **`EnsureCollection` catches all errors from `Get`, not just `NotFound`** (`store_qdrant.go`). A transient network error triggers a spurious `Create` call. Fix: check for `codes.NotFound` gRPC status.
-* **`SPLADESparseScorer.Score` uses `context.Background()`** instead of the caller's context — HTTP calls inside are not cancellable. Fix: thread context through `SparseScorer.Score`.
-* **SPLADE sidecar failure silently zeros scores** in client-side hybrid search path, degrading to dense-only with no error surfaced to caller.
-
-##### Redundant Code
-
-* **`chunkKey` duplicated three times**: `store_qdrant.go`, `handler_search.go`, `eval_search_test.go` all build `filePath + ":" + strconv.Itoa(lineStart)`. Add `(c DocumentChunk) ID() string` method.
-* **Qdrant payload extraction duplicated**: the 5-field extraction (`text`, `file_path`, `header`, `line_start`, `source_sha`) is written in `Search`, `hybridSearchServer`, `hybridSearchClient`, and `KeywordSearch`. Extract `chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk`.
-* **`PipelineConfig` == `config.RetryConfig`**: identical four fields copied manually at every call site. Embed or alias one from the other.
-* **`EmbedderConfig.Provider` and `ChunkerConfig.Provider`**: populated in config, never dispatched on — no runtime effect.
-* **`buildSparseScorer` in eval test**: always returns `TFSparseScorer{}` regardless of arguments. Replace with a direct literal.
-* **`FolderJudge` reference** in `eval_judge.go` comment — type does not exist.
-
 ##### Performance
-
-* **Sequential SHA-check RPCs during ingest** (`handler_ingest.go`): N files = N Qdrant scrolls. Add a bulk `GetAllFileSHAs() map[string]string` to `Store` interface.
-* **Sequential per-file ingestion**: bounded-concurrency parallel ingest via `errgroup` + semaphore would reduce ingest time proportionally.
-* **Sequential dense + sparse embedding per chunk** (`pipeline.go`): two calls are independent — run concurrently with `errgroup`.
-* **No batch embedding API**: `Embedder` interface is single-text only. Ollama `/api/embed` accepts arrays. Batch would cut HTTP round-trips from O(chunks) to O(1) per file.
-* **`file_path` has no Qdrant payload index**: `GetFileSHA` and `DeleteByFile` do full collection scans. Add payload index on `file_path` in `EnsureCollection`.
-* **`len([]rune(s))` allocates** in `chunker_recursive.go` — use `utf8.RuneCountInString(s)`.
-* **`filepath.Walk` → `filepath.WalkDir`** in `file_lister_local.go` (avoids extra `os.Lstat` per file, available since Go 1.16).
-* **`fileContentSHA` reads file twice** — once for SHA, once in `FetchFile`. Compute SHA during fetch.
+* **Sequential per-file ingestion**: bounded-concurrency parallel ingest via `errgroup` + semaphore; ingest time ∝ 1/workers. `fileContentSHA` also reads each file twice (once for SHA in lister, once in fetcher) — merge if moving to concurrent path.
+* **No batch embedding API**: `Embedder` is single-text; Ollama `/api/embed` accepts arrays. Batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface.
 
 ##### Maintainability & Structure
-
-* **`EvalConfig` in production `Config`**: eval/LLM judge settings (history path, model) ship in the production config struct and file. Move to a separate `EvalConfig` loaded only by the eval harness.
-* **`EnsureCollection` in `Store` interface**: mixes lifecycle with query operations. Split into `StoreAdmin` interface so handlers only receive query capability.
-* **`SparseScorer` and `Embedder`/`SparseEmbedder` in `embedder.go`**: scoring ≠ embedding. Move `SparseScorer` to `sparse_scorer.go` where its implementations live.
+* **`EvalConfig` in production `Config`**: eval/LLM judge settings ship in production config struct. Move to separate `EvalConfig` loaded only by eval harness.
+* **`EnsureCollection` in `Store` interface**: mixes lifecycle with query ops. Split into `StoreAdmin` so handlers only receive query capability.
 * **`IngestHandler.ServeHTTP` contains full ingest loop**: fetch + SHA-check + pipeline logic belongs in a service method, not the HTTP handler.
-* **`multiSearch` and `splitFragments` in `handler_search.go`**: query decomposition strategy embedded in handler — not unit-testable. Extract to a `QueryStrategy` or `search.go` helper.
-* **`runEval` / `evalMetrics` in `_test.go`**: eval is a first-class concern per `EVAL.md`. Metrics code should live in a `cmd/eval` binary, callable without `go test`.
-* **No `Config.Validate()`**: zero `Qdrant.TopK`, empty `Embedder.Model`, or zero dimensions silently produce a broken runtime. Add validation.
-* **`QdrantStore` has no `Close()`**: gRPC connection is never explicitly closed. Fine for process-lifetime use but blocks clean testing with multiple store instances.
-* **`LocalFetcher.Root` is a public field** — should be unexported like `LocalFileLister`.
-* **`WithSparseScorer` fluent pattern misleads**: mutates in place AND returns `*QdrantStore`; call site in `httpserver/server.go` discards the return value. Either make it a pure setter (no return) or enforce the chaining pattern with documentation.
+* **`runEval` / `evalMetrics` in `_test.go`**: eval is first-class concern. Move to `cmd/eval` binary, callable without `go test`.
+* **No `Config.Validate()`**: zero `Qdrant.TopK`, empty `Embedder.Model`, zero dimensions silently produce broken runtime. Add validation.
+* **`QdrantStore` has no `Close()`**: gRPC `conn` not stored — constructor must retain it. Fine for process-lifetime but blocks multi-store testing.

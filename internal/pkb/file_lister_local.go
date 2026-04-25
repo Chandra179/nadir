@@ -21,12 +21,12 @@ func NewLocalFileLister(root string, ignorePatterns []string) *LocalFileLister {
 
 func (l *LocalFileLister) ListMarkdownFiles(_ context.Context, _ string) ([]FileEntry, error) {
 	var files []FileEntry
-	err := filepath.Walk(l.root, func(abs string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(l.root, func(abs string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(l.root, abs)
-		if info.IsDir() {
+		if d.IsDir() {
 			if l.shouldIgnore(rel + "/") {
 				return filepath.SkipDir
 			}

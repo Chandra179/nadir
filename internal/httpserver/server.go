@@ -29,7 +29,7 @@ func Server(cfg *config.Config) {
 		return
 	}
 	if cfg.SparseScorer.Provider == "splade" {
-		store.WithSparseScorer(pkb.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
+		store = store.WithSparseScorer(pkb.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
 		log.Info(context.Background(), "splade sparse scorer enabled", logger.Field{Key: "addr", Value: cfg.SparseScorer.Addr})
 	}
 
@@ -40,7 +40,17 @@ func Server(cfg *config.Config) {
 		return
 	}
 
-	chunker := pkb.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
+	var chunker pkb.Chunker
+	if cfg.Chunker.Provider == "sentence-window" {
+		windowSize := cfg.Chunker.WindowSize
+		if windowSize <= 0 {
+			windowSize = 3
+		}
+		chunker = pkb.NewSentenceWindowChunker(windowSize)
+		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: windowSize})
+	} else {
+		chunker = pkb.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
+	}
 	fetcher := pkb.NewLocalFetcher(cfg.KnowledgeBase.Path)
 
 	pipeline := pkb.NewPipeline(chunker, embedder, store, pkb.PipelineConfig{
@@ -51,6 +61,14 @@ func Server(cfg *config.Config) {
 	})
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
 	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK)
+	if cfg.Reranker.Enabled {
+		mul := cfg.Reranker.CandidateMul
+		if mul < 1 {
+			mul = 3
+		}
+		searchHandler.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
+	}
 	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, embedder, log)
 
 	mux := http.NewServeMux()

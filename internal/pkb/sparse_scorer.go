@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// SparseScorer scores a chunk against a query for client-side BM25 reranking.
+// Prefer SparseEmbedder for indexed hybrid search; SparseScorer is the client-side fallback.
+// The context is passed through to allow cancellation of HTTP calls in implementations.
+type SparseScorer interface {
+	Score(ctx context.Context, query, text string) (float64, error)
+}
+
 // TFSparseScorer scores by raw term frequency — sum of query term occurrences in text.
 // Fast, zero-dependency default for the BM25 hybrid search leg.
 type TFSparseScorer struct{}

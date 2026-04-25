@@ -41,9 +41,10 @@ embedder:
   dimensions: 768
 
 chunker:
-  provider: "recursive"  # recursive | ast
+  provider: "recursive"  # recursive | sentence-window
   chunk_size: 512
   chunk_overlap: 64
+  window_size: 3          # sentences before+after each sentence (sentence-window only)
 
 retry:
   max_attempts: 3
@@ -54,6 +55,11 @@ retry:
 sparse_scorer:
   provider: "splade"  # tf (default, zero deps) | splade (requires cmd/splade sidecar)
   addr: "http://localhost:5001"
+
+reranker:
+  enabled: ftrue       # set true + run: python cmd/reranker/main.py
+  addr: "http://localhost:5002"
+  candidate_mul: 3     # fetch topK*3 candidates before reranking
 
 eval:
   llm_base_url: "http://localhost:11434/v1"

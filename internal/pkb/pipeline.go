@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
+	"sync"
+
+	"nadir/config"
 
 	"github.com/cenkalti/backoff/v4"
 )
 
-// PipelineConfig holds retry parameters.
-type PipelineConfig struct {
-	MaxAttempts     uint64
-	InitialInterval time.Duration
-	MaxInterval     time.Duration
-	Multiplier      float64
-}
+// PipelineConfig is an alias for config.RetryConfig.
+type PipelineConfig = config.RetryConfig
 
 // Pipeline orchestrates chunk → embed → store for a single file.
 type Pipeline struct {
@@ -45,30 +42,51 @@ func (p *Pipeline) Ingest(ctx context.Context, filePath, text, sourceSHA string)
 
 	scored := make([]ScoredChunk, 0, len(chunks))
 	for _, c := range chunks {
-		var vec []float32
 		embedText := contextualText(c)
-		op := func() error {
-			var e error
-			vec, e = p.embedder.Embed(ctx, embedText)
-			return e
+
+		var (
+			vec           []float32
+			sparseIndices []uint32
+			sparseValues  []float32
+			embedErr      error
+			sparseErr     error
+		)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			op := func() error {
+				var e error
+				vec, e = p.embedder.Embed(ctx, embedText)
+				return e
+			}
+			embedErr = backoff.RetryNotify(op, p.newBackoff(), nil)
+		}()
+
+		if p.sparseEmbedder != nil {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sparseIndices, sparseValues, sparseErr = p.sparseEmbedder.EmbedSparse(ctx, embedText, "passage")
+			}()
 		}
-		if err := backoff.RetryNotify(op, p.newBackoff(), nil); err != nil {
-			return fmt.Errorf("embed chunk in %s: %w", filePath, err)
+		wg.Wait()
+
+		if embedErr != nil {
+			return fmt.Errorf("embed chunk in %s: %w", filePath, embedErr)
 		}
-		sc := ScoredChunk{
+		if sparseErr != nil {
+			return fmt.Errorf("sparse embed chunk in %s: %w", filePath, sparseErr)
+		}
+
+		scored = append(scored, ScoredChunk{
 			DocumentChunk: c,
 			Vector:        vec,
+			SparseIndices: sparseIndices,
+			SparseValues:  sparseValues,
 			SourceSHA:     sourceSHA,
-		}
-		if p.sparseEmbedder != nil {
-			idx, vals, serr := p.sparseEmbedder.EmbedSparse(ctx, embedText, "passage")
-			if serr != nil {
-				return fmt.Errorf("sparse embed chunk in %s: %w", filePath, serr)
-			}
-			sc.SparseIndices = idx
-			sc.SparseValues = vals
-		}
-		scored = append(scored, sc)
+		})
 	}
 
 	if err := p.store.Upsert(ctx, scored); err != nil {
