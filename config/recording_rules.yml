@@ -1,0 +1,67 @@
+groups:
+  - name: nadir_pkb
+    interval: 15s
+    rules:
+      # Cache
+      - record: pkb:cache_hit_rate:rate5m
+        expr: |
+          rate(pkb_cache_hits_total[5m])
+          /
+          (rate(pkb_cache_hits_total[5m]) + rate(pkb_cache_misses_total[5m]))
+
+      # Search latency
+      - record: pkb:search_latency_p95:rate30m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_search_duration_seconds_bucket[30m])))
+
+      - record: pkb:search_latency_p95_by_mode:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le, mode) (rate(pkb_search_duration_seconds_bucket[5m])))
+
+      # Ingestion
+      - record: pkb:ingest_failure_rate:rate5m
+        expr: rate(pkb_ingest_files_failed_total[5m])
+
+      - record: pkb:ingest_processed_rate:rate5m
+        expr: sum by (job) (rate(pkb_ingest_files_processed_total[5m]))
+
+      - record: pkb:ingest_skipped_rate:rate5m
+        expr: sum by (job) (rate(pkb_ingest_files_skipped_total[5m]))
+
+      - record: pkb:ingest_failed_rate:rate5m
+        expr: sum by (job) (rate(pkb_ingest_files_failed_total[5m]))
+
+      - record: pkb:ingest_duration_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_ingest_duration_seconds_bucket[5m])))
+
+      # Embed
+      - record: pkb:embed_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_embed_duration_seconds_bucket[5m])))
+
+      - record: pkb:embed_batch_size_avg:rate5m
+        expr: |
+          sum(rate(pkb_embed_batch_size_sum[5m]))
+          /
+          sum(rate(pkb_embed_batch_size_count[5m]))
+
+      # Rerank
+      - record: pkb:rerank_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_rerank_duration_seconds_bucket[5m])))
+
+      - record: pkb:rerank_score_delta_p50:rate5m
+        expr: |
+          histogram_quantile(0.5, sum by (le) (rate(pkb_rerank_score_delta_bucket[5m])))
+
+      - record: pkb:rerank_score_delta_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_rerank_score_delta_bucket[5m])))
+
+      # Results
+      - record: pkb:search_results_returned_avg:rate5m
+        expr: |
+          sum(rate(pkb_search_results_returned_sum[5m]))
+          /
+          sum(rate(pkb_search_results_returned_count[5m]))
