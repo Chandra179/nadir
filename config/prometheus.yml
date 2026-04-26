@@ -15,3 +15,12 @@ scrape_configs:
     static_configs:
       - targets: ["host.docker.internal:8080"]
     metrics_path: /metrics
+
+  - job_name: qdrant
+    static_configs:
+      - targets: ["qdrant:6333"]
+    metrics_path: /metrics
+
+  - job_name: node
+    static_configs:
+      - targets: ["host.docker.internal:9100"]

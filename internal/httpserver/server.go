@@ -127,6 +127,9 @@ func Server(cfg *config.Config) {
 	mux.Handle("POST /search", globalChain(searchHandler))
 	mux.Handle("POST /ingest", globalChain(ingestHandler))
 	mux.Handle("GET /metrics", otelProvider.HTTPHandler())
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,

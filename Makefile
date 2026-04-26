@@ -1,10 +1,19 @@
-.PHONY: vendor up run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker
+.PHONY: vendor up up-prod run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker snapshot backup
 
 vendor:
 	go mod tidy && go mod vendor
 
 up:
 	docker compose up -d
+
+up-prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+snapshot:
+	./scripts/snapshot-qdrant.sh
+
+backup:
+	./scripts/backup-qdrant.sh
 
 run:
 	go run ./cmd/http
@@ -33,11 +42,11 @@ splade-install:
 
 # splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
 splade:
-	python cmd/splade/main.py
+	FASTEMBED_CACHE_PATH=$$HOME/.cache/fastembed python cmd/splade/main.py
 
 # reranker — run RERANKER sidecar on :5002. Reranker in config/config.yaml to activate.
 reranker:
-	python cmd/reranker/main.py
+	HF_HOME=$$HOME/.cache/huggingface python cmd/reranker/main.py
 
 
 # =============================================================================

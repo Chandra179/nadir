@@ -1,5 +1,87 @@
 # Personal Knowledge Base
 
+## Quick Start (Local)
+
+**Prerequisites:** Go 1.22+, Docker, Ollama
+
+```bash
+# 1. Clone + pull knowledge base (optional submodule)
+git clone <repo> && cd nadir
+make sm                        # add gitbook submodule (skip if using own notes dir)
+
+# 2. Copy env and configure
+cp .env.example .env
+# Edit .env: set NOTES_PATH to your markdown directory
+
+# 3. Pull embedding model
+ollama pull nomic-embed-text
+
+# 4. Start Qdrant (vector DB)
+make up                        # docker compose up -d (Qdrant only in dev)
+
+# 5. Run server
+make run                       # go run ./cmd/http — serves :8080
+
+# 6. Ingest notes
+make ingest                    # POST /ingest — walks NOTES_PATH, indexes all .md
+
+# 7. Search
+make search                    # POST /search with sample query
+# or:
+curl -X POST localhost:8080/search -H 'Content-Type: application/json' \
+  -d '{"query":"your question","top_k":5}'
+```
+
+**Optional sidecars (better retrieval):**
+
+```bash
+# SPLADE sparse embeddings (+5-10% NDCG)
+make splade-install && make splade          # :5001
+# then set sparse_scorer.provider: splade in config/config.yaml
+
+# Cross-encoder reranker (+10-25% precision)
+pip install sentence-transformers fastapi uvicorn
+make reranker                              # :5002
+# then set reranker.enabled: true in config/config.yaml
+
+# HyDE query expansion
+# set hyde.enabled: true + hyde.model: llama3.1:8b-instruct-q4_K_M in config/config.yaml
+# ollama pull llama3.1:8b-instruct-q4_K_M
+```
+
+---
+
+## Production Setup
+
+> Full infra guide, resource sizing, and tier-by-tier scaling: [`docs/INFRA_SETUP.md`](docs/INFRA_SETUP.md)
+> Tier 1 service diagram: [`diagrams/infra-tier1.md`](diagrams/infra-tier1.md)
+
+**Tier 1 — single box (Hetzner CX52, ~€38/mo, <500 concurrent users):**
+
+```bash
+# 1. Copy and configure env
+cp .env.example .env
+# Set: GRAFANA_PASSWORD, NOTES_PATH, LOGGER_LEVEL=prod
+
+# 2. Deploy all services with resource limits
+make up-prod                   # docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# 3. Ingest
+make ingest
+
+# 4. Schedule daily Qdrant backup (cron)
+# Volume snapshot (stored in qdrant_data volume):
+#   0 2 * * * /path/to/nadir/scripts/snapshot-qdrant.sh
+# Filesystem tar.gz backup (configurable retention):
+#   0 3 * * * KEEP_DAYS=7 /path/to/nadir/scripts/backup-qdrant.sh /var/backups/qdrant
+make snapshot                  # manual trigger: snapshot via Qdrant REST API
+make backup                    # manual trigger: volume tar.gz backup
+```
+
+**Tier 2+ (separate ML machine):** update `SPLADE_ADDR`, `RERANKER_ADDR`, `OLLAMA_ADDR` in `.env` to ML machine IP. See `docs/INFRA_SETUP.md`.
+
+---
+
 #### Concept
 
 Intelligent search and retrieval layer for Markdown-based knowledge bases. Transforms static notes into a queryable brain via dense vector search, sparse lexical search (SPLADE), and RRF fusion.
@@ -67,7 +149,7 @@ type FileLister    interface { ListMarkdownFiles(ctx, rootDir, sha string) ([]Fi
 
 ---
 
-#### Retrieval Roadmap
+#### Roadmap
 
 Ordered by ROI. ✅ = implemented.
 
@@ -90,10 +172,14 @@ Ordered by ROI. ✅ = implemented.
 | 13 | HyDE | ✅ | Ollama LLM generates hypothetical doc; embed doc instead of raw query; avg N embeddings (L2-norm); falls back to standard search on failure; `num_docs=1` default (fast); `num_docs=8` per paper |
 | 14 | Semantic cache | ✅ | Qdrant-backed `SemanticCache`; cosine threshold (default 0.90); lazy TTL expiry; fire-and-forget write; enable via `semantic_cache.enabled: true` |
 | 15 | Batch embedding API | ✅ | `Embedder` is single-text; Ollama `/api/embed` accepts arrays — batch cuts HTTP round-trips from O(chunks) to O(1) per file; add `BatchEmbedder` interface |
-| 16 | Observability / metrics | pending | Runtime counters: cache hit rate, retrieval precision, rerank delta, embedding latency; instrument via `expvar` or Prometheus; blind in prod without this |
+| 16 | Observability / metrics | ✅ | Runtime counters: cache hit rate, retrieval precision, rerank delta, embedding latency; instrument via `expvar` or Prometheus; blind in prod without this |
 | 17 | Rate limiting (multi-level) | pending | User/tenant + LLM API + vector DB + system tiers; stdlib `golang.org/x/time/rate` sufficient for single-node; needed before public exposure |
 | 18 | Bulk SHA check at ingest | ✅ | `Store.GetAllFileSHAs()` added; single paginated scroll replaces O(N) RPCs |
 | 19 | Concurrent dense+sparse embed | ✅ | Dense + sparse embed run concurrently per chunk via `sync.WaitGroup`; per-file ingestion still sequential |
+| 20 | Production infra hardening | ✅ | Env-var overrides for all service addrs (`QDRANT_ADDR`, `OLLAMA_ADDR`, `SPLADE_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`); pinned Qdrant image; `restart: unless-stopped` all services; `GET /healthz` endpoint; compose healthchecks with proper `depends_on` conditions |
+| 21 | Qdrant resource limits | ✅ | `deploy.resources.limits.memory: 2g` in compose; prevents OOM kill under 10k-doc load |
+| 22 | Grafana dashboards | ✅ | Auto-provisioned via compose; panels: search latency p50/p90/p99, search rate, cache hit rate, embed latency, rerank latency + score delta, ingest throughput; datasource wired to Prometheus |
+| 23 | Qdrant volume backup | ✅ | `scripts/backup-qdrant.sh` — docker-volume tar.gz snapshot; configurable retention (`KEEP_DAYS`); cron-friendly |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
 

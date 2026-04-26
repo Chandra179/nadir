@@ -1,0 +1,123 @@
+{
+  "title": "Nadir PKB",
+  "uid": "nadir-pkb",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Search Latency p50/p90/p99 (s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(pkb_search_duration_seconds_bucket[5m])) by (le, mode))",
+          "legendFormat": "p50 {{mode}}"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(pkb_search_duration_seconds_bucket[5m])) by (le, mode))",
+          "legendFormat": "p90 {{mode}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(pkb_search_duration_seconds_bucket[5m])) by (le, mode))",
+          "legendFormat": "p99 {{mode}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Search Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(pkb_search_duration_seconds_count[5m])) by (mode)",
+          "legendFormat": "{{mode}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cache Hit Rate",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 4 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "percentunit" },
+      "targets": [
+        {
+          "expr": "sum(rate(pkb_cache_hits_total[5m])) / (sum(rate(pkb_cache_hits_total[5m])) + sum(rate(pkb_cache_misses_total[5m])))",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Embed Latency p90 (s)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(pkb_embed_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p90"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Rerank Latency p90 (s)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(pkb_rerank_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p90"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Rerank Score Delta (median)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(pkb_rerank_score_delta_bucket[5m])) by (le))",
+          "legendFormat": "median delta"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Ingest Files (processed / skipped / failed)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(pkb_ingest_files_processed_total[5m]))",
+          "legendFormat": "processed"
+        },
+        {
+          "expr": "sum(rate(pkb_ingest_files_skipped_total[5m]))",
+          "legendFormat": "skipped"
+        },
+        {
+          "expr": "sum(rate(pkb_ingest_files_failed_total[5m]))",
+          "legendFormat": "failed"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Ingest Run Duration p90 (s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(pkb_ingest_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p90"
+        }
+      ]
+    }
+  ]
+}

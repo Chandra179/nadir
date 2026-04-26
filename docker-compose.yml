@@ -5,18 +5,87 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      - QDRANT_ADDR=qdrant:6334
+      - OLLAMA_ADDR=http://host.docker.internal:11434
+      - SPLADE_ADDR=http://splade:5001
+      - RERANKER_ADDR=http://reranker:5002
+      - LOGGER_LEVEL=prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      splade:
+        condition: service_healthy
+      reranker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.4
     ports:
       - "6333:6333"
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:6333/readyz"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  splade:
+    build:
+      context: services/splade
+    volumes:
+      - splade_model_cache:/root/.cache/fastembed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  reranker:
+    build:
+      context: services/reranker
+    volumes:
+      - reranker_model_cache:/root/.cache/huggingface
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
 
   prometheus:
     image: prom/prometheus:latest
@@ -31,11 +100,43 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}"
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
+    restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+
+  # nginx:
+  #   image: nginx:1.27-alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./config/nginx/certs:/etc/nginx/certs:ro   # mount Let's Encrypt certs here
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - app
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    pid: "host"
+    network_mode: "host"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    restart: unless-stopped
 
 volumes:
   qdrant_data:
   prometheus_data:
+  grafana_data:
+  splade_model_cache:
+  reranker_model_cache:

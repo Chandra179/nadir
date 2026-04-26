@@ -136,10 +136,37 @@ func Load(path string) (*Config, error) {
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}
+	cfg.applyEnv()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// applyEnv overrides config fields from environment variables.
+// Env vars take precedence over config.yaml values.
+func (c *Config) applyEnv() {
+	if v := os.Getenv("NOTES_PATH"); v != "" {
+		c.KnowledgeBase.Path = v
+	}
+	if v := os.Getenv("QDRANT_ADDR"); v != "" {
+		c.Qdrant.Addr = v
+	}
+	if v := os.Getenv("QDRANT_COLLECTION"); v != "" {
+		c.Qdrant.Collection = v
+	}
+	if v := os.Getenv("OLLAMA_ADDR"); v != "" {
+		c.Embedder.OllamaAddr = v
+	}
+	if v := os.Getenv("SPLADE_ADDR"); v != "" {
+		c.SparseScorer.Addr = v
+	}
+	if v := os.Getenv("RERANKER_ADDR"); v != "" {
+		c.Reranker.Addr = v
+	}
+	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
+		c.Middleware.Logger.Level = v
+	}
 }
 
 func (c *Config) Validate() error {

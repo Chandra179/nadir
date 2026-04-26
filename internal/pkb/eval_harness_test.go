@@ -3,7 +3,6 @@ package pkb
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,19 +11,6 @@ import (
 
 	"nadir/config"
 )
-
-// evalCase is one query in the evaluation set.
-type evalCase struct {
-	Query string `json:"query"`
-}
-
-// evalMetrics holds IR metrics for one eval run.
-type evalMetrics struct {
-	MRR       float64
-	HitRate   float64 // Success@K: fraction of queries with ≥1 relevant result
-	NDCG      float64
-	Precision float64
-}
 
 // evalProfile defines one retrieval configuration to benchmark.
 // Fields not set in the JSONL file inherit config.yaml defaults at runtime.
@@ -38,9 +24,6 @@ type evalProfile struct {
 	HyDE            bool   `json:"hyde"`             // true = use HyDE search (LLM generates hypothetical doc per query)
 	HyDENumDocs     int    `json:"hyde_num_docs"`    // 0 → default from config (1)
 }
-
-// hydeSearchFn wraps HyDESearcher.Search to match the runEval search hook signature.
-type hydeSearchFn func(ctx context.Context, query string, topK int) ([]ScoredChunk, error)
 
 // evalHistoryEntry is one run record appended to the JSONL history file.
 type evalHistoryEntry struct {
@@ -161,19 +144,19 @@ func qrelsStats(judge RelevanceJudge) (total, relevant int) {
 }
 
 // loadEvalCases reads eval queries from testdata/eval_queries.jsonl.
-func loadEvalCases(t *testing.T) []evalCase {
+func loadEvalCases(t *testing.T) []EvalCase {
 	t.Helper()
 	path := filepath.Join("testdata", "eval_queries.jsonl")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("load eval queries %s: %v", path, err)
 	}
-	var cases []evalCase
+	var cases []EvalCase
 	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "" {
 			continue
 		}
-		var c evalCase
+		var c EvalCase
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
 			t.Fatalf("parse eval query: %v", err)
 		}
@@ -230,14 +213,17 @@ func loadEvalConfig(t *testing.T) *config.EvalConfig {
 	return evalCfg
 }
 
-// runEval executes all queries concurrently (up to evalWorkers goroutines) and
-// returns aggregated IR metrics. candidateMul controls oversampling when reranking.
-const evalWorkers = 8
+// tLogger adapts *testing.T to EvalLogger.
+type tLogger struct{ t *testing.T }
 
+func (l tLogger) Logf(format string, args ...any)   { l.t.Logf(format, args...) }
+func (l tLogger) Errorf(format string, args ...any) { l.t.Errorf(format, args...) }
+
+// runEval is a test-scoped wrapper around RunEval.
 func runEval(
 	t *testing.T,
 	ctx context.Context,
-	cases []evalCase,
+	cases []EvalCase,
 	embedder Embedder,
 	store Store,
 	reranker Reranker,
@@ -245,116 +231,7 @@ func runEval(
 	topK int,
 	candidateMul int,
 	hydeSearcher *HyDESearcher,
-) evalMetrics {
+) EvalMetrics {
 	t.Helper()
-
-	if candidateMul <= 0 {
-		candidateMul = 3
-	}
-
-	type result struct {
-		reciprocalRank float64
-		hit            bool
-		precisionAtK   float64
-		ndcgAtK        float64
-	}
-
-	results := make([]result, len(cases))
-	sem := make(chan struct{}, evalWorkers)
-	var wg sync.WaitGroup
-
-	for i, tc := range cases {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(i int, tc evalCase) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			fetchK := topK
-			if reranker != nil {
-				fetchK = topK * candidateMul
-			}
-
-			var hits []ScoredChunk
-			var err error
-			if hydeSearcher != nil {
-				hits, err = hydeSearcher.Search(ctx, tc.Query, fetchK)
-				if err != nil {
-					t.Logf("hyde search %q failed, falling back: %v", tc.Query, err)
-					hits, err = nil, nil
-				}
-			}
-			if hits == nil {
-				var vec []float32
-				vec, err = embedder.Embed(ctx, tc.Query)
-				if err != nil {
-					t.Errorf("embed query %q: %v", tc.Query, err)
-					return
-				}
-				hits, err = store.HybridSearch(ctx, vec, tc.Query, fetchK)
-				if err != nil {
-					t.Errorf("search %q: %v", tc.Query, err)
-					return
-				}
-			}
-
-			if reranker != nil {
-				hits, err = reranker.Rerank(ctx, tc.Query, hits)
-				if err != nil {
-					t.Logf("warn: rerank %q: %v", tc.Query, err)
-				}
-				if len(hits) > topK {
-					hits = hits[:topK]
-				}
-			}
-
-			var firstRank, relevantCount int
-			dcg := 0.0
-			for rank, r := range hits {
-				rel, err := judge.IsRelevant(ctx, tc.Query, r)
-				if err != nil {
-					t.Logf("warn: judge %q chunk %s:%d: %v", tc.Query, r.FilePath, r.LineStart, err)
-				}
-				if rel {
-					if firstRank == 0 {
-						firstRank = rank + 1
-					}
-					relevantCount++
-					dcg += 1.0 / math.Log2(float64(rank+2))
-				}
-			}
-
-			res := result{precisionAtK: float64(relevantCount) / float64(topK)}
-			if firstRank > 0 {
-				res.reciprocalRank = 1.0 / float64(firstRank)
-				res.hit = true
-			}
-			idcg := 0.0
-			for i := 0; i < relevantCount && i < topK; i++ {
-				idcg += 1.0 / math.Log2(float64(i+2))
-			}
-			if idcg > 0 {
-				res.ndcgAtK = dcg / idcg
-			}
-			results[i] = res
-		}(i, tc)
-	}
-	wg.Wait()
-
-	var mrr, hitRate, ndcg, precision float64
-	for _, r := range results {
-		mrr += r.reciprocalRank
-		if r.hit {
-			hitRate++
-		}
-		ndcg += r.ndcgAtK
-		precision += r.precisionAtK
-	}
-	n := float64(len(cases))
-	return evalMetrics{
-		MRR:       mrr / n,
-		HitRate:   hitRate / n,
-		NDCG:      ndcg / n,
-		Precision: precision / n,
-	}
+	return RunEval(ctx, cases, embedder, store, reranker, judge, topK, candidateMul, hydeSearcher, tLogger{t})
 }
