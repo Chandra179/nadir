@@ -1,4 +1,10 @@
-.PHONY: vendor up up-prod run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker snapshot backup
+.PHONY: vendor up up-prod run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker snapshot backup dev prod
+
+dev:
+	./scripts/dev-local.sh
+
+prod:
+	./scripts/prod-start.sh
 
 vendor:
 	go mod tidy && go mod vendor

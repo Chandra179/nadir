@@ -49,6 +49,8 @@ services:
   splade:
     build:
       context: services/splade
+    ports:
+      - "5001:5001"
     volumes:
       - splade_model_cache:/root/.cache/fastembed
     restart: unless-stopped
@@ -62,6 +64,8 @@ services:
   reranker:
     build:
       context: services/reranker
+    ports:
+      - "5002:5002"
     volumes:
       - reranker_model_cache:/root/.cache/huggingface
     restart: unless-stopped
