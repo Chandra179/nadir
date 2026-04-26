@@ -22,6 +22,7 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	HyDE          HyDEConfig          `yaml:"hyde"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
+	Generator     GeneratorConfig     `yaml:"generator"`
 	Docling       DoclingConfig       `yaml:"docling"`
 }
 
@@ -118,9 +119,16 @@ type HyDEConfig struct {
 
 type SemanticCacheConfig struct {
 	Enabled    bool          `yaml:"enabled"`
-	Collection string        `yaml:"collection"`  // Qdrant collection name for cache (default: pkb_cache)
-	Threshold  float32       `yaml:"threshold"`   // cosine similarity cutoff, e.g. 0.90
-	TTL        time.Duration `yaml:"ttl"`         // zero = no expiry
+	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: pkb_cache)
+	Threshold  float32       `yaml:"threshold"`  // cosine similarity cutoff, e.g. 0.90
+	TTL        time.Duration `yaml:"ttl"`        // zero = no expiry
+}
+
+type GeneratorConfig struct {
+	Enabled          bool   `yaml:"enabled"`
+	OllamaAddr       string `yaml:"ollama_addr"`        // defaults to embedder.ollama_addr if empty
+	Model            string `yaml:"model"`              // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
 }
 
 type EvalConfig struct {

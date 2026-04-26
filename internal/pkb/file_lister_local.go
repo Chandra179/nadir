@@ -30,6 +30,10 @@ func (l *LocalFileLister) ListMarkdownFiles(_ context.Context, _ string) ([]File
 }
 
 func (l *LocalFileLister) walk(root string, files *[]FileEntry) error {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		absRoot = root
+	}
 	return filepath.WalkDir(root, func(abs string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -43,7 +47,7 @@ func (l *LocalFileLister) walk(root string, files *[]FileEntry) error {
 		}
 		if strings.ToLower(filepath.Ext(abs)) == ".md" && !l.shouldIgnore(rel) {
 			sha := fileContentSHA(abs)
-			*files = append(*files, FileEntry{Path: rel, SHA: sha})
+			*files = append(*files, FileEntry{Path: rel, Root: absRoot, SHA: sha})
 		}
 		return nil
 	})

@@ -1,4 +1,4 @@
-.PHONY: vendor up up-prod run sm ingest search d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker docling docling-install snapshot backup dev prod
+.PHONY: vendor up up-prod run sm ingest search generate d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker docling docling-install snapshot backup dev prod
 
 dev:
 	./scripts/dev-local.sh
@@ -37,7 +37,14 @@ ingest:
 search:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"personal knowledge base","top_k":5}'
+		-d '{"query":"minimax","top_k":5}'
+
+# generate — search + stream LLM answer. Requires generator.enabled: true in config/config.yaml.
+generate:
+	curl -X POST localhost:8080/search \
+		-H "Content-Type: application/json" \
+		-d '{"query":"minimax","top_k":5,"generate":true}' \
+		--no-buffer
 
 d:
 	curl -X DELETE localhost:6333/collections/pkb_chunks

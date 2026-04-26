@@ -148,6 +148,19 @@ func Server(cfg *config.Config) {
 		}
 	}
 
+	if cfg.Generator.Enabled {
+		ollamaAddr := cfg.Generator.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		gen := pkb.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+		searchHandler.WithGenerator(gen)
+		log.Info(context.Background(), "LLM generator enabled",
+			logger.Field{Key: "model", Value: cfg.Generator.Model},
+			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
+		)
+	}
+
 	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
 
 	mux := http.NewServeMux()

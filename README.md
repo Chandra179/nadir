@@ -132,6 +132,7 @@ Ordered by ROI. ✅ = implemented.
 | 21 | Qdrant resource limits | ✅ | `deploy.resources.limits.memory: 2g` in compose; prevents OOM kill under 10k-doc load |
 | 22 | Grafana dashboards | ✅ | Auto-provisioned via compose; panels: search latency p50/p90/p99, search rate, cache hit rate, embed latency, rerank latency + score delta, ingest throughput; datasource wired to Prometheus |
 | 23 | Qdrant volume backup | ✅ | `scripts/backup-qdrant.sh` — docker-volume tar.gz snapshot; configurable retention (`KEEP_DAYS`); cron-friendly |
+| 24 | LLM answer generation | ✅ | Ollama `/api/chat` streaming; "Lost in the Middle" chunk ordering (Liu et al. 2023); token budget enforcement; grounded prompt with inline citations; enable via `generator.enabled: true` + `generate: true` in search request |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
 

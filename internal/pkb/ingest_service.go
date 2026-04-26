@@ -2,6 +2,7 @@ package pkb
 
 import (
 	"context"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -71,7 +72,11 @@ func (s *IngestService) Run(ctx context.Context) (IngestResult, error) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			text, err := s.fetcher.FetchFile(ctx, f.Path, "")
+			fetchPath := f.Path
+			if f.Root != "" {
+				fetchPath = filepath.Join(f.Root, f.Path)
+			}
+			text, err := s.fetcher.FetchFile(ctx, fetchPath, "")
 			if err != nil {
 				s.log.Error(ctx, "fetch file failed", logger.Field{Key: "path", Value: f.Path}, logger.Field{Key: "error", Value: err.Error()})
 				failed.Add(1)

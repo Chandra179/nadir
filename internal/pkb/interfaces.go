@@ -10,6 +10,7 @@ type Fetcher interface {
 // FileEntry represents a markdown file.
 type FileEntry struct {
 	Path string
+	Root string // absolute root dir this file was found in; set by LocalFileLister
 	SHA  string
 }
 

@@ -10,7 +10,7 @@ middleware:
     level: dev  # dev | prod
 
 knowledge_base:
-  path: "gitbook"           # legacy single dir; still works; override: NOTES_PATH
+  # path: "gitbook"           # legacy single dir; still works; override: NOTES_PATH
   paths:                    # additional markdown dirs (merged with path above)
     - "pdfs/converted"      # docling output dir
 
@@ -79,6 +79,12 @@ eval:
   llm_base_url: "http://localhost:11434/v1"
   llm_model: "llama3.1:8b-instruct-q4_K_M"
   history_path: "eval_history.jsonl"
+
+generator:
+  enabled: true      # set true + ensure ollama LLM is pulled; POST /search with {"generate": true}
+  ollama_addr: ""     # defaults to embedder.ollama_addr
+  model: "phi4-mini:latest"  # LLM for answer generation; use instruct models
+  max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
 
 docling:
   input_dir: "pdfs/raw"        # drop PDFs here

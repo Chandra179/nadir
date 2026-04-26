@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"sort"
@@ -14,9 +15,10 @@ import (
 )
 
 type searchRequest struct {
-	Query   string `json:"query"`
-	TopK    int    `json:"top_k"`
-	Keyword string `json:"keyword"`
+	Query    string `json:"query"`
+	TopK     int    `json:"top_k"`
+	Keyword  string `json:"keyword"`
+	Generate bool   `json:"generate"` // if true, pipe chunks into LLM and stream answer
 }
 
 type searchResult struct {
@@ -40,6 +42,7 @@ type SearchHandler struct {
 	candidateMul  int            // fetch topK*candidateMul candidates when reranking (default 3)
 	hyde          *HyDESearcher  // nil = disabled; replaces embedding step when set
 	semanticCache *SemanticCache // nil = disabled
+	generator     Generator      // nil = disabled; streams LLM answer when generate:true in request
 	metrics       *otel.Metrics  // nil = no-op
 }
 
@@ -72,6 +75,14 @@ func (h *SearchHandler) WithSemanticCache(sc *SemanticCache) *SearchHandler {
 	return h
 }
 
+// WithGenerator enables LLM answer generation from retrieved chunks.
+// When the request includes "generate": true, chunks are passed to the generator
+// and the answer is streamed back as text/plain.
+func (h *SearchHandler) WithGenerator(g Generator) *SearchHandler {
+	h.generator = g
+	return h
+}
+
 // WithMetrics attaches an otel.Metrics recorder for instrumentation.
 func (h *SearchHandler) WithMetrics(m *otel.Metrics) *SearchHandler {
 	h.metrics = m
@@ -94,8 +105,8 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		topK = req.TopK
 	}
 
-	// semantic cache: only applies to vector queries (not keyword-only)
-	if h.semanticCache != nil && req.Query != "" {
+	// semantic cache: only applies to vector queries (not keyword-only), skip when generate=true
+	if h.semanticCache != nil && req.Query != "" && !req.Generate {
 		if cached, hit, err := h.semanticCache.Get(r.Context(), req.Query); err == nil && hit {
 			if len(cached) > topK {
 				cached = cached[:topK]
@@ -185,6 +196,37 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
+	h.metrics.RecordSearch(r.Context(), time.Since(start), len(chunks), h.searchMode(req))
+
+	// generate: stream LLM answer grounded in retrieved chunks
+	if req.Generate && h.generator != nil && req.Query != "" && len(chunks) > 0 {
+		stream, err := h.generator.Generate(r.Context(), req.Query, chunks)
+		if err != nil {
+			http.Error(w, "generate failed", http.StatusInternalServerError)
+			return
+		}
+		defer stream.Close()
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Transfer-Encoding", "chunked")
+		if f, ok := w.(http.Flusher); ok {
+			buf := make([]byte, 512)
+			for {
+				n, err := stream.Read(buf)
+				if n > 0 {
+					w.Write(buf[:n]) //nolint:errcheck
+					f.Flush()
+				}
+				if err != nil {
+					break
+				}
+			}
+		} else {
+			io.Copy(w, stream) //nolint:errcheck
+		}
+		return
+	}
+
 	results := make([]searchResult, len(chunks))
 	for i, c := range chunks {
 		text := c.WindowText
@@ -200,7 +242,6 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.metrics.RecordSearch(r.Context(), time.Since(start), len(results), h.searchMode(req))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(searchResponse{Results: results})
 }
