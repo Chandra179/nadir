@@ -61,7 +61,7 @@ SearchHandler.ServeHTTP
   │
   ├── [SemanticCache enabled?]
   │     Embedder.Embed(query) → Qdrant cosine search on pkb_cache collection
-  │     score >= threshold (default 0.90)? → return cached []ScoredChunk immediately
+  │     score >= threshold → return cached []ScoredChunk immediately
   │     miss → continue pipeline, write result to cache async after retrieval
   │
   ├── [keyword-only request?]
@@ -102,27 +102,6 @@ SearchHandler.ServeHTTP
               ▼
         JSON response: []{ file_path, header, line_start, score, text }
 ```
-
----
-
-## Component Catalog
-
-| Component | File | Role |
-|-----------|------|------|
-| `RecursiveChunker` | `chunker_recursive.go` | Goldmark AST → plain-text chunks |
-| `SentenceWindowChunker` | `chunker_sentence_window.go` | Sentence-level index, paragraph-level retrieval |
-| `OllamaEmbedder` | `embedder_ollama.go` | Dense embeddings via local Ollama |
-| `QdrantStore` | `store_qdrant.go` | Vector store: upsert, delete, hybrid search |
-| `TFSparseScorer` | `sparse_scorer.go` | Client-side TF proxy for BM25 leg |
-| `SPLADESparseScorer` | `sparse_scorer_splade.go` | Neural sparse embeddings via Python sidecar |
-| `Pipeline` | `pipeline.go` | Chunk → embed → upsert with retry |
-| `IngestHandler` | `handler_ingest.go` | HTTP handler for `/ingest` |
-| `SearchHandler` | `handler_search.go` | HTTP handler for `/search`, orchestrates all retrieval paths |
-| `HyDESearcher` | `hyde.go` | Hypothetical Document Embedding retrieval |
-| `HTTPReranker` | `reranker.go` | Cross-encoder reranking via Python sidecar |
-| `SemanticCache` | `semantic_cache.go` | Query-result cache backed by Qdrant cosine search |
-| `LocalFileLister` | `file_lister_local.go` | Walk KB directory, return `[]FileEntry` |
-| `LocalFetcher` | `fetcher_local.go` | Read raw `.md` file content |
 
 ---
 
@@ -175,32 +154,4 @@ Cache sits in a **separate Qdrant collection** (`pkb_cache` by default). No extr
 3. Miss → run full search pipeline → fire-and-forget goroutine writes `{query_vec, results_json, cached_at}` to cache
 4. TTL check: if `cached_at` + TTL < now → treat as miss (lazy expiry)
 
-**Threshold guidance** (from Redis RAG-at-scale research):
-- `0.85–0.90`: high recall, may return results for paraphrased but semantically different queries
-- `0.90–0.95`: balanced — recommended default
-- `>0.95`: strict, near-identical queries only
-
-**Stored payload per cache entry:**
-```json
-{ "query": "...", "results_json": "[{...ScoredChunk...}]", "cached_at": "2026-04-25T..." }
-```
-
 **Enable:** set `semantic_cache.enabled: true` in `config/config.yaml`.
-
----
-
-## Configuration Reference
-
-Key config toggles (all in `config/config.yaml`):
-
-| Key | Default | Effect |
-|-----|---------|--------|
-| `chunker.provider` | `recursive` | `sentence-window` for sentence-level indexing |
-| `sparse_scorer.provider` | `splade` | `tf` for zero-dep TF proxy |
-| `hyde.enabled` | `true` | HyDE query expansion via LLM |
-| `hyde.num_docs` | `1` | `8` matches paper accuracy, ~8× latency (parallelized) |
-| `reranker.enabled` | `true` | Cross-encoder reranking |
-| `reranker.candidate_mul` | `10` | Oversample factor before reranking |
-| `semantic_cache.enabled` | `false` | Query-result cache |
-| `semantic_cache.threshold` | `0.90` | Cosine similarity cutoff |
-| `semantic_cache.ttl` | `24h` | Cache entry lifetime; `0` = no expiry |

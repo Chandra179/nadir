@@ -1,6 +1,7 @@
 package otel
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -44,5 +45,5 @@ func (p *Provider) HTTPHandler() http.Handler {
 
 // Close shuts down the MeterProvider (flushes pending data).
 func (p *Provider) Close() error {
-	return p.mp.Shutdown(nil)
+	return p.mp.Shutdown(context.Background())
 }

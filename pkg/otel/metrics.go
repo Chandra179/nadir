@@ -14,20 +14,20 @@ const instrScope = "nadir/pkb"
 // Zero value is a no-op (all instruments are nil-safe via the OTEL API).
 type Metrics struct {
 	// search
-	searchDuration   metric.Float64Histogram
-	searchResultsN   metric.Int64Histogram
+	searchDuration metric.Float64Histogram
+	searchResultsN metric.Int64Histogram
 
 	// cache
 	cacheHits   metric.Int64Counter
 	cacheMisses metric.Int64Counter
 
 	// embedding
-	embedDuration      metric.Float64Histogram
-	embedBatchSize     metric.Int64Histogram
+	embedDuration  metric.Float64Histogram
+	embedBatchSize metric.Int64Histogram
 
 	// rerank
-	rerankDuration  metric.Float64Histogram
-	rerankDelta     metric.Float64Histogram // score[0] before - after rerank
+	rerankDuration metric.Float64Histogram
+	rerankDelta    metric.Float64Histogram // score[0] before - after rerank
 
 	// ingest
 	ingestProcessed metric.Int64Counter
@@ -140,8 +140,6 @@ func New(meter metric.Meter) (*Metrics, error) {
 	return m, nil
 }
 
-// --- Search ---
-
 func (m *Metrics) RecordSearch(ctx context.Context, dur time.Duration, n int, mode string) {
 	if m == nil {
 		return
@@ -150,8 +148,6 @@ func (m *Metrics) RecordSearch(ctx context.Context, dur time.Duration, n int, mo
 	m.searchDuration.Record(ctx, dur.Seconds(), attrs)
 	m.searchResultsN.Record(ctx, int64(n), attrs)
 }
-
-// --- Cache ---
 
 func (m *Metrics) RecordCacheHit(ctx context.Context) {
 	if m == nil {
@@ -167,8 +163,6 @@ func (m *Metrics) RecordCacheMiss(ctx context.Context) {
 	m.cacheMisses.Add(ctx, 1)
 }
 
-// --- Embed ---
-
 func (m *Metrics) RecordEmbed(ctx context.Context, dur time.Duration, batchSize int) {
 	if m == nil {
 		return
@@ -177,8 +171,6 @@ func (m *Metrics) RecordEmbed(ctx context.Context, dur time.Duration, batchSize 
 	m.embedBatchSize.Record(ctx, int64(batchSize))
 }
 
-// --- Rerank ---
-
 func (m *Metrics) RecordRerank(ctx context.Context, dur time.Duration, scoreBefore, scoreAfter float32) {
 	if m == nil {
 		return
@@ -186,8 +178,6 @@ func (m *Metrics) RecordRerank(ctx context.Context, dur time.Duration, scoreBefo
 	m.rerankDuration.Record(ctx, dur.Seconds())
 	m.rerankDelta.Record(ctx, float64(scoreAfter-scoreBefore))
 }
-
-// --- Ingest ---
 
 func (m *Metrics) RecordIngestFile(ctx context.Context, outcome string) {
 	if m == nil {

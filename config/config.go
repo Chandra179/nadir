@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -122,6 +123,7 @@ func LoadEval(path string) (*EvalConfig, error) {
 	if err := yaml.NewDecoder(f).Decode(&wrapper); err != nil {
 		return nil, err
 	}
+	wrapper.Eval.applyEnv()
 	return &wrapper.Eval, nil
 }
 
@@ -158,14 +160,43 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("OLLAMA_ADDR"); v != "" {
 		c.Embedder.OllamaAddr = v
 	}
+	if v := os.Getenv("EMBEDDER_API_KEY"); v != "" {
+		c.Embedder.APIKey = v
+	}
 	if v := os.Getenv("SPLADE_ADDR"); v != "" {
 		c.SparseScorer.Addr = v
 	}
 	if v := os.Getenv("RERANKER_ADDR"); v != "" {
 		c.Reranker.Addr = v
 	}
+	if v := os.Getenv("RERANKER_ENABLED"); v != "" {
+		c.Reranker.Enabled = v == "true" || v == "1"
+	}
 	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
 		c.Middleware.Logger.Level = v
+	}
+	if v := os.Getenv("HYDE_ENABLED"); v != "" {
+		c.HyDE.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("HYDE_MODEL"); v != "" {
+		c.HyDE.Model = v
+	}
+	if v := os.Getenv("SEMANTIC_CACHE_THRESHOLD"); v != "" {
+		if f, err := strconv.ParseFloat(v, 32); err == nil {
+			c.SemanticCache.Threshold = float32(f)
+		}
+	}
+}
+
+func (e *EvalConfig) applyEnv() {
+	if v := os.Getenv("EVAL_LLM_BASE_URL"); v != "" {
+		e.LLMBaseURL = v
+	}
+	if v := os.Getenv("EVAL_LLM_MODEL"); v != "" {
+		e.LLMModel = v
+	}
+	if v := os.Getenv("EVAL_HISTORY_PATH"); v != "" {
+		e.HistoryPath = v
 	}
 }
 

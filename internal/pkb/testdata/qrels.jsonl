@@ -1,250 +1,250 @@
 {"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":true}
-{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:290","file_path":"golang/goroutine.md","relevant":false}
-{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":true}
-{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"system-design/distributed-task-scheduler.md:29","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:290","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:94","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does the Go GPM scheduler work with goroutines and OS threads?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":false}
 {"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":true}
-{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":false}
 {"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:290","file_path":"golang/goroutine.md","relevant":true}
 {"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:484","file_path":"golang/goroutine.md","relevant":true}
 {"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:328","file_path":"golang/goroutine.md","relevant":false}
-{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":true}
-{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"fundamental/api-design-guidelines.md:41","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What causes goroutine leaks and how do you prevent them?","chunk_id":"golang/goroutine.md:155","file_path":"golang/goroutine.md","relevant":false}
 {"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"fundamental/networking.md:71","file_path":"fundamental/networking.md","relevant":false}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"fundamental/api-design-guidelines.md:41","file_path":"fundamental/api-design-guidelines.md","relevant":false}
 {"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"golang/goroutine.md:73","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"p2p-chat.md:29","file_path":"p2p-chat.md","relevant":false}
+{"query":"How do Go channels work internally with sendq and recvq?","chunk_id":"p2p-chat.md:5","file_path":"p2p-chat.md","relevant":false}
 {"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:86","file_path":"golang/compiler.md","relevant":false}
 {"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:280","file_path":"golang/compiler.md","relevant":false}
 {"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:287","file_path":"golang/compiler.md","relevant":false}
-{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/goroutine.md:94","file_path":"golang/goroutine.md","relevant":false}
+{"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/goroutine.md:94","file_path":"golang/goroutine.md","relevant":true}
 {"query":"What changed in Go 1.22 loop variable scoping semantics?","chunk_id":"golang/compiler.md:192","file_path":"golang/compiler.md","relevant":false}
 {"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:44","file_path":"golang/strings.md","relevant":true}
-{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:1","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:1","file_path":"golang/strings.md","relevant":false}
 {"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:50","file_path":"golang/strings.md","relevant":true}
+{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"domain.md:21","file_path":"domain.md","relevant":true}
 {"query":"How does strings.Builder improve concatenation performance?","chunk_id":"golang/strings.md:22","file_path":"golang/strings.md","relevant":true}
-{"query":"How does strings.Builder improve concatenation performance?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:65","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:1","file_path":"system-design/consistent-hashing.md","relevant":true}
-{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:128","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:61","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:94","file_path":"system-design/consistent-hashing.md","relevant":true}
-{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:16","file_path":"system-design/id-generator.md","relevant":true}
+{"query":"How does consistent hashing minimize data movement when adding servers?","chunk_id":"system-design/consistent-hashing.md:74","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:47","file_path":"system-design/id-generator.md","relevant":false}
 {"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:36","file_path":"system-design/id-generator.md","relevant":false}
+{"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"system-design/id-generator.md:16","file_path":"system-design/id-generator.md","relevant":true}
 {"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"math/trigonometry.md:382","file_path":"math/trigonometry.md","relevant":false}
 {"query":"What is the Snowflake ID structure and how does it handle clock skew?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/rate-limit.md:14","file_path":"system-design/rate-limit.md","relevant":false}
-{"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/notification-system.md:64","file_path":"system-design/notification-system.md","relevant":true}
+{"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/notification-system.md:64","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/rate-limit.md:35","file_path":"system-design/rate-limit.md","relevant":true}
 {"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/rate-limit.md:24","file_path":"system-design/rate-limit.md","relevant":true}
-{"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/rate-limit.md:1","file_path":"system-design/rate-limit.md","relevant":false}
+{"query":"How does rate limiting work with Redis and what is thundering herd jitter protection?","chunk_id":"system-design/id-generator.md:16","file_path":"system-design/id-generator.md","relevant":false}
 {"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:77","file_path":"system-design/distributed-cache.md","relevant":true}
-{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:55","file_path":"system-design/distributed-cache.md","relevant":false}
-{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":false}
 {"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:70","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":false}
 {"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/rate-limit.md:24","file_path":"system-design/rate-limit.md","relevant":false}
+{"query":"How does cache stampede prevention work with request coalescing?","chunk_id":"system-design/distributed-cache.md:55","file_path":"system-design/distributed-cache.md","relevant":true}
 {"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:94","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:74","file_path":"system-design/consistent-hashing.md","relevant":true}
-{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:128","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":true}
 {"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:1","file_path":"system-design/consistent-hashing.md","relevant":true}
+{"query":"How do virtual nodes in consistent hashing improve load distribution?","chunk_id":"system-design/consistent-hashing.md:38","file_path":"system-design/consistent-hashing.md","relevant":true}
 {"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":true}
 {"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":true}
-{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":true}
-{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:138","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between B-Tree and LSM Tree storage engines for databases?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
 {"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:190","file_path":"fundamental/database.md","relevant":false}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:138","file_path":"fundamental/database.md","relevant":true}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":true}
 {"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/networking.md:3","file_path":"fundamental/networking.md","relevant":false}
-{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/api-design-guidelines.md:24","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"How do ACID transactions handle isolation levels?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":true}
 {"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":true}
-{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":true}
-{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":true}
-{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:32","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":true}
+{"query":"What is the N+1 query problem and how do you solve it?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:18","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:14","file_path":"fundamental/kafka.md","relevant":true}
-{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:34","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/kafka.md:34","file_path":"fundamental/kafka.md","relevant":false}
 {"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/networking.md:63","file_path":"fundamental/networking.md","relevant":false}
-{"query":"How does Kafka partition routing work for producers?","chunk_id":"fundamental/networking.md:37","file_path":"fundamental/networking.md","relevant":false}
-{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does Kafka partition routing work for producers?","chunk_id":"system-design/distributed-cache.md:20","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":false}
 {"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/api-design-guidelines.md:9","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/computing.md:31","file_path":"fundamental/computing.md","relevant":true}
-{"query":"What is the CPU fetch-execute cycle?","chunk_id":"fundamental/database.md:154","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"golang/compiler.md:164","file_path":"golang/compiler.md","relevant":false}
 {"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"golang/compiler.md:113","file_path":"golang/compiler.md","relevant":true}
-{"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"golang/compiler.md:327","file_path":"golang/compiler.md","relevant":false}
+{"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"golang/compiler.md:164","file_path":"golang/compiler.md","relevant":true}
 {"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is escape analysis in Go and how does it decide stack vs heap allocation?","chunk_id":"golang/compiler.md:312","file_path":"golang/compiler.md","relevant":true}
-{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"fundamental/api-design-guidelines.md:9","file_path":"fundamental/api-design-guidelines.md","relevant":false}
 {"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"golang/compiler.md:80","file_path":"golang/compiler.md","relevant":false}
+{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"personal-knowledge-base.md:29","file_path":"personal-knowledge-base.md","relevant":false}
 {"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"golang/compiler.md:86","file_path":"golang/compiler.md","relevant":false}
-{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"fundamental/api-design-guidelines.md:30","file_path":"fundamental/api-design-guidelines.md","relevant":false}
-{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
-{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"ml/chunking-and-embedding.md:150","file_path":"ml/chunking-and-embedding.md","relevant":true}
+{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"fundamental/software-architecture.md:47","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"How do Go interfaces work at the runtime level with itab and type assertions?","chunk_id":"golang/compiler.md:228","file_path":"golang/compiler.md","relevant":false}
+{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"personal-knowledge-base.md:29","file_path":"personal-knowledge-base.md","relevant":false}
+{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
+{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"ml/chunking-and-embedding.md:150","file_path":"ml/chunking-and-embedding.md","relevant":false}
 {"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"golang/compiler.md:86","file_path":"golang/compiler.md","relevant":false}
 {"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"math/README.md:1","file_path":"math/README.md","relevant":false}
-{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"fundamental/api-design-guidelines.md:30","file_path":"fundamental/api-design-guidelines.md","relevant":false}
-{"query":"What are Go generics type constraints and how does type inference work?","chunk_id":"ml/chunking-and-embedding.md:143","file_path":"ml/chunking-and-embedding.md","relevant":false}
-{"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/goroutine.md:230","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/goroutine.md:328","file_path":"golang/goroutine.md","relevant":false}
 {"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/goroutine.md:256","file_path":"golang/goroutine.md","relevant":false}
-{"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/goroutine.md:274","file_path":"golang/goroutine.md","relevant":true}
-{"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/compiler.md:327","file_path":"golang/compiler.md","relevant":false}
+{"query":"How does sync.Mutex work and what is the difference between Mutex and RWMutex?","chunk_id":"golang/goroutine.md:274","file_path":"golang/goroutine.md","relevant":false}
 {"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":false}
 {"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:328","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:256","file_path":"golang/goroutine.md","relevant":false}
-{"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:94","file_path":"golang/goroutine.md","relevant":false}
+{"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:366","file_path":"golang/goroutine.md","relevant":false}
+{"query":"How does Go context cancellation propagate through goroutine trees?","chunk_id":"golang/goroutine.md:3","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How does select work in Go when multiple channels are ready?","chunk_id":"golang/goroutine.md:155","file_path":"golang/goroutine.md","relevant":true}
 {"query":"How does select work in Go when multiple channels are ready?","chunk_id":"golang/goroutine.md:140","file_path":"golang/goroutine.md","relevant":true}
+{"query":"How does select work in Go when multiple channels are ready?","chunk_id":"golang/compiler.md:192","file_path":"golang/compiler.md","relevant":false}
 {"query":"How does select work in Go when multiple channels are ready?","chunk_id":"fundamental/api-design-guidelines.md:41","file_path":"fundamental/api-design-guidelines.md","relevant":false}
 {"query":"How does select work in Go when multiple channels are ready?","chunk_id":"system-design/notification-system.md:5","file_path":"system-design/notification-system.md","relevant":false}
-{"query":"How does select work in Go when multiple channels are ready?","chunk_id":"golang/goroutine.md:83","file_path":"golang/goroutine.md","relevant":false}
-{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/id-generator.md:43","file_path":"system-design/id-generator.md","relevant":false}
-{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/notification-system.md:56","file_path":"system-design/notification-system.md","relevant":true}
-{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/distributed-task-scheduler.md:39","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
+{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/id-generator.md:43","file_path":"system-design/id-generator.md","relevant":true}
+{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/notification-system.md:56","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/id-generator.md:47","file_path":"system-design/id-generator.md","relevant":false}
+{"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/notification-system.md:20","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the circuit breaker pattern and when should it open?","chunk_id":"system-design/notification-system.md:5","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"fundamental/database.md:190","file_path":"fundamental/database.md","relevant":true}
 {"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"system-design/id-generator.md:43","file_path":"system-design/id-generator.md","relevant":false}
 {"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"system-design/consistent-hashing.md:128","file_path":"system-design/consistent-hashing.md","relevant":false}
-{"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"system-design/distributed-task-scheduler.md:39","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
 {"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"system-design/distributed-task-scheduler.md:5","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
+{"query":"How does the saga pattern handle distributed transaction rollback?","chunk_id":"system-design/distributed-cache.md:77","file_path":"system-design/distributed-cache.md","relevant":true}
 {"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:154","file_path":"fundamental/database.md","relevant":true}
 {"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does write-ahead logging ensure durability in databases?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"fundamental/database.md:32","file_path":"fundamental/database.md","relevant":true}
 {"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":true}
+{"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"system-design/distributed-task-scheduler.md:20","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
 {"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":true}
-{"query":"How does a query planner choose between index scan and sequential scan?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/kafka.md:125","file_path":"fundamental/kafka.md","relevant":false}
+{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/database.md:154","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does virtual memory paging work with TLB and page faults?","chunk_id":"fundamental/computing.md:15","file_path":"fundamental/computing.md","relevant":false}
 {"query":"How does Kafka consumer group rebalancing work when a member joins or leaves?","chunk_id":"fundamental/kafka.md:111","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"How does Kafka consumer group rebalancing work when a member joins or leaves?","chunk_id":"fundamental/kafka.md:105","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"How does Kafka consumer group rebalancing work when a member joins or leaves?","chunk_id":"fundamental/kafka.md:34","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"How does Kafka consumer group rebalancing work when a member joins or leaves?","chunk_id":"fundamental/database.md:98","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does Kafka consumer group rebalancing work when a member joins or leaves?","chunk_id":"fundamental/kafka.md:3","file_path":"fundamental/kafka.md","relevant":false}
 {"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/calculus.md:3","file_path":"math/calculus.md","relevant":true}
-{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/precalculus/README.md:748","file_path":"math/precalculus/README.md","relevant":false}
-{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/README.md:1","file_path":"math/README.md","relevant":false}
-{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/precalculus/summary.md:71","file_path":"math/precalculus/summary.md","relevant":false}
+{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/precalculus/README.md:748","file_path":"math/precalculus/README.md","relevant":true}
+{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/README.md:1","file_path":"math/README.md","relevant":true}
 {"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/calculus.md:9","file_path":"math/calculus.md","relevant":true}
-{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/README.md:1","file_path":"math/README.md","relevant":true}
+{"query":"What is the derivative and how is it different from average rate of change?","chunk_id":"math/calculus.md:39","file_path":"math/calculus.md","relevant":true}
 {"query":"How does the power rule work for finding derivatives?","chunk_id":"math/calculus.md:39","file_path":"math/calculus.md","relevant":true}
-{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/calculus.md:9","file_path":"math/calculus.md","relevant":true}
-{"query":"How does the power rule work for finding derivatives?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/trigonometry.md:290","file_path":"math/trigonometry.md","relevant":false}
+{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/precalculus/README.md:381","file_path":"math/precalculus/README.md","relevant":false}
+{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/calculus.md:9","file_path":"math/calculus.md","relevant":false}
+{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/precalculus/summary.md:45","file_path":"math/precalculus/summary.md","relevant":false}
+{"query":"How does the power rule work for finding derivatives?","chunk_id":"math/sequence-series-limit.md:3","file_path":"math/sequence-series-limit.md","relevant":false}
 {"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"math/linear-algebra.md:290","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"math/linear-algebra.md:270","file_path":"math/linear-algebra.md","relevant":false}
+{"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"math/linear-algebra.md:270","file_path":"math/linear-algebra.md","relevant":true}
 {"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"math/linear-algebra.md:398","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"math/precalculus/README.md:700","file_path":"math/precalculus/README.md","relevant":false}
 {"query":"What is LU decomposition and how does it speed up solving linear systems?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
-{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:1","file_path":"math/linear-algebra.md","relevant":true}
 {"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:398","file_path":"math/linear-algebra.md","relevant":true}
+{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:1","file_path":"math/linear-algebra.md","relevant":false}
 {"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:278","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:360","file_path":"math/linear-algebra.md","relevant":true}
-{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:191","file_path":"math/linear-algebra.md","relevant":false}
+{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:167","file_path":"math/linear-algebra.md","relevant":false}
+{"query":"What does the nullspace of a matrix represent?","chunk_id":"math/linear-algebra.md:360","file_path":"math/linear-algebra.md","relevant":false}
 {"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:398","file_path":"math/linear-algebra.md","relevant":true}
 {"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:410","file_path":"math/linear-algebra.md","relevant":true}
-{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:360","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:1","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:360","file_path":"math/linear-algebra.md","relevant":true}
+{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"math/linear-algebra.md:167","file_path":"math/linear-algebra.md","relevant":true}
+{"query":"What is the difference between matrix rank and nullspace?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":true}
+{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"fundamental/computing.md:40","file_path":"fundamental/computing.md","relevant":false}
 {"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"math/linear-algebra.md:290","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"math/linear-algebra.md:191","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"math/linear-algebra.md:398","file_path":"math/linear-algebra.md","relevant":false}
-{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"fundamental/computing.md:49","file_path":"fundamental/computing.md","relevant":false}
+{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"ml/README.md:39","file_path":"ml/README.md","relevant":false}
+{"query":"How does SVD decompose a matrix and what are U, Sigma, and V used for?","chunk_id":"fundamental/software-architecture.md:24","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/linear-algebra.md:41","file_path":"math/linear-algebra.md","relevant":true}
 {"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/linear-algebra.md:360","file_path":"math/linear-algebra.md","relevant":true}
+{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/precalculus/summary.md:71","file_path":"math/precalculus/summary.md","relevant":false}
+{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/precalculus/README.md:700","file_path":"math/precalculus/README.md","relevant":false}
 {"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/precalculus/summary.md:169","file_path":"math/precalculus/summary.md","relevant":false}
-{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/trigonometry.md:177","file_path":"math/trigonometry.md","relevant":false}
-{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/precalculus/summary.md:178","file_path":"math/precalculus/summary.md","relevant":false}
-{"query":"What is the Frobenius inner product and how is it calculated?","chunk_id":"math/precalculus/README.md:748","file_path":"math/precalculus/README.md","relevant":false}
+{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/software-architecture.md:24","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/database.md:98","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/software-architecture.md:42","file_path":"fundamental/software-architecture.md","relevant":false}
-{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"golang/compiler.md:327","file_path":"golang/compiler.md","relevant":false}
-{"query":"What is QR decomposition and when is it used over LU?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does cosine similarity measure vector alignment?","chunk_id":"personal-knowledge-base.md:29","file_path":"personal-knowledge-base.md","relevant":true}
 {"query":"How does cosine similarity measure vector alignment?","chunk_id":"ml/README.md:13","file_path":"ml/README.md","relevant":false}
 {"query":"How does cosine similarity measure vector alignment?","chunk_id":"math/trigonometry.md:341","file_path":"math/trigonometry.md","relevant":true}
-{"query":"How does cosine similarity measure vector alignment?","chunk_id":"math/trigonometry.md:1","file_path":"math/trigonometry.md","relevant":false}
-{"query":"How does cosine similarity measure vector alignment?","chunk_id":"math/precalculus/summary.md:3","file_path":"math/precalculus/summary.md","relevant":false}
+{"query":"How does cosine similarity measure vector alignment?","chunk_id":"math/trigonometry.md:1","file_path":"math/trigonometry.md","relevant":true}
+{"query":"How does cosine similarity measure vector alignment?","chunk_id":"math/summary.md:16","file_path":"math/summary.md","relevant":false}
 {"query":"What is NAT hole punching and how does P2P traversal work?","chunk_id":"system-design/consistent-hashing.md:38","file_path":"system-design/consistent-hashing.md","relevant":false}
 {"query":"What is NAT hole punching and how does P2P traversal work?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":false}
 {"query":"What is NAT hole punching and how does P2P traversal work?","chunk_id":"system-design/consistent-hashing.md:22","file_path":"system-design/consistent-hashing.md","relevant":false}
 {"query":"What is NAT hole punching and how does P2P traversal work?","chunk_id":"fundamental/computing.md:49","file_path":"fundamental/computing.md","relevant":false}
 {"query":"What is NAT hole punching and how does P2P traversal work?","chunk_id":"system-design/consistent-hashing.md:18","file_path":"system-design/consistent-hashing.md","relevant":false}
 {"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:135","file_path":"fundamental/computing.md","relevant":true}
-{"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:109","file_path":"fundamental/computing.md","relevant":false}
+{"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:109","file_path":"fundamental/computing.md","relevant":true}
 {"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:122","file_path":"fundamental/computing.md","relevant":true}
 {"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:63","file_path":"fundamental/computing.md","relevant":false}
 {"query":"How does UTF-8 encode Unicode characters?","chunk_id":"fundamental/computing.md:158","file_path":"fundamental/computing.md","relevant":false}
 {"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/computing.md:15","file_path":"fundamental/computing.md","relevant":false}
-{"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/computing.md:40","file_path":"fundamental/computing.md","relevant":false}
+{"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is virtual memory and how do TLB lookups work?","chunk_id":"fundamental/computing.md:31","file_path":"fundamental/computing.md","relevant":false}
 {"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/computing.md:31","file_path":"fundamental/computing.md","relevant":true}
-{"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/database.md:63","file_path":"fundamental/database.md","relevant":false}
+{"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/api-design-guidelines.md:9","file_path":"fundamental/api-design-guidelines.md","relevant":false}
+{"query":"How does the CPU fetch-execute cycle work with registers and ALU?","chunk_id":"fundamental/database.md:21","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
-{"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/database.md:109","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"math/trigonometry.md:376","file_path":"math/trigonometry.md","relevant":false}
 {"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/software-architecture.md:42","file_path":"fundamental/software-architecture.md","relevant":false}
-{"query":"What is the difference between OAuth2 and OIDC?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"fundamental/kafka.md:34","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"system-design/notification-system.md:5","file_path":"system-design/notification-system.md","relevant":false}
-{"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"fundamental/kafka.md:111","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"fundamental/kafka.md:111","file_path":"fundamental/kafka.md","relevant":false}
 {"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"system-design/notification-system.md:13","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"How does Kafka consumer group rebalancing affect message delivery?","chunk_id":"fundamental/kafka.md:105","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/kafka.md:105","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/kafka.md:14","file_path":"fundamental/kafka.md","relevant":true}
 {"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
 {"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/kafka.md:18","file_path":"fundamental/kafka.md","relevant":true}
-{"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/kafka.md:7","file_path":"fundamental/kafka.md","relevant":true}
+{"query":"What is the difference between Kafka broker, topic, and partition?","chunk_id":"fundamental/software-architecture.md:24","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:5","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
 {"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:39","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
-{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:5","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
+{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:12","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
 {"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:20","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
-{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:12","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
-{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:29","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
+{"query":"How do distributed task schedulers handle worker failure and task retry?","chunk_id":"system-design/distributed-task-scheduler.md:29","file_path":"system-design/distributed-task-scheduler.md","relevant":true}
 {"query":"What are the 8 fallacies of distributed computing?","chunk_id":"system-design/distributed-task-scheduler.md:5","file_path":"system-design/distributed-task-scheduler.md","relevant":false}
-{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"system-design/distributed-cache.md:20","file_path":"system-design/distributed-cache.md","relevant":true}
+{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"system-design/distributed-cache.md:20","file_path":"system-design/distributed-cache.md","relevant":false}
 {"query":"What are the 8 fallacies of distributed computing?","chunk_id":"fundamental/software-architecture.md:122","file_path":"fundamental/software-architecture.md","relevant":true}
-{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"system-design/distributed-cache.md:43","file_path":"system-design/distributed-cache.md","relevant":false}
-{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"system-design/distributed-cache.md:32","file_path":"system-design/distributed-cache.md","relevant":false}
-{"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:38","file_path":"fundamental/software-architecture.md","relevant":false}
-{"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:12","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"fundamental/database.md:160","file_path":"fundamental/database.md","relevant":false}
+{"query":"What are the 8 fallacies of distributed computing?","chunk_id":"fundamental/database.md:170","file_path":"fundamental/database.md","relevant":false}
+{"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:38","file_path":"fundamental/software-architecture.md","relevant":true}
 {"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:91","file_path":"fundamental/software-architecture.md","relevant":false}
+{"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:12","file_path":"fundamental/software-architecture.md","relevant":false}
 {"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:61","file_path":"fundamental/software-architecture.md","relevant":false}
 {"query":"What is architecture quantum and how does it affect coupling?","chunk_id":"fundamental/software-architecture.md:112","file_path":"fundamental/software-architecture.md","relevant":true}
-{"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:13","file_path":"system-design/notification-system.md","relevant":true}
-{"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:20","file_path":"system-design/notification-system.md","relevant":false}
+{"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:13","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:56","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:60","file_path":"system-design/notification-system.md","relevant":false}
+{"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:20","file_path":"system-design/notification-system.md","relevant":true}
 {"query":"How does a notification system fan out messages to millions of users?","chunk_id":"system-design/notification-system.md:70","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the difference between push and pull delivery in notification systems?","chunk_id":"system-design/notification-system.md:5","file_path":"system-design/notification-system.md","relevant":true}
 {"query":"What is the difference between push and pull delivery in notification systems?","chunk_id":"system-design/notification-system.md:70","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the difference between push and pull delivery in notification systems?","chunk_id":"system-design/notification-system.md:13","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the difference between push and pull delivery in notification systems?","chunk_id":"system-design/notification-system.md:20","file_path":"system-design/notification-system.md","relevant":false}
 {"query":"What is the difference between push and pull delivery in notification systems?","chunk_id":"system-design/notification-system.md:60","file_path":"system-design/notification-system.md","relevant":false}
-{"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:3","file_path":"ml/chunking-and-embedding.md","relevant":true}
+{"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:3","file_path":"ml/chunking-and-embedding.md","relevant":false}
 {"query":"What is structure-aware chunking for embeddings?","chunk_id":"personal-knowledge-base.md:62","file_path":"personal-knowledge-base.md","relevant":true}
 {"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:107","file_path":"ml/chunking-and-embedding.md","relevant":false}
-{"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:150","file_path":"ml/chunking-and-embedding.md","relevant":false}
+{"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:150","file_path":"ml/chunking-and-embedding.md","relevant":true}
 {"query":"What is structure-aware chunking for embeddings?","chunk_id":"ml/chunking-and-embedding.md:143","file_path":"ml/chunking-and-embedding.md","relevant":false}
 {"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:32","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:76","file_path":"fundamental/database.md","relevant":true}
 {"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:51","file_path":"fundamental/database.md","relevant":false}
-{"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":true}
+{"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:43","file_path":"fundamental/database.md","relevant":false}
 {"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"golang/strings.md:44","file_path":"golang/strings.md","relevant":false}
+{"query":"How does sentence-window indexing improve retrieval recall?","chunk_id":"fundamental/database.md:178","file_path":"fundamental/database.md","relevant":false}
