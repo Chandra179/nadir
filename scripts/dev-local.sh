@@ -11,8 +11,14 @@ if [[ -f .env ]]; then
   set -a; source .env; set +a
 fi
 
-echo "==> Starting Qdrant, Splade, Reranker..."
-docker compose up -d qdrant splade reranker
+# Override docker-internal hostnames with localhost for host-side Go server
+export QDRANT_ADDR=localhost:6334
+export SPLADE_ADDR=http://localhost:5001
+export RERANKER_ADDR=http://localhost:5002
+export OLLAMA_ADDR=http://localhost:11434
+
+echo "==> Starting Qdrant, Splade, Reranker, Prometheus, Grafana..."
+docker compose up -d qdrant splade reranker prometheus grafana
 
 echo "==> Waiting for Qdrant to be ready..."
 until curl -sf http://localhost:6333/healthz > /dev/null 2>&1; do sleep 1; done
