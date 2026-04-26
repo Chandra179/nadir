@@ -22,7 +22,7 @@ services:
       reranker:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -41,7 +41,7 @@ services:
         limits:
           memory: 2g
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:6333/readyz"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -49,11 +49,13 @@ services:
   splade:
     build:
       context: services/splade
+    ports:
+      - "5001:5001"
     volumes:
       - splade_model_cache:/root/.cache/fastembed
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5001/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,11 +64,13 @@ services:
   reranker:
     build:
       context: services/reranker
+    ports:
+      - "5002:5002"
     volumes:
       - reranker_model_cache:/root/.cache/huggingface
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5002/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -77,8 +81,10 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_BASIC_ENABLED=true
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -104,9 +110,6 @@ services:
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
     restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
 
   # nginx:
   #   image: nginx:1.27-alpine

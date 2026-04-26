@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -21,6 +22,8 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	HyDE          HyDEConfig          `yaml:"hyde"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
+	Generator     GeneratorConfig     `yaml:"generator"`
+	Docling       DoclingConfig       `yaml:"docling"`
 }
 
 type HTTPConfig struct {
@@ -39,10 +42,29 @@ type LoggerConfig struct {
 	Level string `yaml:"level"`
 }
 
-// KnowledgeBaseConfig points to a local directory of markdown files.
-// Set path to any directory — git submodule, a plain folder, or a symlink.
+// KnowledgeBaseConfig points to one or more local directories of markdown files.
+// Paths is the primary list; Path is kept for backward-compat and merged in.
 type KnowledgeBaseConfig struct {
-	Path string `yaml:"path"`
+	Path  string   `yaml:"path"`  // legacy single-dir; still works
+	Paths []string `yaml:"paths"` // additional dirs (merged with Path at load time)
+}
+
+// AllPaths returns the deduplicated list of knowledge-base roots.
+func (k KnowledgeBaseConfig) AllPaths() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range append([]string{k.Path}, k.Paths...) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+type DoclingConfig struct {
+	InputDir  string `yaml:"input_dir"`  // where raw PDFs live
+	OutputDir string `yaml:"output_dir"` // where converted .md files are written
 }
 
 type QdrantConfig struct {
@@ -97,9 +119,16 @@ type HyDEConfig struct {
 
 type SemanticCacheConfig struct {
 	Enabled    bool          `yaml:"enabled"`
-	Collection string        `yaml:"collection"`  // Qdrant collection name for cache (default: pkb_cache)
-	Threshold  float32       `yaml:"threshold"`   // cosine similarity cutoff, e.g. 0.90
-	TTL        time.Duration `yaml:"ttl"`         // zero = no expiry
+	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: pkb_cache)
+	Threshold  float32       `yaml:"threshold"`  // cosine similarity cutoff, e.g. 0.90
+	TTL        time.Duration `yaml:"ttl"`        // zero = no expiry
+}
+
+type GeneratorConfig struct {
+	Enabled          bool   `yaml:"enabled"`
+	OllamaAddr       string `yaml:"ollama_addr"`        // defaults to embedder.ollama_addr if empty
+	Model            string `yaml:"model"`              // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
 }
 
 type EvalConfig struct {
@@ -122,6 +151,7 @@ func LoadEval(path string) (*EvalConfig, error) {
 	if err := yaml.NewDecoder(f).Decode(&wrapper); err != nil {
 		return nil, err
 	}
+	wrapper.Eval.applyEnv()
 	return &wrapper.Eval, nil
 }
 
@@ -158,14 +188,43 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("OLLAMA_ADDR"); v != "" {
 		c.Embedder.OllamaAddr = v
 	}
+	if v := os.Getenv("EMBEDDER_API_KEY"); v != "" {
+		c.Embedder.APIKey = v
+	}
 	if v := os.Getenv("SPLADE_ADDR"); v != "" {
 		c.SparseScorer.Addr = v
 	}
 	if v := os.Getenv("RERANKER_ADDR"); v != "" {
 		c.Reranker.Addr = v
 	}
+	if v := os.Getenv("RERANKER_ENABLED"); v != "" {
+		c.Reranker.Enabled = v == "true" || v == "1"
+	}
 	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
 		c.Middleware.Logger.Level = v
+	}
+	if v := os.Getenv("HYDE_ENABLED"); v != "" {
+		c.HyDE.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("HYDE_MODEL"); v != "" {
+		c.HyDE.Model = v
+	}
+	if v := os.Getenv("SEMANTIC_CACHE_THRESHOLD"); v != "" {
+		if f, err := strconv.ParseFloat(v, 32); err == nil {
+			c.SemanticCache.Threshold = float32(f)
+		}
+	}
+}
+
+func (e *EvalConfig) applyEnv() {
+	if v := os.Getenv("EVAL_LLM_BASE_URL"); v != "" {
+		e.LLMBaseURL = v
+	}
+	if v := os.Getenv("EVAL_LLM_MODEL"); v != "" {
+		e.LLMModel = v
+	}
+	if v := os.Getenv("EVAL_HISTORY_PATH"); v != "" {
+		e.HistoryPath = v
 	}
 }
 

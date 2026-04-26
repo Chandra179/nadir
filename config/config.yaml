@@ -10,7 +10,9 @@ middleware:
     level: dev  # dev | prod
 
 knowledge_base:
-  path: "gitbook"  # any local dir of markdown files; override: NOTES_PATH
+  # path: "gitbook"           # legacy single dir; still works; override: NOTES_PATH
+  paths:                    # additional markdown dirs (merged with path above)
+    - "pdfs/converted"      # docling output dir
 
 pkb:
   ignore_patterns:
@@ -62,7 +64,7 @@ reranker:
   candidate_mul: 10     # fetch topK*3 candidates before reranking
 
 hyde:
-  enabled: true      # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
+  enabled: false      # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"
   num_docs: 1         # docs to generate per query (1=fast; paper uses 8 for max accuracy)
@@ -77,3 +79,13 @@ eval:
   llm_base_url: "http://localhost:11434/v1"
   llm_model: "llama3.1:8b-instruct-q4_K_M"
   history_path: "eval_history.jsonl"
+
+generator:
+  enabled: true      # set true + ensure ollama LLM is pulled; POST /search with {"generate": true}
+  ollama_addr: ""     # defaults to embedder.ollama_addr
+  model: "phi4-mini:latest"  # LLM for answer generation; use instruct models
+  max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
+
+docling:
+  input_dir: "pdfs/raw"        # drop PDFs here
+  output_dir: "pdfs/converted" # docling writes .md here; picked up on next ingest

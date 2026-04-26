@@ -16,37 +16,8 @@ cp .env.example .env
 # 3. Pull embedding model
 ollama pull nomic-embed-text
 
-# 4. Start Qdrant (vector DB)
-make up                        # docker compose up -d (Qdrant only in dev)
-
-# 5. Run server
-make run                       # go run ./cmd/http — serves :8080
-
-# 6. Ingest notes
-make ingest                    # POST /ingest — walks NOTES_PATH, indexes all .md
-
-# 7. Search
-make search                    # POST /search with sample query
-# or:
-curl -X POST localhost:8080/search -H 'Content-Type: application/json' \
-  -d '{"query":"your question","top_k":5}'
-```
-
-**Optional sidecars (better retrieval):**
-
-```bash
-# SPLADE sparse embeddings (+5-10% NDCG)
-make splade-install && make splade          # :5001
-# then set sparse_scorer.provider: splade in config/config.yaml
-
-# Cross-encoder reranker (+10-25% precision)
-pip install sentence-transformers fastapi uvicorn
-make reranker                              # :5002
-# then set reranker.enabled: true in config/config.yaml
-
-# HyDE query expansion
-# set hyde.enabled: true + hyde.model: llama3.1:8b-instruct-q4_K_M in config/config.yaml
-# ollama pull llama3.1:8b-instruct-q4_K_M
+# 4. Start everything (Qdrant + server + ingest)
+make dev                       # scripts/dev-local.sh — up, wait, run, ingest
 ```
 
 ---
@@ -63,19 +34,12 @@ make reranker                              # :5002
 cp .env.example .env
 # Set: GRAFANA_PASSWORD, NOTES_PATH, LOGGER_LEVEL=prod
 
-# 2. Deploy all services with resource limits
-make up-prod                   # docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# 2. Deploy + ingest
+make prod                      # scripts/prod-start.sh — up-prod, wait, ingest, print cron instructions
 
-# 3. Ingest
-make ingest
-
-# 4. Schedule daily Qdrant backup (cron)
-# Volume snapshot (stored in qdrant_data volume):
-#   0 2 * * * /path/to/nadir/scripts/snapshot-qdrant.sh
-# Filesystem tar.gz backup (configurable retention):
-#   0 3 * * * KEEP_DAYS=7 /path/to/nadir/scripts/backup-qdrant.sh /var/backups/qdrant
-make snapshot                  # manual trigger: snapshot via Qdrant REST API
-make backup                    # manual trigger: volume tar.gz backup
+# Manual backup triggers:
+make snapshot                  # snapshot via Qdrant REST API
+make backup                    # volume tar.gz backup
 ```
 
 **Tier 2+ (separate ML machine):** update `SPLADE_ADDR`, `RERANKER_ADDR`, `OLLAMA_ADDR` in `.env` to ML machine IP. See `docs/INFRA_SETUP.md`.
@@ -116,18 +80,6 @@ Intelligent search and retrieval layer for Markdown-based knowledge bases. Trans
 { "query": "...", "top_k": 5 }
 ```
 Keyword-only mode: `{ "keyword": "..." }`. Multi-sentence queries auto-split on `.`/`?`/`;`, results merged by best score.
-
-#### Interfaces (extension points)
-
-```go
-type Chunker       interface { Chunk(text, filePath string) ([]DocumentChunk, error) }
-type Embedder      interface { Embed(ctx context.Context, text string) ([]float32, error); Dimensions() int }
-type SparseEmbedder interface { EmbedSparse(ctx, text, mode) (indices []uint32, values []float32, err error) }
-type SparseScorer  interface { Score(query, text string) float64 }
-type Store         interface { Upsert / DeleteByFile / Search / HybridSearch / KeywordSearch / EnsureCollection / GetFileSHA }
-type Fetcher       interface { FetchFile(ctx context.Context, path, sha string) (string, error) }
-type FileLister    interface { ListMarkdownFiles(ctx, rootDir, sha string) ([]FileEntry, error) }
-```
 
 #### Dependencies
 
@@ -180,6 +132,7 @@ Ordered by ROI. ✅ = implemented.
 | 21 | Qdrant resource limits | ✅ | `deploy.resources.limits.memory: 2g` in compose; prevents OOM kill under 10k-doc load |
 | 22 | Grafana dashboards | ✅ | Auto-provisioned via compose; panels: search latency p50/p90/p99, search rate, cache hit rate, embed latency, rerank latency + score delta, ingest throughput; datasource wired to Prometheus |
 | 23 | Qdrant volume backup | ✅ | `scripts/backup-qdrant.sh` — docker-volume tar.gz snapshot; configurable retention (`KEEP_DAYS`); cron-friendly |
+| 24 | LLM answer generation | ✅ | Ollama `/api/chat` streaming; "Lost in the Middle" chunk ordering (Liu et al. 2023); token budget enforcement; grounded prompt with inline citations; enable via `generator.enabled: true` + `generate: true` in search request |
 
 **Enable SPLADE:** set `sparse_scorer.provider: splade` in `config/config.yaml`, then run `python cmd/splade/main.py`.
 
