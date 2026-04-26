@@ -9,23 +9,32 @@ import (
 	"strings"
 )
 
-// LocalFileLister walks a local directory (git submodule) for markdown files.
+// LocalFileLister walks one or more local directories for markdown files.
 type LocalFileLister struct {
-	root     string
+	roots    []string
 	patterns []string
 }
 
-func NewLocalFileLister(root string, ignorePatterns []string) *LocalFileLister {
-	return &LocalFileLister{root: root, patterns: ignorePatterns}
+func NewLocalFileLister(roots []string, ignorePatterns []string) *LocalFileLister {
+	return &LocalFileLister{roots: roots, patterns: ignorePatterns}
 }
 
 func (l *LocalFileLister) ListMarkdownFiles(_ context.Context, _ string) ([]FileEntry, error) {
 	var files []FileEntry
-	err := filepath.WalkDir(l.root, func(abs string, d os.DirEntry, err error) error {
+	for _, root := range l.roots {
+		if err := l.walk(root, &files); err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+func (l *LocalFileLister) walk(root string, files *[]FileEntry) error {
+	return filepath.WalkDir(root, func(abs string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(l.root, abs)
+		rel, _ := filepath.Rel(root, abs)
 		if d.IsDir() {
 			if l.shouldIgnore(rel + "/") {
 				return filepath.SkipDir
@@ -34,11 +43,10 @@ func (l *LocalFileLister) ListMarkdownFiles(_ context.Context, _ string) ([]File
 		}
 		if strings.ToLower(filepath.Ext(abs)) == ".md" && !l.shouldIgnore(rel) {
 			sha := fileContentSHA(abs)
-			files = append(files, FileEntry{Path: rel, SHA: sha})
+			*files = append(*files, FileEntry{Path: rel, SHA: sha})
 		}
 		return nil
 	})
-	return files, err
 }
 
 func fileContentSHA(path string) string {

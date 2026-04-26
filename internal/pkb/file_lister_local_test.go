@@ -58,7 +58,7 @@ func TestLocalFileLister_shouldIgnore(t *testing.T) {
 		"*.config.js",
 		"CLAUDE.md",
 	}
-	l := NewLocalFileLister(".", patterns)
+	l := NewLocalFileLister([]string{"."}, patterns)
 
 	ignored := []string{
 		".gitbook/assets/logo.png",
@@ -111,7 +111,7 @@ func TestLocalFileLister_ListMarkdownFiles(t *testing.T) {
 	}
 
 	patterns := []string{".gitbook/**", "node_modules/**", "scripts/**"}
-	lister := NewLocalFileLister(root, patterns)
+	lister := NewLocalFileLister([]string{root}, patterns)
 
 	entries, err := lister.ListMarkdownFiles(context.TODO(), "")
 	if err != nil {

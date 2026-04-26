@@ -22,6 +22,7 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	HyDE          HyDEConfig          `yaml:"hyde"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
+	Docling       DoclingConfig       `yaml:"docling"`
 }
 
 type HTTPConfig struct {
@@ -40,10 +41,29 @@ type LoggerConfig struct {
 	Level string `yaml:"level"`
 }
 
-// KnowledgeBaseConfig points to a local directory of markdown files.
-// Set path to any directory — git submodule, a plain folder, or a symlink.
+// KnowledgeBaseConfig points to one or more local directories of markdown files.
+// Paths is the primary list; Path is kept for backward-compat and merged in.
 type KnowledgeBaseConfig struct {
-	Path string `yaml:"path"`
+	Path  string   `yaml:"path"`  // legacy single-dir; still works
+	Paths []string `yaml:"paths"` // additional dirs (merged with Path at load time)
+}
+
+// AllPaths returns the deduplicated list of knowledge-base roots.
+func (k KnowledgeBaseConfig) AllPaths() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range append([]string{k.Path}, k.Paths...) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+type DoclingConfig struct {
+	InputDir  string `yaml:"input_dir"`  // where raw PDFs live
+	OutputDir string `yaml:"output_dir"` // where converted .md files are written
 }
 
 type QdrantConfig struct {

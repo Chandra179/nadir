@@ -12,6 +12,27 @@ import (
 	"github.com/Chandra179/gosdk/logger"
 )
 
+const (
+	// Provider names
+	providerSplade         = "splade"
+	providerSentenceWindow = "sentence-window"
+
+	// Default values
+	defaultWindowSize        = 3
+	defaultRerankerCandidate = 3
+	defaultCacheCollection   = "pkb_cache"
+	defaultCacheThreshold    = 0.90
+
+	// Telemetry
+	otelMeterName = "nadir/pkb"
+
+	// HTTP Routes
+	routeSearch  = "POST /search"
+	routeIngest  = "POST /ingest"
+	routeMetrics = "GET /metrics"
+	routeHealth  = "GET /healthz"
+)
+
 func Server(cfg *config.Config) {
 	log := logger.NewLogger(cfg.Middleware.Logger.Level)
 	deps := middleware.NewDependencies(log)
@@ -23,7 +44,7 @@ func Server(cfg *config.Config) {
 	}
 	defer otelProvider.Close()
 
-	metrics, err := otel.New(otelProvider.Meter("nadir/pkb"))
+	metrics, err := otel.New(otelProvider.Meter(otelMeterName))
 	if err != nil {
 		log.Error(context.Background(), "otel metrics init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
@@ -42,7 +63,8 @@ func Server(cfg *config.Config) {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
-	if cfg.SparseScorer.Provider == "splade" {
+
+	if cfg.SparseScorer.Provider == providerSplade {
 		store = store.WithSparseScorer(pkb.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
 		log.Info(context.Background(), "splade sparse scorer enabled", logger.Field{Key: "addr", Value: cfg.SparseScorer.Addr})
 	}
@@ -55,16 +77,17 @@ func Server(cfg *config.Config) {
 	}
 
 	var chunker pkb.Chunker
-	if cfg.Chunker.Provider == "sentence-window" {
+	if cfg.Chunker.Provider == providerSentenceWindow {
 		windowSize := cfg.Chunker.WindowSize
 		if windowSize <= 0 {
-			windowSize = 3
+			windowSize = defaultWindowSize
 		}
 		chunker = pkb.NewSentenceWindowChunker(windowSize)
 		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: windowSize})
 	} else {
 		chunker = pkb.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
 	}
+
 	fetcher := pkb.NewLocalFetcher(cfg.KnowledgeBase.Path)
 
 	pipeline := pkb.NewPipeline(chunker, embedder, store, pkb.PipelineConfig{
@@ -73,8 +96,10 @@ func Server(cfg *config.Config) {
 		MaxInterval:     cfg.Retry.MaxInterval,
 		Multiplier:      cfg.Retry.Multiplier,
 	}).WithMetrics(metrics)
-	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.Path, cfg.PKB.IgnorePatterns)
+
+	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.AllPaths(), cfg.PKB.IgnorePatterns)
 	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK).WithMetrics(metrics)
+
 	if cfg.HyDE.Enabled {
 		ollamaAddr := cfg.HyDE.OllamaAddr
 		if ollamaAddr == "" {
@@ -88,22 +113,24 @@ func Server(cfg *config.Config) {
 			logger.Field{Key: "num_docs", Value: cfg.HyDE.NumDocs},
 		)
 	}
+
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
-			mul = 3
+			mul = defaultRerankerCandidate
 		}
 		searchHandler.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
+
 	if cfg.SemanticCache.Enabled {
 		col := cfg.SemanticCache.Collection
 		if col == "" {
-			col = "pkb_cache"
+			col = defaultCacheCollection
 		}
 		threshold := cfg.SemanticCache.Threshold
 		if threshold == 0 {
-			threshold = 0.90
+			threshold = defaultCacheThreshold
 		}
 		sc, err := pkb.NewSemanticCache(cfg.Qdrant.Addr, col, embedder, threshold, cfg.SemanticCache.TTL)
 		if err != nil {
@@ -124,10 +151,10 @@ func Server(cfg *config.Config) {
 	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /search", globalChain(searchHandler))
-	mux.Handle("POST /ingest", globalChain(ingestHandler))
-	mux.Handle("GET /metrics", otelProvider.HTTPHandler())
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(routeSearch, globalChain(searchHandler))
+	mux.Handle(routeIngest, globalChain(ingestHandler))
+	mux.Handle(routeMetrics, otelProvider.HTTPHandler())
+	mux.HandleFunc(routeHealth, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -138,6 +165,7 @@ func Server(cfg *config.Config) {
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 	}
+
 	log.Info(context.Background(), "http server starting", logger.Field{Key: "addr", Value: srv.Addr})
 	if err := srv.ListenAndServe(); err != nil {
 		log.Error(context.Background(), "http server error", logger.Field{Key: "error", Value: err.Error()})

@@ -19,6 +19,10 @@ until curl -sf http://localhost:6333/healthz > /dev/null 2>&1; do sleep 1; done
 echo "==> Waiting for server on :8080..."
 until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do sleep 1; done
 
+echo "==> Converting PDFs (pdfs/raw -> pdfs/converted)..."
+mkdir -p pdfs/raw pdfs/converted
+python services/docling/main.py --input pdfs/raw --output pdfs/converted || true
+
 echo "==> Ingesting notes..."
 curl -sf -X POST localhost:8080/ingest
 
