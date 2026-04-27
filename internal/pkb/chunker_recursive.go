@@ -1,12 +1,19 @@
 package pkb
 
 import (
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
+)
+
+var (
+	reHTMLComment = regexp.MustCompile(`<!--.*?-->`)
+	// matches lines like "Some Title  42" or "1.2 Section Name ... 5"
+	reTOCLine = regexp.MustCompile(`(?m)^.{1,80}\s+\d+\s*$`)
 )
 
 // nodeToPlainText extracts readable text from an AST node, stripping markdown syntax.
@@ -62,10 +69,43 @@ func nodeToPlainText(n ast.Node, src []byte) string {
 type RecursiveChunker struct {
 	chunkSize    int
 	chunkOverlap int
+	tocThreshold float64 // fraction of lines matching TOC pattern to classify as TOC (0 = disabled)
 }
 
 func NewRecursiveChunker(chunkSize, chunkOverlap int) *RecursiveChunker {
-	return &RecursiveChunker{chunkSize: chunkSize, chunkOverlap: chunkOverlap}
+	return &RecursiveChunker{chunkSize: chunkSize, chunkOverlap: chunkOverlap, tocThreshold: 0.6}
+}
+
+// WithTOCThreshold sets the fraction of lines that must match the TOC heuristic
+// for a chunk to be dropped. Set to 0 to disable TOC filtering.
+func (c *RecursiveChunker) WithTOCThreshold(t float64) *RecursiveChunker {
+	c.tocThreshold = t
+	return c
+}
+
+// isTOCChunk returns true when the chunk looks like a table-of-contents page:
+// high ratio of lines ending with a bare page number, low prose density.
+func (c *RecursiveChunker) isTOCChunk(text string) bool {
+	if c.tocThreshold <= 0 {
+		return false
+	}
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	nonEmpty := 0
+	matches := 0
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		nonEmpty++
+		if reTOCLine.MatchString(l) {
+			matches++
+		}
+	}
+	if nonEmpty == 0 {
+		return false
+	}
+	return float64(matches)/float64(nonEmpty) >= c.tocThreshold
 }
 
 type section struct {
@@ -75,6 +115,9 @@ type section struct {
 }
 
 func (c *RecursiveChunker) Chunk(rawText, filePath string) ([]DocumentChunk, error) {
+	// Strip HTML comments (e.g. <!-- formula-not-decoded --> from Docling output).
+	rawText = reHTMLComment.ReplaceAllString(rawText, "")
+
 	sections := extractSections(rawText)
 	var chunks []DocumentChunk
 	for _, sec := range sections {
@@ -83,6 +126,9 @@ func (c *RecursiveChunker) Chunk(rawText, filePath string) ([]DocumentChunk, err
 		for _, part := range parts {
 			part = strings.TrimSpace(part)
 			if part == "" {
+				continue
+			}
+			if c.isTOCChunk(part) {
 				continue
 			}
 			chunks = append(chunks, DocumentChunk{

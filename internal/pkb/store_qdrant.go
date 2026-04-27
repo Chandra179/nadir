@@ -196,18 +196,64 @@ func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
 	return err
 }
 
+// buildFilterConditions converts a SearchFilter into Qdrant Must conditions.
+func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
+	if f == nil {
+		return nil
+	}
+	var conds []*qdrant.Condition
+	if f.FilePath != "" {
+		conds = append(conds, &qdrant.Condition{
+			ConditionOneOf: &qdrant.Condition_Field{
+				Field: &qdrant.FieldCondition{
+					Key:   "file_path",
+					Match: &qdrant.Match{MatchValue: &qdrant.Match_Keyword{Keyword: f.FilePath}},
+				},
+			},
+		})
+	}
+	if f.Header != "" {
+		conds = append(conds, &qdrant.Condition{
+			ConditionOneOf: &qdrant.Condition_Field{
+				Field: &qdrant.FieldCondition{
+					Key:   "header",
+					Match: &qdrant.Match{MatchValue: &qdrant.Match_Keyword{Keyword: f.Header}},
+				},
+			},
+		})
+	}
+	if f.SourceSHA != "" {
+		conds = append(conds, &qdrant.Condition{
+			ConditionOneOf: &qdrant.Condition_Field{
+				Field: &qdrant.FieldCondition{
+					Key:   "source_sha",
+					Match: &qdrant.Match{MatchValue: &qdrant.Match_Keyword{Keyword: f.SourceSHA}},
+				},
+			},
+		})
+	}
+	return conds
+}
+
+func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
+	if len(conds) == 0 {
+		return nil
+	}
+	return &qdrant.Filter{Must: conds}
+}
+
 // HybridSearch combines dense and sparse retrieval via RRF.
 // When sparseEmbedder is set, uses Qdrant server-side QueryPoints with prefetch (true hybrid).
 // Otherwise falls back to client-side scroll+rescore with sparseScorer.
-func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	if s.sparseEmbedder != nil {
-		return s.hybridSearchServer(ctx, vector, query, topK)
+		return s.hybridSearchServer(ctx, vector, query, topK, filter)
 	}
-	return s.hybridSearchClient(ctx, vector, query, topK)
+	return s.hybridSearchClient(ctx, vector, query, topK, filter)
 }
 
 // hybridSearchServer uses Qdrant QueryPoints with dense+sparse prefetch legs and server-side RRF.
-func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fetchN := uint64(topK * 5)
 
 	sparseIdx, sparseVals, err := s.sparseEmbedder.EmbedSparse(ctx, query, "query")
@@ -216,17 +262,20 @@ func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, 
 	}
 
 	limit := uint64(topK)
+	qf := toQdrantFilter(buildFilterConditions(filter))
 	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
 		CollectionName: s.name,
 		Prefetch: []*qdrant.PrefetchQuery{
 			{
-				Query: qdrant.NewQueryDense(vector),
-				Limit: &fetchN,
+				Query:  qdrant.NewQueryDense(vector),
+				Limit:  &fetchN,
+				Filter: qf,
 			},
 			{
-				Query: qdrant.NewQuerySparse(sparseIdx, sparseVals),
-				Using: qdrant.PtrOf(sparseVectorName),
-				Limit: &fetchN,
+				Query:  qdrant.NewQuerySparse(sparseIdx, sparseVals),
+				Using:  qdrant.PtrOf(sparseVectorName),
+				Limit:  &fetchN,
+				Filter: qf,
 			},
 		},
 		Query:       qdrant.NewQueryFusion(qdrant.Fusion_RRF),
@@ -246,26 +295,27 @@ func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, 
 }
 
 // hybridSearchClient fetches dense + text-filtered candidates, reranks sparse leg client-side, fuses via RRF.
-func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int) ([]ScoredChunk, error) {
+func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fetchN := topK * 5
 
+	filterConds := buildFilterConditions(filter)
 	denseResp, err := s.points.Search(ctx, &qdrant.SearchPoints{
 		CollectionName: s.name,
 		Vector:         vector,
 		Limit:          uint64(fetchN),
 		WithPayload:    qdrant.NewWithPayload(true),
+		Filter:         toQdrantFilter(filterConds),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("dense search: %w", err)
 	}
 
 	scrollLimit := uint32(fetchN)
+	bm25Conds := append([]*qdrant.Condition{qdrant.NewMatchText("text", query)}, filterConds...)
 	bm25Resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 		CollectionName: s.name,
 		Filter: &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewMatchText("text", query),
-			},
+			Must: bm25Conds,
 		},
 		Limit:       &scrollLimit,
 		WithPayload: qdrant.NewWithPayload(true),
@@ -342,13 +392,12 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 	return results, nil
 }
 
-func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK int) ([]ScoredChunk, error) {
+func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+	conds := append([]*qdrant.Condition{qdrant.NewMatchText("text", keyword)}, buildFilterConditions(filter)...)
 	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 		CollectionName: s.name,
 		Filter: &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewMatchText("text", keyword),
-			},
+			Must: conds,
 		},
 		Limit:       qdrant.PtrOf(uint32(topK)),
 		WithPayload: qdrant.NewWithPayload(true),

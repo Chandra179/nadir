@@ -34,7 +34,7 @@ type stubStore struct {
 	gotVec []float32
 }
 
-func (s *stubStore) HybridSearch(_ context.Context, vec []float32, _ string, _ int) ([]ScoredChunk, error) {
+func (s *stubStore) HybridSearch(_ context.Context, vec []float32, _ string, _ int, _ *SearchFilter) ([]ScoredChunk, error) {
 	s.gotVec = vec
 	return nil, nil
 }

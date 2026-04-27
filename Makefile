@@ -1,4 +1,4 @@
-.PHONY: vendor up up-prod run sm ingest search generate d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker docling docling-install snapshot backup dev prod
+.PHONY: vendor up up-prod run sm ingest search generate d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker docling docling-install marker marker-install snapshot backup dev prod
 
 dev:
 	./scripts/dev-local.sh
@@ -37,13 +37,13 @@ ingest:
 search:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"minimax","top_k":5}'
+		-d '{"query":"In Monte Carlo Tree Search, how do we calculate UCB?","top_k":10}'
 
 # generate — search + stream LLM answer. Requires generator.enabled: true in config/config.yaml.
 generate:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"minimax","top_k":5,"generate":true}' \
+		-d '{"query":"In Monte Carlo Tree Search, how do we calculate UCB?","top_k":5,"generate":true}' \
 		--no-buffer
 
 d:
@@ -60,6 +60,16 @@ splade:
 # reranker — run RERANKER sidecar on :5002. Reranker in config/config.yaml to activate.
 reranker:
 	HF_HOME=$$HOME/.cache/huggingface python cmd/reranker/main.py
+
+# marker-install — install Python deps for Marker PDF converter (one-time)
+marker-install:
+	pip install -r services/marker/requirements.txt
+
+# marker — convert all PDFs in pdfs/raw → pdfs/converted (one-shot, run before ingest)
+# Replaces docling: produces accurate LaTeX math instead of <!-- formula-not-decoded --> placeholders.
+marker:
+	mkdir -p pdfs/raw pdfs/converted
+	python services/marker/main.py --input pdfs/raw --output pdfs/converted
 
 # docling-install — install Python deps for Docling PDF converter (one-time)
 docling-install:
