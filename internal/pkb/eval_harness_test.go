@@ -51,6 +51,8 @@ type evalHistoryEntry struct {
 	HitRate         float64 `json:"hit_rate"`
 	NDCG            float64 `json:"ndcg"`
 	Precision       float64 `json:"precision"`
+	Recall          float64 `json:"recall,omitempty"`
+	MAP             float64 `json:"map,omitempty"`
 }
 
 // evalHistoryWriter serializes history entries to a JSONL file, safe for concurrent subtests.
@@ -124,6 +126,16 @@ func (j *qrelsJudge) IsRelevant(_ context.Context, query string, chunk ScoredChu
 		return false, nil
 	}
 	return entries[chunk.Key()], nil
+}
+
+func (j *qrelsJudge) TotalRelevant(query string) int {
+	var n int
+	for _, rel := range j.qrels[query] {
+		if rel {
+			n++
+		}
+	}
+	return n
 }
 
 // qrelsStats returns (total, relevant) counts from a qrelsJudge.

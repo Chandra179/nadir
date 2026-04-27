@@ -1,65 +1,4 @@
-# Production RAG Infrastructure Setup
-
-Stack: Go HTTP server + Qdrant + Ollama embedder + SPLADE + Reranker + Prometheus/Grafana
-
----
-
-## Architecture
-
-```
-                        ┌─────────────┐
-                        │  Load Bal.  │  (Caddy / nginx, optional at scale)
-                        └──────┬──────┘
-                               │
-                        ┌──────▼──────┐
-                        │  Go HTTP    │  cmd/http — ingest + search
-                        │  Server     │
-                        └──┬──────┬───┘
-                           │      │
-              ┌────────────▼─┐  ┌─▼──────────────┐
-              │  Qdrant      │  │  Ollama         │
-              │  (gRPC)      │  │  nomic-embed    │
-              │  dense+BM25  │  │  (768-dim)      │
-              └──────────────┘  └─────────────────┘
-                           │
-              ┌────────────▼─────────────┐
-              │  SPLADE service          │  Python, port 8001
-              │  (sparse vectors)        │
-              └──────────────────────────┘
-                           │
-              ┌────────────▼─────────────┐
-              │  Reranker service        │  Python, cross-encoder, port 8002
-              │  (cross-encoder)         │  +10-25% precision over hybrid
-              └──────────────────────────┘
-                           │
-              ┌────────────▼─────────────┐
-              │  Prometheus + Grafana    │  metrics + dashboards
-              └──────────────────────────┘
-```
-
-**Retrieval flow:** dense (nomic) + sparse (BM25 built-in Qdrant) + SPLADE → RRF fusion → cross-encoder rerank → top-K results
-
----
-
-## Docker Compose Layout
-
-```
-Dockerfile                  # Go HTTP server
-services/
-  splade/
-    Dockerfile              # Python + transformers + naver/splade-cocondenser-ensemble-distil
-    requirements.txt
-  reranker/
-    Dockerfile              # Python + sentence-transformers cross-encoder
-    requirements.txt
-config/
-  prometheus/prometheus.yml
-  grafana/                  # provisioned dashboards
-docker-compose.yml
-docker-compose.prod.yml     # prod overrides (resource limits, restart policies)
-```
-
----
+# Infrastructure Setup
 
 ## Service Resource Requirements
 
@@ -95,24 +34,6 @@ docker-compose.prod.yml     # prod overrides (resource limits, restart policies)
 - Qdrant + Go server on app machine
 - SPLADE + reranker + Ollama on ML machine
 
-### Tier 3 — Scale (5k–50k users)
-
-**Hetzner GEX44** (GPU dedicated) + CCX53 (app)
-- GPU box: RTX 3090, 64GB RAM — ~€184/month
-- App: CCX53 — ~€148/month
-- Monitoring: CX32 — ~€15/month
-- **Total: ~€347/month**
-- GPU for SPLADE + reranker inference, fast latency
-- Consider Qdrant Cloud at this scale for HA (~$100/month)
-
-### Tier 4 — Enterprise (50k+ users)
-
-Move to Kubernetes (K3s self-hosted or managed GKE/EKS):
-- Qdrant cluster (3 nodes for HA)
-- Horizontal pod autoscaling for Go HTTP
-- Separate SPLADE/reranker deployments with GPU node pool
-- Estimated: €800–2000/month depending on cloud
-
 ---
 
 ## Cost Breakdown Summary
@@ -121,8 +42,6 @@ Move to Kubernetes (K3s self-hosted or managed GKE/EKS):
 |------|-------|-------|-------------|
 | Dev | <500 concurrent | Single Hetzner CX52 | ~€38 |
 | Prod | 500–5k | 2x Hetzner VPS | ~€203 |
-| Scale | 5k–50k | GPU box + app VPS | ~€347 |
-| Enterprise | 50k+ | K8s cluster | €800–2000+ |
 
 **vs cloud-managed:**
 - AWS g5.xlarge (A10G GPU): ~$700/month just for inference
@@ -175,33 +94,7 @@ Same machine as app fine until >10 services or compliance requires isolation.
 2. Move SPLADE + reranker to GPU box — same process as above
 3. Update Dockerfiles to use `--gpus all` in compose override
 4. Ollama can stay CPU or migrate to GPU box (cut embed latency ~10x)
-
-### Tier 3 → Tier 4 (K8s)
-
-1. Containerize each service (already done via Dockerfiles)
-2. Write K8s manifests (Deployment + Service per component)
-3. Qdrant: use [qdrant-operator](https://github.com/qdrant/qdrant-operator) for cluster setup
-4. Add HPA on Go HTTP deployment (CPU-based autoscale)
-5. Use node pool with GPU taint for SPLADE/reranker pods
-
 ---
-
-## Production Checklist
-
-### Tier 1 (single box)
-- [x] Qdrant data on persistent volume: `volumes: qdrant_data:/qdrant/storage`
-- [x] Ollama model pre-pulled in Dockerfile or startup script — baked into `services/splade/Dockerfile` + `services/reranker/Dockerfile` at build time
-- [x] SPLADE model cached to volume: `splade_model_cache:/root/.cache/fastembed`
-- [x] `.env` file present with all vars set (see `.env.example`)
-- [x] `GRAFANA_PASSWORD` changed from default `admin` — `.env.example` updated with warning; set in `.env`
-- [x] `restart: unless-stopped` on all services in compose
-- [x] Resource limits in `docker-compose.prod.yml` (`cpus`, `memory`) — run with `make up-prod`
-- [x] Health checks on Go HTTP, SPLADE, reranker services
-- [x] nginx TLS config: `config/nginx/nginx.conf` — edit domain, mount certs to `config/nginx/certs/`, uncomment nginx service in compose
-- [x] Qdrant snapshot cron: `0 2 * * * /path/to/nadir/scripts/snapshot-qdrant.sh` (or `make snapshot`)
-- [x] Prometheus retention: `--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}` wired in compose
-- [x] Node exporter in compose (`node-exporter` service) + Prometheus scrape job added
-- [x] `LOGGER_LEVEL=prod` in env
 
 ### Additional for Tier 2+
 - [ ] Firewall: ML machine only reachable from app machine (not public)

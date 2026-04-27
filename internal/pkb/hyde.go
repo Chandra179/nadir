@@ -143,7 +143,7 @@ func (h *HyDESearcher) Search(ctx context.Context, query string, topK int) ([]Sc
 	}
 
 	avgVec := averageVectors(vecs)
-	return h.store.HybridSearch(ctx, avgVec, query, topK)
+	return h.store.HybridSearch(ctx, avgVec, query, topK, nil)
 }
 
 // averageVectors returns the element-wise mean of the input vectors, L2-normalized.

@@ -15,10 +15,11 @@ import (
 )
 
 type searchRequest struct {
-	Query    string `json:"query"`
-	TopK     int    `json:"top_k"`
-	Keyword  string `json:"keyword"`
-	Generate bool   `json:"generate"` // if true, pipe chunks into LLM and stream answer
+	Query    string        `json:"query"`
+	TopK     int           `json:"top_k"`
+	Keyword  string        `json:"keyword"`
+	Generate bool          `json:"generate"` // if true, pipe chunks into LLM and stream answer
+	Filter   *SearchFilter `json:"filter,omitempty"`
 }
 
 type searchResult struct {
@@ -142,7 +143,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var chunks []ScoredChunk
 	if req.Keyword != "" {
 		var err error
-		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, fetchN)
+		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, fetchN, req.Filter)
 		if err != nil {
 			http.Error(w, "search failed", http.StatusInternalServerError)
 			return
@@ -152,7 +153,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		chunks, err = h.hyde.Search(r.Context(), req.Query, fetchN)
 		if err != nil {
 			// fall back to standard search on HyDE failure
-			chunks, err = h.multiSearch(r, req.Query, fetchN)
+			chunks, err = h.multiSearch(r, req.Query, fetchN, req.Filter)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -160,7 +161,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		var err error
-		chunks, err = h.multiSearch(r, req.Query, fetchN)
+		chunks, err = h.multiSearch(r, req.Query, fetchN, req.Filter)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -262,7 +263,7 @@ func (h *SearchHandler) searchMode(req searchRequest) string {
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
 // multiSearch splits query into fragments, embeds each, merges results deduped by FilePath+LineStart keeping best score.
-func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int) ([]ScoredChunk, error) {
+func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fragments := splitFragments(query)
 	seen := make(map[string]ScoredChunk)
 	for _, frag := range fragments {
@@ -270,7 +271,7 @@ func (h *SearchHandler) multiSearch(r *http.Request, query string, topK int) ([]
 		if err != nil {
 			return nil, fmt.Errorf("embed: %w", err)
 		}
-		results, err := h.store.HybridSearch(r.Context(), vec, frag, topK)
+		results, err := h.store.HybridSearch(r.Context(), vec, frag, topK, filter)
 		if err != nil {
 			return nil, fmt.Errorf("search failed")
 		}

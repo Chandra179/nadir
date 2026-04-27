@@ -23,6 +23,14 @@ type EvalMetrics struct {
 	HitRate   float64 // Success@K: fraction of queries with ≥1 relevant result
 	NDCG      float64
 	Precision float64
+	Recall    float64 // Recall@K: fraction of all relevant docs retrieved; 0 if judge has no total counts
+	MAP       float64 // Mean Average Precision: AUC over precision-recall curve
+}
+
+// RelevanceCounter is an optional extension of RelevanceJudge.
+// When implemented, RunEval uses TotalRelevant to compute Recall@K and MAP.
+type RelevanceCounter interface {
+	TotalRelevant(query string) int
 }
 
 // RunEval executes all queries concurrently (up to evalWorkers goroutines) and
@@ -45,11 +53,15 @@ func RunEval(
 		candidateMul = 3
 	}
 
+	counter, hasCounter := judge.(RelevanceCounter)
+
 	type result struct {
 		reciprocalRank float64
 		hit            bool
 		precisionAtK   float64
 		ndcgAtK        float64
+		recallAtK      float64
+		avgPrecision   float64
 	}
 
 	results := make([]result, len(cases))
@@ -84,7 +96,7 @@ func RunEval(
 					log.Errorf("embed query %q: %v", tc.Query, err)
 					return
 				}
-				hits, err = store.HybridSearch(ctx, vec, tc.Query, fetchK)
+				hits, err = store.HybridSearch(ctx, vec, tc.Query, fetchK, nil)
 				if err != nil {
 					log.Errorf("search %q: %v", tc.Query, err)
 					return
@@ -103,6 +115,7 @@ func RunEval(
 
 			var firstRank, relevantCount int
 			dcg := 0.0
+			apSum := 0.0 // running sum for Average Precision
 			for rank, r := range hits {
 				rel, err := judge.IsRelevant(ctx, tc.Query, r)
 				if err != nil {
@@ -114,6 +127,8 @@ func RunEval(
 					}
 					relevantCount++
 					dcg += 1.0 / math.Log2(float64(rank+2))
+					// precision at this rank * binary relevance = P@r for MAP
+					apSum += float64(relevantCount) / float64(rank+1)
 				}
 			}
 
@@ -129,12 +144,21 @@ func RunEval(
 			if idcg > 0 {
 				res.ndcgAtK = dcg / idcg
 			}
+			if hasCounter {
+				if total := counter.TotalRelevant(tc.Query); total > 0 {
+					res.recallAtK = float64(relevantCount) / float64(total)
+					res.avgPrecision = apSum / float64(total)
+				}
+			} else if relevantCount > 0 {
+				// no total known: AP normalized by found relevant (optimistic but comparable across runs)
+				res.avgPrecision = apSum / float64(relevantCount)
+			}
 			results[i] = res
 		}(i, tc)
 	}
 	wg.Wait()
 
-	var mrr, hitRate, ndcg, precision float64
+	var mrr, hitRate, ndcg, precision, recall, mapScore float64
 	for _, r := range results {
 		mrr += r.reciprocalRank
 		if r.hit {
@@ -142,6 +166,8 @@ func RunEval(
 		}
 		ndcg += r.ndcgAtK
 		precision += r.precisionAtK
+		recall += r.recallAtK
+		mapScore += r.avgPrecision
 	}
 	n := float64(len(cases))
 	return EvalMetrics{
@@ -149,5 +175,7 @@ func RunEval(
 		HitRate:   hitRate / n,
 		NDCG:      ndcg / n,
 		Precision: precision / n,
+		Recall:    recall / n,
+		MAP:       mapScore / n,
 	}
 }
