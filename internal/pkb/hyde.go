@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -205,6 +206,72 @@ func (a *AdaptiveHyDESearcher) Search(ctx context.Context, query string, topK in
 		return chunks, nil // fallback to vanilla on HyDE failure
 	}
 	return hydeChunks, nil
+}
+
+// hydePromptTemplates holds diverse prompt strategies for Multi-HyDE.
+// Each template takes a different angle on the query to maximize embedding diversity.
+// Based on: "Multi-HyDE" (arxiv 2509.16369).
+var hydePromptTemplates = []string{
+	// Factual passage (original HyDE style)
+	"Write a short, factual passage (2-4 sentences) that directly answers this question. Be specific and informative.\n\nQuestion: %s\n\nPassage:",
+	// Key facts enumeration
+	"List the key facts and concepts that would appear in a document answering this question. Be concise and precise.\n\nQuestion: %s\n\nFacts:",
+	// Expert explanation
+	"Write a brief expert explanation (2-3 sentences) of the topic in this question, as it would appear in technical documentation.\n\nQuestion: %s\n\nExplanation:",
+	// Contextual definition
+	"Provide a concise definition and context for the main concept in this question, as found in a reference document.\n\nQuestion: %s\n\nDefinition:",
+	// Example-driven
+	"Describe a concrete example or use-case that illustrates the answer to this question, in 2-3 sentences.\n\nQuestion: %s\n\nExample:",
+}
+
+// MultiPromptHyDEGenerator wraps a base HyDEGenerator and cycles through
+// diverse prompt templates per call to maximize embedding diversity.
+// Concurrent-safe via atomic counter.
+type MultiPromptHyDEGenerator struct {
+	base    *OllamaHyDEGenerator
+	counter atomic.Uint64
+}
+
+func NewMultiPromptHyDEGenerator(base *OllamaHyDEGenerator) *MultiPromptHyDEGenerator {
+	return &MultiPromptHyDEGenerator{base: base}
+}
+
+// Generate picks the next prompt template in round-robin order and calls the base LLM.
+func (m *MultiPromptHyDEGenerator) Generate(ctx context.Context, query string) (string, error) {
+	idx := m.counter.Add(1) - 1
+	tmpl := hydePromptTemplates[idx%uint64(len(hydePromptTemplates))]
+	prompt := fmt.Sprintf(tmpl, query)
+
+	body, _ := json.Marshal(ollamaGenerateRequest{
+		Model:  m.base.model,
+		Prompt: prompt,
+		Stream: false,
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.base.addr+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("multi-hyde generate build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.base.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("multi-hyde generate: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("multi-hyde generate: status %d", resp.StatusCode)
+	}
+
+	var result ollamaGenerateResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("multi-hyde generate decode: %w", err)
+	}
+	if result.Response == "" {
+		return "", fmt.Errorf("multi-hyde generate: empty response")
+	}
+	return result.Response, nil
 }
 
 func l2Normalize(v []float32) []float32 {

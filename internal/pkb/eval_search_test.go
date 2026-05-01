@@ -115,8 +115,9 @@ func TestSearchEval(t *testing.T) {
 			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
 
 			history.write(t, evalHistoryEntry{
-				HyDE: profile.HyDE,
-				Timestamp:       time.Now().UTC().Format(time.RFC3339),
+				HyDE:      profile.HyDE || profile.AdaptiveHyDE || profile.MultiHyDE,
+				MultiHyDE: profile.MultiHyDE,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				Profile:         profile.Name,
 				SparseScorer:    profile.SparseScorer,
 				Reranker:        rerankerName,

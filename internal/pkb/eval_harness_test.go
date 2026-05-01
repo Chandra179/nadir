@@ -15,16 +15,17 @@ import (
 // evalProfile defines one retrieval configuration to benchmark.
 // Fields not set in the JSONL file inherit config.yaml defaults at runtime.
 type evalProfile struct {
-	Name            string `json:"name"`
-	SparseScorer    string `json:"sparse_scorer"` // "tf" | "splade"
-	Reranker        string `json:"reranker"`      // "" | "cross-encoder"
-	ChunkSize       int    `json:"chunk_size"`
-	ChunkOverlap    int    `json:"chunk_overlap"`
-	ChunkerProvider string `json:"chunker_provider"` // "recursive" | "sentence-window"; default from config
-	HyDE            bool    `json:"hyde"`              // true = use HyDE search (LLM generates hypothetical doc per query)
-	HyDENumDocs     int     `json:"hyde_num_docs"`     // 0 → default from config (1)
-	AdaptiveHyDE    bool    `json:"adaptive_hyde"`     // true = gate HyDE on top-1 confidence score
-	AdaptiveThresh  float32 `json:"adaptive_thresh"`   // 0 → default from config (0.5)
+	Name            string  `json:"name"`
+	SparseScorer    string  `json:"sparse_scorer"`    // "tf" | "splade"
+	Reranker        string  `json:"reranker"`         // "" | "cross-encoder"
+	ChunkSize       int     `json:"chunk_size"`
+	ChunkOverlap    int     `json:"chunk_overlap"`
+	ChunkerProvider string  `json:"chunker_provider"` // "recursive" | "sentence-window"; default from config
+	HyDE            bool    `json:"hyde"`             // true = use HyDE search (LLM generates hypothetical doc per query)
+	HyDENumDocs     int     `json:"hyde_num_docs"`    // 0 → default from config (1)
+	AdaptiveHyDE    bool    `json:"adaptive_hyde"`    // true = gate HyDE on top-1 confidence score
+	AdaptiveThresh  float32 `json:"adaptive_thresh"`  // 0 → default from config (0.5)
+	MultiHyDE       bool    `json:"multi_hyde"`       // true = use diverse prompt templates per doc (arxiv 2509.16369)
 }
 
 // evalHistoryEntry is one run record appended to the JSONL history file.
@@ -49,6 +50,7 @@ type evalHistoryEntry struct {
 	Reranker        string  `json:"reranker,omitempty"`
 	CandidateMul    int     `json:"candidate_mul,omitempty"`
 	HyDE            bool    `json:"hyde,omitempty"`
+	MultiHyDE       bool    `json:"multi_hyde,omitempty"`
 	MRR             float64 `json:"mrr"`
 	HitRate         float64 `json:"hit_rate"`
 	NDCG            float64 `json:"ndcg"`

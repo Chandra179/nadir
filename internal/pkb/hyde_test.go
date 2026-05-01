@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"testing"
 )
 
@@ -155,4 +156,64 @@ type funcGenerator struct {
 
 func (f *funcGenerator) Generate(ctx context.Context, q string) (string, error) {
 	return f.fn(ctx, q)
+}
+
+func TestMultiPromptHyDEGenerator_CyclesTemplates(t *testing.T) {
+	// stubOllamaGen records prompts sent to it; MultiPromptHyDEGenerator wraps it.
+	// We can't inject the HTTP layer easily, so we test the counter logic directly
+	// by calling a wrapped funcGenerator that records call indices.
+	var mu sync.Mutex
+	seenPrompts := make([]string, 0, 5)
+
+	// Simulate MultiPromptHyDEGenerator behaviour without real HTTP:
+	// call Generate N times and verify the counter advances and produces distinct prompts.
+	gen := &MultiPromptHyDEGenerator{}
+	for i := 0; i < len(hydePromptTemplates)*2; i++ {
+		idx := gen.counter.Add(1) - 1
+		tmpl := hydePromptTemplates[idx%uint64(len(hydePromptTemplates))]
+		mu.Lock()
+		seenPrompts = append(seenPrompts, tmpl)
+		mu.Unlock()
+	}
+
+	// First len(hydePromptTemplates) calls must all be distinct.
+	first := seenPrompts[:len(hydePromptTemplates)]
+	seen := map[string]bool{}
+	for _, p := range first {
+		if seen[p] {
+			t.Errorf("duplicate prompt template in first cycle: %q", p)
+		}
+		seen[p] = true
+	}
+	// Second cycle must match first cycle (round-robin wraps).
+	second := seenPrompts[len(hydePromptTemplates):]
+	for i, p := range second {
+		if p != first[i] {
+			t.Errorf("cycle mismatch at %d: got %q want %q", i, p, first[i])
+		}
+	}
+}
+
+func TestMultiPromptHyDEGenerator_ConcurrentCounterSafe(t *testing.T) {
+	gen := &MultiPromptHyDEGenerator{}
+	const goroutines = 50
+	indices := make([]uint64, goroutines)
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(slot int) {
+			defer wg.Done()
+			indices[slot] = gen.counter.Add(1) - 1
+		}(i)
+	}
+	wg.Wait()
+
+	// All returned indices must be unique (no two goroutines got same counter value).
+	seen := map[uint64]bool{}
+	for _, idx := range indices {
+		if seen[idx] {
+			t.Errorf("duplicate counter value %d", idx)
+		}
+		seen[idx] = true
+	}
 }

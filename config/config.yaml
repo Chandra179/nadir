@@ -67,9 +67,10 @@ hyde:
   enabled: false          # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
   adaptive: false         # gate HyDE on retrieval confidence (arxiv 2507.16754); skips LLM when top-1 score >= threshold
   adaptive_thresh: 0.50   # fire HyDE only when top-1 cosine score < this value
+  multi_hyde: false       # diverse prompt templates per doc (arxiv 2509.16369); set num_docs >= 3 for benefit
   ollama_addr: ""         # defaults to embedder.ollama_addr
   model: "gemma3:1b"
-  num_docs: 1             # docs to generate per query (1=fast; paper uses 8 for max accuracy)
+  num_docs: 1             # docs to generate per query (1=fast; 3-5=multi-hyde sweet spot; paper uses 8 for max accuracy)
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)

@@ -150,7 +150,7 @@ func buildReranker(t *testing.T, profile evalProfile, cfg *config.Config) (strin
 // Skips the subtest when the Ollama LLM is not reachable.
 func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder Embedder, store Store) HyDESearchInterface {
 	t.Helper()
-	if !profile.HyDE && !profile.AdaptiveHyDE {
+	if !profile.HyDE && !profile.AdaptiveHyDE && !profile.MultiHyDE {
 		return nil
 	}
 	ollamaAddr := cfg.HyDE.OllamaAddr
@@ -171,7 +171,14 @@ func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder E
 		t.Skipf("ollama not reachable at %s — required for hyde profile", ollamaAddr)
 	}
 	resp.Body.Close()
-	gen := NewOllamaHyDEGenerator(ollamaAddr, model)
+
+	baseGen := NewOllamaHyDEGenerator(ollamaAddr, model)
+	var gen HyDEGenerator = baseGen
+	if profile.MultiHyDE {
+		gen = NewMultiPromptHyDEGenerator(baseGen)
+		t.Logf("multi-hyde=enabled model=%s num_docs=%d", model, numDocs)
+	}
+
 	hydeSearcher := NewHyDESearcher(gen, embedder, store, numDocs)
 	if profile.AdaptiveHyDE {
 		thresh := profile.AdaptiveThresh
@@ -181,7 +188,9 @@ func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder E
 		t.Logf("adaptive-hyde=enabled model=%s threshold=%.2f", model, thresh)
 		return NewAdaptiveHyDESearcher(hydeSearcher, embedder, store, thresh)
 	}
-	t.Logf("hyde=enabled model=%s num_docs=%d", model, numDocs)
+	if !profile.MultiHyDE {
+		t.Logf("hyde=enabled model=%s num_docs=%d", model, numDocs)
+	}
 	return hydeSearcher
 }
 

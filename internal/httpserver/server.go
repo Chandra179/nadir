@@ -105,7 +105,14 @@ func Server(cfg *config.Config) {
 		if ollamaAddr == "" {
 			ollamaAddr = cfg.Embedder.OllamaAddr
 		}
-		hydeGen := pkb.NewOllamaHyDEGenerator(ollamaAddr, cfg.HyDE.Model)
+		baseGen := pkb.NewOllamaHyDEGenerator(ollamaAddr, cfg.HyDE.Model)
+		var hydeGen pkb.HyDEGenerator = baseGen
+		if cfg.HyDE.MultiHyDE {
+			hydeGen = pkb.NewMultiPromptHyDEGenerator(baseGen)
+			log.Info(context.Background(), "Multi-HyDE diverse prompts enabled",
+				logger.Field{Key: "num_templates", Value: 5},
+			)
+		}
 		hydeSearcher := pkb.NewHyDESearcher(hydeGen, embedder, store, cfg.HyDE.NumDocs)
 		if cfg.HyDE.Adaptive {
 			thresh := cfg.HyDE.AdaptiveThresh
