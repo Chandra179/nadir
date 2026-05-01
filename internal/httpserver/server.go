@@ -7,6 +7,7 @@ import (
 	"nadir/config"
 	"nadir/internal/middleware"
 	"nadir/internal/pkb"
+	"nadir/internal/pkb/evalops"
 	"nadir/pkg/otel"
 
 	"github.com/Chandra179/gosdk/logger"
@@ -58,7 +59,7 @@ func Server(cfg *config.Config) {
 		)
 	}
 
-	store, err := pkb.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection)
+	store, err := pkb.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
 	if err != nil {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
@@ -175,6 +176,40 @@ func Server(cfg *config.Config) {
 		log.Info(context.Background(), "LLM generator enabled",
 			logger.Field{Key: "model", Value: cfg.Generator.Model},
 			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
+		)
+	}
+
+	if cfg.ChunkFilter.Enabled {
+		ollamaAddr := cfg.ChunkFilter.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		cf := pkb.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
+		searchHandler.WithChunkFilter(cf)
+		log.Info(context.Background(), "chunk filter enabled",
+			logger.Field{Key: "model", Value: cfg.ChunkFilter.Model},
+			logger.Field{Key: "threshold", Value: cfg.ChunkFilter.Threshold},
+		)
+	}
+
+	if cfg.EvalOps.Enabled {
+		ollamaAddr := cfg.EvalOps.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		monitor := evalops.New(evalops.Config{
+			SampleRate:   cfg.EvalOps.SampleRate,
+			TraceFile:    cfg.EvalOps.TraceFile,
+			DriftWindow:  cfg.EvalOps.DriftWindow,
+			DriftThresh:  cfg.EvalOps.DriftThresh,
+			JudgeBaseURL: ollamaAddr + "/v1",
+			JudgeModel:   cfg.EvalOps.Model,
+			MaxWorkers:   cfg.EvalOps.MaxWorkers,
+		})
+		searchHandler.WithEvalOps(monitor)
+		log.Info(context.Background(), "evalops monitoring enabled",
+			logger.Field{Key: "sample_rate", Value: cfg.EvalOps.SampleRate},
+			logger.Field{Key: "trace_file", Value: cfg.EvalOps.TraceFile},
 		)
 	}
 

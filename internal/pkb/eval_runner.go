@@ -3,6 +3,8 @@ package pkb
 import (
 	"context"
 	"math"
+	"os"
+	"strconv"
 	"sync"
 )
 
@@ -14,10 +16,30 @@ type EvalLogger interface {
 
 // EvalCase is one query in the evaluation set.
 type EvalCase struct {
-	Query string `json:"query"`
+	Query      string   `json:"query"`
+	Category   string   `json:"category"`   // e.g. "golang" | "system-design" | "math"
+	Difficulty string   `json:"difficulty"` // "easy" | "medium" | "hard"
+	Tags       []string `json:"tags"`
 }
 
-// EvalMetrics holds IR metrics for one eval run.
+// QueryResult holds per-query retrieval metrics for one search call.
+// Enables failure analysis: sort by NDCG ascending to surface worst queries.
+type QueryResult struct {
+	Query            string
+	Category         string
+	Difficulty       string
+	Hit              bool
+	FirstRank        int     // 1-based rank of first relevant result; 0 if miss
+	ReciprocalRank   float64
+	NDCG             float64
+	Precision        float64
+	Recall           float64
+	AvgPrecision     float64
+	ContextRelevance float64
+	TopChunks        []ScoredChunk // retrieved chunks for manual inspection
+}
+
+// EvalMetrics holds aggregated IR metrics for one eval run.
 type EvalMetrics struct {
 	MRR              float64
 	HitRate          float64 // Success@K: fraction of queries with ≥1 relevant result
@@ -35,8 +57,18 @@ type RelevanceCounter interface {
 }
 
 // RunEval executes all queries concurrently (up to evalWorkers goroutines) and
-// returns aggregated IR metrics. candidateMul controls oversampling when reranking.
-const evalWorkers = 8
+// returns per-query results and aggregated IR metrics.
+// candidateMul controls oversampling when reranking.
+const defaultEvalWorkers = 8
+
+func evalWorkerCount() int {
+	if s := os.Getenv("EVAL_WORKERS"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultEvalWorkers
+}
 
 func RunEval(
 	ctx context.Context,
@@ -49,7 +81,7 @@ func RunEval(
 	candidateMul int,
 	hydeSearcher HyDESearchInterface,
 	log EvalLogger,
-) EvalMetrics {
+) ([]QueryResult, EvalMetrics) {
 	if candidateMul <= 0 {
 		candidateMul = 3
 	}
@@ -57,18 +89,8 @@ func RunEval(
 	counter, hasCounter := judge.(RelevanceCounter)
 	scorer, hasScorer := judge.(ContextScorer)
 
-	type result struct {
-		reciprocalRank   float64
-		hit              bool
-		precisionAtK     float64
-		ndcgAtK          float64
-		recallAtK        float64
-		avgPrecision     float64
-		contextRelevance float64
-	}
-
-	results := make([]result, len(cases))
-	sem := make(chan struct{}, evalWorkers)
+	queryResults := make([]QueryResult, len(cases))
+	sem := make(chan struct{}, evalWorkerCount())
 	var wg sync.WaitGroup
 
 	for i, tc := range cases {
@@ -77,6 +99,12 @@ func RunEval(
 		go func(i int, tc EvalCase) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			qr := QueryResult{
+				Query:      tc.Query,
+				Category:   tc.Category,
+				Difficulty: tc.Difficulty,
+			}
 
 			fetchK := topK
 			if reranker != nil {
@@ -97,11 +125,13 @@ func RunEval(
 				vec, err = embedder.Embed(ctx, tc.Query)
 				if err != nil {
 					log.Errorf("embed query %q: %v", tc.Query, err)
+					queryResults[i] = qr
 					return
 				}
 				hits, err = store.HybridSearch(ctx, vec, tc.Query, fetchK, nil)
 				if err != nil {
 					log.Errorf("search %q: %v", tc.Query, err)
+					queryResults[i] = qr
 					return
 				}
 			}
@@ -116,9 +146,11 @@ func RunEval(
 				}
 			}
 
+			qr.TopChunks = hits
+
 			var firstRank, relevantCount int
 			dcg := 0.0
-			apSum := 0.0 // running sum for Average Precision
+			apSum := 0.0
 			ctxScoreSum := 0.0
 			for rank, r := range hits {
 				rel, err := judge.IsRelevant(ctx, tc.Query, r)
@@ -131,7 +163,6 @@ func RunEval(
 					}
 					relevantCount++
 					dcg += 1.0 / math.Log2(float64(rank+2))
-					// precision at this rank * binary relevance = P@r for MAP
 					apSum += float64(relevantCount) / float64(rank+1)
 				}
 				if hasScorer {
@@ -144,49 +175,49 @@ func RunEval(
 				}
 			}
 
-			res := result{precisionAtK: float64(relevantCount) / float64(topK)}
+			qr.Precision = float64(relevantCount) / float64(topK)
 			if hasScorer && len(hits) > 0 {
-				res.contextRelevance = ctxScoreSum / float64(len(hits))
+				qr.ContextRelevance = ctxScoreSum / float64(len(hits))
 			}
 			if firstRank > 0 {
-				res.reciprocalRank = 1.0 / float64(firstRank)
-				res.hit = true
+				qr.Hit = true
+				qr.FirstRank = firstRank
+				qr.ReciprocalRank = 1.0 / float64(firstRank)
 			}
 			idcg := 0.0
-			for i := 0; i < relevantCount && i < topK; i++ {
-				idcg += 1.0 / math.Log2(float64(i+2))
+			for j := 0; j < relevantCount && j < topK; j++ {
+				idcg += 1.0 / math.Log2(float64(j+2))
 			}
 			if idcg > 0 {
-				res.ndcgAtK = dcg / idcg
+				qr.NDCG = dcg / idcg
 			}
 			if hasCounter {
 				if total := counter.TotalRelevant(tc.Query); total > 0 {
-					res.recallAtK = float64(relevantCount) / float64(total)
-					res.avgPrecision = apSum / float64(total)
+					qr.Recall = float64(relevantCount) / float64(total)
+					qr.AvgPrecision = apSum / float64(total)
 				}
 			} else if relevantCount > 0 {
-				// no total known: AP normalized by found relevant (optimistic but comparable across runs)
-				res.avgPrecision = apSum / float64(relevantCount)
+				qr.AvgPrecision = apSum / float64(relevantCount)
 			}
-			results[i] = res
+			queryResults[i] = qr
 		}(i, tc)
 	}
 	wg.Wait()
 
 	var mrr, hitRate, ndcg, precision, recall, mapScore, ctxRelevance float64
-	for _, r := range results {
-		mrr += r.reciprocalRank
-		if r.hit {
+	for _, r := range queryResults {
+		mrr += r.ReciprocalRank
+		if r.Hit {
 			hitRate++
 		}
-		ndcg += r.ndcgAtK
-		precision += r.precisionAtK
-		recall += r.recallAtK
-		mapScore += r.avgPrecision
-		ctxRelevance += r.contextRelevance
+		ndcg += r.NDCG
+		precision += r.Precision
+		recall += r.Recall
+		mapScore += r.AvgPrecision
+		ctxRelevance += r.ContextRelevance
 	}
 	n := float64(len(cases))
-	return EvalMetrics{
+	metrics := EvalMetrics{
 		MRR:              mrr / n,
 		HitRate:          hitRate / n,
 		NDCG:             ndcg / n,
@@ -195,4 +226,5 @@ func RunEval(
 		MAP:              mapScore / n,
 		ContextRelevance: ctxRelevance / n,
 	}
+	return queryResults, metrics
 }

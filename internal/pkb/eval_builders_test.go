@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"nadir/config"
-
-	qdrantcontainer "github.com/testcontainers/testcontainers-go/modules/qdrant"
 )
 
 // buildJudge selects the relevance judge from env:
@@ -49,11 +47,11 @@ func buildJudge(t *testing.T, evalCfg *config.EvalConfig) (RelevanceJudge, strin
 // buildStore selects the Qdrant backend from EVAL_STORE:
 //
 //	live      → connect to running Qdrant; skip ingest (data already there)
-//	container → ephemeral testcontainer; full ingest required
+//	container → shared ephemeral testcontainer; ingest runs once across all profiles
 //
 // Override addr/collection via EVAL_QDRANT_ADDR / EVAL_QDRANT_COLLECTION.
-// Returns (store, skipIngest, modeName, collectionName).
-func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *config.Config) (Store, bool, string, string) {
+// Returns (store, docsIngested, modeName, collectionName).
+func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *config.Config) (Store, int, string, string) {
 	t.Helper()
 
 	mode := os.Getenv("EVAL_STORE")
@@ -71,37 +69,24 @@ func buildStore(t *testing.T, ctx context.Context, embedder Embedder, cfg *confi
 		if collection == "" {
 			collection = cfg.Qdrant.Collection
 		}
-		store, err := NewQdrantStore(addr, collection)
+		store, err := NewQdrantStore(addr, collection, 0)
 		if err != nil {
 			t.Fatalf("live qdrant store: %v", err)
 		}
 		t.Logf("store=live qdrant=%s collection=%s", addr, collection)
-		return store, true, "live", collection
+		return store, 0, "live", collection
 
 	case "container":
-		container, err := qdrantcontainer.Run(ctx, "qdrant/qdrant:latest")
+		store, docsIngested, err := getSharedContainerStore(embedder, cfg)
 		if err != nil {
-			t.Fatalf("start qdrant container: %v", err)
+			t.Fatalf("shared container store: %v", err)
 		}
-		t.Cleanup(func() { _ = container.Terminate(ctx) })
-
-		grpcEndpoint, err := container.GRPCEndpoint(ctx)
-		if err != nil {
-			t.Fatalf("qdrant grpc endpoint: %v", err)
-		}
-		store, err := NewQdrantStore(grpcEndpoint, "eval")
-		if err != nil {
-			t.Fatalf("new qdrant store: %v", err)
-		}
-		if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
-			t.Fatalf("ensure collection: %v", err)
-		}
-		t.Log("store=container")
-		return store, false, "container", "eval"
+		t.Logf("store=container (shared) docs=%d", docsIngested)
+		return store, docsIngested, "container", "eval"
 
 	default:
 		t.Fatalf("unknown EVAL_STORE=%q — valid: live, container", mode)
-		return nil, false, "", ""
+		return nil, 0, "", ""
 	}
 }
 

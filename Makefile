@@ -37,13 +37,16 @@ ingest:
 search:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"Precalculus summary","top_k":10}'
+		-d '{"query":"secant formula","top_k":10}'
+
+test:
+	go test ./internal/pkb/ -run TestSearchEval -v -timeout 10m
 
 # generate — search + stream LLM answer. Requires generator.enabled: true in config/config.yaml.
 generate:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"In Monte Carlo Tree Search, how do we calculate UCB?","top_k":5,"generate":true}' \
+		-d '{"query":"secant formula","top_k":5,"generate":true}' \
 		--no-buffer
 
 d:
@@ -80,32 +83,9 @@ docling:
 	mkdir -p pdfs/raw pdfs/converted
 	python services/docling/main.py --input pdfs/raw --output pdfs/converted
 
-
-# =============================================================================
-# TESTING
-# =============================================================================
-#
-#   test        Run all unit tests (fast, no external deps).
-#
-#   test-short  Same as test but skips anything requiring Docker/Ollama.
-#
-# =============================================================================
-
-test:
-	go test ./...
-
-test-short:
-	go test -short ./...
-
 # =============================================================================
 # EVAL TARGETS
 # =============================================================================
-#
-# Tests in internal/pkb/ — all config from config/config.yaml; env vars override:
-#
-#   TestSearchEval      Runs retrieval eval across profiles in testdata/eval_profiles.jsonl.
-#                       Queries from testdata/eval_queries.jsonl. Reports MRR, HitRate,
-#                       NDCG, Precision@K. Appends run to eval_history.jsonl.
 #
 # Targets:
 #   eval-fresh  Self-contained. Spins ephemeral Qdrant, re-ingests fresh, runs

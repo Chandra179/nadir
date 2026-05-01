@@ -24,6 +24,8 @@ type Config struct {
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Docling       DoclingConfig       `yaml:"docling"`
+	ChunkFilter   ChunkFilterConfig   `yaml:"chunk_filter"`
+	EvalOps       EvalOpsConfig       `yaml:"evalops"`
 }
 
 type HTTPConfig struct {
@@ -68,9 +70,10 @@ type DoclingConfig struct {
 }
 
 type QdrantConfig struct {
-	Addr       string `yaml:"addr"`
-	Collection string `yaml:"collection"`
-	TopK       int    `yaml:"top_k"`
+	Addr        string `yaml:"addr"`
+	Collection  string `yaml:"collection"`
+	TopK        int    `yaml:"top_k"`
+	PrefetchMul int    `yaml:"prefetch_mul"` // store-level candidate multiplier for hybrid search legs (default 5)
 }
 
 type EmbedderConfig struct {
@@ -132,6 +135,24 @@ type GeneratorConfig struct {
 	OllamaAddr       string `yaml:"ollama_addr"`        // defaults to embedder.ollama_addr if empty
 	Model            string `yaml:"model"`              // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
 	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
+}
+
+type ChunkFilterConfig struct {
+	Enabled    bool    `yaml:"enabled"`
+	OllamaAddr string  `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
+	Model      string  `yaml:"model"`
+	Threshold  float64 `yaml:"threshold"` // 0–1 relevance cutoff; chunks below are dropped (default 0.5)
+}
+
+type EvalOpsConfig struct {
+	Enabled     bool    `yaml:"enabled"`
+	SampleRate  float64 `yaml:"sample_rate"`  // fraction of live queries to sample (e.g. 0.05)
+	TraceFile   string  `yaml:"trace_file"`   // JSONL output path (e.g. "evalops_traces.jsonl")
+	DriftWindow int     `yaml:"drift_window"` // rolling window size for drift detection (e.g. 50)
+	DriftThresh float64 `yaml:"drift_thresh"` // relative drop to alert (e.g. 0.10 = 10%)
+	OllamaAddr  string  `yaml:"ollama_addr"`  // defaults to embedder.ollama_addr if empty
+	Model       string  `yaml:"model"`        // LLM for context relevance scoring
+	MaxWorkers  int     `yaml:"max_workers"`  // async goroutine pool size (default 4)
 }
 
 type EvalConfig struct {
@@ -234,6 +255,9 @@ func (e *EvalConfig) applyEnv() {
 func (c *Config) Validate() error {
 	if c.Qdrant.TopK <= 0 {
 		return fmt.Errorf("config: qdrant.top_k must be > 0")
+	}
+	if c.Qdrant.PrefetchMul <= 0 {
+		c.Qdrant.PrefetchMul = 5
 	}
 	if c.Embedder.Model == "" {
 		return fmt.Errorf("config: embedder.model must not be empty")

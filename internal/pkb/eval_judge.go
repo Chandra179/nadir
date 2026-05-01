@@ -16,9 +16,12 @@ type ContextScorer interface {
 }
 
 // Qrel is a stored relevance judgment for (query, chunk).
+// Grade follows TREC 4-point scale: 0=not relevant, 1=relevant, 2=highly relevant, 3=perfect.
+// Relevant field is legacy; Grade takes precedence when nonzero.
 type Qrel struct {
 	Query    string `json:"query"`
 	ChunkID  string `json:"chunk_id"`
 	FilePath string `json:"file_path"`
 	Relevant bool   `json:"relevant"`
+	Grade    int    `json:"grade"` // 0-3; 0 = not relevant, >=1 = relevant
 }

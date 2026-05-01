@@ -15,48 +15,51 @@ import (
 // evalProfile defines one retrieval configuration to benchmark.
 // Fields not set in the JSONL file inherit config.yaml defaults at runtime.
 type evalProfile struct {
-	Name            string  `json:"name"`
-	SparseScorer    string  `json:"sparse_scorer"`    // "tf" | "splade"
-	Reranker        string  `json:"reranker"`         // "" | "cross-encoder"
-	ChunkSize       int     `json:"chunk_size"`
-	ChunkOverlap    int     `json:"chunk_overlap"`
-	ChunkerProvider string  `json:"chunker_provider"` // "recursive" | "sentence-window"; default from config
-	HyDE            bool    `json:"hyde"`             // true = use HyDE search (LLM generates hypothetical doc per query)
-	HyDENumDocs     int     `json:"hyde_num_docs"`    // 0 → default from config (1)
-	AdaptiveHyDE    bool    `json:"adaptive_hyde"`    // true = gate HyDE on top-1 confidence score
-	AdaptiveThresh  float32 `json:"adaptive_thresh"`  // 0 → default from config (0.5)
-	MultiHyDE       bool    `json:"multi_hyde"`       // true = use diverse prompt templates per doc (arxiv 2509.16369)
+	Name            string   `json:"name"`
+	Tags            []string `json:"tags"`             // e.g. ["splade","hyde","adaptive"] for grouping results
+	SparseScorer    string   `json:"sparse_scorer"`    // "tf" | "splade"
+	Reranker        string   `json:"reranker"`         // "" | "cross-encoder"
+	ChunkSize       int      `json:"chunk_size"`
+	ChunkOverlap    int      `json:"chunk_overlap"`
+	ChunkerProvider string   `json:"chunker_provider"` // "recursive" | "sentence-window"; default from config
+	HyDE            bool     `json:"hyde"`             // true = use HyDE search (LLM generates hypothetical doc per query)
+	HyDENumDocs     int      `json:"hyde_num_docs"`    // 0 → default from config (1)
+	AdaptiveHyDE    bool     `json:"adaptive_hyde"`    // true = gate HyDE on top-1 confidence score
+	AdaptiveThresh  float32  `json:"adaptive_thresh"`  // 0 → default from config (0.5)
+	MultiHyDE       bool     `json:"multi_hyde"`       // true = use diverse prompt templates per doc (arxiv 2509.16369)
 }
 
 // evalHistoryEntry is one run record appended to the JSONL history file.
 type evalHistoryEntry struct {
-	Timestamp       string  `json:"timestamp"`
-	Profile         string  `json:"profile"`
-	SparseScorer    string  `json:"sparse_scorer"`
-	ChunkSize       int     `json:"chunk_size"`
-	ChunkOverlap    int     `json:"chunk_overlap"`
-	ChunkerProvider string  `json:"chunker_provider"`
-	Mode            string  `json:"mode"`
-	Judge           string  `json:"judge"`
-	Collection      string  `json:"collection"`
-	Model           string  `json:"model"`
-	EmbedderDims    int     `json:"embedder_dims"`
-	Queries         int     `json:"queries"`
-	TopK            int     `json:"top_k"`
-	DocsIngested    int     `json:"docs_ingested"`
-	VectorCount     int64   `json:"vector_count"`
-	QrelsTotal      int     `json:"qrels_total,omitempty"`
-	QrelsRelevant   int     `json:"qrels_relevant,omitempty"`
-	Reranker        string  `json:"reranker,omitempty"`
-	CandidateMul    int     `json:"candidate_mul,omitempty"`
-	HyDE            bool    `json:"hyde,omitempty"`
-	MultiHyDE       bool    `json:"multi_hyde,omitempty"`
-	MRR             float64 `json:"mrr"`
-	HitRate         float64 `json:"hit_rate"`
-	NDCG            float64 `json:"ndcg"`
-	Precision       float64 `json:"precision"`
-	Recall          float64 `json:"recall,omitempty"`
-	MAP             float64 `json:"map,omitempty"`
+	Timestamp       string   `json:"timestamp"`
+	Profile         string   `json:"profile"`
+	ProfileTags     []string `json:"profile_tags,omitempty"`
+	SparseScorer    string   `json:"sparse_scorer"`
+	ChunkSize       int      `json:"chunk_size"`
+	ChunkOverlap    int      `json:"chunk_overlap"`
+	ChunkerProvider string   `json:"chunker_provider"`
+	Mode            string   `json:"mode"`
+	Judge           string   `json:"judge"`
+	Collection      string   `json:"collection"`
+	Model           string   `json:"model"`
+	EmbedderDims    int      `json:"embedder_dims"`
+	Queries         int      `json:"queries"`
+	TopK            int      `json:"top_k"`
+	DocsIngested    int      `json:"docs_ingested"`
+	VectorCount     int64    `json:"vector_count"`
+	QrelsTotal      int      `json:"qrels_total,omitempty"`
+	QrelsRelevant   int      `json:"qrels_relevant,omitempty"`
+	Reranker        string   `json:"reranker,omitempty"`
+	CandidateMul    int      `json:"candidate_mul,omitempty"`
+	HyDE            bool     `json:"hyde,omitempty"`
+	MultiHyDE       bool     `json:"multi_hyde,omitempty"`
+	MRR             float64  `json:"mrr"`
+	HitRate         float64  `json:"hit_rate"`
+	NDCG            float64  `json:"ndcg"`
+	Precision       float64  `json:"precision"`
+	Recall          float64  `json:"recall,omitempty"`
+	MAP             float64  `json:"map,omitempty"`
+	FailedQueries   int      `json:"failed_queries,omitempty"`
 }
 
 // evalHistoryWriter serializes history entries to a JSONL file, safe for concurrent subtests.
@@ -96,10 +99,11 @@ func (w *evalHistoryWriter) write(t *testing.T, entry evalHistoryEntry) {
 }
 
 // qrelsJudge wraps a pre-computed qrels file as a RelevanceJudge.
-// Returns false for any chunk not present in the file.
+// Supports graded relevance (TREC 4-point scale: 0-3). Binary relevant field
+// is treated as grade=1 for backwards compatibility.
 type qrelsJudge struct {
-	// qrels[query][chunkID] = relevant
-	qrels map[string]map[string]bool
+	// grades[query][chunkID] = grade (0-3)
+	grades map[string]map[string]int
 }
 
 func loadQrelsJudge(path string) (*qrelsJudge, error) {
@@ -107,7 +111,7 @@ func loadQrelsJudge(path string) (*qrelsJudge, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]map[string]bool)
+	m := make(map[string]map[string]int)
 	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "" {
 			continue
@@ -117,25 +121,34 @@ func loadQrelsJudge(path string) (*qrelsJudge, error) {
 			return nil, err
 		}
 		if m[q.Query] == nil {
-			m[q.Query] = make(map[string]bool)
+			m[q.Query] = make(map[string]int)
 		}
-		m[q.Query][q.ChunkID] = q.Relevant
+		grade := q.Grade
+		if grade == 0 && q.Relevant {
+			grade = 1 // legacy binary → grade 1
+		}
+		m[q.Query][q.ChunkID] = grade
 	}
-	return &qrelsJudge{qrels: m}, nil
+	return &qrelsJudge{grades: m}, nil
 }
 
 func (j *qrelsJudge) IsRelevant(_ context.Context, query string, chunk ScoredChunk) (bool, error) {
-	entries, ok := j.qrels[query]
+	entries, ok := j.grades[query]
 	if !ok {
 		return false, nil
 	}
-	return entries[chunk.Key()], nil
+	return entries[chunk.Key()] >= 1, nil
+}
+
+// GradeOf returns the raw TREC grade (0-3) for a chunk.
+func (j *qrelsJudge) GradeOf(query, chunkKey string) int {
+	return j.grades[query][chunkKey]
 }
 
 func (j *qrelsJudge) TotalRelevant(query string) int {
 	var n int
-	for _, rel := range j.qrels[query] {
-		if rel {
+	for _, grade := range j.grades[query] {
+		if grade >= 1 {
 			n++
 		}
 	}
@@ -148,10 +161,10 @@ func qrelsStats(judge RelevanceJudge) (total, relevant int) {
 	if !ok {
 		return
 	}
-	for _, entries := range qj.qrels {
-		for _, rel := range entries {
+	for _, entries := range qj.grades {
+		for _, grade := range entries {
 			total++
-			if rel {
+			if grade >= 1 {
 				relevant++
 			}
 		}
@@ -247,7 +260,7 @@ func runEval(
 	topK int,
 	candidateMul int,
 	hydeSearcher HyDESearchInterface,
-) EvalMetrics {
+) ([]QueryResult, EvalMetrics) {
 	t.Helper()
 	return RunEval(ctx, cases, embedder, store, reranker, judge, topK, candidateMul, hydeSearcher, tLogger{t})
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"nadir/internal/pkb/evalops"
 	"nadir/pkg/otel"
 )
 
@@ -45,7 +46,9 @@ type SearchHandler struct {
 	adaptiveHyde  *AdaptiveHyDESearcher // nil = disabled; gates HyDE on retrieval confidence
 	semanticCache *SemanticCache        // nil = disabled
 	generator     Generator             // nil = disabled; streams LLM answer when generate:true in request
+	chunkFilter   ChunkFilter           // nil = disabled; drops irrelevant chunks post-retrieval
 	metrics       *otel.Metrics         // nil = no-op
+	evalMonitor   *evalops.Monitor      // nil = disabled; async EvalOps sampling
 }
 
 func NewSearchHandler(embedder Embedder, store Store, topK int) *SearchHandler {
@@ -84,6 +87,13 @@ func (h *SearchHandler) WithSemanticCache(sc *SemanticCache) *SearchHandler {
 	return h
 }
 
+// WithChunkFilter enables post-retrieval LLM relevance filtering.
+// Runs after reranking; drops chunks below the configured threshold before generation/response.
+func (h *SearchHandler) WithChunkFilter(cf ChunkFilter) *SearchHandler {
+	h.chunkFilter = cf
+	return h
+}
+
 // WithGenerator enables LLM answer generation from retrieved chunks.
 // When the request includes "generate": true, chunks are passed to the generator
 // and the answer is streamed back as text/plain.
@@ -95,6 +105,12 @@ func (h *SearchHandler) WithGenerator(g Generator) *SearchHandler {
 // WithMetrics attaches an otel.Metrics recorder for instrumentation.
 func (h *SearchHandler) WithMetrics(m *otel.Metrics) *SearchHandler {
 	h.metrics = m
+	return h
+}
+
+// WithEvalOps attaches an evalops.Monitor for async continuous evaluation sampling.
+func (h *SearchHandler) WithEvalOps(m *evalops.Monitor) *SearchHandler {
+	h.evalMonitor = m
 	return h
 }
 
@@ -208,11 +224,37 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if h.chunkFilter != nil && len(chunks) > 0 {
+		filtered, err := h.chunkFilter.Filter(r.Context(), req.Query, chunks)
+		if err == nil && len(filtered) > 0 {
+			chunks = filtered
+		}
+	}
+
 	// populate cache on miss (fire-and-forget; don't block response)
 	if h.semanticCache != nil && req.Query != "" && len(chunks) > 0 {
 		go func() {
 			_ = h.semanticCache.Set(context.Background(), req.Query, chunks)
 		}()
+	}
+
+	// async evalops sampling — zero hot-path cost when not sampled
+	if h.evalMonitor != nil && req.Query != "" && len(chunks) > 0 {
+		snaps := make([]evalops.ScoredChunk, len(chunks))
+		for i, c := range chunks {
+			text := c.WindowText
+			if text == "" {
+				text = c.Text
+			}
+			snaps[i] = evalops.ScoredChunk{
+				FilePath:  c.FilePath,
+				Header:    c.Header,
+				LineStart: c.LineStart,
+				Score:     c.Score,
+				Text:      text,
+			}
+		}
+		h.evalMonitor.RecordAsync(req.Query, snaps)
 	}
 
 	h.metrics.RecordSearch(r.Context(), time.Since(start), len(chunks), h.searchMode(req))

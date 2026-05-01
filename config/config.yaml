@@ -35,6 +35,7 @@ qdrant:
   addr: "localhost:6334"
   collection: "pkb_chunks"
   top_k: 5
+  prefetch_mul: 5  # store-level candidate multiplier for hybrid search legs
 
 embedder:
   provider: "ollama"
@@ -64,8 +65,8 @@ reranker:
   candidate_mul: 10     # fetch topK*3 candidates before reranking
 
 hyde:
-  enabled: false          # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
-  adaptive: false         # gate HyDE on retrieval confidence (arxiv 2507.16754); skips LLM when top-1 score >= threshold
+  enabled: false           # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
+  adaptive: true          # gate HyDE on retrieval confidence (arxiv 2507.16754); skips LLM when top-1 score >= threshold
   adaptive_thresh: 0.50   # fire HyDE only when top-1 cosine score < this value
   multi_hyde: false       # diverse prompt templates per doc (arxiv 2509.16369); set num_docs >= 3 for benefit
   ollama_addr: ""         # defaults to embedder.ollama_addr
@@ -92,3 +93,19 @@ generator:
 docling:
   input_dir: "pdfs/raw"        # drop PDFs here
   output_dir: "pdfs/converted" # docling writes .md here; picked up on next ingest
+
+chunk_filter:
+  enabled: false      # drop irrelevant chunks post-retrieval (arxiv 2410.19572, +10pp PopQA)
+  ollama_addr: ""     # defaults to embedder.ollama_addr
+  model: "gemma3:1b"
+  threshold: 0.5      # 0–1; chunks with LLM score below this are dropped
+
+evalops:
+  enabled: false       # async EvalOps continuous monitoring (RAGOps arxiv 2506.03401, ARES arxiv 2311.09476)
+  sample_rate: 0.05    # fraction of live queries to sample (0.05 = 5%)
+  trace_file: "evalops_traces.jsonl"  # JSONL persistence path
+  drift_window: 50     # rolling window size for drift detection
+  drift_thresh: 0.10   # relative context_relevance drop to alert (10%)
+  ollama_addr: ""      # defaults to embedder.ollama_addr
+  model: "gemma3:1b"   # LLM for async context relevance scoring
+  max_workers: 4       # async goroutine pool size

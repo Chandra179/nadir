@@ -14,10 +14,6 @@ go build ./cmd/http
 # Run (sources .env)
 make run             # or: go run ./cmd/http
 
-# Test
-go test ./...
-go test ./internal/pkb/...   # single package
-
 # Docker (includes Qdrant)
 docker compose up --build
 

@@ -20,22 +20,27 @@ type QdrantStore struct {
 	points       qdrant.PointsClient
 	collection   qdrant.CollectionsClient
 	name         string
+	prefetchMul  int
 	sparseScorer SparseScorer
 	// sparseEmbedder, when set, enables server-side hybrid search via QueryPoints.
 	// At query time, the query is embedded as a sparse vector and sent alongside the dense vector.
 	sparseEmbedder SparseEmbedder
 }
 
-func NewQdrantStore(addr, collection string) (*QdrantStore, error) {
+func NewQdrantStore(addr, collection string, prefetchMul int) (*QdrantStore, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("qdrant dial %s: %w", addr, err)
+	}
+	if prefetchMul <= 0 {
+		prefetchMul = 5
 	}
 	return &QdrantStore{
 		conn:         conn,
 		points:       qdrant.NewPointsClient(conn),
 		collection:   qdrant.NewCollectionsClient(conn),
 		name:         collection,
+		prefetchMul:  prefetchMul,
 		sparseScorer: TFSparseScorer{},
 	}, nil
 }
@@ -254,7 +259,7 @@ func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query 
 
 // hybridSearchServer uses Qdrant QueryPoints with dense+sparse prefetch legs and server-side RRF.
 func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	fetchN := uint64(topK * 5)
+	fetchN := uint64(topK * s.prefetchMul)
 
 	sparseIdx, sparseVals, err := s.sparseEmbedder.EmbedSparse(ctx, query, "query")
 	if err != nil {
@@ -296,7 +301,7 @@ func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, 
 
 // hybridSearchClient fetches dense + text-filtered candidates, reranks sparse leg client-side, fuses via RRF.
 func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	fetchN := topK * 5
+	fetchN := topK * s.prefetchMul
 
 	filterConds := buildFilterConditions(filter)
 	denseResp, err := s.points.Search(ctx, &qdrant.SearchPoints{

@@ -4,11 +4,31 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 )
+
+// filterProfiles removes profiles not in the EVAL_PROFILES comma-separated allowlist.
+// Empty EVAL_PROFILES = run all.
+func filterProfiles(profiles []evalProfile) []evalProfile {
+	filter := os.Getenv("EVAL_PROFILES")
+	if filter == "" {
+		return profiles
+	}
+	want := make(map[string]bool)
+	for _, name := range strings.Split(filter, ",") {
+		want[strings.TrimSpace(name)] = true
+	}
+	out := profiles[:0]
+	for _, p := range profiles {
+		if want[p.Name] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
 
 func TestSearchEval(t *testing.T) {
 	if testing.Short() {
@@ -28,7 +48,7 @@ func TestSearchEval(t *testing.T) {
 	judge, judgeName := buildJudge(t, evalCfg)
 	topK := cfg.Qdrant.TopK
 	evalCases := loadEvalCases(t)
-	profiles := loadEvalProfiles(t)
+	profiles := filterProfiles(loadEvalProfiles(t))
 	history := newEvalHistoryWriter(t, evalCfg)
 
 	for _, profile := range profiles {
@@ -39,7 +59,7 @@ func TestSearchEval(t *testing.T) {
 				t.Skipf("splade sidecar not reachable at %s — run: python cmd/splade/main.py", cfg.SparseScorer.Addr)
 			}
 
-			store, skipIngest, mode, collection := buildStore(t, ctx, embedder, cfg)
+			store, docsIngested, mode, collection := buildStore(t, ctx, embedder, cfg)
 			rerankerName, reranker := buildReranker(t, profile, cfg)
 
 			var sparseEmb SparseEmbedder
@@ -54,40 +74,6 @@ func TestSearchEval(t *testing.T) {
 				}
 			}
 
-			docsIngested := 0
-			if !skipIngest {
-				chunker := buildChunker(profile, cfg)
-				pipeline := NewPipeline(chunker, embedder, store, cfg.Retry)
-				if sparseEmb != nil {
-					pipeline.WithSparseEmbedder(sparseEmb)
-				}
-
-				gitbookRoot := filepath.Join("..", "..", "gitbook")
-				err := filepath.Walk(gitbookRoot, func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return nil
-					}
-					if info.IsDir() || !strings.HasSuffix(info.Name(), ".md") {
-						return nil
-					}
-					content, readErr := os.ReadFile(path)
-					if readErr != nil {
-						return nil
-					}
-					rel, _ := filepath.Rel(gitbookRoot, path)
-					if ingestErr := pipeline.Ingest(ctx, rel, string(content), "eval"); ingestErr != nil {
-						t.Logf("warn: ingest %s: %v", rel, ingestErr)
-					} else {
-						docsIngested++
-					}
-					return nil
-				})
-				if err != nil {
-					t.Fatalf("walk gitbook: %v", err)
-				}
-				t.Logf("ingested %d files", docsIngested)
-			}
-
 			var vectorCount int64
 			if qs, ok := store.(*QdrantStore); ok {
 				if n, err := qs.PointCount(ctx); err == nil {
@@ -100,25 +86,17 @@ func TestSearchEval(t *testing.T) {
 			hydeSearcher := buildHyDE(t, profile, cfg, embedder, store)
 
 			qrelsTotal, qrelsRelevant := qrelsStats(judge)
-			metrics := runEval(t, ctx, evalCases, embedder, store, reranker, judge, topK, cfg.Reranker.CandidateMul, hydeSearcher)
+			queryResults, metrics := runEval(t, ctx, evalCases, embedder, store, reranker, judge, topK, cfg.Reranker.CandidateMul, hydeSearcher)
 
-			fmt.Printf("\n=== Search Eval: %s (model=%s topK=%d) ===\n", profile.Name, cfg.Embedder.Model, topK)
-			fmt.Printf("SparseScorer:  %s\n", profile.SparseScorer)
-			fmt.Printf("Reranker:      %s\n", rerankerName)
-			fmt.Printf("Chunker:       %s  ChunkSize: %d  ChunkOverlap: %d\n",
-				profile.ChunkerProvider, profile.ChunkSize, profile.ChunkOverlap)
-			fmt.Printf("Queries:       %d  DocsIngested: %d  Vectors: %d\n", len(evalCases), docsIngested, vectorCount)
-			fmt.Printf("Qrels:         total=%d relevant=%d\n", qrelsTotal, qrelsRelevant)
-			fmt.Printf("MRR@%d:          %.4f\n", topK, metrics.MRR)
-			fmt.Printf("HitRate@%d:      %.4f\n", topK, metrics.HitRate)
-			fmt.Printf("NDCG@%d:         %.4f\n", topK, metrics.NDCG)
-			fmt.Printf("Precision@%d:    %.4f\n\n", topK, metrics.Precision)
+			printEvalReport(profile.Name, cfg.Embedder.Model, topK, profile, rerankerName,
+				docsIngested, vectorCount, qrelsTotal, qrelsRelevant, queryResults, metrics)
 
 			history.write(t, evalHistoryEntry{
 				HyDE:      profile.HyDE || profile.AdaptiveHyDE || profile.MultiHyDE,
 				MultiHyDE: profile.MultiHyDE,
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				Profile:         profile.Name,
+				ProfileTags:     profile.Tags,
 				SparseScorer:    profile.SparseScorer,
 				Reranker:        rerankerName,
 				ChunkSize:       profile.ChunkSize,
@@ -140,7 +118,144 @@ func TestSearchEval(t *testing.T) {
 				HitRate:         metrics.HitRate,
 				NDCG:            metrics.NDCG,
 				Precision:       metrics.Precision,
+				FailedQueries:   countMisses(queryResults),
 			})
 		})
 	}
+}
+
+func countMisses(results []QueryResult) int {
+	n := 0
+	for _, r := range results {
+		if !r.Hit {
+			n++
+		}
+	}
+	return n
+}
+
+// printEvalReport prints a structured eval report:
+//  1. Aggregate metrics table
+//  2. Per-query breakdown sorted worst-first (NDCG ascending)
+//  3. Failure list (hit=false queries)
+//  4. Category breakdown
+func printEvalReport(
+	profileName, model string,
+	topK int,
+	profile evalProfile,
+	rerankerName string,
+	docsIngested int,
+	vectorCount int64,
+	qrelsTotal, qrelsRelevant int,
+	queryResults []QueryResult,
+	metrics EvalMetrics,
+) {
+	sep := strings.Repeat("─", 72)
+	fmt.Printf("\n%s\n", sep)
+	fmt.Printf("EVAL: %-40s  model=%-20s topK=%d\n", profileName, model, topK)
+	fmt.Printf("%s\n", sep)
+
+	// profile config
+	tags := strings.Join(profile.Tags, ",")
+	if tags == "" {
+		tags = "-"
+	}
+	fmt.Printf("sparse=%-8s  reranker=%-14s  chunker=%s size=%d overlap=%d\n",
+		profile.SparseScorer, rerankerName, orDefault(profile.ChunkerProvider, "recursive"),
+		profile.ChunkSize, profile.ChunkOverlap)
+	fmt.Printf("tags=%-20s  docs=%d  vectors=%d\n", tags, docsIngested, vectorCount)
+	fmt.Printf("qrels: total=%-5d  relevant=%d\n", qrelsTotal, qrelsRelevant)
+	fmt.Printf("%s\n", sep)
+
+	// aggregate metrics
+	fmt.Printf("%-16s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s\n",
+		"metric", "MRR", "HitRate", "NDCG", "P@K", "Recall", "MAP")
+	fmt.Printf("%-16s  %-8.4f  %-8.4f  %-8.4f  %-8.4f  %-8.4f  %-8.4f\n",
+		"aggregate",
+		metrics.MRR, metrics.HitRate, metrics.NDCG,
+		metrics.Precision, metrics.Recall, metrics.MAP)
+	fmt.Printf("%s\n", sep)
+
+	// per-query breakdown: worst first
+	sorted := make([]QueryResult, len(queryResults))
+	copy(sorted, queryResults)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].NDCG < sorted[j].NDCG
+	})
+	fmt.Printf("PER-QUERY BREAKDOWN (worst first)\n")
+	fmt.Printf("%-5s  %-14s  %-8s  %-6s  %-6s  %-6s  %s\n",
+		"rank", "category/diff", "NDCG", "MRR", "P@K", "R@K", "query")
+	for idx, r := range sorted {
+		catDiff := fmt.Sprintf("%s/%s", orDefault(r.Category, "?"), orDefault(r.Difficulty, "?"))
+		miss := ""
+		if !r.Hit {
+			miss = " ✗"
+		}
+		fmt.Printf("%-5d  %-14s  %-8.4f  %-6.4f  %-6.4f  %-6.4f  %.60s%s\n",
+			idx+1, catDiff, r.NDCG, r.ReciprocalRank, r.Precision, r.Recall,
+			r.Query, miss)
+	}
+	fmt.Printf("%s\n", sep)
+
+	// failure list
+	var failures []QueryResult
+	for _, r := range queryResults {
+		if !r.Hit {
+			failures = append(failures, r)
+		}
+	}
+	fmt.Printf("MISSES (%d/%d)\n", len(failures), len(queryResults))
+	if len(failures) == 0 {
+		fmt.Printf("  (none)\n")
+	}
+	for i, r := range failures {
+		fmt.Printf("  %2d. [%s/%s] %s\n", i+1,
+			orDefault(r.Category, "?"), orDefault(r.Difficulty, "?"), r.Query)
+		if len(r.TopChunks) > 0 {
+			fmt.Printf("      top1: %s:%d (score=%.3f)\n",
+				r.TopChunks[0].FilePath, r.TopChunks[0].LineStart, r.TopChunks[0].Score)
+		}
+	}
+	fmt.Printf("%s\n", sep)
+
+	// category breakdown
+	type catMetrics struct {
+		ndcgSum float64
+		hitSum  int
+		count   int
+	}
+	cats := make(map[string]*catMetrics)
+	for _, r := range queryResults {
+		cat := orDefault(r.Category, "unknown")
+		if cats[cat] == nil {
+			cats[cat] = &catMetrics{}
+		}
+		cats[cat].ndcgSum += r.NDCG
+		if r.Hit {
+			cats[cat].hitSum++
+		}
+		cats[cat].count++
+	}
+	catNames := make([]string, 0, len(cats))
+	for k := range cats {
+		catNames = append(catNames, k)
+	}
+	sort.Strings(catNames)
+	fmt.Printf("CATEGORY BREAKDOWN\n")
+	fmt.Printf("%-20s  %6s  %8s  %8s\n", "category", "n", "NDCG@K", "HitRate")
+	for _, cat := range catNames {
+		m := cats[cat]
+		fmt.Printf("%-20s  %6d  %8.4f  %8.4f\n",
+			cat, m.count,
+			m.ndcgSum/float64(m.count),
+			float64(m.hitSum)/float64(m.count))
+	}
+	fmt.Printf("%s\n\n", sep)
+}
+
+func orDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }
