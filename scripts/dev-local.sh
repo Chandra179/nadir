@@ -16,6 +16,7 @@ export QDRANT_ADDR=localhost:6334
 export SPLADE_ADDR=http://localhost:5001
 export RERANKER_ADDR=http://localhost:5002
 export OLLAMA_ADDR=http://localhost:11434
+export QDRANT_COLLECTION="${QDRANT_COLLECTION:-pkb_chunks}"
 
 echo "==> Starting Qdrant, Splade, Reranker, Prometheus, Grafana..."
 docker compose up -d qdrant splade reranker prometheus grafana
@@ -38,7 +39,12 @@ until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do sleep 1; done
 
 echo "==> Converting PDFs (pdfs/raw -> pdfs/converted)..."
 mkdir -p pdfs/raw pdfs/converted
-python services/docling/main.py --input pdfs/raw --output pdfs/converted || true
+PDF_CONVERTER="${PDF_CONVERTER:-docling}"
+if [[ "$PDF_CONVERTER" == "marker" ]]; then
+  python3 services/marker/main.py --input pdfs/raw --output pdfs/converted || true
+else
+  python3 services/docling/main.py --input pdfs/raw --output pdfs/converted || true
+fi
 
 echo "==> Ingesting notes..."
 curl -sf -X POST localhost:8080/ingest
