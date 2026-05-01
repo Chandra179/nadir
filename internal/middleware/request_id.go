@@ -5,9 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 type contextKey string
@@ -46,27 +43,4 @@ func RequestID(next http.Handler) http.Handler {
 		w.Header().Set(headerKey, id)
 		next.ServeHTTP(w, r.WithContext(storeRequestID(r.Context(), id)))
 	})
-}
-
-// RequestIDUnaryInterceptor is a gRPC unary server interceptor. It reads
-// x-request-id from incoming metadata, reusing it if present or generating
-// a new one. The ID is stored in the request context.
-func RequestIDUnaryInterceptor(
-	ctx context.Context,
-	req any,
-	_ *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler,
-) (any, error) {
-	id := ""
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if vals := md.Get(grpcMetaKey); len(vals) > 0 {
-			id = vals[0]
-		}
-	}
-	if id == "" {
-		id = generateRequestID()
-	}
-	// Send the request ID back to the client via header.
-	_ = grpc.SetHeader(ctx, metadata.Pairs(grpcMetaKey, id))
-	return handler(storeRequestID(ctx, id), req)
 }
