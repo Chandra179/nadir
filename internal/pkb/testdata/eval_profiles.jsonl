@@ -2,3 +2,5 @@
 {"name": "splade-recursive256", "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32}
 {"name": "tf-recursive256-hyde", "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "hyde": true, "hyde_num_docs": 1}
 {"name": "splade-recursive256-hyde", "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32, "hyde": true, "hyde_num_docs": 1}
+{"name": "tf-recursive256-adaptive-hyde", "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}
+{"name": "splade-recursive256-adaptive-hyde", "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}

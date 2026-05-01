@@ -18,6 +18,11 @@ type HyDEGenerator interface {
 	Generate(ctx context.Context, query string) (string, error)
 }
 
+// HyDESearchInterface is the common search interface for HyDESearcher and AdaptiveHyDESearcher.
+type HyDESearchInterface interface {
+	Search(ctx context.Context, query string, topK int) ([]ScoredChunk, error)
+}
+
 // OllamaHyDEGenerator calls a local Ollama LLM to generate hypothetical documents.
 type OllamaHyDEGenerator struct {
 	addr   string // e.g. http://localhost:11434
@@ -163,6 +168,43 @@ func averageVectors(vecs [][]float32) []float32 {
 		avg[i] /= n
 	}
 	return l2Normalize(avg)
+}
+
+// AdaptiveHyDESearcher gates HyDE on retrieval confidence.
+// Runs vanilla hybrid search first; applies HyDE only when top-1 score < threshold.
+// Based on: "Adaptive HyDE" (arxiv 2507.16754).
+type AdaptiveHyDESearcher struct {
+	hyde      *HyDESearcher
+	embedder  Embedder
+	store     Store
+	threshold float32 // cosine score below which HyDE fires (e.g. 0.5)
+}
+
+func NewAdaptiveHyDESearcher(hyde *HyDESearcher, embedder Embedder, store Store, threshold float32) *AdaptiveHyDESearcher {
+	if threshold <= 0 {
+		threshold = 0.5
+	}
+	return &AdaptiveHyDESearcher{hyde: hyde, embedder: embedder, store: store, threshold: threshold}
+}
+
+// Search runs vanilla search first; falls back to HyDE when top-1 confidence is low.
+func (a *AdaptiveHyDESearcher) Search(ctx context.Context, query string, topK int) ([]ScoredChunk, error) {
+	vec, err := a.embedder.Embed(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("adaptive hyde embed: %w", err)
+	}
+	chunks, err := a.store.HybridSearch(ctx, vec, query, topK, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(chunks) == 0 || chunks[0].Score >= a.threshold {
+		return chunks, nil
+	}
+	hydeChunks, err := a.hyde.Search(ctx, query, topK)
+	if err != nil {
+		return chunks, nil // fallback to vanilla on HyDE failure
+	}
+	return hydeChunks, nil
 }
 
 func l2Normalize(v []float32) []float32 {

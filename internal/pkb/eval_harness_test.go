@@ -21,8 +21,10 @@ type evalProfile struct {
 	ChunkSize       int    `json:"chunk_size"`
 	ChunkOverlap    int    `json:"chunk_overlap"`
 	ChunkerProvider string `json:"chunker_provider"` // "recursive" | "sentence-window"; default from config
-	HyDE            bool   `json:"hyde"`             // true = use HyDE search (LLM generates hypothetical doc per query)
-	HyDENumDocs     int    `json:"hyde_num_docs"`    // 0 → default from config (1)
+	HyDE            bool    `json:"hyde"`              // true = use HyDE search (LLM generates hypothetical doc per query)
+	HyDENumDocs     int     `json:"hyde_num_docs"`     // 0 → default from config (1)
+	AdaptiveHyDE    bool    `json:"adaptive_hyde"`     // true = gate HyDE on top-1 confidence score
+	AdaptiveThresh  float32 `json:"adaptive_thresh"`   // 0 → default from config (0.5)
 }
 
 // evalHistoryEntry is one run record appended to the JSONL history file.
@@ -242,7 +244,7 @@ func runEval(
 	judge RelevanceJudge,
 	topK int,
 	candidateMul int,
-	hydeSearcher *HyDESearcher,
+	hydeSearcher HyDESearchInterface,
 ) EvalMetrics {
 	t.Helper()
 	return RunEval(ctx, cases, embedder, store, reranker, judge, topK, candidateMul, hydeSearcher, tLogger{t})

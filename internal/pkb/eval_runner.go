@@ -19,12 +19,13 @@ type EvalCase struct {
 
 // EvalMetrics holds IR metrics for one eval run.
 type EvalMetrics struct {
-	MRR       float64
-	HitRate   float64 // Success@K: fraction of queries with ≥1 relevant result
-	NDCG      float64
-	Precision float64
-	Recall    float64 // Recall@K: fraction of all relevant docs retrieved; 0 if judge has no total counts
-	MAP       float64 // Mean Average Precision: AUC over precision-recall curve
+	MRR              float64
+	HitRate          float64 // Success@K: fraction of queries with ≥1 relevant result
+	NDCG             float64
+	Precision        float64
+	Recall           float64 // Recall@K: fraction of all relevant docs retrieved; 0 if judge has no total counts
+	MAP              float64 // Mean Average Precision: AUC over precision-recall curve
+	ContextRelevance float64 // RAGAS-style avg chunk relevance score 0–1; 0 if judge doesn't implement ContextScorer
 }
 
 // RelevanceCounter is an optional extension of RelevanceJudge.
@@ -46,7 +47,7 @@ func RunEval(
 	judge RelevanceJudge,
 	topK int,
 	candidateMul int,
-	hydeSearcher *HyDESearcher,
+	hydeSearcher HyDESearchInterface,
 	log EvalLogger,
 ) EvalMetrics {
 	if candidateMul <= 0 {
@@ -54,14 +55,16 @@ func RunEval(
 	}
 
 	counter, hasCounter := judge.(RelevanceCounter)
+	scorer, hasScorer := judge.(ContextScorer)
 
 	type result struct {
-		reciprocalRank float64
-		hit            bool
-		precisionAtK   float64
-		ndcgAtK        float64
-		recallAtK      float64
-		avgPrecision   float64
+		reciprocalRank   float64
+		hit              bool
+		precisionAtK     float64
+		ndcgAtK          float64
+		recallAtK        float64
+		avgPrecision     float64
+		contextRelevance float64
 	}
 
 	results := make([]result, len(cases))
@@ -116,6 +119,7 @@ func RunEval(
 			var firstRank, relevantCount int
 			dcg := 0.0
 			apSum := 0.0 // running sum for Average Precision
+			ctxScoreSum := 0.0
 			for rank, r := range hits {
 				rel, err := judge.IsRelevant(ctx, tc.Query, r)
 				if err != nil {
@@ -130,9 +134,20 @@ func RunEval(
 					// precision at this rank * binary relevance = P@r for MAP
 					apSum += float64(relevantCount) / float64(rank+1)
 				}
+				if hasScorer {
+					s, err := scorer.ScoreContext(ctx, tc.Query, r)
+					if err != nil {
+						log.Logf("warn: context score %q chunk %s:%d: %v", tc.Query, r.FilePath, r.LineStart, err)
+					} else {
+						ctxScoreSum += s
+					}
+				}
 			}
 
 			res := result{precisionAtK: float64(relevantCount) / float64(topK)}
+			if hasScorer && len(hits) > 0 {
+				res.contextRelevance = ctxScoreSum / float64(len(hits))
+			}
 			if firstRank > 0 {
 				res.reciprocalRank = 1.0 / float64(firstRank)
 				res.hit = true
@@ -158,7 +173,7 @@ func RunEval(
 	}
 	wg.Wait()
 
-	var mrr, hitRate, ndcg, precision, recall, mapScore float64
+	var mrr, hitRate, ndcg, precision, recall, mapScore, ctxRelevance float64
 	for _, r := range results {
 		mrr += r.reciprocalRank
 		if r.hit {
@@ -168,14 +183,16 @@ func RunEval(
 		precision += r.precisionAtK
 		recall += r.recallAtK
 		mapScore += r.avgPrecision
+		ctxRelevance += r.contextRelevance
 	}
 	n := float64(len(cases))
 	return EvalMetrics{
-		MRR:       mrr / n,
-		HitRate:   hitRate / n,
-		NDCG:      ndcg / n,
-		Precision: precision / n,
-		Recall:    recall / n,
-		MAP:       mapScore / n,
+		MRR:              mrr / n,
+		HitRate:          hitRate / n,
+		NDCG:             ndcg / n,
+		Precision:        precision / n,
+		Recall:           recall / n,
+		MAP:              mapScore / n,
+		ContextRelevance: ctxRelevance / n,
 	}
 }

@@ -107,11 +107,21 @@ func Server(cfg *config.Config) {
 		}
 		hydeGen := pkb.NewOllamaHyDEGenerator(ollamaAddr, cfg.HyDE.Model)
 		hydeSearcher := pkb.NewHyDESearcher(hydeGen, embedder, store, cfg.HyDE.NumDocs)
-		searchHandler.WithHyDE(hydeSearcher)
-		log.Info(context.Background(), "HyDE enabled",
-			logger.Field{Key: "model", Value: cfg.HyDE.Model},
-			logger.Field{Key: "num_docs", Value: cfg.HyDE.NumDocs},
-		)
+		if cfg.HyDE.Adaptive {
+			thresh := cfg.HyDE.AdaptiveThresh
+			adaptive := pkb.NewAdaptiveHyDESearcher(hydeSearcher, embedder, store, thresh)
+			searchHandler.WithAdaptiveHyDE(adaptive)
+			log.Info(context.Background(), "Adaptive HyDE enabled",
+				logger.Field{Key: "model", Value: cfg.HyDE.Model},
+				logger.Field{Key: "threshold", Value: thresh},
+			)
+		} else {
+			searchHandler.WithHyDE(hydeSearcher)
+			log.Info(context.Background(), "HyDE enabled",
+				logger.Field{Key: "model", Value: cfg.HyDE.Model},
+				logger.Field{Key: "num_docs", Value: cfg.HyDE.NumDocs},
+			)
+		}
 	}
 
 	if cfg.Reranker.Enabled {

@@ -146,11 +146,11 @@ func buildReranker(t *testing.T, profile evalProfile, cfg *config.Config) (strin
 	return "cross-encoder", NewHTTPReranker(addr)
 }
 
-// buildHyDE returns a HyDESearcher for the profile, or nil when HyDE is not enabled.
+// buildHyDE returns a HyDESearchInterface for the profile, or nil when HyDE is not enabled.
 // Skips the subtest when the Ollama LLM is not reachable.
-func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder Embedder, store Store) *HyDESearcher {
+func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder Embedder, store Store) HyDESearchInterface {
 	t.Helper()
-	if !profile.HyDE {
+	if !profile.HyDE && !profile.AdaptiveHyDE {
 		return nil
 	}
 	ollamaAddr := cfg.HyDE.OllamaAddr
@@ -171,9 +171,18 @@ func buildHyDE(t *testing.T, profile evalProfile, cfg *config.Config, embedder E
 		t.Skipf("ollama not reachable at %s — required for hyde profile", ollamaAddr)
 	}
 	resp.Body.Close()
-	t.Logf("hyde=enabled model=%s num_docs=%d", model, numDocs)
 	gen := NewOllamaHyDEGenerator(ollamaAddr, model)
-	return NewHyDESearcher(gen, embedder, store, numDocs)
+	hydeSearcher := NewHyDESearcher(gen, embedder, store, numDocs)
+	if profile.AdaptiveHyDE {
+		thresh := profile.AdaptiveThresh
+		if thresh <= 0 {
+			thresh = cfg.HyDE.AdaptiveThresh
+		}
+		t.Logf("adaptive-hyde=enabled model=%s threshold=%.2f", model, thresh)
+		return NewAdaptiveHyDESearcher(hydeSearcher, embedder, store, thresh)
+	}
+	t.Logf("hyde=enabled model=%s num_docs=%d", model, numDocs)
+	return hydeSearcher
 }
 
 // checkSPLADESidecar returns false when the SPLADE sidecar is unreachable.

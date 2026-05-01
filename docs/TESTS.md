@@ -139,3 +139,45 @@ These will replace the estimates above with real numbers.
 - [ ] **cache hit rate test** — fixed query set, measure hit ratio vs QPS gain
 - [ ] **reranker isolated** — POST directly to `:5002`, measure sidecar throughput
 - [ ] **Ollama embed throughput** — hammer embed endpoint alone, find serial/parallel capacity
+
+
+# Local
+
+Results. Sorted by MRR:                                                                                                              
+                                                                                                                                     
+  ┌───────────────────────────────────┬───────┬───────────┬────────┬─────────────┐                                                     
+  │              Profile              │ MRR@5 │ HitRate@5 │ NDCG@5 │ Precision@5 │                                                   
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ splade-recursive256-hyde          │ 0.764 │ 0.900     │ 0.786  │ 0.468       │                                                   
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ splade-recursive256               │ 0.705 │ 0.800     │ 0.712  │ 0.452       │                                                     
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ splade-recursive256-adaptive-hyde │ 0.651 │ 0.840     │ 0.699  │ 0.448       │                                                     
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ tf-recursive256-adaptive-hyde     │ 0.697 │ 0.940     │ 0.747  │ 0.368       │                                                     
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ tf-recursive256                   │ 0.639 │ 0.760     │ 0.659  │ 0.376       │                                                   
+  ├───────────────────────────────────┼───────┼───────────┼────────┼─────────────┤                                                     
+  │ tf-recursive256-hyde              │ 0.594 │ 0.840     │ 0.646  │ 0.324       │                                                   
+  └───────────────────────────────────┴───────┴───────────┴────────┴─────────────┘                                                     
+                                                                                                                                     
+  Key findings:                                                                                                                        
+                                                                                                                                     
+  1. SPLADE+HyDE = best overall — MRR +8.4% over SPLADE baseline, HitRate +10pp                                                        
+  2. Adaptive HyDE with TF = surprisingly good HitRate — 0.940, highest of all. But MRR 0.697 (first-rank quality lower than full HyDE
+  with SPLADE)                                                                                                                         
+  3. Adaptive HyDE with SPLADE hurts MRR — 0.651 vs 0.705 baseline. Something wrong: vanilla SPLADE scores likely ≥0.50 threshold on 
+  most queries, so HyDE rarely fires, but when it does, it degrades results                                                            
+  4. TF+HyDE worse than TF baseline on MRR — 0.594 vs 0.639. Gemma3:1b generates weak hypothetical docs for this corpus              
+                                                                                                                                       
+  Interpretation:                                                                                                                    
+  - SPLADE alone is strong enough that adaptive threshold 0.50 is too aggressive — HyDE fires on queries where SPLADE was already doing
+   well                                                                                                                                
+  - Adaptive threshold needs tuning (try 0.65-0.70 for SPLADE)                                                                       
+  - TF benefits from adaptive HyDE (HitRate 0.76→0.94) but precision/MRR shows HyDE docs don't match exact relevant chunks             
+                                                                                                                                       
+  Recommendation:                                                                                                                      
+  - Deploy splade+hyde (enabled=true, adaptive=false) — best across all metrics                                                        
+  - If latency matters: try adaptive_thresh: 0.65 with SPLADE, re-eval                                                                 
+  - Model swap: replace gemma3:1b with llama3.1:8b-instruct-q4_K_M likely improves HyDE quality; test with hyde.model:                 
+  "llama3.1:8b-instruct-q4_K_M"  

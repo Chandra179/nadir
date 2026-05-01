@@ -37,7 +37,7 @@ ingest:
 search:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"In Monte Carlo Tree Search, how do we calculate UCB?","top_k":10}'
+		-d '{"query":"Precalculus summary","top_k":10}'
 
 # generate — search + stream LLM answer. Requires generator.enabled: true in config/config.yaml.
 generate:

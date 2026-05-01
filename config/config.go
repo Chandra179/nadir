@@ -111,10 +111,12 @@ type RerankerConfig struct {
 }
 
 type HyDEConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	OllamaAddr string `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
-	Model      string `yaml:"model"`       // LLM model for generation, e.g. llama3.1:8b-instruct-q4_K_M
-	NumDocs    int    `yaml:"num_docs"`    // hypothetical docs to generate per query (default 1; paper uses 8)
+	Enabled        bool    `yaml:"enabled"`
+	Adaptive       bool    `yaml:"adaptive"`         // gate HyDE on top-1 score; skip LLM call when confident
+	AdaptiveThresh float32 `yaml:"adaptive_thresh"`  // score threshold below which HyDE fires (default 0.5)
+	OllamaAddr     string  `yaml:"ollama_addr"`      // defaults to embedder.ollama_addr if empty
+	Model          string  `yaml:"model"`            // LLM model for generation, e.g. llama3.1:8b-instruct-q4_K_M
+	NumDocs        int     `yaml:"num_docs"`         // hypothetical docs to generate per query (default 1; paper uses 8)
 }
 
 type SemanticCacheConfig struct {

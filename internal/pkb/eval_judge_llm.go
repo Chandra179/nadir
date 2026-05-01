@@ -55,6 +55,15 @@ Passage:
 
 Is this passage relevant to the query? Answer with a single word: YES or NO.`
 
+const contextScorePrompt = `You are a relevance judge for a personal knowledge base search system.
+
+Query: %s
+
+Passage:
+%s
+
+Rate how relevant this passage is to the query. Answer with a single word: LOW, MEDIUM, or HIGH.`
+
 func (j *LLMJudge) IsRelevant(ctx context.Context, query string, chunk ScoredChunk) (bool, error) {
 	prompt := fmt.Sprintf(judgePrompt, query, chunk.Text)
 
@@ -99,4 +108,56 @@ func (j *LLMJudge) IsRelevant(ctx context.Context, query string, chunk ScoredChu
 
 	answer := strings.TrimSpace(strings.ToUpper(chatResp.Choices[0].Message.Content))
 	return strings.HasPrefix(answer, "YES"), nil
+}
+
+func (j *LLMJudge) ScoreContext(ctx context.Context, query string, chunk ScoredChunk) (float64, error) {
+	prompt := fmt.Sprintf(contextScorePrompt, query, chunk.Text)
+
+	reqBody := chatRequest{
+		Model: j.Model,
+		Messages: []chatMessage{
+			{Role: "user", Content: prompt},
+		},
+	}
+
+	data, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, fmt.Errorf("marshal: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, j.BaseURL+"/chat/completions", bytes.NewReader(data))
+	if err != nil {
+		return 0, fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if j.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+j.APIKey)
+	}
+
+	resp, err := j.HTTPClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("LLM judge HTTP %d", resp.StatusCode)
+	}
+
+	var chatResp chatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+		return 0, fmt.Errorf("decode response: %w", err)
+	}
+	if len(chatResp.Choices) == 0 {
+		return 0, fmt.Errorf("empty choices from LLM judge")
+	}
+
+	switch strings.TrimSpace(strings.ToUpper(chatResp.Choices[0].Message.Content)) {
+	case "HIGH":
+		return 1.0, nil
+	case "MEDIUM":
+		return 0.5, nil
+	default: // LOW or unrecognised
+		return 0.25, nil
+	}
 }
