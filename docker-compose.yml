@@ -54,6 +54,10 @@ services:
     volumes:
       - splade_model_cache:/root/.cache/fastembed
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 10s
@@ -69,6 +73,10 @@ services:
     volumes:
       - reranker_model_cache:/root/.cache/huggingface
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
       interval: 10s

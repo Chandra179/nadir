@@ -65,3 +65,41 @@ groups:
           sum(rate(pkb_search_results_returned_sum[5m]))
           /
           sum(rate(pkb_search_results_returned_count[5m]))
+
+      # Retrieve (Qdrant)
+      - record: pkb:retrieve_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_retrieve_duration_seconds_bucket[5m])))
+
+      - record: pkb:retrieve_latency_p99:rate5m
+        expr: |
+          histogram_quantile(0.99, sum by (le) (rate(pkb_retrieve_duration_seconds_bucket[5m])))
+
+      # HyDE
+      - record: pkb:hyde_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_hyde_duration_seconds_bucket[5m])))
+
+      # Chunk filter
+      - record: pkb:filter_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_filter_duration_seconds_bucket[5m])))
+
+      - record: pkb:filter_chunks_dropped_avg:rate5m
+        expr: |
+          sum(rate(pkb_filter_chunks_dropped_sum[5m]))
+          /
+          sum(rate(pkb_filter_chunks_dropped_count[5m]))
+
+      # Generate
+      - record: pkb:generate_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_generate_duration_seconds_bucket[5m])))
+
+      - record: pkb:generate_ttft_p50:rate5m
+        expr: |
+          histogram_quantile(0.5, sum by (le) (rate(pkb_generate_ttft_seconds_bucket[5m])))
+
+      - record: pkb:generate_ttft_p95:rate5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pkb_generate_ttft_seconds_bucket[5m])))

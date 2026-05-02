@@ -29,6 +29,20 @@ type Metrics struct {
 	rerankDuration metric.Float64Histogram
 	rerankDelta    metric.Float64Histogram // score[0] before - after rerank
 
+	// retrieve (Qdrant)
+	retrieveDuration metric.Float64Histogram
+
+	// hyde
+	hydeDuration metric.Float64Histogram
+
+	// chunk filter
+	filterDuration metric.Float64Histogram
+	filterDropped  metric.Int64Histogram // chunks dropped by filter
+
+	// generate
+	generateDuration metric.Float64Histogram
+	generateTTFT     metric.Float64Histogram // time to first token
+
 	// ingest
 	ingestProcessed metric.Int64Counter
 	ingestSkipped   metric.Int64Counter
@@ -103,6 +117,59 @@ func New(meter metric.Meter) (*Metrics, error) {
 		"pkb.rerank.score_delta",
 		metric.WithDescription("top-1 score change after reranking (post minus pre)"),
 		metric.WithExplicitBucketBoundaries(-0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.retrieveDuration, err = meter.Float64Histogram(
+		"pkb.retrieve.duration_seconds",
+		metric.WithDescription("Qdrant hybrid search latency"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.hydeDuration, err = meter.Float64Histogram(
+		"pkb.hyde.duration_seconds",
+		metric.WithDescription("HyDE LLM generation + embedding latency"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.filterDuration, err = meter.Float64Histogram(
+		"pkb.filter.duration_seconds",
+		metric.WithDescription("chunk filter LLM latency"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.filterDropped, err = meter.Int64Histogram(
+		"pkb.filter.chunks_dropped",
+		metric.WithDescription("chunks dropped by LLM relevance filter"),
+		metric.WithExplicitBucketBoundaries(0, 1, 2, 3, 5, 10),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.generateDuration, err = meter.Float64Histogram(
+		"pkb.generate.duration_seconds",
+		metric.WithDescription("LLM generation total streaming duration"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0),
+	); err != nil {
+		return nil, err
+	}
+
+	if m.generateTTFT, err = meter.Float64Histogram(
+		"pkb.generate.ttft_seconds",
+		metric.WithDescription("time to first token from LLM generator"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
 	); err != nil {
 		return nil, err
 	}
@@ -198,4 +265,34 @@ func (m *Metrics) RecordIngestRun(ctx context.Context, dur time.Duration) {
 		return
 	}
 	m.ingestDuration.Record(ctx, dur.Seconds())
+}
+
+func (m *Metrics) RecordRetrieve(ctx context.Context, dur time.Duration) {
+	if m == nil {
+		return
+	}
+	m.retrieveDuration.Record(ctx, dur.Seconds())
+}
+
+func (m *Metrics) RecordHyDE(ctx context.Context, dur time.Duration) {
+	if m == nil {
+		return
+	}
+	m.hydeDuration.Record(ctx, dur.Seconds())
+}
+
+func (m *Metrics) RecordFilter(ctx context.Context, dur time.Duration, dropped int) {
+	if m == nil {
+		return
+	}
+	m.filterDuration.Record(ctx, dur.Seconds())
+	m.filterDropped.Record(ctx, int64(dropped))
+}
+
+func (m *Metrics) RecordGenerate(ctx context.Context, total time.Duration, ttft time.Duration) {
+	if m == nil {
+		return
+	}
+	m.generateDuration.Record(ctx, total.Seconds())
+	m.generateTTFT.Record(ctx, ttft.Seconds())
 }

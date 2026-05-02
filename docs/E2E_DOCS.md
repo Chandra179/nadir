@@ -20,6 +20,9 @@ Accept data sources (PDFs, Markdown) -> process using Docling/Marker -> final ou
 
 **Contextual Embedding:** Before embedding, each chunk is prefixed with `filePath > header\n` (Anthropic 2024). This anchors chunk semantics to document structure, improving dense retrieval accuracy without changing stored text.
 
+Reference
+- https://github.com/docling-project/docling
+
 ## Chunking Strategies
 
 Abstraction for chunking so we can swap it depends on configuration:
@@ -262,7 +265,7 @@ Defined in `testdata/eval_profiles.jsonl`. Each profile specifies one retrieval 
 ```json
 {"name": "tf-recursive256-baseline", "tags": ["tf","baseline"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32}
 {"name": "tf-recursive256-hyde1", "tags": ["tf","hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "hyde": true, "hyde_num_docs": 1}
-{"name": "tf-recursive256-multi-hyde3", "tags": ["tf","hyde","multi-hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "multi_hyde": true, "hyde_num_docs": 3}
+{"name": "tf-recursive256-multi-hyde3", "`tags": ["tf","hyde","multi-hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "multi_hyde": true, "hyde_num_docs": 3}
 {"name": "tf-recursive256-adaptive-hyde", "tags": ["tf","hyde","adaptive"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}
 {"name": "splade-recursive256-adaptive-hyde", "tags": ["splade","hyde","adaptive"], "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}
 ```
@@ -402,71 +405,317 @@ ollama pull llama3.1:8b-instruct-q4_K_M  # eval LLM judge
 
 ---
 
-## System Snapshot (2026-05-01)
+## Session: 2026-05-02 — Latency Profiling & Optimization Run
 
-### Unit Tests
+### Environment
 
+| Component | Value |
+|-----------|-------|
+| Host | 13th Gen Intel Core i5-13420H (12 CPUs, 2 threads/core) |
+| RAM | 16GB total, ~7GB available |
+| GPU | NVIDIA GeForce RTX 4050 Mobile (6GB VRAM, CUDA 13.1, driver 590.48.01) |
+| OS | Linux 6.17.0-22-generic |
+| Ollama | Running on host (not in Docker), GPU offload auto-detected |
+| Qdrant | v1.13.4 (Docker, memory limit 2GB) |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` (Docker, CPU) |
+| SPLADE | fastembed (Docker, CPU) |
+
+### Config at time of test
+
+```yaml
+generator:
+  model: gemma3:1b        
+reranker:
+  candidate_mul: 2        
+qdrant:
+  top_k: 5
+  prefetch_mul: 5
+semantic_cache:
+  enabled: true
+  threshold: 0.90
+  ttl: 24h
+hyde:
+  enabled: false
+chunk_filter:
+  enabled: false
 ```
-go test ./internal/pkb/ -run 'Test[^S]'
-ok  nadir/internal/pkb  0.023s
-```
 
-All non-eval unit tests pass.
+---
 
-### Eval Tests
+## Search-Only (10 queries)
 
-```
-go test ./internal/pkb/ -run TestSearchEval -v -timeout 10m
-ok  nadir/internal/pkb  429.434s
-```
+Mode: `hybrid+rerank`, `top_k=5`, no generate, `generate:false`
 
-All 6 profiles pass. Runtime dominated by HyDE LLM generation (~7 min for HyDE profiles, ~5s for baseline).
+| Query | Wall clock | Results | Top score (reranker) |
+|-------|-----------|---------|----------------------|
+| how does consistent hashing work | 261ms | 5 | +7.499 |
+| goroutine vs thread difference | 222ms | 5 | -1.428 |
+| rate limiting algorithms | 252ms | 5 | +1.650 |
+| kafka consumer group rebalancing | 240ms | 5 | +3.434 |
+| oauth2 authorization code flow | 243ms | 5 | -10.930 |
+| distributed cache eviction policy | 546ms | 5 | +5.679 |
+| chunking strategies for embeddings | 307ms | 5 | +6.487 |
+| api design best practices | 228ms | 5 | -6.223 |
+| compiler tokenization process | 232ms | 5 | -0.341 |
+| database indexing b-tree | 323ms | 5 | +7.005 |
 
-### Corpus Stats
+**Search-only avg: ~285ms**
+
+---
+
+## Generate (3 queries, warm GPU)
+
+| Query | Wall clock | LLM output |
+|-------|-----------|------------|
+| how does consistent hashing work | 2,189ms | Correct — described hash ring, virtual nodes, load imbalance |
+| rate limiting algorithms | 1,011ms | Partial — returned defense-in-depth strategy, not specific algorithms |
+| database indexing b-tree | 1,001ms | Partial — conflated B-tree with ID generation |
+
+**Generate avg (warm): ~1,400ms**
+**Generate avg (cold model load): ~3,200ms** (first call after restart)
+
+---
+
+## Prometheus Metrics Snapshot (15 search + 5 generate requests)
+
+Collected via `GET /metrics` after test run.
+
+### Retrieve (Qdrant hybrid search)
 
 | Metric | Value |
 |--------|-------|
-| Vectors stored (Qdrant) | 554 |
-| Chunk size | 256 tokens |
-| Chunk overlap | 32 tokens |
-| Chunker | recursive |
-| Eval queries | 50 |
-| Qrels total | 500 |
+| Count | 15 |
+| Sum | 1.688s |
+| **Avg** | **113ms** |
+| p60 (bucket ≤0.025) | 9/15 queries under 25ms |
+| p80 (bucket ≤0.05) | 12/15 queries under 50ms |
+| Max observed | ~944ms (cold Qdrant on first post-restart query) |
 
-### Eval Results (qrels judge, top-K=5)
+### Rerank (cross-encoder sidecar)
 
-| Profile | MRR | Hit@5 | NDCG@5 | P@5 |
-|---------|-----|-------|--------|-----|
-| tf-recursive256-baseline | 0.918 | 1.000 | 0.941 | 0.840 |
-| tf-recursive256-hyde1 | 0.916 | 1.000 | 0.927 | — |
-| tf-recursive256-multi-hyde3 | 0.903 | 0.980 | 0.914 | 0.688 |
-| tf-recursive256-multi-hyde5 | 0.916 | 1.000 | 0.927 | 0.688 |
-| tf-recursive256-adaptive-hyde | 0.892 | 0.960 | 0.904 | 0.708 |
-| splade-recursive256-adaptive-hyde | **0.950** | **1.000** | **0.955** | **0.836** |
+| Metric | Value |
+|--------|-------|
+| Count | 15 |
+| Sum | 3.408s |
+| **Avg** | **227ms** |
+| p73 (bucket ≤0.25) | 11/15 under 250ms |
+| p100 (bucket ≤0.5) | all 15 under 500ms |
+| Score delta avg | +1.85 (reranker improves top-1 consistently) |
+| Score delta p33 | ≤ -0.5 (4/15 queries: reranker found worse top-1 — low-coverage topics) |
 
-Best: `splade-recursive256-adaptive-hyde` — highest MRR + NDCG. SPLADE sparse + adaptive HyDE outperforms TF baseline across all metrics.
+### Search End-to-End (embed + retrieve + rerank)
 
-### Category Breakdown (splade-recursive256-adaptive-hyde)
+| Metric | Value |
+|--------|-------|
+| Count | 15 |
+| Sum | 5.329s |
+| **Avg** | **355ms** |
+| p47 (bucket ≤0.25) | 7/15 under 250ms |
+| p87 (bucket ≤0.5) | 13/15 under 500ms |
+| p93 (bucket ≤1.0) | 14/15 under 1s |
 
-| Category | N | NDCG@5 | Hit@5 |
-|----------|---|--------|-------|
-| rag | 2 | 1.0000 | 1.0000 |
-| databases | 5 | 0.9758 | 1.0000 |
-| computer-science | 5 | 0.9234 | 1.0000 |
-| golang | 11 | 0.8663 | 1.0000 |
-| networking | 1 | 0.6183 | 1.0000 |
-| system-design | 17 | 0.8566 | 0.9412 |
-| math | 9 | 0.8245 | 0.8889 |
+### Generate (LLM streaming)
 
-### Misses (2/50)
+| Metric | Value |
+|--------|-------|
+| Count | 5 |
+| Sum total | 5.537s |
+| **Avg total** | **1,107ms** |
+| Sum TTFT | 3.431s |
+| **Avg TTFT** | **686ms** |
+| TTFT p60 (≤0.5s) | 3/5 under 500ms |
+| TTFT p100 (≤2s) | all 5 under 2s |
+| Gen ≤1s | 3/5 |
+| Gen ≤2s | 5/5 (all under 2s) |
 
-1. **[system-design/medium]** "What is the Snowflake ID structure and how does it handle clock skew?" — top1: `system-design/consistent-hashing.md:18` (score=0.016)
-2. **[math/hard]** "What is QR decomposition and when is it used over LU?" — top1: `math/linear-algebra.md:290` (score=0.015)
+### Cache
 
-Both misses have very low scores (≤0.016), indicating missing or insufficient coverage in the corpus, not retrieval failure.
-
-### Sample Search
-
-Server must be running (`make run`) to execute `make search`. Example query: `{"query":"personal knowledge base","top_k":10}`.
+| Metric | Value |
+|--------|-------|
+| Cache hits | 0 |
+| Cache misses | 10 |
+| Hit rate | 0% (all unique queries, no repeats in test) |
 
 ---
+
+## Throughput Estimate (single node)
+
+| Mode | Estimated RPS | Bottleneck |
+|------|--------------|------------|
+| Search-only (hybrid+rerank) | ~3–4 RPS | Reranker sidecar (serial Python) |
+| Generate (warm model) | ~0.7 RPS | Ollama serial queue |
+| Cache hit | ~15–20 RPS | Qdrant lookup only |
+
+**Suitable for:** personal RAG, internal team tool (≤20 concurrent users).
+**Not suitable for:** product with >50 concurrent users without horizontal Ollama scaling.
+
+---
+
+## k6 Load Tests
+
+Scripts in `tests/k6/`. k6 v0.55.1 at `~/.local/bin/k6`.
+
+**VU = Virtual User** — concurrent simulated client. Each VU loops independently: send request → wait → repeat. 10 VU = 10 simultaneous in-flight request chains.
+
+### Test Inventory
+
+| Script | Endpoint | VU Profile | Duration | Input Data | Pass Criteria |
+|--------|----------|-----------|----------|------------|---------------|
+| `smoke.js` | `POST /search` | 1 VU flat | 30s | `testdata/queries.json` → `general` (random) | p50<500ms, p95<2000ms, error<1% |
+| `load.js` | `POST /search` | ramp 1→10→25→50→0 | ~6m | `testdata/queries.json` → `general` (random) | p95<5000ms, error<5% |
+| `cache_hit_rate.js` | `POST /search` | 10 VU flat | 90s | `testdata/queries.json` → `cache_fixed` (5 fixed queries) | cache_hit_rate>50% |
+| `keyword_baseline.js` | `POST /search` | 5 VU flat | 60s | `testdata/queries.json` → `general` (random) | keyword p95<1000ms |
+| `ollama_embed_throughput.js` | `POST /api/embeddings` (Ollama direct) | ramp 1→4→8→1 | ~2m | hardcoded short text | no errors at 8 VU |
+
+### Test Data
+
+Queries live in `tests/k6/testdata/queries.json`. Two sets:
+
+- **`general`** (20 queries) — domain-specific, matches KB content (Go, distributed systems, algorithms, databases). Used by smoke/load/keyword tests. Rotate to prevent cache saturation skewing latency.
+- **`cache_fixed`** (5 queries) — small fixed set intentionally repeated to warm semantic cache. Used only by `cache_hit_rate.js`.
+
+**Update queries when KB content changes** — generic queries ("how does authentication work") produce empty results and inflate miss latency.
+
+Loaded via `SharedArray` in init context → single parse shared across all VUs (no per-VU copy overhead).
+
+### System Under Test
+
+Services required for search path tests:
+
+| Service | Address | Role in test |
+|---------|---------|-------------|
+| nadir app | `localhost:8080` | primary endpoint |
+| Qdrant | `localhost:6334` (gRPC) | vector store |
+| Ollama | `localhost:11434` | embedder (`nomic-embed-text`, 768-dim) |
+| Reranker | `localhost:5002` | cross-encoder scoring (skipped if `rerank:false`) |
+| SPLADE | `localhost:5001` | sparse scoring (optional, TF fallback) |
+
+### Search Config for Load Tests
+
+```yaml
+# config at test time (affects what the pipeline does per request)
+generator:
+  enabled: false          # generate:false in all load test payloads
+reranker:
+  candidate_mul: 2
+qdrant:
+  top_k: 5
+  prefetch_mul: 5
+semantic_cache:
+  enabled: true
+  threshold: 0.90
+  ttl: 24h
+hyde:
+  enabled: false
+chunk_filter:
+  enabled: false
+```
+
+### Run
+
+```bash
+# single test
+k6 run tests/k6/smoke.js
+
+# custom base URL
+BASE_URL=http://localhost:8080 k6 run tests/k6/load.js
+
+# Ollama direct (embed throughput only)
+OLLAMA_URL=http://localhost:11434 k6 run tests/k6/ollama_embed_throughput.js
+
+# save metrics for analysis
+k6 run --out json=results.json tests/k6/smoke.js
+```
+
+---
+
+## k6 Load Tests (2026-05-02)
+
+**Config at test time:** hybrid+rerank, `top_k=5`, `generate:false` (search only), semantic cache enabled (`threshold=0.90`), HyDE disabled, chunk_filter disabled.
+
+**Endpoint under test:** `POST /search` (all tests except Ollama embed throughput).
+
+---
+
+### Smoke Test — `tests/k6/smoke.js`
+
+**Purpose:** Sanity check. 1 VU, 30s. Confirms server up, responses valid, no obvious latency regression.
+
+**Parameters:** 1 VU, 30s duration, 1s sleep between requests (→ ~1 req/s per VU).
+
+| Metric | Value |
+|--------|-------|
+| VUs | 1 |
+| Total requests | 27 |
+| **RPS** | **0.88 req/s** |
+| p50 latency | 32ms |
+| p95 latency | 386ms |
+| Max latency | 557ms |
+| Error rate | 0% |
+
+**Interpretation:** p50 fast (cache hits + warm Qdrant). p95 spike to 386ms = cache miss → full embed+retrieve+rerank. 0% errors = server healthy.
+
+---
+
+### Load Test — `tests/k6/load.js`
+
+**Purpose:** Find saturation point. Ramp VUs 1→10→25→50 over 6 min. All hitting `POST /search` with rotating queries and 0.5s sleep between iterations.
+
+**Parameters:** 4 stages — 1m→10VU, 2m→25VU, 2m→50VU, 1m→0VU. 0.5s sleep per iteration.
+
+| Metric | Value |
+|--------|-------|
+| Peak VUs | 50 |
+| Total requests | 15,373 |
+| **RPS (sustained, 50 VU)** | **42.6 req/s** |
+| p50 latency | 34ms |
+| p95 latency | 83ms |
+| Max latency | 185ms |
+| Error rate | 0% |
+
+**Interpretation:** 42.6 RPS is `POST /search` (hybrid+rerank, no generate) at 50 VU with 0.5s sleep. p95=83ms — significantly better than smoke p95=386ms because cache warmed fast under concurrent load (5 query slots × 10 VUs → repeated queries). No saturation observed — p95 stayed flat even at 50 VU. Real bottleneck under cache-miss load is reranker sidecar (serial Python process, ~227ms avg per [Prometheus snapshot above](#rerank-cross-encoder-sidecar)).
+
+---
+
+### Cache Hit Rate Test — `tests/k6/cache_hit_rate.js`
+
+**Purpose:** Measure semantic cache effectiveness. Fixed 5-query set repeated at high concurrency → cache saturates fast. Measures hit ratio and latency delta (cached vs uncached).
+
+**Parameters:** 10 VU, 90s, 5 fixed queries (no sleep — tight loop).
+
+| Metric | Value |
+|--------|-------|
+| VUs | 10 |
+| Total requests | 23,842 |
+| **RPS** | **264.8 req/s** |
+| Cache hits | 23,241 |
+| Cache misses | 601 |
+| **Hit rate** | **97.47%** |
+| Cached p95 latency | 43ms |
+| Uncached p95 latency | 93ms |
+| Cached avg latency | 37ms |
+| Uncached avg latency | 64ms |
+
+**Interpretation:** 264.8 RPS is `POST /search` with warm cache (5 fixed queries, 10 VU). Cache hit = Qdrant cosine lookup only, skips embed+retrieve+rerank. Latency delta: cached 37ms vs uncached 64ms — ~1.7× speedup. Hit detection uses `X-Cache: HIT` header + <50ms heuristic.
+
+---
+
+### Ollama Embed Throughput — `tests/k6/ollama_embed_throughput.js`
+
+**Purpose:** Isolate Ollama `/api/embeddings` capacity. Ramp 1→8 VU to find where serial queue saturates. Uses `nomic-embed-text` model, same as production path.
+
+**Endpoint:** `POST http://localhost:11434/api/embeddings` (Ollama direct, not app server).
+
+**Parameters:** 4 stages — 30s@1VU, 30s@4VU, 30s@8VU, 30s@1VU. No sleep.
+
+| Metric | Value |
+|--------|-------|
+| Peak VUs | 8 |
+| Total requests | 22,054 |
+| **RPS (peak, 8 VU)** | **183.8 req/s** |
+| Avg latency | 17.6ms |
+| p95 latency | 24.6ms |
+| Max latency | 56ms |
+| Error rate | 0% |
+
+**Interpretation:** Ollama `nomic-embed-text` handles 183 RPS at 8 VU with no errors and stable latency (avg 17.6ms, p95 24.6ms). No saturation — GPU offload keeps embed fast. This means embed is **not** the bottleneck in the search path; reranker sidecar (~227ms avg) is. Search path adds embed (~18ms) + Qdrant retrieval + rerank (~227ms) = ~285ms total observed above.

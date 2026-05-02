@@ -1,148 +1,4 @@
-# Architecture
-
-## Overview
-
-Nadir is a semantic search engine for Markdown knowledge bases. It exposes two HTTP endpoints:
-
-- `POST /ingest` — walk a directory, chunk and embed new/changed files, store in Qdrant
-- `POST /search` — embed a query, run hybrid dense+sparse retrieval, return ranked chunks
-
-All core logic lives in `internal/pkb/`. The HTTP layer (`internal/httpserver/`, `internal/middleware/`) is a thin wrapper. No `httpserver` or `middleware` imports flow inward — dependency direction is strictly inward toward `pkb`.
-
----
-
-## End-to-End Pipelines
-
-### Ingest Pipeline
-
-```
-LocalFileLister
-  └── walks knowledge_base.path for .md files
-  └── returns []FileEntry{Path, SHA}
-        │
-        ▼
-IngestHandler.ServeHTTP
-  └── Store.GetAllFileSHAs()       ← single paginated Qdrant scroll (bulk SHA check)
-  └── for each file:
-        SHA match? → skip
-        SHA changed? → Store.DeleteByFile() then re-ingest
-        New file? → ingest
-              │
-              ▼
-        LocalFetcher.FetchFile()   ← reads raw .md from disk
-              │
-              ▼
-        Pipeline.IngestFile()
-          ├── Chunker.Chunk()
-          │     RecursiveChunker: Goldmark AST walk
-          │       heading → paragraph → sentence → word splits
-          │       emits plain text (strips ##, **, _, fences, links)
-          │     SentenceWindowChunker: index sentences,
-          │       expand to ±N sentence window at retrieval
-          │
-          ├── for each chunk (concurrent dense+sparse):
-          │     ├── Embedder.Embed()           ← Ollama nomic-embed-text (768-dim)
-          │     └── SparseEmbedder.EmbedSparse() ← SPLADE sidecar (optional)
-          │         exponential backoff retry on both
-          │
-          └── Store.Upsert()                  ← Qdrant gRPC upsert
-                payload: file_path, header, line_start, chunk_index,
-                         text, window_text, source_sha
-                vectors: dense (named ""), sparse (named "sparse", optional)
-```
-
-### Search Pipeline
-
-```
-POST /search  { "query": "...", "top_k": 5 }
-      │
-      ▼
-SearchHandler.ServeHTTP
-  │
-  ├── [SemanticCache enabled?]
-  │     Embedder.Embed(query) → Qdrant cosine search on pkb_cache collection
-  │     score >= threshold → return cached []ScoredChunk immediately
-  │     miss → continue pipeline, write result to cache async after retrieval
-  │
-  ├── [keyword-only request?]
-  │     Store.KeywordSearch() → Qdrant full-text scroll filter
-  │
-  ├── [HyDE enabled?]
-  │     OllamaHyDEGenerator.Generate() × numDocs (parallel goroutines)
-  │     Embedder.Embed() each hypothetical doc
-  │     averageVectors() + L2-normalize
-  │     Store.HybridSearch(avgVec, query, topK)
-  │     fallback to multiSearch on generation failure
-  │
-  └── [standard path: multiSearch]
-        splitFragments(query)          ← split on ./?/;
-        for each fragment:
-          Embedder.Embed(fragment)
-          Store.HybridSearch(vec, fragment, topK)
-        deduplicate by FilePath+LineStart, keep best score
-              │
-              ▼
-        HybridSearch (QdrantStore)
-          ├── [SPLADE sidecar available]
-          │     server-side QueryPoints:
-          │       prefetch dense (topK×prefetch_mul) + sparse (topK×prefetch_mul)
-          │       Qdrant RRF fusion on server
-          │
-          └── [client-side fallback]
-                dense: SearchPoints
-                sparse: Scroll + filter text match + TFSparseScorer.Score()
-                client-side RRF (k=60): score = Σ 1/(60 + rank)
-              │
-              ▼
-        [Reranker enabled?]
-          HTTPReranker: POST topK×candidateMul chunks to sidecar
-          cross-encoder/ms-marco-MiniLM-L-6-v2 scores all candidates
-          return top-k by cross-encoder score
-              │
-              ▼
-        JSON response: []{ file_path, header, line_start, score, text }
-```
-
----
-
-## Interfaces (extension points)
-
-```go
-type Chunker        interface { Chunk(text, filePath string) ([]DocumentChunk, error) }
-type Embedder       interface { Embed(ctx, text) ([]float32, error); Dimensions() int }
-type SparseEmbedder interface { EmbedSparse(ctx, text, mode) ([]uint32, []float32, error) }
-type SparseScorer   interface { Score(ctx, query, text string) (float64, error) }
-type Store          interface { Upsert / DeleteByFile / Search / HybridSearch / KeywordSearch / GetFileSHA / GetAllFileSHAs }
-type Fetcher        interface { FetchFile(ctx, path, sha string) (string, error) }
-type FileLister     interface { ListMarkdownFiles(ctx, sha string) ([]FileEntry, error) }
-type HyDEGenerator  interface { Generate(ctx, query string) (string, error) }
-type Reranker        interface { Rerank(ctx, query string, chunks []ScoredChunk) ([]ScoredChunk, error) }
-```
-
-Swap any component by implementing its interface. Config selects providers; `httpserver/server.go` wires them.
-
----
-
-## Dependencies
-
-| Dependency | Purpose |
-|-----------|---------|
-| Go | Core runtime |
-| [Goldmark](https://github.com/yuin/goldmark) | Markdown AST parsing for chunker |
-| [Qdrant gRPC client](https://github.com/qdrant/go-client) | Vector DB: upsert, search, collections |
-| [Ollama](https://ollama.com) (local) | Dense embeddings (`nomic-embed-text`, 768-dim) |
-| Python sidecar `cmd/splade/main.py` | SPLADE sparse embeddings (`fastembed` + `splade-v3-distilbert`) |
-| Python sidecar `cmd/reranker/main.py` | Cross-encoder reranking (`sentence-transformers`) |
-| [gosdk/logger](https://github.com/Chandra179/gosdk) | Structured logging |
-| gopkg.in/yaml.v3 | Config file parsing |
-
-**External services required at runtime:**
-- Qdrant (Docker: `docker compose up`)
-- Ollama with `nomic-embed-text` pulled
-- (optional) SPLADE sidecar: `python cmd/splade/main.py`
-- (optional) Reranker sidecar: `python cmd/reranker/main.py`
-
----
+# Plan
 
 ## Feature
 - [x] **Metadata filtering** — filter retrieval by `file_path`, `header`, or `source_sha` at query time. Benchmarks show +4.4 F1 and +2% context precision on domain-specific corpora ([arxiv 2510.24402](https://arxiv.org/html/2510.24402v1), [arxiv 2601.11863](https://arxiv.org/html/2601.11863v1)). Qdrant payload index used; all non-empty filter fields ANDed. Pass `"filter": {"file_path": "...", "header": "...", "source_sha": "..."}` in `POST /search` body.
@@ -154,6 +10,8 @@ Swap any component by implementing its interface. Config selects providers; `htt
 - [x] **Multi-HyDE** ([arxiv 2509.16369](https://arxiv.org/abs/2509.16369)) — generate 3–5 diverse hypothetical docs per query (parallel goroutines), average embeddings, single Qdrant query. +11.2% accuracy, -15% hallucination rate vs. single-doc HyDE at same token cost. **Accuracy: high. Latency: +N×LLM_gen in parallel** (dominated by slowest generation; embedding overhead negligible). `MultiPromptHyDEGenerator` in `hyde.go` cycles 5 diverse prompt templates (factual/facts/expert/definition/example) via atomic counter. Enable: `hyde.multi_hyde: true`, `hyde.num_docs: 3` (sweet spot) or 5 (max diversity).
 - [x] **Reranker candidate pool tuning** ([arxiv 2409.07691](https://arxiv.org/abs/2409.07691)) — two independent knobs: `qdrant.prefetch_mul` (store-level hybrid search legs, default 5) and `reranker.candidate_mul` (post-fetch reranker pool, default 3). Increase `candidate_mul` to 10–20 so reranker sees 50–100 candidates; increase `prefetch_mul` to match. MRR@3 0.433→0.605 (+39.7%), Recall@5 +17.4%. **Accuracy: high. Latency: +linear with pool size** (cross-encoder is O(n); 100 candidates ≈ 2–5× slower rerank vs. default). Config change in `config.yaml`; `QdrantStore.prefetchMul` wired from config.
 - [x] **ChunkRAG post-retrieval filter** ([arxiv 2410.19572](https://arxiv.org/abs/2410.19572)) — LLM scores each retrieved chunk for relevance; drops irrelevant before generation. +10pp PopQA accuracy. Complements cross-encoder (drops vs. reorders). **Accuracy: medium-high. Latency: +1 LLM call per search** (batched in one prompt). `LLMChunkFilter` in `pkb/chunk_filter.go`. Enable: `chunk_filter.enabled: true` in config. Runs after reranker, before cache write and generation. On LLM format error or all-drop, passes chunks through unchanged.
+
+## Advanced Feature
 - [ ] **RAPTOR hierarchical indexing** ([arxiv 2401.18059](https://arxiv.org/abs/2401.18059), ICLR 2024) — recursive cluster→summarize tree over chunks at ingest; retrieve across all levels. +20% absolute accuracy on QuALITY (multi-hop QA). **Accuracy: high for multi-hop. Latency: ingest cost only** (search unchanged; tree stored in Qdrant alongside leaf chunks). Preprocessing layer over `RecursiveChunker` output.
 - [ ] **MemoRAG global memory** ([arxiv 2409.05591](https://arxiv.org/abs/2409.05591), WWW 2025) — small LLM encodes full corpus into global KV cache; generates answer clues that guide retrieval for diffuse/global queries. Gains on LongBench/InfiniteBench where standard RAG fails. **Accuracy: high for corpus-wide reasoning. Latency: +1 small-LLM forward pass** (KV cache amortized; per-query clue generation ~100–300ms). Additive with HyDE pipeline.
 - [ ] **Mix-of-Granularity chunking** ([arxiv 2406.00456](https://arxiv.org/abs/2406.00456), COLING 2025) — router model selects optimal chunk granularity per query (fine/coarse/multi-level). **Accuracy: medium. Latency: +router inference** (lightweight classifier; <10ms if local). Query-routing layer over `RecursiveChunker` multi-size outputs.
@@ -164,3 +22,15 @@ Swap any component by implementing its interface. Config selects providers; `htt
 - [ ] **Late chunking** ([arxiv 2409.04701](https://arxiv.org/abs/2409.04701), JinaAI 2024) — embed full document first, then pool token embeddings per chunk boundary instead of embedding chunks independently. Preserves cross-chunk context for anaphoric/pronoun-heavy documents (+10–12% on such corpora). **Accuracy: medium for pronoun-heavy docs. Latency: ingest-time only** (one full-doc embedding per file vs. N chunk embeddings; may be faster). Requires embedding model that returns token-level vectors (not Ollama `nomic-embed-text` today; needs model swap or JinaAI API).
 - [x] **EvalOps continuous monitoring** ([RAGOps arxiv 2506.03401](https://arxiv.org/html/2506.03401v1), [ARES arxiv 2311.09476](https://arxiv.org/abs/2311.09476), [TruLens/RAG Triad](https://www.trulens.org/), [RAGAS monitoring](https://docs.ragas.io/en/v0.1.21/getstarted/monitoring.html)) — dedicated `internal/pkb/evalops/` module: reservoir-sample X% of live `SearchHandler` calls, background LLM judgment (context relevance + faithfulness + answer relevance), rolling metric window vs. baseline with drift alerting. ARES uses finetuned LM judges + prediction-powered inference (~100 human labels); TruLens RAG Triad emits OpenTelemetry traces; RAGOps (2025) logs all component I/O for continuous improvement loops. **Accuracy: N/A (observability). Latency: async; zero hot-path impact.** Architecture: `sampler.go` (reservoir), `judge_async.go` (goroutine pool), `drift.go` (metric drift alert), `store_trace.go` (JSONL persistence), `monitor.go` (orchestrator). Enable: `evalops.enabled: true` in config; inject `SearchHandler.WithEvalOps(monitor)`.
 - [ ] **LatentAudit faithfulness detection** ([arxiv 2604.05358](https://arxiv.org/abs/2604.05358)) — white-box faithfulness scoring at inference time using LLM activation patterns (0.942 AUROC on PubMedQA). Detects hallucinations despite grounding without external judge calls. Minimal overhead; stable across Llama/Qwen/Mistral. **Accuracy: high (0.942 AUROC). Latency: minimal** (activation read, no extra LLM call). Complements ARES/TruLens (white-box vs. black-box judges). Requires access to LLM hidden states — needs Ollama model serving token logits or swap to local vLLM/llama.cpp.
+
+## Tests
+
+Scripts in `tests/k6/`. k6 binary at `~/.local/bin/k6`.
+
+- [x] **k6 smoke** (`tests/k6/smoke.js`) — 1 VU, 30s. **Results:** p50=32ms, p95=386ms, 0% errors, 27 iters @ 0.88 RPS.
+- [x] **k6 load** (`tests/k6/load.js`) — ramp 1→50 VU over 6m. **Results:** avg=40ms, p50=34ms, p95=83ms, 42.6 RPS at 50 VU, 0% errors. No saturation — p95 stayed under 185ms even at peak.
+- [ ] **k6 stress** — spike to 100 VU, measure error rate + recovery
+- [ ] **keyword-only baseline** (`tests/k6/keyword_baseline.js`) — isolate Qdrant BM25 vs hybrid delta; needs `sparse_only` param wired in `handler_search.go`
+- [x] **cache hit rate test** (`tests/k6/cache_hit_rate.js`) — fixed 5-query set, 10 VU, 90s. **Results:** 97.47% hit rate (23241/23842), cached p95=43ms vs uncached p95=93ms.
+- [ ] **reranker isolated** — POST directly to `:5002`, measure sidecar throughput
+- [x] **Ollama embed throughput** (`tests/k6/ollama_embed_throughput.js`) — ramp 1→8 VU, 2m. **Results:** avg=17.6ms, p95=24.6ms, 183 RPS at 8 VU, 0% errors. No saturation hit — Ollama handles parallel embed well up to 8 concurrent.

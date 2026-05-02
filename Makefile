@@ -54,7 +54,7 @@ test:
 generate:
 	curl -X POST localhost:8080/search \
 		-H "Content-Type: application/json" \
-		-d '{"query":"secant formula","top_k":5,"generate":true}' \
+		-d '{"query":"cosecant formula","top_k":5,"generate":true}' \
 		--no-buffer
 
 d:

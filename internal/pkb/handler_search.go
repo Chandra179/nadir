@@ -166,36 +166,48 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var chunks []ScoredChunk
 	if req.Keyword != "" {
+		retrieveStart := time.Now()
 		var err error
 		chunks, err = h.store.KeywordSearch(r.Context(), req.Keyword, fetchN, req.Filter)
+		h.metrics.RecordRetrieve(r.Context(), time.Since(retrieveStart))
 		if err != nil {
 			http.Error(w, "search failed", http.StatusInternalServerError)
 			return
 		}
 	} else if h.adaptiveHyde != nil {
+		hydeStart := time.Now()
 		var err error
 		chunks, err = h.adaptiveHyde.Search(r.Context(), req.Query, fetchN)
+		h.metrics.RecordHyDE(r.Context(), time.Since(hydeStart))
 		if err != nil {
+			retrieveStart := time.Now()
 			chunks, err = h.multiSearch(r, req.Query, fetchN, req.Filter)
+			h.metrics.RecordRetrieve(r.Context(), time.Since(retrieveStart))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 	} else if h.hyde != nil {
+		hydeStart := time.Now()
 		var err error
 		chunks, err = h.hyde.Search(r.Context(), req.Query, fetchN)
+		h.metrics.RecordHyDE(r.Context(), time.Since(hydeStart))
 		if err != nil {
 			// fall back to standard search on HyDE failure
+			retrieveStart := time.Now()
 			chunks, err = h.multiSearch(r, req.Query, fetchN, req.Filter)
+			h.metrics.RecordRetrieve(r.Context(), time.Since(retrieveStart))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 	} else {
+		retrieveStart := time.Now()
 		var err error
 		chunks, err = h.multiSearch(r, req.Query, fetchN, req.Filter)
+		h.metrics.RecordRetrieve(r.Context(), time.Since(retrieveStart))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -225,9 +237,14 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.chunkFilter != nil && len(chunks) > 0 {
+		filterStart := time.Now()
+		beforeCount := len(chunks)
 		filtered, err := h.chunkFilter.Filter(r.Context(), req.Query, chunks)
 		if err == nil && len(filtered) > 0 {
+			h.metrics.RecordFilter(r.Context(), time.Since(filterStart), beforeCount-len(filtered))
 			chunks = filtered
+		} else {
+			h.metrics.RecordFilter(r.Context(), time.Since(filterStart), 0)
 		}
 	}
 
@@ -261,6 +278,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// generate: stream LLM answer grounded in retrieved chunks
 	if req.Generate && h.generator != nil && req.Query != "" && len(chunks) > 0 {
+		genStart := time.Now()
 		stream, err := h.generator.Generate(r.Context(), req.Query, chunks)
 		if err != nil {
 			http.Error(w, "generate failed", http.StatusInternalServerError)
@@ -270,11 +288,15 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Transfer-Encoding", "chunked")
+		buf := make([]byte, 512)
+		var ttft time.Duration
 		if f, ok := w.(http.Flusher); ok {
-			buf := make([]byte, 512)
 			for {
 				n, err := stream.Read(buf)
 				if n > 0 {
+					if ttft == 0 {
+						ttft = time.Since(genStart)
+					}
 					w.Write(buf[:n]) //nolint:errcheck
 					f.Flush()
 				}
@@ -283,8 +305,15 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
+			// non-streaming: read first byte to capture TTFT
+			n, _ := stream.Read(buf)
+			if n > 0 {
+				ttft = time.Since(genStart)
+				w.Write(buf[:n]) //nolint:errcheck
+			}
 			io.Copy(w, stream) //nolint:errcheck
 		}
+		h.metrics.RecordGenerate(r.Context(), time.Since(genStart), ttft)
 		return
 	}
 

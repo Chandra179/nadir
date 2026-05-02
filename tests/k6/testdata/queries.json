@@ -1,0 +1,31 @@
+{
+  "general": [
+    "how does consistent hashing work",
+    "goroutine vs thread difference",
+    "rate limiting algorithms",
+    "kafka consumer group rebalancing",
+    "oauth2 authorization code flow",
+    "distributed cache eviction policy",
+    "chunking strategies for embeddings",
+    "api design best practices",
+    "compiler tokenization process",
+    "database indexing b-tree",
+    "how does Go garbage collector work",
+    "what is the CAP theorem",
+    "explain vector clocks in distributed systems",
+    "how does raft consensus algorithm work",
+    "difference between BFS and DFS",
+    "what is a bloom filter",
+    "explain MVCC in databases",
+    "how does TCP congestion control work",
+    "what are SOLID principles",
+    "explain monte carlo tree search UCB"
+  ],
+  "cache_fixed": [
+    "how does consistent hashing work",
+    "goroutine vs thread difference",
+    "rate limiting algorithms",
+    "database indexing b-tree",
+    "how does Go garbage collector work"
+  ]
+}
