@@ -58,7 +58,11 @@ Core logic lives in `internal/pkb/`. SHA-based dedup — unchanged files skip re
 
 ```bash
 make vendor      # go mod tidy && go mod vendor
-go build ./cmd/http
+go build ./cmd/server
 go test ./...
-make d           # delete Qdrant collection (reset)
+make reset       # delete Qdrant collection
 ```
+
+## later
+i think we should make the onboarding simple, like run "make dev" will run all of them from qdrant, sidecar, golang apps.
+and remove 

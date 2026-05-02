@@ -9,10 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make vendor          # go mod tidy && go mod vendor
 
 # Build
-go build ./cmd/http
+go build ./cmd/server
 
 # Run (sources .env)
-make run             # or: go run ./cmd/http
+make run             # or: go run ./cmd/server
 
 # Docker (includes Qdrant)
 docker compose up --build
@@ -20,14 +20,14 @@ docker compose up --build
 # Quick ops
 make ingest          # POST localhost:8080/ingest
 make search          # POST localhost:8080/search with sample query
-make d               # delete Qdrant collection
+make reset           # delete Qdrant collection
 ```
 
 Config loads from `config/config.yaml`. Override notes path via env: `NOTES_PATH`.
 
 ## Architecture
 
-Single HTTP binary (`cmd/http/main.go`).
+Single HTTP binary (`cmd/server/main.go`).
 
 **Request flow:** `main` → `httpserver.Server` wires middleware chain + handlers → serves two routes:
 - `POST /ingest` → `IngestHandler` → `FileLister` → `Fetcher` → `Pipeline.IngestFile`

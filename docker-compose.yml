@@ -3,14 +3,14 @@ services:
     build: .
     ports:
       - "8080:8080"
-    env_file:
-      - .env
     environment:
       - QDRANT_ADDR=qdrant:6334
       - OLLAMA_ADDR=http://host.docker.internal:11434
       - SPLADE_ADDR=http://splade:5001
       - RERANKER_ADDR=http://reranker:5002
       - LOGGER_LEVEL=prod
+      - QDRANT_COLLECTION=pkb_chunks
+      - PDF_CONVERTER=docling
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

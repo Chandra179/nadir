@@ -1,4 +1,8 @@
-.PHONY: vendor up up-prod run sm ingest search generate d test test-short eval-fresh eval-llm eval-hyde splade splade-install reranker docling docling-install marker marker-install snapshot backup dev prod check
+.PHONY: vendor up run sm sm-update ingest search generate reset test \
+        eval-fresh eval-llm eval-hyde \
+        splade splade-install reranker \
+        docling docling-install \
+        dev prod check
 
 # check — verify all required tools are installed before running dev/prod
 check:
@@ -20,17 +24,8 @@ vendor:
 up:
 	docker compose up -d
 
-up-prod:
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-snapshot:
-	./scripts/snapshot-qdrant.sh
-
-backup:
-	./scripts/backup-qdrant.sh
-
 run:
-	go run ./cmd/http
+	go run ./cmd/server
 
 sm:
 	git submodule add https://github.com/Chandra179/gitbook gitbook
@@ -47,9 +42,6 @@ search:
 		-H "Content-Type: application/json" \
 		-d '{"query":"secant formula","top_k":10}'
 
-test:
-	go test ./internal/pkb/ -run TestSearchEval -v -timeout 10m
-
 # generate — search + stream LLM answer. Requires generator.enabled: true in config/config.yaml.
 generate:
 	curl -X POST localhost:8080/search \
@@ -57,7 +49,7 @@ generate:
 		-d '{"query":"cosecant formula","top_k":5,"generate":true}' \
 		--no-buffer
 
-d:
+reset:
 	curl -X DELETE localhost:6333/collections/pkb_chunks
 
 # splade-install — install Python deps for SPLADE sidecar (one-time)
@@ -66,21 +58,11 @@ splade-install:
 
 # splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
 splade:
-	FASTEMBED_CACHE_PATH=$$HOME/.cache/fastembed python3 cmd/splade/main.py
+	FASTEMBED_CACHE_PATH=$$HOME/.cache/fastembed python3 services/splade/main.py
 
-# reranker — run RERANKER sidecar on :5002. Reranker in config/config.yaml to activate.
+# reranker — run RERANKER sidecar on :5002. Set reranker.enabled: true in config/config.yaml to activate.
 reranker:
-	HF_HOME=$$HOME/.cache/huggingface python3 cmd/reranker/main.py
-
-# marker-install — install Python deps for Marker PDF converter (one-time)
-marker-install:
-	pip install -r services/marker/requirements.txt
-
-# marker — convert all PDFs in pdfs/raw → pdfs/converted (one-shot, run before ingest)
-# Replaces docling: produces accurate LaTeX math instead of <!-- formula-not-decoded --> placeholders.
-marker:
-	mkdir -p pdfs/raw pdfs/converted
-	python3 services/marker/main.py --input pdfs/raw --output pdfs/converted
+	HF_HOME=$$HOME/.cache/huggingface python3 services/reranker/main.py
 
 # docling-install — install Python deps for Docling PDF converter (one-time)
 docling-install:

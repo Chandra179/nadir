@@ -6,11 +6,6 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$ROOT"
 
-# Load .env if present
-if [[ -f .env ]]; then
-  set -a; source .env; set +a
-fi
-
 # Override docker-internal hostnames with localhost for host-side Go server
 export QDRANT_ADDR=localhost:6334
 export SPLADE_ADDR=http://localhost:5001
@@ -31,20 +26,14 @@ echo "==> Waiting for Reranker on :5002..."
 until curl -sf http://localhost:5002/health > /dev/null 2>&1; do sleep 1; done
 
 echo "==> Starting server (background)..."
-go run ./cmd/http &
+go run ./cmd/server &
 SERVER_PID=$!
 
 echo "==> Waiting for server on :8080..."
 until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do sleep 1; done
 
-echo "==> Converting PDFs (pdfs/raw -> pdfs/converted)..."
-mkdir -p pdfs/raw pdfs/converted
-PDF_CONVERTER="${PDF_CONVERTER:-docling}"
-if [[ "$PDF_CONVERTER" == "marker" ]]; then
-  python3 services/marker/main.py --input pdfs/raw --output pdfs/converted || true
-else
-  python3 services/docling/main.py --input pdfs/raw --output pdfs/converted || true
-fi
+echo "==> Converting docs PDF to MD..."
+python3 services/docling/main.py --input pdfs/raw --output pdfs/converted || true
 
 echo "==> Ingesting notes..."
 curl -sf -X POST localhost:8080/ingest

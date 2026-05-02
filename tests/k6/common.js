@@ -7,7 +7,7 @@ export const RERANKER_URL = __ENV.RERANKER_URL || 'http://localhost:5002';
 // Loaded once in init context, shared across all VUs (no per-VU copy overhead).
 // Edit testdata/queries.json to match your knowledge base content.
 const queryData = new SharedArray('queries', function () {
-  return JSON.parse(open('./testdata/queries.json'));
+  return [JSON.parse(open('./testdata/queries.json'))];
 });
 
 export const QUERIES = queryData[0].general;

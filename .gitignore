@@ -44,3 +44,7 @@ tailwind.config.js
 wrangler.jsonc
 vendor/
 venv/
+
+# compiled binaries
+/nadir
+/gen-qrels

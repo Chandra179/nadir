@@ -1,3 +1,0 @@
-marker-pdf
-fastapi
-uvicorn
