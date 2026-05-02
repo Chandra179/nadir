@@ -119,18 +119,6 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     restart: unless-stopped
 
-  # nginx:
-  #   image: nginx:1.27-alpine
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #     - ./config/nginx/certs:/etc/nginx/certs:ro   # mount Let's Encrypt certs here
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - app
-
   node-exporter:
     image: prom/node-exporter:latest
     pid: "host"

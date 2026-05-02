@@ -2,9 +2,9 @@
         eval-fresh eval-llm eval-hyde \
         splade splade-install reranker \
         docling docling-install \
-        dev prod check
+        dev check
 
-# check — verify all required tools are installed before running dev/prod
+# check — verify all required tools are installed before running dev
 check:
 	@command -v docker >/dev/null 2>&1 || (echo "ERROR: docker not found"; exit 1)
 	@command -v go >/dev/null 2>&1 || (echo "ERROR: go not found"; exit 1)
@@ -14,9 +14,6 @@ check:
 
 dev:
 	./scripts/dev-local.sh
-
-prod:
-	./scripts/prod-start.sh
 
 vendor:
 	go mod tidy && go mod vendor
