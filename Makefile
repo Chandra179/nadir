@@ -1,8 +1,8 @@
-.PHONY: vendor up run sm sm-update ingest search generate reset test \
-        eval-fresh eval-llm eval-hyde \
-        splade splade-install reranker \
-        docling docling-install \
-        dev check
+.PHONY: vendor up run sm sm-update ingest search generate reset test test-all \
+         eval-fresh eval-llm eval-hyde \
+         splade splade-install reranker reranker-install \
+         docling docling-install \
+         dev check
 
 # check — verify all required tools are installed before running dev
 check:
@@ -23,6 +23,14 @@ up:
 
 run:
 	go run ./cmd/server
+
+# test — run unit tests only (no Docker/Qdrant required)
+test:
+	go test -short -count=1 ./...
+
+# test-all — run all tests including eval (requires Docker for Qdrant testcontainers)
+test-all:
+	go test -count=1 ./...
 
 sm:
 	git submodule add https://github.com/Chandra179/gitbook gitbook
@@ -56,6 +64,10 @@ splade-install:
 # splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
 splade:
 	FASTEMBED_CACHE_PATH=$$HOME/.cache/fastembed python3 services/splade/main.py
+
+# reranker-install — install Python deps for reranker sidecar (one-time)
+reranker-install:
+	pip install -r services/reranker/requirements.txt
 
 # reranker — run RERANKER sidecar on :5002. Set reranker.enabled: true in config/config.yaml to activate.
 reranker:

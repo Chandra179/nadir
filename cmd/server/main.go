@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"nadir/config"
 	"nadir/internal/httpserver"
@@ -12,5 +16,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
-	httpserver.Server(cfg)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	httpserver.Server(ctx, cfg)
 }

@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"nadir/config"
 	"nadir/internal/middleware"
@@ -34,7 +35,7 @@ const (
 	routeHealth  = "GET /healthz"
 )
 
-func Server(cfg *config.Config) {
+func Server(ctx context.Context, cfg *config.Config) {
 	log := logger.NewLogger(cfg.Middleware.Logger.Level)
 	deps := middleware.NewDependencies(log)
 
@@ -99,7 +100,7 @@ func Server(cfg *config.Config) {
 	}).WithMetrics(metrics)
 
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.AllPaths(), cfg.PKB.IgnorePatterns)
-	searchHandler := pkb.NewSearchHandler(embedder, store, cfg.Qdrant.TopK).WithMetrics(metrics)
+	searchService := pkb.NewSearchService(embedder, store).WithMetrics(metrics)
 
 	if cfg.HyDE.Enabled {
 		ollamaAddr := cfg.HyDE.OllamaAddr
@@ -118,13 +119,13 @@ func Server(cfg *config.Config) {
 		if cfg.HyDE.Adaptive {
 			thresh := cfg.HyDE.AdaptiveThresh
 			adaptive := pkb.NewAdaptiveHyDESearcher(hydeSearcher, embedder, store, thresh)
-			searchHandler.WithAdaptiveHyDE(adaptive)
+			searchService.WithAdaptiveHyDE(adaptive)
 			log.Info(context.Background(), "Adaptive HyDE enabled",
 				logger.Field{Key: "model", Value: cfg.HyDE.Model},
 				logger.Field{Key: "threshold", Value: thresh},
 			)
 		} else {
-			searchHandler.WithHyDE(hydeSearcher)
+			searchService.WithHyDE(hydeSearcher)
 			log.Info(context.Background(), "HyDE enabled",
 				logger.Field{Key: "model", Value: cfg.HyDE.Model},
 				logger.Field{Key: "num_docs", Value: cfg.HyDE.NumDocs},
@@ -137,9 +138,24 @@ func Server(cfg *config.Config) {
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchHandler.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		searchService.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
+
+	if cfg.ChunkFilter.Enabled {
+		ollamaAddr := cfg.ChunkFilter.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		cf := pkb.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
+		searchService.WithChunkFilter(cf)
+		log.Info(context.Background(), "chunk filter enabled",
+			logger.Field{Key: "model", Value: cfg.ChunkFilter.Model},
+			logger.Field{Key: "threshold", Value: cfg.ChunkFilter.Threshold},
+		)
+	}
+
+	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK).WithMetrics(metrics)
 
 	if cfg.SemanticCache.Enabled {
 		col := cfg.SemanticCache.Collection
@@ -179,19 +195,6 @@ func Server(cfg *config.Config) {
 		)
 	}
 
-	if cfg.ChunkFilter.Enabled {
-		ollamaAddr := cfg.ChunkFilter.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		cf := pkb.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
-		searchHandler.WithChunkFilter(cf)
-		log.Info(context.Background(), "chunk filter enabled",
-			logger.Field{Key: "model", Value: cfg.ChunkFilter.Model},
-			logger.Field{Key: "threshold", Value: cfg.ChunkFilter.Threshold},
-		)
-	}
-
 	if cfg.EvalOps.Enabled {
 		ollamaAddr := cfg.EvalOps.OllamaAddr
 		if ollamaAddr == "" {
@@ -213,7 +216,7 @@ func Server(cfg *config.Config) {
 		)
 	}
 
-	ingestHandler := pkb.NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
+	ingestHandler := NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
 
 	mux := http.NewServeMux()
 	mux.Handle(routeSearch, globalChain(searchHandler))
@@ -231,8 +234,18 @@ func Server(cfg *config.Config) {
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 	}
 
+	go func() {
+		<-ctx.Done()
+		log.Info(context.Background(), "http server shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Error(context.Background(), "http server shutdown error", logger.Field{Key: "error", Value: err.Error()})
+		}
+	}()
+
 	log.Info(context.Background(), "http server starting", logger.Field{Key: "addr", Value: srv.Addr})
-	if err := srv.ListenAndServe(); err != nil {
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Error(context.Background(), "http server error", logger.Field{Key: "error", Value: err.Error()})
 	}
 }
