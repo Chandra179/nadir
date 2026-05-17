@@ -1,6 +1,0 @@
-{"name": "tf-recursive256-baseline", "tags": ["tf", "baseline"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32}
-{"name": "tf-recursive256-hyde1", "tags": ["tf", "hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "hyde": true, "hyde_num_docs": 1}
-{"name": "tf-recursive256-multi-hyde3", "tags": ["tf", "hyde", "multi-hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "multi_hyde": true, "hyde_num_docs": 3}
-{"name": "tf-recursive256-multi-hyde5", "tags": ["tf", "hyde", "multi-hyde"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "multi_hyde": true, "hyde_num_docs": 5}
-{"name": "tf-recursive256-adaptive-hyde", "tags": ["tf", "hyde", "adaptive"], "sparse_scorer": "tf", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}
-{"name": "splade-recursive256-adaptive-hyde", "tags": ["splade", "hyde", "adaptive"], "sparse_scorer": "splade", "chunk_size": 256, "chunk_overlap": 32, "adaptive_hyde": true, "adaptive_thresh": 0.50}

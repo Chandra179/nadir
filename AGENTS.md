@@ -9,7 +9,7 @@ go build ./cmd/server
 # Run (config from config/config.yaml; env overrides in config/config.go applyEnv)
 make run                        # go run ./cmd/server
 
-# All-in-one dev: Qdrant + sidecars + Prometheus + Grafana + server + ingest
+# All-in-one dev: Qdrant + sidecars + Prometheus + server + ingest
 make dev                        # runs scripts/dev-local.sh (overrides addresses to localhost)
 
 # Vendor deps (committed to repo — always run after adding imports)
@@ -20,18 +20,12 @@ go test ./...                   # eval tests pull qdrant/qdrant:latest on first 
 
 # Focused tests
 go test -run TestMatchPattern ./internal/pkb/
-go test -run TestSearchEval ./internal/pkb/          # eval (needs Qdrant, Ollama)
-EVAL_STORE=container go test -run TestSearchEval ...  # ephemeral Qdrant, full re-ingest
-EVAL_STORE=live EVAL_JUDGE=llm go test -run TestSearchEval ...  # live Qdrant, LLM judge
 
 # Quick ops (assumes server on :8080)
 make ingest                     # POST /ingest
 make search                     # POST /search with sample query
 make generate                   # POST /search with generate=true (streams LLM answer)
 make reset                      # DELETE Qdrant collection (REST API on :6333)
-
-# Generate eval qrels (before eval-fresh)
-go run ./cmd/gen-qrels
 
 make check                      # verify prereqs: docker, go, python3, ollama
 ```
@@ -44,7 +38,6 @@ Single Go binary at `cmd/server/main.go`. Wires everything in `internal/httpserv
 POST /ingest  → IngestHandler → FileLister → Fetcher → Pipeline (chunk → embed → upsert)
 POST /search  → SearchHandler → [HyDE → Embedder → HybridSearch → Reranker → ChunkFilter → Generator]
 GET  /healthz → 200
-GET  /metrics → Prometheus (OTel)
 ```
 
 **`internal/pkb/`** — core engine. All new domain logic belongs here.
@@ -55,8 +48,6 @@ GET  /metrics → Prometheus (OTel)
 - `FileLister`: walks KB dirs, glob-ignore filter
 
 **`internal/middleware/`** — stdlib-only chain. `Chain()` applies outermost-first: `Recovery → RequestID → Timeout`.
-
-**`pkg/otel/`** — Prometheus OTel metrics provider.
 
 **`services/`** — Python sidecars: `splade/` (sparse scoring, :5001), `reranker/` (cross-encoder, :5002), `docling/` (PDF→MD).
 
@@ -89,4 +80,4 @@ GET  /metrics → Prometheus (OTel)
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | SPLADE sparse scorer | `sparse_scorer.provider: splade` | SPLADE sidecar |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for all sub-features (HyDE, generator, chunk filter, EvalOps).
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for all sub-features (HyDE, generator, chunk filter).

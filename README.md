@@ -45,7 +45,7 @@ If you get connection errors, see [Troubleshooting](#troubleshooting).
 
 ```bash
 # 1. Start Docker services (Qdrant, sidecars, monitoring)
-docker compose up -d qdrant splade reranker prometheus grafana
+docker compose up -d qdrant splade reranker prometheus
 
 # 2. Start Go server
 make run
@@ -113,7 +113,6 @@ Some features in `config/config.yaml` are off by default — enable when needed:
 |--------|------|-------------|
 | POST | `/ingest` | Walk notes dir, chunk+embed new/changed files |
 | POST | `/search` | Hybrid semantic search over embedded chunks |
-| GET | `/healthz` | Health check |
 
 ## Architecture
 
@@ -127,8 +126,6 @@ POST /search → [HyDE] → Embedder → Store.HybridSearch (dense + BM25 → RR
                                          └── [Reranker] → [ChunkFilter] → response
 ```
 
-Core logic: `internal/pkb/`. SHA-based dedup — unchanged files skip re-embedding.
-
 ## Run tests
 
 ### Unit tests (no Docker required)
@@ -137,37 +134,7 @@ Core logic: `internal/pkb/`. SHA-based dedup — unchanged files skip re-embeddi
 make test        # unit tests only; runs in seconds
 ```
 
-Tests without infrastructure dependencies: chunk matching, ignore patterns, HyDE vector ops, evalops sampling.
-
-### Integration & eval tests (needs Docker + optionally Ollama)
-
-```bash
-# Self-contained eval: spins ephemeral Qdrant, full re-ingest, all profiles
-make eval-fresh
-
-# LLM judging (uses live Qdrant — requires make up && make ingest first)
-make eval-llm
-
-# HyDE profile only
-make eval-hyde
-
-# Run everything including eval tests
-make test-all
-```
-
-Eval env vars for customization:
-
-| Var | Purpose | Default |
-|-----|---------|---------|
-| `EVAL_STORE` | `live` (use running Qdrant) or `container` (ephemeral) | `live` |
-| `EVAL_JUDGE` | `qrels` (pre-computed) or `llm` (live LLM judging) | `qrels` |
-| `EVAL_QDRANT_ADDR` | Override Qdrant address for eval | config value |
-| `EVAL_LLM_MODEL` | LLM model for judging | `llama3.1:8b-instruct-q4_K_M` |
-
-## Monitoring
-
-Grafana: `http://localhost:3000` (default `admin/admin`)  
-Prometheus: `http://localhost:9090`
+Tests without infrastructure dependencies: chunk matching, ignore patterns, HyDE vector ops.
 
 ## PDF ingestion
 
@@ -214,7 +181,3 @@ The server uses gRPC on port 6334 (not the REST API on 6333). If you see gRPC di
 lsof -i :8080
 # Stop conflicting services, or change http.addr in config/config.yaml
 ```
-
-## Scaling
-
-Local setup handles low-to-moderate concurrent users fine (Go server + Docker sidecars on one host). For higher concurrency or availability requirements, consider: load balancer in front of multiple server instances, dedicated Qdrant node, GPU-backed embedding/reranker, or container orchestration (k8s).

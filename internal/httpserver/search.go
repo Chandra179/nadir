@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
 	"nadir/internal/pkb"
-	"nadir/internal/pkb/evalops"
-	"nadir/pkg/otel"
 )
 
 type searchRequest struct {
@@ -37,8 +34,6 @@ type SearchHandler struct {
 	topK          int
 	generator     pkb.Generator
 	semanticCache *pkb.SemanticCache
-	evalMonitor   *evalops.Monitor
-	metrics       *otel.Metrics
 }
 
 func NewSearchHandler(searcher *pkb.SearchService, topK int) *SearchHandler {
@@ -55,18 +50,7 @@ func (h *SearchHandler) WithSemanticCache(sc *pkb.SemanticCache) *SearchHandler 
 	return h
 }
 
-func (h *SearchHandler) WithEvalOps(m *evalops.Monitor) *SearchHandler {
-	h.evalMonitor = m
-	return h
-}
-
-func (h *SearchHandler) WithMetrics(m *otel.Metrics) *SearchHandler {
-	h.metrics = m
-	return h
-}
-
 func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -100,13 +84,10 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					Text:      text,
 				}
 			}
-			h.metrics.RecordCacheHit(r.Context())
-			h.metrics.RecordSearch(r.Context(), time.Since(start), len(results), "cache")
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(searchResponse{Results: results})
 			return
 		}
-		h.metrics.RecordCacheMiss(r.Context())
 	}
 
 	var chunks []pkb.ScoredChunk
@@ -127,32 +108,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	if h.evalMonitor != nil && req.Query != "" && len(chunks) > 0 {
-		snaps := make([]evalops.ScoredChunk, len(chunks))
-		for i, c := range chunks {
-			text := c.WindowText
-			if text == "" {
-				text = c.Text
-			}
-			snaps[i] = evalops.ScoredChunk{
-				FilePath:  c.FilePath,
-				Header:    c.Header,
-				LineStart: c.LineStart,
-				Score:     c.Score,
-				Text:      text,
-			}
-		}
-		h.evalMonitor.RecordAsync(req.Query, snaps)
-	}
-
-	mode := "semantic"
-	if req.Keyword != "" {
-		mode = "keyword"
-	}
-	h.metrics.RecordSearch(r.Context(), time.Since(start), len(chunks), mode)
-
 	if req.Generate && h.generator != nil && req.Query != "" && len(chunks) > 0 {
-		genStart := time.Now()
 		stream, err := h.generator.Generate(r.Context(), req.Query, chunks)
 		if err != nil {
 			http.Error(w, "generate failed", http.StatusInternalServerError)
@@ -163,14 +119,10 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Transfer-Encoding", "chunked")
 		buf := make([]byte, 512)
-		var ttft time.Duration
 		if f, ok := w.(http.Flusher); ok {
 			for {
 				n, err := stream.Read(buf)
 				if n > 0 {
-					if ttft == 0 {
-						ttft = time.Since(genStart)
-					}
 					w.Write(buf[:n])
 					f.Flush()
 				}
@@ -181,12 +133,10 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			n, _ := stream.Read(buf)
 			if n > 0 {
-				ttft = time.Since(genStart)
 				w.Write(buf[:n])
 			}
 			io.Copy(w, stream)
 		}
-		h.metrics.RecordGenerate(r.Context(), time.Since(genStart), ttft)
 		return
 	}
 

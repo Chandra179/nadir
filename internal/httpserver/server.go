@@ -8,8 +8,6 @@ import (
 	"nadir/config"
 	"nadir/internal/middleware"
 	"nadir/internal/pkb"
-	"nadir/internal/pkb/evalops"
-	"nadir/pkg/otel"
 
 	"github.com/Chandra179/gosdk/logger"
 )
@@ -25,32 +23,15 @@ const (
 	defaultCacheCollection   = "pkb_cache"
 	defaultCacheThreshold    = 0.90
 
-	// Telemetry
-	otelMeterName = "nadir/pkb"
-
 	// HTTP Routes
-	routeSearch  = "POST /search"
-	routeIngest  = "POST /ingest"
-	routeMetrics = "GET /metrics"
-	routeHealth  = "GET /healthz"
+	routeSearch = "POST /search"
+	routeIngest = "POST /ingest"
+	routeHealth = "GET /healthz"
 )
 
 func Server(ctx context.Context, cfg *config.Config) {
 	log := logger.NewLogger(cfg.Middleware.Logger.Level)
 	deps := middleware.NewDependencies(log)
-
-	otelProvider, err := otel.NewPrometheusProvider()
-	if err != nil {
-		log.Error(context.Background(), "otel provider init failed", logger.Field{Key: "error", Value: err.Error()})
-		return
-	}
-	defer otelProvider.Close()
-
-	metrics, err := otel.New(otelProvider.Meter(otelMeterName))
-	if err != nil {
-		log.Error(context.Background(), "otel metrics init failed", logger.Field{Key: "error", Value: err.Error()})
-		return
-	}
 
 	globalChain := func(h http.Handler) http.Handler {
 		return middleware.Chain(h,
@@ -97,10 +78,10 @@ func Server(ctx context.Context, cfg *config.Config) {
 		InitialInterval: cfg.Retry.InitialInterval,
 		MaxInterval:     cfg.Retry.MaxInterval,
 		Multiplier:      cfg.Retry.Multiplier,
-	}).WithMetrics(metrics)
+	})
 
 	lister := pkb.NewLocalFileLister(cfg.KnowledgeBase.AllPaths(), cfg.PKB.IgnorePatterns)
-	searchService := pkb.NewSearchService(embedder, store).WithMetrics(metrics)
+	searchService := pkb.NewSearchService(embedder, store)
 
 	if cfg.HyDE.Enabled {
 		ollamaAddr := cfg.HyDE.OllamaAddr
@@ -155,7 +136,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK).WithMetrics(metrics)
+	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK)
 
 	if cfg.SemanticCache.Enabled {
 		col := cfg.SemanticCache.Collection
@@ -195,33 +176,11 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	if cfg.EvalOps.Enabled {
-		ollamaAddr := cfg.EvalOps.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		monitor := evalops.New(evalops.Config{
-			SampleRate:   cfg.EvalOps.SampleRate,
-			TraceFile:    cfg.EvalOps.TraceFile,
-			DriftWindow:  cfg.EvalOps.DriftWindow,
-			DriftThresh:  cfg.EvalOps.DriftThresh,
-			JudgeBaseURL: ollamaAddr + "/v1",
-			JudgeModel:   cfg.EvalOps.Model,
-			MaxWorkers:   cfg.EvalOps.MaxWorkers,
-		})
-		searchHandler.WithEvalOps(monitor)
-		log.Info(context.Background(), "evalops monitoring enabled",
-			logger.Field{Key: "sample_rate", Value: cfg.EvalOps.SampleRate},
-			logger.Field{Key: "trace_file", Value: cfg.EvalOps.TraceFile},
-		)
-	}
-
-	ingestHandler := NewIngestHandler(lister, pipeline, fetcher, store, log).WithMetrics(metrics)
+	ingestHandler := NewIngestHandler(lister, pipeline, fetcher, store, log)
 
 	mux := http.NewServeMux()
 	mux.Handle(routeSearch, globalChain(searchHandler))
 	mux.Handle(routeIngest, globalChain(ingestHandler))
-	mux.Handle(routeMetrics, otelProvider.HTTPHandler())
 	mux.HandleFunc(routeHealth, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

@@ -84,23 +84,6 @@ services:
       retries: 5
       start_period: 30s
 
-  grafana:
-    image: grafana/grafana:11.5.2
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_AUTH_BASIC_ENABLED=true
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    restart: unless-stopped
-    depends_on:
-      - prometheus
-
   prometheus:
     image: prom/prometheus:latest
     extra_hosts:
@@ -136,6 +119,5 @@ services:
 volumes:
   qdrant_data:
   prometheus_data:
-  grafana_data:
   splade_model_cache:
   reranker_model_cache:

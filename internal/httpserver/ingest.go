@@ -3,18 +3,15 @@ package httpserver
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"nadir/internal/pkb"
-	"nadir/pkg/otel"
 
 	"github.com/Chandra179/gosdk/logger"
 )
 
 type IngestHandler struct {
-	svc     *pkb.IngestService
-	log     logger.Logger
-	metrics *otel.Metrics
+	svc *pkb.IngestService
+	log logger.Logger
 }
 
 func NewIngestHandler(lister pkb.FileLister, pipeline *pkb.Pipeline, fetcher pkb.Fetcher, store pkb.Store, log logger.Logger) *IngestHandler {
@@ -22,12 +19,6 @@ func NewIngestHandler(lister pkb.FileLister, pipeline *pkb.Pipeline, fetcher pkb
 		svc: pkb.NewIngestService(lister, pipeline, fetcher, store, log),
 		log: log,
 	}
-}
-
-func (h *IngestHandler) WithMetrics(m *otel.Metrics) *IngestHandler {
-	h.metrics = m
-	h.svc.WithMetrics(m)
-	return h
 }
 
 type ingestResponse struct {
@@ -39,10 +30,8 @@ type ingestResponse struct {
 
 func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	start := time.Now()
 
 	result, err := h.svc.Run(ctx)
-	h.metrics.RecordIngestRun(ctx, time.Since(start))
 
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {

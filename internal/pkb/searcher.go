@@ -6,9 +6,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
-
-	"nadir/pkg/otel"
 )
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
@@ -21,7 +18,6 @@ type SearchService struct {
 	reranker     Reranker
 	candidateMul int
 	chunkFilter  ChunkFilter
-	metrics      *otel.Metrics
 }
 
 func NewSearchService(embedder Embedder, store Store) *SearchService {
@@ -52,11 +48,6 @@ func (s *SearchService) WithChunkFilter(cf ChunkFilter) *SearchService {
 	return s
 }
 
-func (s *SearchService) WithMetrics(m *otel.Metrics) *SearchService {
-	s.metrics = m
-	return s
-}
-
 func (s *SearchService) Search(ctx context.Context, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
@@ -67,27 +58,17 @@ func (s *SearchService) Search(ctx context.Context, query string, topK int, filt
 	var err error
 
 	if s.adaptiveHyde != nil {
-		hydeStart := time.Now()
 		chunks, err = s.adaptiveHyde.Search(ctx, query, fetchN)
-		s.metrics.RecordHyDE(ctx, time.Since(hydeStart))
 		if err != nil {
-			retrieveStart := time.Now()
 			chunks, err = s.multiSearch(ctx, query, fetchN, filter)
-			s.metrics.RecordRetrieve(ctx, time.Since(retrieveStart))
 		}
 	} else if s.hyde != nil {
-		hydeStart := time.Now()
 		chunks, err = s.hyde.Search(ctx, query, fetchN)
-		s.metrics.RecordHyDE(ctx, time.Since(hydeStart))
 		if err != nil {
-			retrieveStart := time.Now()
 			chunks, err = s.multiSearch(ctx, query, fetchN, filter)
-			s.metrics.RecordRetrieve(ctx, time.Since(retrieveStart))
 		}
 	} else {
-		retrieveStart := time.Now()
 		chunks, err = s.multiSearch(ctx, query, fetchN, filter)
-		s.metrics.RecordRetrieve(ctx, time.Since(retrieveStart))
 	}
 
 	if err != nil {
@@ -103,9 +84,7 @@ func (s *SearchService) KeywordSearch(ctx context.Context, keyword string, topK 
 		fetchN = topK * s.candidateMul
 	}
 
-	retrieveStart := time.Now()
 	chunks, err := s.store.KeywordSearch(ctx, keyword, fetchN, filter)
-	s.metrics.RecordRetrieve(ctx, time.Since(retrieveStart))
 	if err != nil {
 		return nil, err
 	}
@@ -115,20 +94,10 @@ func (s *SearchService) KeywordSearch(ctx context.Context, keyword string, topK 
 
 func (s *SearchService) postProcess(ctx context.Context, query string, chunks []ScoredChunk, topK int) ([]ScoredChunk, error) {
 	if s.reranker != nil && len(chunks) > 0 {
-		rerankStart := time.Now()
-		var scoreBefore float32
-		if len(chunks) > 0 {
-			scoreBefore = chunks[0].Score
-		}
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
 			return nil, fmt.Errorf("rerank failed: %w", err)
 		}
-		var scoreAfter float32
-		if len(reranked) > 0 {
-			scoreAfter = reranked[0].Score
-		}
-		s.metrics.RecordRerank(ctx, time.Since(rerankStart), scoreBefore, scoreAfter)
 		chunks = reranked
 		if len(chunks) > topK {
 			chunks = chunks[:topK]
@@ -136,14 +105,9 @@ func (s *SearchService) postProcess(ctx context.Context, query string, chunks []
 	}
 
 	if s.chunkFilter != nil && len(chunks) > 0 {
-		filterStart := time.Now()
-		beforeCount := len(chunks)
 		filtered, err := s.chunkFilter.Filter(ctx, query, chunks)
 		if err == nil && len(filtered) > 0 {
-			s.metrics.RecordFilter(ctx, time.Since(filterStart), beforeCount-len(filtered))
 			chunks = filtered
-		} else {
-			s.metrics.RecordFilter(ctx, time.Since(filterStart), 0)
 		}
 	}
 

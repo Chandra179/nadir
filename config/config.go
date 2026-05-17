@@ -25,7 +25,6 @@ type Config struct {
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Docling       DoclingConfig       `yaml:"docling"`
 	ChunkFilter   ChunkFilterConfig   `yaml:"chunk_filter"`
-	EvalOps       EvalOpsConfig       `yaml:"evalops"`
 }
 
 type HTTPConfig struct {
@@ -144,41 +143,6 @@ type ChunkFilterConfig struct {
 	Threshold  float64 `yaml:"threshold"` // 0–1 relevance cutoff; chunks below are dropped (default 0.5)
 }
 
-type EvalOpsConfig struct {
-	Enabled     bool    `yaml:"enabled"`
-	SampleRate  float64 `yaml:"sample_rate"`  // fraction of live queries to sample (e.g. 0.05)
-	TraceFile   string  `yaml:"trace_file"`   // JSONL output path (e.g. "evalops_traces.jsonl")
-	DriftWindow int     `yaml:"drift_window"` // rolling window size for drift detection (e.g. 50)
-	DriftThresh float64 `yaml:"drift_thresh"` // relative drop to alert (e.g. 0.10 = 10%)
-	OllamaAddr  string  `yaml:"ollama_addr"`  // defaults to embedder.ollama_addr if empty
-	Model       string  `yaml:"model"`        // LLM for context relevance scoring
-	MaxWorkers  int     `yaml:"max_workers"`  // async goroutine pool size (default 4)
-}
-
-type EvalConfig struct {
-	LLMBaseURL  string `yaml:"llm_base_url"`
-	LLMModel    string `yaml:"llm_model"`
-	HistoryPath string `yaml:"history_path"`
-}
-
-// LoadEval loads only eval-specific config from a YAML file.
-// Kept separate so EvalConfig does not ship in the production Config struct.
-func LoadEval(path string) (*EvalConfig, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var wrapper struct {
-		Eval EvalConfig `yaml:"eval"`
-	}
-	if err := yaml.NewDecoder(f).Decode(&wrapper); err != nil {
-		return nil, err
-	}
-	wrapper.Eval.applyEnv()
-	return &wrapper.Eval, nil
-}
-
 func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -237,18 +201,6 @@ func (c *Config) applyEnv() {
 		if f, err := strconv.ParseFloat(v, 32); err == nil {
 			c.SemanticCache.Threshold = float32(f)
 		}
-	}
-}
-
-func (e *EvalConfig) applyEnv() {
-	if v := os.Getenv("EVAL_LLM_BASE_URL"); v != "" {
-		e.LLMBaseURL = v
-	}
-	if v := os.Getenv("EVAL_LLM_MODEL"); v != "" {
-		e.LLMModel = v
-	}
-	if v := os.Getenv("EVAL_HISTORY_PATH"); v != "" {
-		e.HistoryPath = v
 	}
 }
 

@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"nadir/pkg/otel"
-
 	"github.com/Chandra179/gosdk/logger"
 )
 
@@ -27,7 +25,6 @@ type IngestService struct {
 	fetcher  Fetcher
 	store    Store
 	log      logger.Logger
-	metrics  *otel.Metrics
 }
 
 func NewIngestService(lister FileLister, pipeline *Pipeline, fetcher Fetcher, store Store, log logger.Logger) *IngestService {
@@ -38,11 +35,6 @@ func NewIngestService(lister FileLister, pipeline *Pipeline, fetcher Fetcher, st
 		store:    store,
 		log:      log,
 	}
-}
-
-func (s *IngestService) WithMetrics(m *otel.Metrics) *IngestService {
-	s.metrics = m
-	return s
 }
 
 func (s *IngestService) Run(ctx context.Context) (IngestResult, error) {
@@ -63,7 +55,6 @@ func (s *IngestService) Run(ctx context.Context) (IngestResult, error) {
 	for _, f := range files {
 		if f.SHA != "" && storedSHAs[f.Path] == f.SHA {
 			skipped.Add(1)
-			s.metrics.RecordIngestFile(ctx, "skipped")
 			continue
 		}
 		wg.Add(1)
@@ -80,17 +71,14 @@ func (s *IngestService) Run(ctx context.Context) (IngestResult, error) {
 			if err != nil {
 				s.log.Error(ctx, "fetch file failed", logger.Field{Key: "path", Value: f.Path}, logger.Field{Key: "error", Value: err.Error()})
 				failed.Add(1)
-				s.metrics.RecordIngestFile(ctx, "failed")
 				return
 			}
 			if err := s.pipeline.Ingest(ctx, f.Path, text, f.SHA); err != nil {
 				s.log.Error(ctx, "ingest failed", logger.Field{Key: "path", Value: f.Path}, logger.Field{Key: "error", Value: err.Error()})
 				failed.Add(1)
-				s.metrics.RecordIngestFile(ctx, "failed")
 				return
 			}
 			processed.Add(1)
-			s.metrics.RecordIngestFile(ctx, "processed")
 		}(f)
 	}
 	wg.Wait()

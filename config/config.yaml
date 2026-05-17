@@ -79,11 +79,6 @@ semantic_cache:
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
 
-eval:
-  llm_base_url: "http://localhost:11434/v1"
-  llm_model: "llama3.1:8b-instruct-q4_K_M"
-  history_path: "eval_history.jsonl"
-
 generator:
   enabled: true      # set true + ensure ollama LLM is pulled; POST /search with {"generate": true}
   ollama_addr: ""     # defaults to embedder.ollama_addr
@@ -99,13 +94,3 @@ chunk_filter:
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"
   threshold: 0.5      # 0–1; chunks with LLM score below this are dropped
-
-evalops:
-  enabled: true        # async EvalOps continuous monitoring (RAGOps arxiv 2506.03401, ARES arxiv 2311.09476)
-  sample_rate: 0.05    # fraction of live queries to sample (0.05 = 5%)
-  trace_file: "evalops_traces.jsonl"  # JSONL persistence path
-  drift_window: 50     # rolling window size for drift detection
-  drift_thresh: 0.10   # relative context_relevance drop to alert (10%)
-  ollama_addr: ""      # defaults to embedder.ollama_addr
-  model: "gemma3:1b"   # LLM for async context relevance scoring
-  max_workers: 4       # async goroutine pool size

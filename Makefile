@@ -1,5 +1,4 @@
 .PHONY: vendor up run sm sm-update ingest search generate reset test test-all \
-         eval-fresh eval-llm eval-hyde \
          splade splade-install reranker reranker-install \
          docling docling-install \
          dev check
@@ -28,7 +27,7 @@ run:
 test:
 	go test -short -count=1 ./...
 
-# test-all — run all tests including eval (requires Docker for Qdrant testcontainers)
+# test-all — run all tests
 test-all:
 	go test -count=1 ./...
 
@@ -81,50 +80,3 @@ docling-install:
 docling:
 	mkdir -p pdfs/raw pdfs/converted
 	python3 services/docling/main.py --input pdfs/raw --output pdfs/converted
-
-# =============================================================================
-# EVAL TARGETS
-# =============================================================================
-#
-# Targets:
-#   eval-fresh  Self-contained. Spins ephemeral Qdrant, re-ingests fresh, runs
-#               all profiles (tf + splade). Only accurate scorer comparison.
-#               Slow (~5-10 min). Pulls qdrant/qdrant Docker image on first run.
-#
-#   eval-llm    LLM judges relevance live. No qrels needed. Slow + costs tokens.
-#               Prereq: make up && make ingest
-#
-# Environment variables (all optional — defaults from config/config.yaml):
-#   EVAL_STORE          live (default) | container
-#                         live      = connect to running Qdrant; skip ingest
-#                         container = spin ephemeral Qdrant; full re-ingest
-#   EVAL_JUDGE          qrels (default) | llm
-#                         qrels = pre-computed relevance from testdata/qrels.jsonl
-#                         llm   = LLM judges each result live (slow, costs tokens)
-#   EVAL_QDRANT_ADDR    override qdrant.addr
-#   EVAL_QDRANT_COLLECTION  override qdrant.collection
-#   EVAL_LLM_BASE_URL   override eval.llm_base_url
-#   EVAL_LLM_MODEL      override eval.llm_model
-#   EVAL_LLM_API_KEY    LLM API key (no config.yaml equivalent)
-#   EVAL_QRELS_PATH     override qrels file (default: testdata/qrels.jsonl)
-#   OLLAMA_ADDR         override embedder.ollama_addr
-#
-# Compare results across runs:
-#   cat eval_history.jsonl | jq '{profile,mrr,hit_rate,ndcg,precision}'
-# =============================================================================
-
-# eval-fresh — ephemeral Qdrant container, full re-ingest, all profiles, qrels judge.
-# Self-contained. No prereqs. Pulls qdrant/qdrant Docker image on first run.
-eval-fresh:
-	go run ./cmd/gen-qrels
-	EVAL_STORE=container go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
-
-# eval-llm — LLM judges relevance live. No qrels needed. Slow + costs tokens.
-# Prereq: make up && make ingest
-eval-llm:
-	EVAL_STORE=live EVAL_JUDGE=llm go test -v -timeout 600s -run TestSearchEval ./internal/pkb/
-
-# eval-hyde — run only the HyDE profile against live Qdrant + Ollama.
-# Prereq: make up && make ingest && ollama pull llama3.1:8b-instruct-q4_K_M
-eval-hyde:
-	EVAL_STORE=live go test -v -timeout 300s -run 'TestSearchEval/tf-recursive256-hyde' ./internal/pkb/
