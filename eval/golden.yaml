@@ -1,0 +1,43 @@
+# Golden set for retrieval + RAG evaluation.
+#
+# Schema per query:
+#   query:            (required) the search query string
+#   expected_files:   (optional) list of file paths that should surface; treated as grade=1 (binary relevance)
+#   relevance:        (optional) graded relevance map {file: grade}; grade 0=irrelevant, 1=marginal, 2=relevant, 3=highly
+#                     overrides expected_files when set; use this for NDCG (Järvelin & Kekäläinen 2002)
+#   expected_answer:  (optional) reference answer text; required for RAGAS context recall in --mode=rag
+#   expected_headers: (optional) section headings expected to appear in retrieved chunks
+#   notes:            (optional) freeform annotation
+#
+# Path matching is suffix-based: "math/trigonometry.md" matches "gitbook/math/trigonometry.md".
+#
+# Statistical guidance: n >= 50 queries for defensible aggregate claims (BEIR min ~1k).
+# Below n=50, treat numbers as directional, not statistically significant.
+# Bootstrap 95% CIs are printed automatically but are wide at small n.
+#
+# Papers aligned with:
+#   NDCG@10    — Järvelin & Kekäläinen 2002 (ACM TOIS 20(4):422-446)
+#   MAP        — Manning, Raghavan, Schütze 2008 (Introduction to Information Retrieval)
+#   RAGAS      — Es et al. 2023 (arxiv 2309.15217)
+#   BEIR       — Thakur et al. 2021 (NeurIPS, arxiv 2104.08663)
+#   ChunkRAG   — Singh et al. 2025 (NAACL SRW, arxiv 2410.19572)
+#   Adaptive HyDE — Lei et al. 2025 (arxiv 2507.16754)
+#   Multi-HyDE — Srinivasan et al. 2025 (FinNLP/EMNLP, arxiv 2509.16369)
+
+queries:
+  - query: "secant formula"
+    expected_files:
+      - "math/trigonometry.md"
+    notes: "README example query; trigonometry.md covers csc/sec identities"
+  - query: "how do goroutines differ from OS threads"
+    expected_files:
+      - "golang/goroutine.md"
+  - query: "consistent hashing algorithm"
+    expected_files:
+      - "system-design/consistent-hashing.md"
+  - query: "derivative rules"
+    expected_files:
+      - "math/calculus.md"
+  - query: "rate limiting strategies"
+    expected_files:
+      - "system-design/rate-limit.md"

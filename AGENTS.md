@@ -6,78 +6,69 @@
 # Build
 go build ./cmd/server
 
-# Run (config from config/config.yaml; env overrides in config/config.go applyEnv)
-make run                        # go run ./cmd/server
-
-# All-in-one dev: Qdrant + sidecars + Prometheus + server + ingest
-make dev                        # runs scripts/dev-local.sh (overrides addresses to localhost)
-
-# Vendor deps (committed to repo — always run after adding imports)
+# Vendor deps (NOT committed — gitignored; run after adding imports)
 make vendor                     # go mod tidy && go mod vendor
 
-# Test — requires Qdrant via testcontainers (Docker)
-go test ./...                   # eval tests pull qdrant/qdrant:latest on first run
+# Dev: Qdrant + sidecars + Prometheus + server + auto-ingest
+make dev                        # runs scripts/dev-local.sh (env overrides → localhost)
 
-# Focused tests
-go test -run TestMatchPattern ./internal/pkb/
+# Run standalone (config/config.yaml, .env sourced)
+make run                        # go run ./cmd/server
 
-# Quick ops (assumes server on :8080)
+# Tests
+make test                       # unit tests only, no Docker (-short -count=1 ./...)
+make test-all                   # all tests, requires Qdrant via testcontainers
+go test -run TestMatchPattern ./internal/pkb/   # focused pkg test
+
+# Quick ops (server must be on :8080)
 make ingest                     # POST /ingest
-make search                     # POST /search with sample query
-make generate                   # POST /search with generate=true (streams LLM answer)
-make reset                      # DELETE Qdrant collection (REST API on :6333)
+make search                     # POST /search "secant formula"
+make generate                   # POST /search with generate=true (streams LLM)
+make reset                      # DELETE Qdrant collection (REST :6333)
 
 make check                      # verify prereqs: docker, go, python3, ollama
 ```
 
 ## Architecture
 
-Single Go binary at `cmd/server/main.go`. Wires everything in `internal/httpserver/server.go`.
+Single Go binary at `cmd/server/main.go`. Wiring in `internal/httpserver/server.go`.
 
 ```
-POST /ingest  → IngestHandler → FileLister → Fetcher → Pipeline (chunk → embed → upsert)
-POST /search  → SearchHandler → [HyDE → Embedder → HybridSearch → Reranker → ChunkFilter → Generator]
+POST /ingest → IngestHandler → FileLister → Fetcher → Pipeline (chunk→embed→upsert)
+POST /search → SearchHandler → [HyDE] → Embedder → HybridSearch → [Reranker] → [ChunkFilter] → [Generator]
 GET  /healthz → 200
 ```
 
 **`internal/pkb/`** — core engine. All new domain logic belongs here.
-- `Chunker`: `RecursiveChunker` (heading→paragraph→sentence→word) or `SentenceWindowChunker`
-- `Embedder`: `OllamaEmbedder` (768-dim `nomic-embed-text`); swappable via interface
-- `Store`: `QdrantStore` via gRPC; `HybridSearch` combines dense vector + BM25 sparse via RRF
+- `RecursiveChunker` (heading→paragraph→sentence→word) or `SentenceWindowChunker`
+- `OllamaEmbedder` (768-dim `nomic-embed-text`); swappable via interface
+- `QdrantStore` via gRPC; `HybridSearch` = dense vector + BM25 sparse → RRF
 - `Pipeline`: chunks → embeds (exponential backoff retry) → upserts; SHA-based dedup
-- `FileLister`: walks KB dirs, glob-ignore filter
 
-**`internal/middleware/`** — stdlib-only chain. `Chain()` applies outermost-first: `Recovery → RequestID → Timeout`.
+**`internal/middleware/`** — stdlib chain. `Chain()` applies outermost-first: `Recovery→RequestID→Timeout`.
 
-**`services/`** — Python sidecars: `splade/` (sparse scoring, :5001), `reranker/` (cross-encoder, :5002), `docling/` (PDF→MD).
+**`services/`** — Python sidecars (each has own Dockerfile): `splade/` (:5001), `reranker/` (:5002), `docling/` (PDF→MD).
 
 ## Key rules
 
-- **Dependency flow inward**: `internal/pkb/` must NOT import `httpserver` or `middleware`.
-- **Retry logic** lives in `Pipeline`, never in `Embedder` or `Store`.
-- **Chunk IDs** = FNV hash of `filePath+lineStart` — known low-priority collision risk across files.
-- **Config**: YAML first, then `config/config.go applyEnv()` overrides. All known env overrides listed there.
+- `internal/pkb/` must NOT import `httpserver` or `middleware`
+- Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
+- Chunk IDs = FNV hash of `filePath:lineStart` — known collision risk across files
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `NOTES_PATH`, `QDRANT_ADDR`, `OLLAMA_ADDR`, `SPLADE_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `HYDE_ENABLED`, `SEMANTIC_CACHE_THRESHOLD`
 
 ## Addresses: local vs Docker
 
-`make dev` overrides Docker-internal hostnames to localhost so the Go server (running on the host) can reach Docker services. When running the server inside Docker (`docker compose up app`), Qdrant is `qdrant:6334` and services are `splade:5001` / `reranker:5002`. Ollama always runs on the host at `localhost:11434` (or `http://host.docker.internal:11434` from inside containers).
-
-## Prerequisites
-
-- Docker (for Qdrant + sidecars)
-- Ollama running locally with `nomic-embed-text` pulled
-- Python 3.10+ (for SPLADE/reranker/docling sidecars if run outside Docker)
-- PDF conversion (docling) requires `make docling-install` once
+`make dev` (scripts/dev-local.sh) overrides to localhost for host-side server. Inside Docker: Qdrant `qdrant:6334`, splade `splade:5001`, reranker `reranker:5002`. Ollama always at `localhost:11434` (or `host.docker.internal:11434` from containers).
 
 ## Features gated by config
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
 | HyDE query expansion | `hyde.enabled` | Ollama LLM (e.g. `gemma3:1b`) |
-| Chunk filter (LLM post-retrieval) | `chunk_filter.enabled` | Ollama LLM |
+| Chunk filter | `chunk_filter.enabled` | Ollama LLM |
 | Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | SPLADE sparse scorer | `sparse_scorer.provider: splade` | SPLADE sidecar |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for all sub-features (HyDE, generator, chunk filter).
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for HyDE, generator, chunk filter.

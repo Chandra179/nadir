@@ -1,4 +1,5 @@
 .PHONY: vendor up run sm sm-update ingest search generate reset test test-all \
+         eval eval-rag eval-both eval-chunk \
          splade splade-install reranker reranker-install \
          docling docling-install \
          dev check
@@ -30,6 +31,22 @@ test:
 # test-all — run all tests
 test-all:
 	go test -count=1 ./...
+
+# eval — run retrieval eval harness over eval/golden.yaml (requires Qdrant + Ollama running)
+eval:
+	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval
+
+# eval-rag — run RAGAS end-to-end eval (requires Qdrant + Ollama LLM for generation + judging)
+eval-rag:
+	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 5 -mode rag
+
+# eval-both — run retrieval + RAGAS metrics in one pass
+eval-both:
+	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode both
+
+# eval-chunk — retrieval eval at chunk granularity (paper-comparable; use with --fetch-k >= 10)
+eval-chunk:
+	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval -granularity chunk
 
 sm:
 	git submodule add https://github.com/Chandra179/gitbook gitbook
