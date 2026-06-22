@@ -12,18 +12,16 @@ import (
 type Config struct {
 	HTTP          HTTPConfig          `yaml:"http"`
 	Middleware    MiddlewareConfig    `yaml:"middleware"`
-	KnowledgeBase KnowledgeBaseConfig `yaml:"knowledge_base"`
-	PKB           PKBConfig           `yaml:"pkb"`
+	Source        SourceConfig        `yaml:"source"`
+	Ingest        IngestConfig        `yaml:"ingest"`
 	Qdrant        QdrantConfig        `yaml:"qdrant"`
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
 	Retry         RetryConfig         `yaml:"retry"`
 	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
-	HyDE          HyDEConfig          `yaml:"hyde"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
-	Docling       DoclingConfig       `yaml:"docling"`
 	ChunkFilter   ChunkFilterConfig   `yaml:"chunk_filter"`
 }
 
@@ -43,15 +41,15 @@ type LoggerConfig struct {
 	Level string `yaml:"level"`
 }
 
-// KnowledgeBaseConfig points to one or more local directories of markdown files.
+// SourceConfig points to one or more local directories of text files.
 // Paths is the primary list; Path is kept for backward-compat and merged in.
-type KnowledgeBaseConfig struct {
+type SourceConfig struct {
 	Path  string   `yaml:"path"`  // legacy single-dir; still works
 	Paths []string `yaml:"paths"` // additional dirs (merged with Path at load time)
 }
 
-// AllPaths returns the deduplicated list of knowledge-base roots.
-func (k KnowledgeBaseConfig) AllPaths() []string {
+// AllPaths returns the deduplicated list of source roots.
+func (k SourceConfig) AllPaths() []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, p := range append([]string{k.Path}, k.Paths...) {
@@ -61,11 +59,6 @@ func (k KnowledgeBaseConfig) AllPaths() []string {
 		}
 	}
 	return out
-}
-
-type DoclingConfig struct {
-	InputDir  string `yaml:"input_dir"`  // where raw PDFs live
-	OutputDir string `yaml:"output_dir"` // where converted .md files are written
 }
 
 type QdrantConfig struct {
@@ -97,7 +90,7 @@ type RetryConfig struct {
 	Multiplier      float64       `yaml:"multiplier"`
 }
 
-type PKBConfig struct {
+type IngestConfig struct {
 	IgnorePatterns []string `yaml:"ignore_patterns"`
 }
 
@@ -112,19 +105,9 @@ type RerankerConfig struct {
 	CandidateMul int    `yaml:"candidate_mul"` // fetch topK*candidate_mul before reranking (default 3)
 }
 
-type HyDEConfig struct {
-	Enabled        bool    `yaml:"enabled"`
-	Adaptive       bool    `yaml:"adaptive"`         // gate HyDE on top-1 score; skip LLM call when confident
-	AdaptiveThresh float32 `yaml:"adaptive_thresh"`  // score threshold below which HyDE fires (default 0.5)
-	MultiHyDE      bool    `yaml:"multi_hyde"`       // use diverse prompt templates per doc (arxiv 2509.16369); requires num_docs >= 3
-	OllamaAddr     string  `yaml:"ollama_addr"`      // defaults to embedder.ollama_addr if empty
-	Model          string  `yaml:"model"`            // LLM model for generation, e.g. llama3.1:8b-instruct-q4_K_M
-	NumDocs        int     `yaml:"num_docs"`         // hypothetical docs to generate per query (default 1; paper uses 8)
-}
-
 type SemanticCacheConfig struct {
 	Enabled    bool          `yaml:"enabled"`
-	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: pkb_cache)
+	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: search_cache)
 	Threshold  float32       `yaml:"threshold"`  // cosine similarity cutoff, e.g. 0.90
 	TTL        time.Duration `yaml:"ttl"`        // zero = no expiry
 }
@@ -164,8 +147,8 @@ func Load(path string) (*Config, error) {
 // applyEnv overrides config fields from environment variables.
 // Env vars take precedence over config.yaml values.
 func (c *Config) applyEnv() {
-	if v := os.Getenv("NOTES_PATH"); v != "" {
-		c.KnowledgeBase.Path = v
+	if v := os.Getenv("SOURCE_PATH"); v != "" {
+		c.Source.Path = v
 	}
 	if v := os.Getenv("QDRANT_ADDR"); v != "" {
 		c.Qdrant.Addr = v
@@ -190,12 +173,6 @@ func (c *Config) applyEnv() {
 	}
 	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
 		c.Middleware.Logger.Level = v
-	}
-	if v := os.Getenv("HYDE_ENABLED"); v != "" {
-		c.HyDE.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("HYDE_MODEL"); v != "" {
-		c.HyDE.Model = v
 	}
 	if v := os.Getenv("SEMANTIC_CACHE_THRESHOLD"); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil {

@@ -21,8 +21,6 @@
 #   RAGAS      — Es et al. 2023 (arxiv 2309.15217)
 #   BEIR       — Thakur et al. 2021 (NeurIPS, arxiv 2104.08663)
 #   ChunkRAG   — Singh et al. 2025 (NAACL SRW, arxiv 2410.19572)
-#   Adaptive HyDE — Lei et al. 2025 (arxiv 2507.16754)
-#   Multi-HyDE — Srinivasan et al. 2025 (FinNLP/EMNLP, arxiv 2509.16369)
 
 queries:
   - query: "secant formula"

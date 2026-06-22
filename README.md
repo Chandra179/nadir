@@ -1,6 +1,6 @@
 # nadir
 
-Personal knowledge base (PKB) search engine. Ingests markdown notes, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP.
+Semantic document search engine. Ingests text files, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ make dev
 
 `make dev` starts Qdrant, SPLADE sidecar, reranker sidecar, Prometheus, Grafana, Go server, then runs ingest automatically.
 
-Set your notes path first — see [Config](#config).
+Set your document path first — see [Config](#config).
 
 ### Verify it works
 
@@ -50,7 +50,7 @@ docker compose up -d qdrant splade reranker prometheus
 # 2. Start Go server
 make run
 
-# 3. Ingest notes
+# 3. Ingest documents
 make ingest
 ```
 
@@ -60,23 +60,23 @@ Config file: `config/config.yaml`. All keys with defaults are shown there — ed
 
 ### Minimal config to get started
 
-Only one thing to change: your notes path.
+Only one thing to change: your document path.
 
 ```yaml
 # config/config.yaml
-knowledge_base:
-  path: "~/notes"  # your markdown notes directory
+source:
+  path: "~/documents"  # your text documents directory
 ```
 
 Everything else has sensible defaults. For a full reference of every knob, open `config/config.yaml`.
 
-### Notes path
+### Document path
 
 Two ways to set:
 
-- Edit `knowledge_base.path` in `config/config.yaml` (single directory)
-- Add extra dirs under `knowledge_base.paths` (merged with `path`)
-- Env var override: `NOTES_PATH=<path> make run`
+- Edit `source.path` in `config/config.yaml` (single directory)
+- Add extra dirs under `source.paths` (merged with `path`)
+- Env var override: `SOURCE_PATH=<path> make run`
 
 ### Env vars
 
@@ -90,7 +90,7 @@ Key vars:
 | `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
 | `SPLADE_ADDR` | `http://splade:5001` | SPLADE sidecar |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
-| `QDRANT_COLLECTION` | `pkb_chunks` | Qdrant collection name |
+| `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 
 > `make dev` overrides these to `localhost:*` so Go server on host can reach Docker services.
@@ -101,7 +101,6 @@ Some features in `config/config.yaml` are off by default — enable when needed:
 
 | Feature | Config key | Notes |
 |---------|-----------|-------|
-| HyDE query expansion | `hyde.enabled: false` | Requires Ollama LLM (e.g. `gemma3:1b`); uses `hyde.model` |
 | Chunk filtering | `chunk_filter.enabled: false` | Post-retrieval LLM filter; +10pp PopQA; requires Ollama LLM |
 | Answer generation | `generator.enabled: true` | Already on; POST `/search` with `"generate": true` |
 | Semantic cache | `semantic_cache.enabled: true` | Already on; reuses Qdrant |
@@ -111,7 +110,7 @@ Some features in `config/config.yaml` are off by default — enable when needed:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/ingest` | Walk notes dir, chunk+embed new/changed files |
+| POST | `/ingest` | Walk document dir, chunk+embed new/changed files |
 | POST | `/search` | Hybrid semantic search over embedded chunks |
 
 ## Architecture
@@ -122,7 +121,7 @@ POST /ingest → FileLister → Fetcher → Pipeline
                                          ├── Embedder (Ollama)
                                          └── Store.Upsert (Qdrant)
 
-POST /search → [HyDE] → Embedder → Store.HybridSearch (dense + BM25 → RRF)
+POST /search → Embedder → Store.HybridSearch (dense + BM25 → RRF)
                                          └── [Reranker] → [ChunkFilter] → response
 ```
 
@@ -134,11 +133,11 @@ POST /search → [HyDE] → Embedder → Store.HybridSearch (dense + BM25 → RR
 make test        # unit tests only; runs in seconds
 ```
 
-Tests without infrastructure dependencies: chunk matching, ignore patterns, HyDE vector ops.
+Tests without infrastructure dependencies: chunk matching, ignore patterns.
 
 ## PDF ingestion
 
-Drop PDFs in `pdfs/raw/`. On `make dev`, docling converts them to markdown in `pdfs/converted/`, picked up on next ingest.
+Docling converts PDFs to markdown for ingestion. See `make docling`.
 
 ```bash
 make docling-install   # one-time: install Python deps
@@ -166,7 +165,7 @@ ollama serve
 
 ```bash
 ollama pull nomic-embed-text
-# If using HyDE, generator, or chunk filter:
+# If using generator or chunk filter:
 ollama pull gemma3:1b
 ```
 

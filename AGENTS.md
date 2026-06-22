@@ -17,8 +17,8 @@ make run                        # go run ./cmd/server
 
 # Tests
 make test                       # unit tests only, no Docker (-short -count=1 ./...)
-make test-all                   # all tests, requires Qdrant via testcontainers
-go test -run TestMatchPattern ./internal/pkb/   # focused pkg test
+make test-all                   # all tests, requires Qdrant
+go test -run TestMatchPattern ./internal/engine/   # focused pkg test
 
 # Quick ops (server must be on :8080)
 make ingest                     # POST /ingest
@@ -35,11 +35,11 @@ Single Go binary at `cmd/server/main.go`. Wiring in `internal/httpserver/server.
 
 ```
 POST /ingest → IngestHandler → FileLister → Fetcher → Pipeline (chunk→embed→upsert)
-POST /search → SearchHandler → [HyDE] → Embedder → HybridSearch → [Reranker] → [ChunkFilter] → [Generator]
+POST /search → SearchHandler → Embedder → HybridSearch → [Reranker] → [ChunkFilter] → [Generator]
 GET  /healthz → 200
 ```
 
-**`internal/pkb/`** — core engine. All new domain logic belongs here.
+**`internal/engine/`** — core engine. All new domain logic belongs here.
 - `RecursiveChunker` (heading→paragraph→sentence→word) or `SentenceWindowChunker`
 - `OllamaEmbedder` (768-dim `nomic-embed-text`); swappable via interface
 - `QdrantStore` via gRPC; `HybridSearch` = dense vector + BM25 sparse → RRF
@@ -51,10 +51,10 @@ GET  /healthz → 200
 
 ## Key rules
 
-- `internal/pkb/` must NOT import `httpserver` or `middleware`
+- `internal/engine/` must NOT import `httpserver` or `middleware`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
-- Chunk IDs = FNV hash of `filePath:lineStart` — known collision risk across files
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `NOTES_PATH`, `QDRANT_ADDR`, `OLLAMA_ADDR`, `SPLADE_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `HYDE_ENABLED`, `SEMANTIC_CACHE_THRESHOLD`
+- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic, no collisions within the namespace
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `SOURCE_PATH`, `QDRANT_ADDR`, `OLLAMA_ADDR`, `SPLADE_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`
 
 ## Addresses: local vs Docker
 
@@ -64,11 +64,10 @@ GET  /healthz → 200
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| HyDE query expansion | `hyde.enabled` | Ollama LLM (e.g. `gemma3:1b`) |
 | Chunk filter | `chunk_filter.enabled` | Ollama LLM |
 | Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | SPLADE sparse scorer | `sparse_scorer.provider: splade` | SPLADE sidecar |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for HyDE, generator, chunk filter.
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator, chunk filter.

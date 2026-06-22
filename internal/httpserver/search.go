@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"nadir/internal/pkb"
+	"nadir/internal/engine"
 )
 
 type searchRequest struct {
@@ -14,7 +14,7 @@ type searchRequest struct {
 	TopK     int               `json:"top_k"`
 	Keyword  string            `json:"keyword"`
 	Generate bool              `json:"generate"`
-	Filter   *pkb.SearchFilter `json:"filter,omitempty"`
+	Filter   *engine.SearchFilter `json:"filter,omitempty"`
 }
 
 type searchResult struct {
@@ -30,22 +30,22 @@ type searchResponse struct {
 }
 
 type SearchHandler struct {
-	searcher      *pkb.SearchService
+	searcher      *engine.SearchService
 	topK          int
-	generator     pkb.Generator
-	semanticCache *pkb.SemanticCache
+	generator     engine.Generator
+	semanticCache *engine.SemanticCache
 }
 
-func NewSearchHandler(searcher *pkb.SearchService, topK int) *SearchHandler {
+func NewSearchHandler(searcher *engine.SearchService, topK int) *SearchHandler {
 	return &SearchHandler{searcher: searcher, topK: topK}
 }
 
-func (h *SearchHandler) WithGenerator(g pkb.Generator) *SearchHandler {
+func (h *SearchHandler) WithGenerator(g engine.Generator) *SearchHandler {
 	h.generator = g
 	return h
 }
 
-func (h *SearchHandler) WithSemanticCache(sc *pkb.SemanticCache) *SearchHandler {
+func (h *SearchHandler) WithSemanticCache(sc *engine.SemanticCache) *SearchHandler {
 	h.semanticCache = sc
 	return h
 }
@@ -90,7 +90,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var chunks []pkb.ScoredChunk
+	var chunks []engine.ScoredChunk
 	var err error
 	if req.Keyword != "" {
 		chunks, err = h.searcher.KeywordSearch(r.Context(), req.Keyword, topK, req.Filter)

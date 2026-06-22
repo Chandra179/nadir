@@ -6,7 +6,7 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"nadir/internal/pkb"
+	"nadir/internal/engine"
 )
 
 // Granularity controls the scoring unit.
@@ -14,7 +14,7 @@ type Granularity int
 
 const (
 	// FileLevel deduplicates chunks by file path; the ranked list is files.
-	// Appropriate for "did the right note surface?" evaluation.
+	// Appropriate for "did the right document surface?" evaluation.
 	FileLevel Granularity = iota
 	// ChunkLevel keeps every chunk as a separate item; the ranked list is chunks.
 	// Appropriate for paper-comparable retrieval numbers (BEIR/MTEB score at passage level).
@@ -23,9 +23,9 @@ const (
 )
 
 // Retriever is the minimal search surface the runner needs.
-// *pkb.SearchService satisfies this.
+// *engine.SearchService satisfies this.
 type Retriever interface {
-	Search(ctx context.Context, query string, topK int, filter *pkb.SearchFilter) ([]pkb.ScoredChunk, error)
+	Search(ctx context.Context, query string, topK int, filter *engine.SearchFilter) ([]engine.ScoredChunk, error)
 }
 
 // Runner evaluates a Retriever against a GoldenSet.
@@ -64,7 +64,7 @@ func (r *Runner) Run(ctx context.Context, gs *GoldenSet, fetchK int) (Report, er
 // rankItems converts retrieved chunks into a ranked list of identifiers,
 // either at file level (deduped) or chunk level (all chunks), mapping each
 // to its expected-form identifier via MatchFile so it joins the graded set.
-func (r *Runner) rankItems(chunks []pkb.ScoredChunk, graded map[string]int) []string {
+func (r *Runner) rankItems(chunks []engine.ScoredChunk, graded map[string]int) []string {
 	switch r.Granularity {
 	case ChunkLevel:
 		return rankChunks(chunks, graded)
@@ -73,7 +73,7 @@ func (r *Runner) rankItems(chunks []pkb.ScoredChunk, graded map[string]int) []st
 	}
 }
 
-func dedupRankedFiles(chunks []pkb.ScoredChunk, graded map[string]int) []string {
+func dedupRankedFiles(chunks []engine.ScoredChunk, graded map[string]int) []string {
 	seen := make(map[string]bool)
 	out := make([]string, 0, len(chunks))
 	for _, c := range chunks {
@@ -87,7 +87,7 @@ func dedupRankedFiles(chunks []pkb.ScoredChunk, graded map[string]int) []string 
 	return out
 }
 
-func rankChunks(chunks []pkb.ScoredChunk, graded map[string]int) []string {
+func rankChunks(chunks []engine.ScoredChunk, graded map[string]int) []string {
 	out := make([]string, 0, len(chunks))
 	for _, c := range chunks {
 		id := mapToExpected(c.FilePath, graded)

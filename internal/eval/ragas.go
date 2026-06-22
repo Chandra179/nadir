@@ -13,7 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"nadir/internal/pkb"
+	"nadir/internal/engine"
 )
 
 // ---------------------------------------------------------------------------
@@ -103,21 +103,21 @@ func (j *OllamaJudge) Judge(ctx context.Context, prompt string) (string, error) 
 }
 
 // ---------------------------------------------------------------------------
-// Answer generator interface (reuses pkb.Generator)
+// Answer generator interface (reuses engine.Generator)
 // ---------------------------------------------------------------------------
 
 // AnswerGenerator generates a grounded answer from retrieved chunks.
-// pkb.Generator satisfies this via an adapter.
+// engine.Generator satisfies this via an adapter.
 type AnswerGenerator interface {
-	Generate(ctx context.Context, query string, chunks []pkb.ScoredChunk) (string, error)
+	Generate(ctx context.Context, query string, chunks []engine.ScoredChunk) (string, error)
 }
 
-// GeneratorAdapter wraps pkb.Generator to satisfy AnswerGenerator.
+// GeneratorAdapter wraps engine.Generator to satisfy AnswerGenerator.
 type GeneratorAdapter struct {
-	Gen pkb.Generator
+	Gen engine.Generator
 }
 
-func (g *GeneratorAdapter) Generate(ctx context.Context, query string, chunks []pkb.ScoredChunk) (string, error) {
+func (g *GeneratorAdapter) Generate(ctx context.Context, query string, chunks []engine.ScoredChunk) (string, error) {
 	rc, err := g.Gen.Generate(ctx, query, chunks)
 	if err != nil {
 		return "", err
@@ -370,7 +370,7 @@ Passages:
 
 Example for 3 passages: [0.9, 0.1, 0.7]`
 
-func (e *RAGASEvaluator) scoreContextPrecision(ctx context.Context, query string, chunks []pkb.ScoredChunk) (float64, error) {
+func (e *RAGASEvaluator) scoreContextPrecision(ctx context.Context, query string, chunks []engine.ScoredChunk) (float64, error) {
 	if len(chunks) == 0 {
 		return 0, nil
 	}
@@ -470,7 +470,7 @@ Example for 3 statements: [true, false, true]`, contextText, formatStatements(st
 // Helpers
 // ---------------------------------------------------------------------------
 
-func buildChunkContext(chunks []pkb.ScoredChunk) string {
+func buildChunkContext(chunks []engine.ScoredChunk) string {
 	var sb strings.Builder
 	for i, c := range chunks {
 		text := c.WindowText

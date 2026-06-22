@@ -33,7 +33,7 @@ go.work.sum
 
 vendor
 
-# Personal knowledge base content — users supply their own via knowledge_base.path config
+# User document content — supplied via source.path config
 gitbook/
 
 src/

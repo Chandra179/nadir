@@ -11,7 +11,7 @@ import (
 
 	"nadir/config"
 	"nadir/internal/eval"
-	"nadir/internal/pkb"
+	"nadir/internal/engine"
 )
 
 const (
@@ -88,7 +88,7 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 		judgeModel = cfg.Generator.Model
 	}
 
-	gen := pkb.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+	gen := engine.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
 	judge := eval.NewOllamaJudge(ollamaAddr+"/v1", judgeModel, "")
 
 	evaluator := &eval.RAGASEvaluator{
@@ -103,48 +103,28 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 	eval.PrintRAGASReport(os.Stdout, rep)
 }
 
-func buildSearcher(ctx context.Context, cfg *config.Config) *pkb.SearchService {
-	store, err := pkb.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
+func buildSearcher(ctx context.Context, cfg *config.Config) *engine.SearchService {
+	store, err := engine.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
 	if err != nil {
 		log.Fatalf("qdrant init: %v", err)
 	}
 	if cfg.SparseScorer.Provider == providerSplade {
-		store = store.WithSparseScorer(pkb.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
+		store = store.WithSparseScorer(engine.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
 	}
 
-	embedder := pkb.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
+	embedder := engine.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
 	if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
 		log.Fatalf("ensure collection: %v", err)
 	}
 
-	searchService := pkb.NewSearchService(embedder, store)
-
-	if cfg.HyDE.Enabled {
-		ollamaAddr := cfg.HyDE.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		baseGen := pkb.NewOllamaHyDEGenerator(ollamaAddr, cfg.HyDE.Model)
-		var hydeGen pkb.HyDEGenerator = baseGen
-		if cfg.HyDE.MultiHyDE {
-			hydeGen = pkb.NewMultiPromptHyDEGenerator(baseGen)
-		}
-		hydeSearcher := pkb.NewHyDESearcher(hydeGen, embedder, store, cfg.HyDE.NumDocs)
-		if cfg.HyDE.Adaptive {
-			thresh := cfg.HyDE.AdaptiveThresh
-			adaptive := pkb.NewAdaptiveHyDESearcher(hydeSearcher, embedder, store, thresh)
-			searchService.WithAdaptiveHyDE(adaptive)
-		} else {
-			searchService.WithHyDE(hydeSearcher)
-		}
-	}
+	searchService := engine.NewSearchService(embedder, store)
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(pkb.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		searchService.WithReranker(engine.NewHTTPReranker(cfg.Reranker.Addr), mul)
 	}
 
 	if cfg.ChunkFilter.Enabled {
@@ -152,7 +132,7 @@ func buildSearcher(ctx context.Context, cfg *config.Config) *pkb.SearchService {
 		if ollamaAddr == "" {
 			ollamaAddr = cfg.Embedder.OllamaAddr
 		}
-		cf := pkb.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
+		cf := engine.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
 		searchService.WithChunkFilter(cf)
 	}
 

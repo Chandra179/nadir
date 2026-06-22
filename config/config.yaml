@@ -9,12 +9,11 @@ middleware:
   logger:
     level: dev  # dev | prod
 
-knowledge_base:
-  path: "gitbook"           # legacy single dir; still works; override: NOTES_PATH
-  # paths:                    # additional markdown dirs (merged with path above)
-  #   - "pdfs/converted"      # docling output dir
+source:
+  path: "gitbook"           # legacy single dir; still works; override: SOURCE_PATH
+  # paths:                    # additional text dirs (merged with path above)
 
-pkb:
+ingest:
   ignore_patterns:
     - ".gitbook/**"
     - ".git/**"
@@ -33,7 +32,7 @@ pkb:
 
 qdrant:
   addr: "localhost:6334"
-  collection: "pkb_chunks"
+  collection: "documents_chunks"
   top_k: 5
   prefetch_mul: 5  # store-level candidate multiplier for hybrid search legs
 
@@ -64,18 +63,9 @@ reranker:
   addr: "http://localhost:5002"
   candidate_mul: 2     # fetch topK*2 candidates before reranking
 
-hyde:
-  enabled: false           # set true to enable HyDE; uses ollama LLM to generate hypothetical doc per query
-  adaptive: true          # gate HyDE on retrieval confidence (arxiv 2507.16754); skips LLM when top-1 score >= threshold
-  adaptive_thresh: 0.50   # fire HyDE only when top-1 cosine score < this value
-  multi_hyde: false       # diverse prompt templates per doc (arxiv 2509.16369); set num_docs >= 3 for benefit
-  ollama_addr: ""         # defaults to embedder.ollama_addr
-  model: "gemma3:1b"
-  num_docs: 1             # docs to generate per query (1=fast; 3-5=multi-hyde sweet spot; paper uses 8 for max accuracy)
-
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
-  collection: "pkb_cache"
+  collection: "search_cache"
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
 
@@ -84,10 +74,6 @@ generator:
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
-
-docling:
-  input_dir: "pdfs/raw"        # drop PDFs here
-  output_dir: "pdfs/converted" # docling writes .md here; picked up on next ingest
 
 chunk_filter:
   enabled: false      # drop irrelevant chunks post-retrieval (arxiv 2410.19572, +10pp PopQA)

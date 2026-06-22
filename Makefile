@@ -1,4 +1,4 @@
-.PHONY: vendor up run sm sm-update ingest search generate reset test test-all \
+.PHONY: vendor up run ingest search generate reset test test-all \
          eval eval-rag eval-both eval-chunk \
          splade splade-install reranker reranker-install \
          docling docling-install \
@@ -48,13 +48,6 @@ eval-both:
 eval-chunk:
 	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval -granularity chunk
 
-sm:
-	git submodule add https://github.com/Chandra179/gitbook gitbook
-	git submodule update --init
-
-sm-update:
-	git submodule update --remote --merge
-
 ingest:
 	curl -X POST localhost:8080/ingest
 
@@ -71,7 +64,7 @@ generate:
 		--no-buffer
 
 reset:
-	curl -X DELETE localhost:6333/collections/pkb_chunks
+	curl -X DELETE localhost:6333/collections/documents_chunks
 
 # splade-install — install Python deps for SPLADE sidecar (one-time)
 splade-install:

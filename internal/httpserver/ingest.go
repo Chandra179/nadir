@@ -4,19 +4,19 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"nadir/internal/pkb"
+	"nadir/internal/engine"
 
 	"github.com/Chandra179/gosdk/logger"
 )
 
 type IngestHandler struct {
-	svc *pkb.IngestService
+	svc *engine.IngestService
 	log logger.Logger
 }
 
-func NewIngestHandler(lister pkb.FileLister, pipeline *pkb.Pipeline, fetcher pkb.Fetcher, store pkb.Store, log logger.Logger) *IngestHandler {
+func NewIngestHandler(lister engine.FileLister, pipeline *engine.Pipeline, fetcher engine.Fetcher, store engine.Store, log logger.Logger) *IngestHandler {
 	return &IngestHandler{
-		svc: pkb.NewIngestService(lister, pipeline, fetcher, store, log),
+		svc: engine.NewIngestService(lister, pipeline, fetcher, store, log),
 		log: log,
 	}
 }

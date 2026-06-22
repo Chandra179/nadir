@@ -23,7 +23,7 @@ make search          # POST localhost:8080/search with sample query
 make reset           # delete Qdrant collection
 ```
 
-Config loads from `config/config.yaml`. Override notes path via env: `NOTES_PATH`.
+Config loads from `config/config.yaml`. Override document path via env: `SOURCE_PATH`.
 
 ## Architecture
 
@@ -33,12 +33,12 @@ Single HTTP binary (`cmd/server/main.go`).
 - `POST /ingest` → `IngestHandler` → `FileLister` → `Fetcher` → `Pipeline.IngestFile`
 - `POST /search` → `SearchHandler` → `Embedder` + `Store.HybridSearch`
 
-**`internal/pkb/` — core PKB engine:**
+**`internal/engine/` — core engine:**
 - `Chunker` (`RecursiveChunker`): Goldmark AST walk → splits by heading → paragraph → sentence → word; emits plain text (strips markdown syntax before embedding)
 - `Embedder` (`OllamaEmbedder`): local Ollama (`nomic-embed-text`, 768-dim); swappable via interface
-- `Store` (`QdrantStore`): Qdrant via gRPC; upsert/delete/search; `HybridSearch` combines dense vector + BM25 sparse via RRF (prefetch `topK*3` each modality)
+- `Store` (`QdrantStore`): Qdrant via gRPC; upsert/delete/search; `HybridSearch` combines dense vector + BM25 via RRF (prefetch `topK * prefetch_mul`, default 5)
 - `Fetcher` (`LocalFetcher`): reads `.md` from local filesystem
-- `FileLister` (`LocalFileLister`): walks `knowledge_base.path` dir, supports glob ignore patterns, returns `FileEntry{Path, SHA}`
+- `FileLister` (`LocalFileLister`): walks `source.path` dir, supports glob ignore patterns, returns `FileEntry{Path, SHA}`
 - `Pipeline`: chunks → embeds (exponential backoff retry) → upserts; SHA-based dedup skips unchanged files
 
 **`internal/middleware/`:** stdlib-only chain (`Recovery → RequestID → Timeout`). `Chain()` applies outermost-first.
@@ -48,6 +48,6 @@ Single HTTP binary (`cmd/server/main.go`).
 ## Key design rules
 
 - Modules must not import `httpserver` or `middleware` — dependency flows inward only.
-- New capabilities go in `internal/pkb/` as a new file implementing one of the four interfaces.
+- New capabilities go in `internal/engine/` as a new file implementing one of the four interfaces.
 - Retry logic lives in `Pipeline`, not in `Embedder`/`Store` implementations.
-- Chunk IDs = FNV hash of `filePath+lineStart` — known collision risk across files (low urgency; fix: UUIDv5).
+- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic, namespace-scoped.
