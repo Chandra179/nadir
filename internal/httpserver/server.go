@@ -6,24 +6,27 @@ import (
 	"time"
 
 	"nadir/config"
-	"nadir/internal/engine"
+	"nadir/internal/cache"
+	"nadir/internal/chunker"
+	"nadir/internal/embedder"
+	"nadir/internal/generator"
+	"nadir/internal/ingest"
 	"nadir/internal/middleware"
+	"nadir/internal/reranker"
+	"nadir/internal/search"
+	"nadir/internal/store"
 
 	"github.com/Chandra179/gosdk/logger"
 )
 
 const (
-	// Provider names
-	providerSplade         = "splade"
 	providerSentenceWindow = "sentence-window"
 
-	// Default values
 	defaultWindowSize        = 3
 	defaultRerankerCandidate = 3
 	defaultCacheCollection   = "search_cache"
 	defaultCacheThreshold    = 0.90
 
-	// HTTP Routes
 	routeSearch = "POST /search"
 	routeIngest = "POST /ingest"
 	routeHealth = "GET /healthz"
@@ -41,68 +44,47 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	store, err := engine.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
+	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
 	if err != nil {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
 
-	if cfg.SparseScorer.Provider == providerSplade {
-		store = store.WithSparseScorer(engine.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
-		log.Info(context.Background(), "splade sparse scorer enabled", logger.Field{Key: "addr", Value: cfg.SparseScorer.Addr})
-	}
+	e := embedder.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
 
-	embedder := engine.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
-
-	if err := store.EnsureCollection(context.Background(), embedder.Dimensions()); err != nil {
+	if err := s.EnsureCollection(context.Background(), e.Dimensions()); err != nil {
 		log.Error(context.Background(), "qdrant ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
 
-	var chunker engine.Chunker
+	var chunkr chunker.Chunker
 	if cfg.Chunker.Provider == providerSentenceWindow {
 		windowSize := cfg.Chunker.WindowSize
 		if windowSize <= 0 {
 			windowSize = defaultWindowSize
 		}
-		chunker = engine.NewSentenceWindowChunker(windowSize)
+		chunkr = chunker.NewSentenceWindowChunker(windowSize)
 		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: windowSize})
 	} else {
-		chunker = engine.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
+		chunkr = chunker.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
 	}
 
-	fetcher := engine.NewLocalFetcher(cfg.Source.Path)
-
-	pipeline := engine.NewPipeline(chunker, embedder, store, engine.PipelineConfig{
+	pipeline := ingest.NewPipeline(chunkr, e, s, ingest.PipelineConfig{
 		MaxAttempts:     cfg.Retry.MaxAttempts,
 		InitialInterval: cfg.Retry.InitialInterval,
 		MaxInterval:     cfg.Retry.MaxInterval,
 		Multiplier:      cfg.Retry.Multiplier,
 	})
 
-	lister := engine.NewLocalFileLister(cfg.Source.AllPaths(), cfg.Ingest.IgnorePatterns)
-	searchService := engine.NewSearchService(embedder, store)
+	searchService := search.NewService(e, s)
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(engine.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
-	}
-
-	if cfg.ChunkFilter.Enabled {
-		ollamaAddr := cfg.ChunkFilter.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		cf := engine.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
-		searchService.WithChunkFilter(cf)
-		log.Info(context.Background(), "chunk filter enabled",
-			logger.Field{Key: "model", Value: cfg.ChunkFilter.Model},
-			logger.Field{Key: "threshold", Value: cfg.ChunkFilter.Threshold},
-		)
 	}
 
 	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK)
@@ -116,7 +98,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		if threshold == 0 {
 			threshold = defaultCacheThreshold
 		}
-		sc, err := engine.NewSemanticCache(cfg.Qdrant.Addr, col, embedder, threshold, cfg.SemanticCache.TTL)
+		sc, err := cache.NewSemanticCache(cfg.Qdrant.Addr, col, e, threshold, cfg.SemanticCache.TTL)
 		if err != nil {
 			log.Error(context.Background(), "semantic cache init failed", logger.Field{Key: "error", Value: err.Error()})
 		} else {
@@ -137,7 +119,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		if ollamaAddr == "" {
 			ollamaAddr = cfg.Embedder.OllamaAddr
 		}
-		gen := engine.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+		gen := generator.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
 		searchHandler.WithGenerator(gen)
 		log.Info(context.Background(), "LLM generator enabled",
 			logger.Field{Key: "model", Value: cfg.Generator.Model},
@@ -145,7 +127,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	ingestHandler := NewIngestHandler(lister, pipeline, fetcher, store, log)
+	ingestHandler := NewIngestHandler(cfg.Source.AllPaths(), cfg.Ingest.IgnorePatterns, pipeline, s, log)
 
 	mux := http.NewServeMux()
 	mux.Handle(routeSearch, globalChain(searchHandler))

@@ -1,4 +1,4 @@
-package engine
+package search
 
 import (
 	"context"
@@ -6,23 +6,26 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"nadir/internal/embedder"
+	"nadir/internal/reranker"
+	"nadir/internal/store"
 )
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-type SearchService struct {
-	embedder     Embedder
-	store        Store
-	reranker     Reranker
+type Service struct {
+	embedder     embedder.Embedder
+	store        store.Store
+	reranker     reranker.Reranker
 	candidateMul int
-	chunkFilter  ChunkFilter
 }
 
-func NewSearchService(embedder Embedder, store Store) *SearchService {
-	return &SearchService{embedder: embedder, store: store}
+func NewService(embedder embedder.Embedder, s store.Store) *Service {
+	return &Service{embedder: embedder, store: s}
 }
 
-func (s *SearchService) WithReranker(r Reranker, candidateMul int) *SearchService {
+func (s *Service) WithReranker(r reranker.Reranker, candidateMul int) *Service {
 	s.reranker = r
 	if candidateMul < 1 {
 		candidateMul = 3
@@ -31,12 +34,7 @@ func (s *SearchService) WithReranker(r Reranker, candidateMul int) *SearchServic
 	return s
 }
 
-func (s *SearchService) WithChunkFilter(cf ChunkFilter) *SearchService {
-	s.chunkFilter = cf
-	return s
-}
-
-func (s *SearchService) Search(ctx context.Context, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *Service) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -51,7 +49,7 @@ func (s *SearchService) Search(ctx context.Context, query string, topK int, filt
 	return s.postProcess(ctx, query, chunks, topK)
 }
 
-func (s *SearchService) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *Service) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -65,7 +63,7 @@ func (s *SearchService) KeywordSearch(ctx context.Context, keyword string, topK 
 	return s.postProcess(ctx, keyword, chunks, topK)
 }
 
-func (s *SearchService) postProcess(ctx context.Context, query string, chunks []ScoredChunk, topK int) ([]ScoredChunk, error) {
+func (s *Service) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
 	if s.reranker != nil && len(chunks) > 0 {
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
@@ -77,19 +75,12 @@ func (s *SearchService) postProcess(ctx context.Context, query string, chunks []
 		}
 	}
 
-	if s.chunkFilter != nil && len(chunks) > 0 {
-		filtered, err := s.chunkFilter.Filter(ctx, query, chunks)
-		if err == nil && len(filtered) > 0 {
-			chunks = filtered
-		}
-	}
-
 	return chunks, nil
 }
 
-func (s *SearchService) multiSearch(ctx context.Context, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *Service) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fragments := splitFragments(query)
-	seen := make(map[string]ScoredChunk)
+	seen := make(map[string]store.ScoredChunk)
 	for _, frag := range fragments {
 		vec, err := s.embedder.Embed(ctx, frag)
 		if err != nil {
@@ -106,7 +97,7 @@ func (s *SearchService) multiSearch(ctx context.Context, query string, topK int,
 			}
 		}
 	}
-	merged := make([]ScoredChunk, 0, len(seen))
+	merged := make([]store.ScoredChunk, 0, len(seen))
 	for _, c := range seen {
 		merged = append(merged, c)
 	}

@@ -6,15 +6,18 @@ import (
 	"io"
 	"net/http"
 
-	"nadir/internal/engine"
+	"nadir/internal/cache"
+	"nadir/internal/generator"
+	"nadir/internal/search"
+	"nadir/internal/store"
 )
 
 type searchRequest struct {
-	Query    string            `json:"query"`
-	TopK     int               `json:"top_k"`
-	Keyword  string            `json:"keyword"`
-	Generate bool              `json:"generate"`
-	Filter   *engine.SearchFilter `json:"filter,omitempty"`
+	Query    string              `json:"query"`
+	TopK     int                 `json:"top_k"`
+	Keyword  string              `json:"keyword"`
+	Generate bool                `json:"generate"`
+	Filter   *store.SearchFilter `json:"filter,omitempty"`
 }
 
 type searchResult struct {
@@ -30,22 +33,22 @@ type searchResponse struct {
 }
 
 type SearchHandler struct {
-	searcher      *engine.SearchService
+	searcher      *search.Service
 	topK          int
-	generator     engine.Generator
-	semanticCache *engine.SemanticCache
+	generator     generator.Generator
+	semanticCache *cache.SemanticCache
 }
 
-func NewSearchHandler(searcher *engine.SearchService, topK int) *SearchHandler {
+func NewSearchHandler(searcher *search.Service, topK int) *SearchHandler {
 	return &SearchHandler{searcher: searcher, topK: topK}
 }
 
-func (h *SearchHandler) WithGenerator(g engine.Generator) *SearchHandler {
+func (h *SearchHandler) WithGenerator(g generator.Generator) *SearchHandler {
 	h.generator = g
 	return h
 }
 
-func (h *SearchHandler) WithSemanticCache(sc *engine.SemanticCache) *SearchHandler {
+func (h *SearchHandler) WithSemanticCache(sc *cache.SemanticCache) *SearchHandler {
 	h.semanticCache = sc
 	return h
 }
@@ -90,7 +93,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var chunks []engine.ScoredChunk
+	var chunks []store.ScoredChunk
 	var err error
 	if req.Keyword != "" {
 		chunks, err = h.searcher.KeywordSearch(r.Context(), req.Keyword, topK, req.Filter)

@@ -13,7 +13,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"nadir/internal/engine"
+	"nadir/internal/generator"
+	"nadir/internal/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -103,21 +104,21 @@ func (j *OllamaJudge) Judge(ctx context.Context, prompt string) (string, error) 
 }
 
 // ---------------------------------------------------------------------------
-// Answer generator interface (reuses engine.Generator)
+// Answer generator interface (reuses generator.Generator)
 // ---------------------------------------------------------------------------
 
 // AnswerGenerator generates a grounded answer from retrieved chunks.
-// engine.Generator satisfies this via an adapter.
+// generator.Generator satisfies this via an adapter.
 type AnswerGenerator interface {
-	Generate(ctx context.Context, query string, chunks []engine.ScoredChunk) (string, error)
+	Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (string, error)
 }
 
-// GeneratorAdapter wraps engine.Generator to satisfy AnswerGenerator.
+// GeneratorAdapter wraps generator.Generator to satisfy AnswerGenerator.
 type GeneratorAdapter struct {
-	Gen engine.Generator
+	Gen generator.Generator
 }
 
-func (g *GeneratorAdapter) Generate(ctx context.Context, query string, chunks []engine.ScoredChunk) (string, error) {
+func (g *GeneratorAdapter) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (string, error) {
 	rc, err := g.Gen.Generate(ctx, query, chunks)
 	if err != nil {
 		return "", err
@@ -370,7 +371,7 @@ Passages:
 
 Example for 3 passages: [0.9, 0.1, 0.7]`
 
-func (e *RAGASEvaluator) scoreContextPrecision(ctx context.Context, query string, chunks []engine.ScoredChunk) (float64, error) {
+func (e *RAGASEvaluator) scoreContextPrecision(ctx context.Context, query string, chunks []store.ScoredChunk) (float64, error) {
 	if len(chunks) == 0 {
 		return 0, nil
 	}
@@ -470,7 +471,7 @@ Example for 3 statements: [true, false, true]`, contextText, formatStatements(st
 // Helpers
 // ---------------------------------------------------------------------------
 
-func buildChunkContext(chunks []engine.ScoredChunk) string {
+func buildChunkContext(chunks []store.ScoredChunk) string {
 	var sb strings.Builder
 	for i, c := range chunks {
 		text := c.WindowText

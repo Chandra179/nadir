@@ -1,4 +1,4 @@
-package engine
+package generator
 
 import (
 	"bufio"
@@ -11,31 +11,28 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"nadir/internal/store"
 )
 
-// Generator synthesizes an answer from retrieved chunks using an LLM.
 type Generator interface {
-	// Generate streams an answer for query grounded in chunks. Caller must close the returned ReadCloser.
-	Generate(ctx context.Context, query string, chunks []ScoredChunk) (io.ReadCloser, error)
+	Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error)
 }
 
-// OllamaGenerator calls a local Ollama /api/chat endpoint with streaming enabled.
-// Prompt follows the "Lost in the Middle" ordering principle: highest-scored chunks at
-// top and bottom, lowest in the middle. Token budget is enforced by truncating chunks.
 type OllamaGenerator struct {
-	addr            string
-	model           string
+	addr             string
+	model            string
 	maxContextTokens int
-	client          *http.Client
+	client           *http.Client
 }
 
 func NewOllamaGenerator(addr, model string, maxContextTokens int) *OllamaGenerator {
 	if maxContextTokens <= 0 {
-		maxContextTokens = 2800 // ~70% of 4k context
+		maxContextTokens = 2800
 	}
 	return &OllamaGenerator{
-		addr:            addr,
-		model:           model,
+		addr:             addr,
+		model:            model,
 		maxContextTokens: maxContextTokens,
 		client: &http.Client{
 			Timeout: 120 * time.Second,
@@ -59,9 +56,7 @@ type ollamaChatChunk struct {
 	Done    bool          `json:"done"`
 }
 
-// Generate builds a grounded prompt and streams the LLM response token-by-token.
-// Returns an io.ReadCloser that yields raw text tokens as they arrive.
-func (g *OllamaGenerator) Generate(ctx context.Context, query string, chunks []ScoredChunk) (io.ReadCloser, error) {
+func (g *OllamaGenerator) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error) {
 	prompt := buildPrompt(query, chunks, g.maxContextTokens)
 	log.Printf("[generator] RAG context passed to LLM:\n%s", prompt)
 
@@ -88,11 +83,9 @@ func (g *OllamaGenerator) Generate(ctx context.Context, query string, chunks []S
 		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
 	}
 
-	// Return a reader that extracts token text from the NDJSON stream.
 	return &ollamaTokenReader{body: resp.Body, scanner: bufio.NewScanner(resp.Body)}, nil
 }
 
-// ollamaTokenReader extracts the delta text from each NDJSON line Ollama streams.
 type ollamaTokenReader struct {
 	body    io.Closer
 	scanner *bufio.Scanner
@@ -127,10 +120,7 @@ func (r *ollamaTokenReader) Read(p []byte) (int, error) {
 
 func (r *ollamaTokenReader) Close() error { return r.body.Close() }
 
-// buildPrompt constructs the grounded RAG prompt.
-// Ordering: highest-scored chunk at position [1], lowest in middle, second-highest at end.
-// This follows Liu et al. 2023 "Lost in the Middle" findings.
-func buildPrompt(query string, chunks []ScoredChunk, maxTokens int) string {
+func buildPrompt(query string, chunks []store.ScoredChunk, maxTokens int) string {
 	ordered := lostInMiddleOrder(chunks)
 	context := buildContext(ordered, maxTokens)
 
@@ -146,14 +136,11 @@ func buildPrompt(query string, chunks []ScoredChunk, maxTokens int) string {
 	return sb.String()
 }
 
-// lostInMiddleOrder reorders chunks so highest-scored appear at start+end,
-// lowest in the middle. Reduces degradation from long-context "lost in the middle" effect.
-func lostInMiddleOrder(chunks []ScoredChunk) []ScoredChunk {
+func lostInMiddleOrder(chunks []store.ScoredChunk) []store.ScoredChunk {
 	if len(chunks) <= 2 {
 		return chunks
 	}
-	result := make([]ScoredChunk, len(chunks))
-	// place in alternating front/back positions
+	result := make([]store.ScoredChunk, len(chunks))
 	front, back := 0, len(chunks)-1
 	for i, c := range chunks {
 		if i%2 == 0 {
@@ -167,9 +154,7 @@ func lostInMiddleOrder(chunks []ScoredChunk) []ScoredChunk {
 	return result
 }
 
-// buildContext formats chunks with [N] labels, truncating to stay within token budget.
-// Rough token estimate: 1 token ≈ 4 chars (conservative for English text).
-func buildContext(chunks []ScoredChunk, maxTokens int) string {
+func buildContext(chunks []store.ScoredChunk, maxTokens int) string {
 	const charsPerToken = 4
 	budget := maxTokens * charsPerToken
 
@@ -181,7 +166,6 @@ func buildContext(chunks []ScoredChunk, maxTokens int) string {
 		}
 		entry := fmt.Sprintf("[%d] (source: %s)\n%s\n\n", i+1, c.FilePath, text)
 		if sb.Len()+len(entry) > budget {
-			// try truncated version
 			remaining := budget - sb.Len()
 			if remaining > 60 {
 				truncated := entry[:remaining-3] + "..."

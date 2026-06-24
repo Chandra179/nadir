@@ -1,4 +1,4 @@
-package engine
+package store
 
 import (
 	"context"
@@ -14,17 +14,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// QdrantStore implements Store backed by Qdrant via gRPC.
 type QdrantStore struct {
-	conn         *grpc.ClientConn
-	points       qdrant.PointsClient
-	collection   qdrant.CollectionsClient
-	name         string
-	prefetchMul  int
-	sparseScorer SparseScorer
-	// sparseEmbedder, when set, enables server-side hybrid search via QueryPoints.
-	// At query time, the query is embedded as a sparse vector and sent alongside the dense vector.
-	sparseEmbedder SparseEmbedder
+	conn        *grpc.ClientConn
+	points      qdrant.PointsClient
+	collection  qdrant.CollectionsClient
+	name        string
+	prefetchMul int
 }
 
 func NewQdrantStore(addr, collection string, prefetchMul int) (*QdrantStore, error) {
@@ -36,29 +31,14 @@ func NewQdrantStore(addr, collection string, prefetchMul int) (*QdrantStore, err
 		prefetchMul = 5
 	}
 	return &QdrantStore{
-		conn:         conn,
-		points:       qdrant.NewPointsClient(conn),
-		collection:   qdrant.NewCollectionsClient(conn),
-		name:         collection,
-		prefetchMul:  prefetchMul,
-		sparseScorer: TFSparseScorer{},
+		conn:        conn,
+		points:      qdrant.NewPointsClient(conn),
+		collection:  qdrant.NewCollectionsClient(conn),
+		name:        collection,
+		prefetchMul: prefetchMul,
 	}, nil
 }
 
-// WithSparseScorer swaps the client-side BM25 leg scorer. Default: TFSparseScorer.
-func (s *QdrantStore) WithSparseScorer(scorer SparseScorer) *QdrantStore {
-	s.sparseScorer = scorer
-	return s
-}
-
-// WithSparseEmbedder enables server-side hybrid search via Qdrant QueryPoints.
-// Requires sparse vectors to have been stored at ingest time.
-func (s *QdrantStore) WithSparseEmbedder(se SparseEmbedder) *QdrantStore {
-	s.sparseEmbedder = se
-	return s
-}
-
-const sparseVectorName = "sparse"
 
 func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
@@ -76,15 +56,11 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 					},
 				},
 			},
-			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
-				sparseVectorName: {Modifier: qdrant.Modifier_Idf.Enum()},
-			}),
 		})
 		if err != nil {
 			return fmt.Errorf("qdrant create collection: %w", err)
 		}
 	}
-	// Ensure full-text index on text field for BM25 hybrid search.
 	ft := qdrant.FieldType_FieldTypeText
 	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
 		CollectionName: s.name,
@@ -98,7 +74,6 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 	if err != nil {
 		return fmt.Errorf("qdrant create text index: %w", err)
 	}
-	// Keyword index on file_path: eliminates full-collection scan in GetFileSHA and DeleteByFile.
 	fk := qdrant.FieldType_FieldTypeKeyword
 	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
 		CollectionName: s.name,
@@ -115,35 +90,9 @@ func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := chunkID(c.FilePath, c.LineStart, c.ChunkIndex)
-		var vectors *qdrant.Vectors
-		if len(c.SparseIndices) > 0 {
-			vectors = &qdrant.Vectors{
-				VectorsOptions: &qdrant.Vectors_Vectors{
-					Vectors: &qdrant.NamedVectors{
-						Vectors: map[string]*qdrant.Vector{
-							"": {
-								Vector: &qdrant.Vector_Dense{
-									Dense: &qdrant.DenseVector{Data: c.Vector},
-								},
-							},
-							sparseVectorName: {
-								Vector: &qdrant.Vector_Sparse{
-									Sparse: &qdrant.SparseVector{
-										Indices: c.SparseIndices,
-										Values:  c.SparseValues,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-		} else {
-			vectors = qdrant.NewVectors(c.Vector...)
-		}
 		points[i] = &qdrant.PointStruct{
 			Id:      qdrant.NewIDUUID(id),
-			Vectors: vectors,
+			Vectors: qdrant.NewVectors(c.Vector...),
 			Payload: map[string]*qdrant.Value{
 				"file_path":   strVal(c.FilePath),
 				"header":      strVal(c.Header),
@@ -187,7 +136,6 @@ func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
 	return err
 }
 
-// buildFilterConditions converts a SearchFilter into Qdrant Must conditions.
 func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
 	if f == nil {
 		return nil
@@ -233,61 +181,10 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 	return &qdrant.Filter{Must: conds}
 }
 
-// HybridSearch combines dense and sparse retrieval. When a SparseEmbedder is wired
-// (server-side path), the store issues a single Qdrant QueryPoints with dense+sparse
-// prefetch legs and server-side RRF fusion. Without a SparseEmbedder, the store falls
-// back to a client-side hybrid: dense ANN search + BM25 text search, fused via RRF.
 func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	if s.sparseEmbedder != nil {
-		return s.hybridSearchServer(ctx, vector, query, topK, filter)
-	}
 	return s.hybridSearchClient(ctx, vector, query, topK, filter)
 }
 
-// hybridSearchServer uses Qdrant QueryPoints with dense+sparse prefetch and server-side RRF.
-func (s *QdrantStore) hybridSearchServer(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	fetchN := uint64(topK * s.prefetchMul)
-
-	sparseIdx, sparseVals, err := s.sparseEmbedder.EmbedSparse(ctx, query, "query")
-	if err != nil {
-		return nil, fmt.Errorf("sparse embed query: %w", err)
-	}
-
-	limit := uint64(topK)
-	qf := toQdrantFilter(buildFilterConditions(filter))
-	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
-		CollectionName: s.name,
-		Prefetch: []*qdrant.PrefetchQuery{
-			{
-				Query:  qdrant.NewQueryDense(vector),
-				Limit:  &fetchN,
-				Filter: qf,
-			},
-			{
-				Query:  qdrant.NewQuerySparse(sparseIdx, sparseVals),
-				Using:  qdrant.PtrOf(sparseVectorName),
-				Limit:  &fetchN,
-				Filter: qf,
-			},
-		},
-		Query:       qdrant.NewQueryFusion(qdrant.Fusion_RRF),
-		Limit:       &limit,
-		WithPayload: qdrant.NewWithPayload(true),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("hybrid search: %w", err)
-	}
-
-	results := make([]ScoredChunk, len(resp.Result))
-	for i, r := range resp.Result {
-		results[i] = chunkFromPayload(r.Payload)
-		results[i].Score = r.Score
-	}
-	return results, nil
-}
-
-// hybridSearchClient runs dense + BM25 text search locally, then fuses via RRF.
-// This is the fallback path when no SparseEmbedder is wired.
 func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fetchN := topK * s.prefetchMul
 
@@ -346,8 +243,6 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 	return merged, nil
 }
 
-// searchWithFilter runs a dense ANN search with an optional payload filter.
-// Uses QueryPoints with a single dense leg for filter support (SearchPoints lacks filters).
 func (s *QdrantStore) searchWithFilter(ctx context.Context, vector []float32, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
@@ -442,7 +337,6 @@ func (s *QdrantStore) GetAllFileSHAs(ctx context.Context) (map[string]string, er
 	return shas, nil
 }
 
-// chunkIDNamespace is a private UUID namespace for deterministic chunk point IDs.
 var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 
 func chunkID(filePath string, lineStart, idx int) string {
@@ -452,15 +346,13 @@ func chunkID(filePath string, lineStart, idx int) string {
 
 func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
 	return ScoredChunk{
-		DocumentChunk: DocumentChunk{
-			Text:       pbStr(p, "text"),
-			WindowText: pbStr(p, "window_text"),
-			FilePath:   pbStr(p, "file_path"),
-			Header:     pbStr(p, "header"),
-			LineStart:  int(pbInt(p, "line_start")),
-			ChunkIndex: int(pbInt(p, "chunk_index")),
-		},
-		SourceSHA: pbStr(p, "source_sha"),
+		Text:       pbStr(p, "text"),
+		WindowText: pbStr(p, "window_text"),
+		FilePath:   pbStr(p, "file_path"),
+		Header:     pbStr(p, "header"),
+		LineStart:  int(pbInt(p, "line_start")),
+		ChunkIndex: int(pbInt(p, "chunk_index")),
+		SourceSHA:  pbStr(p, "source_sha"),
 	}
 }
 

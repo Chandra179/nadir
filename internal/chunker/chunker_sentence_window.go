@@ -1,27 +1,23 @@
-package engine
+package chunker
 
 import (
 	"regexp"
 	"strings"
 )
 
-// sentenceRe splits on sentence-ending punctuation followed by whitespace or end of string.
 var sentenceRe = regexp.MustCompile(`[.!?]+[\s]+`)
 
-// SentenceWindowChunker indexes at sentence granularity but stores a surrounding window as
-// retrieval context. The sentence is embedded (precise matching); WindowText (surrounding
-// sentences) is returned to the caller for richer context.
 type SentenceWindowChunker struct {
-	windowSize int // number of sentences before and after each sentence
+	windowSize int
 }
 
 func NewSentenceWindowChunker(windowSize int) *SentenceWindowChunker {
 	return &SentenceWindowChunker{windowSize: windowSize}
 }
 
-func (c *SentenceWindowChunker) Chunk(rawText, filePath string) ([]DocumentChunk, error) {
+func (c *SentenceWindowChunker) Chunk(rawText, filePath string) ([]Chunk, error) {
 	sections := extractSections(rawText)
-	var chunks []DocumentChunk
+	var chunks []Chunk
 	for _, sec := range sections {
 		sentences := splitSentences(sec.text)
 		for i, sent := range sentences {
@@ -38,7 +34,7 @@ func (c *SentenceWindowChunker) Chunk(rawText, filePath string) ([]DocumentChunk
 				hi = len(sentences)
 			}
 			window := strings.TrimSpace(strings.Join(sentences[lo:hi], " "))
-			chunks = append(chunks, DocumentChunk{
+			chunks = append(chunks, Chunk{
 				Text:       sent,
 				WindowText: window,
 				FilePath:   filePath,

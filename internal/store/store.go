@@ -1,26 +1,32 @@
-package engine
+package store
 
-import "context"
+import (
+	"context"
+	"strconv"
+)
 
-// ScoredChunk is a retrieved chunk with its similarity score.
 type ScoredChunk struct {
-	DocumentChunk
-	Vector        []float32  // dense vector; populated during ingest
-	SparseIndices []uint32   // sparse vector indices; populated during ingest when SparseEmbedder is set
-	SparseValues  []float32  // sparse vector values; parallel to SparseIndices
-	SourceSHA     string
-	Score         float32 // populated by Store.Search; zero during ingest
+	Text       string
+	WindowText string
+	FilePath   string
+	Header     string
+	LineStart  int
+	ChunkIndex int
+	Vector     []float32
+	SourceSHA  string
+	Score      float32
 }
 
-// SearchFilter restricts retrieval to chunks matching payload fields.
-// All non-empty fields are ANDed together.
+func (s ScoredChunk) Key() string {
+	return s.FilePath + ":" + strconv.Itoa(s.LineStart)
+}
+
 type SearchFilter struct {
 	FilePath  string `json:"file_path,omitempty"`
 	Header    string `json:"header,omitempty"`
 	SourceSHA string `json:"source_sha,omitempty"`
 }
 
-// Store persists and retrieves chunk vectors.
 type Store interface {
 	Upsert(ctx context.Context, chunks []ScoredChunk) error
 	DeleteByFile(ctx context.Context, filePath string) error

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"nadir/internal/engine"
+	"nadir/internal/store"
 )
 
 // stubJudge returns a fixed response or an error for each call.
@@ -35,7 +35,7 @@ type stubGenerator struct {
 	err    error
 }
 
-func (s *stubGenerator) Generate(_ context.Context, _ string, _ []engine.ScoredChunk) (string, error) {
+func (s *stubGenerator) Generate(_ context.Context, _ string, _ []store.ScoredChunk) (string, error) {
 	return s.answer, s.err
 }
 
@@ -131,10 +131,10 @@ func TestScoreAnswerRelevance(t *testing.T) {
 func TestScoreContextPrecision(t *testing.T) {
 	judge := &stubJudge{responses: []string{"[0.9, 0.1, 0.7]"}}
 	e := &RAGASEvaluator{Judge: judge}
-	chunks := []engine.ScoredChunk{
-		{DocumentChunk: engine.DocumentChunk{Text: "chunk 1"}},
-		{DocumentChunk: engine.DocumentChunk{Text: "chunk 2"}},
-		{DocumentChunk: engine.DocumentChunk{Text: "chunk 3"}},
+	chunks := []store.ScoredChunk{
+		{Text: "chunk 1"},
+		{Text: "chunk 2"},
+		{Text: "chunk 3"},
 	}
 	score, err := e.scoreContextPrecision(context.Background(), "query", chunks)
 	if err != nil {
@@ -198,9 +198,9 @@ func TestEvaluate_EndToEnd(t *testing.T) {
 		},
 	}
 	gen := &stubGenerator{answer: "The secant function is 1/cos(theta)."}
-	searcher := &fakeRetriever{results: []engine.ScoredChunk{
-		{DocumentChunk: engine.DocumentChunk{Text: "secant info", FilePath: "math/trig.md"}},
-		{DocumentChunk: engine.DocumentChunk{Text: "other info", FilePath: "other.md"}},
+	searcher := &fakeRetriever{results: []store.ScoredChunk{
+		{Text: "secant info", FilePath: "math/trig.md"},
+		{Text: "other info", FilePath: "other.md"},
 	}}
 
 	gs := &GoldenSet{Queries: []GoldenQuery{
@@ -233,8 +233,8 @@ func TestEvaluate_NoExpectedAnswer_SkipsContextRecall(t *testing.T) {
 		},
 	}
 	gen := &stubGenerator{answer: "Some answer."}
-	searcher := &fakeRetriever{results: []engine.ScoredChunk{
-		{DocumentChunk: engine.DocumentChunk{Text: "info", FilePath: "a.md"}},
+	searcher := &fakeRetriever{results: []store.ScoredChunk{
+		{Text: "info", FilePath: "a.md"},
 	}}
 
 	gs := &GoldenSet{Queries: []GoldenQuery{
@@ -257,8 +257,8 @@ func TestEvaluate_NoExpectedAnswer_SkipsContextRecall(t *testing.T) {
 func TestEvaluate_JudgeError(t *testing.T) {
 	judge := &stubJudge{err: errors.New("LLM down")}
 	gen := &stubGenerator{answer: "answer"}
-	searcher := &fakeRetriever{results: []engine.ScoredChunk{
-		{DocumentChunk: engine.DocumentChunk{Text: "info", FilePath: "a.md"}},
+	searcher := &fakeRetriever{results: []store.ScoredChunk{
+		{Text: "info", FilePath: "a.md"},
 	}}
 	gs := &GoldenSet{Queries: []GoldenQuery{{Query: "q"}}}
 
@@ -287,9 +287,9 @@ func TestAggregateRAGAS(t *testing.T) {
 }
 
 func TestBuildChunkContext(t *testing.T) {
-	chunks := []engine.ScoredChunk{
-		{DocumentChunk: engine.DocumentChunk{Text: "hello", FilePath: "a.md"}},
-		{DocumentChunk: engine.DocumentChunk{WindowText: "window text", FilePath: "b.md"}},
+	chunks := []store.ScoredChunk{
+		{Text: "hello", FilePath: "a.md"},
+		{WindowText: "window text", FilePath: "b.md"},
 	}
 	ctx := buildChunkContext(chunks)
 	if !strings.Contains(ctx, "hello") {

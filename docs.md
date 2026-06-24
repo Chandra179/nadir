@@ -16,7 +16,7 @@ Documents flow through a RAG pipeline in eight stages. Six are implemented (inge
 `IngestService.Run` lists files across one or more roots (`source.path` plus `source.paths`, merged and deduped via `AllPaths()`), filters out paths matching `ingest.ignore_patterns` (glob, with `dir/**` prefix matching), diffs each file's SHA-256 against the store in a single paginated scroll (`GetAllFileSHAs`, page size 1000), and dispatches changed files to 8 concurrent workers (`const ingestWorkers = 8`). Unchanged files are skipped; changed files are upserted in place by deterministic point ID.
 
 * **Deterministic IDs** — `chunkID(filePath, lineStart, chunkIndex)` = UUIDv5 (`uuid.NewSHA1` over a private namespace). Same input always maps to the same point, so upserts replace rather than duplicate.
-* **Contextual embedding** — before embedding, each chunk is prefixed with `filePath > header\n` (or just `filePath\n` when the chunk has no heading) (Anthropic 2024). This anchors chunk semantics to document structure without altering stored text. Embedding is batched: `OllamaEmbedder.EmbedBatch` sends every chunk in a file to Ollama `/api/embed` in one round-trip (`Pipeline` uses the `BatchEmbedder` fast-path).
+* **Contextual embedding** — before embedding, each chunk is prefixed with `filePath > header\n` (or just `filePath\n` when the chunk has no heading) (`chunker.ContextualText`). This anchors chunk semantics to document structure without altering stored text. Embedding is batched: `OllamaEmbedder.EmbedBatch` sends every chunk in a file to Ollama `/api/embed` in one round-trip (`Pipeline` uses the `BatchEmbedder` fast-path).
 * **Qdrant collections** — auto-configured on startup: dense vectors with Cosine distance, a named sparse vector with IDF modifier, a full-text index on `text`, and a keyword index on `file_path`.
 
 ***
@@ -34,7 +34,7 @@ Two chunkers, selected by `chunker.provider`:
 
 ## Embedding & Storage
 
-`OllamaEmbedder` calls Ollama `/api/embed` with `nomic-embed-text` (768 dimensions). Sparse scoring has two providers: `tf` (zero-dependency fallback) and `splade` (calls the SPLADE sidecar, model `prithivida/Splade_PP_en_v1`).
+`OllamaEmbedder` calls Ollama `/api/embed` with `nomic-embed-text` (768 dimensions).
 
 ```yaml
 embedder:
@@ -42,13 +42,9 @@ embedder:
   model: "nomic-embed-text"
   ollama_addr: "http://localhost:11434"
   dimensions: 768
-
-sparse_scorer:
-  provider: "splade"   # "tf" (zero deps) | "splade" (requires sidecar)
-  addr: "http://localhost:5001"
 ```
 
-Qdrant stores dense (and, when a sparse embedder is wired, sparse) vectors alongside payload metadata:
+Qdrant stores dense vectors alongside payload metadata:
 
 ```json
 {
@@ -112,7 +108,7 @@ A dedicated Qdrant collection (`search_cache`) caches results keyed by query-emb
 
 ### Hybrid Search
 
-Hybrid search fuses a dense leg and a sparse (BM25) leg. The client-side path fetches `topK × prefetch_mul` (default ×5) candidates per leg, rescores the sparse leg with the configured sparse scorer, then fuses via RRF (k=60). The server-side path (see Embedding & Storage) does the same in one Qdrant round-trip but is not currently wired.
+Hybrid search fuses a dense leg and a sparse (BM25) leg. The client-side path fetches `topK × prefetch_mul` (default ×5) candidates per leg, then fuses via RRF (k=60).
 
 > **Multi-fragment queries.** `SearchService.multiSearch` splits the query on `[.?;]+\s*`, runs `HybridSearch` per fragment, dedups by chunk key (keeping the best score), and re-sorts. The `topK` passed into the store is already `topK × candidate_mul` when a reranker is wired, so total candidates per leg scale as `topK × candidate_mul × prefetch_mul`.
 
@@ -133,22 +129,6 @@ A cross-encoder re-ranks candidates from vector search using the chunk's Window 
 * **Final sorting** — candidates are re-scored by deep semantic relevance and sorted, promoting the best matches to the top for the LLM.
 
 ***
-
-## Post-Retrieval Filtering
-
-After reranking, an optional LLM chunk filter drops irrelevant results before generation. Ref: arxiv 2410.19572 (+10pp PopQA accuracy).
-
-* Calls the OpenAI-compatible `/v1/chat/completions` endpoint (constructed as `ollama_addr + "/v1"`, i.e. Ollama's compatibility shim — distinct from the generator, which uses native `/api/chat`).
-* Batches all retrieved chunks (Window Text, falling back to chunk Text) into one prompt; the model returns a JSON array of scores 0–1, one per passage.
-* Drops chunks below the configurable threshold (default 0.5); order of survivors is preserved.
-* **Never returns zero chunks.** `SearchService.postProcess` only swaps in the filtered list when `err == nil && len(filtered) > 0`, so an LLM error, a malformed/score-count-mismatch response, or an all-dropped result all fall through to the original (reranked) chunks.
-
-```yaml
-chunk_filter:
-  enabled: false
-  model: "gemma3:1b"
-  threshold: 0.5
-```
 
 ***
 
@@ -176,7 +156,7 @@ generator:
 
 > **Status: implemented (`internal/eval/` + `cmd/eval/`).**
 
-Two eval modes, both driven by a golden set (`eval/golden.yaml`) and run through the `cmd/eval` CLI:
+Two eval modes, both driven by a golden set YAML and run through the `cmd/eval` CLI:
 
 **Retrieval eval** (`-mode retrieval`) — `eval.Runner` runs each golden query through a `SearchService` (rebuilt with the same reranker/chunk-filter wiring as the server, minus semantic cache and generator) and `eval.Aggregate` scores the ranked list:
 
@@ -203,7 +183,7 @@ Graded relevance: `relevance: {file: grade}` with 0=irrelevant, 1=marginal, 2=re
 
 The judge calls Ollama's OpenAI-compatible `/v1/chat/completions`; the judge model defaults to `generator.model` (override with `-judge-model`). `-mode both` runs retrieval then RAGAS in one pass.
 
-**CLI:** `go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval` (Make targets: `eval`, `eval-rag`, `eval-both`, `eval-chunk`). Flags: `-config` (default `config/config.yaml`), `-golden`, `-fetch-k` (default 10), `-mode` (retrieval|rag|both), `-granularity` (file|chunk), `-judge-model`. A warning is printed when `n < 50` (the golden set ships with 5 queries — directional only; BEIR min ~1k).
+**CLI:** `go run ./cmd/eval -golden my-golden.yaml -fetch-k 10 -mode retrieval` (Make targets: `eval`, `eval-rag`, `eval-both`, `eval-chunk`, each requiring `golden=my-golden.yaml`). Flags: `-config` (default `config/config.yaml`), `-golden` (required), `-fetch-k` (default 10), `-mode` (retrieval|rag|both), `-granularity` (file|chunk), `-judge-model`. A warning is printed when `n < 50` (BEIR min ~1k).
 
 **Tests:** `internal/eval/{metrics,ragas,runner}_test.go` — metric math, RAGAS scoring with a stub judge, and runner aggregation. No integration tests against live Qdrant/Ollama.
 

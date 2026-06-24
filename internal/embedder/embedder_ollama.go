@@ -1,4 +1,4 @@
-package engine
+package embedder
 
 import (
 	"bytes"
@@ -8,10 +8,9 @@ import (
 	"net/http"
 )
 
-// OllamaEmbedder implements Embedder using a local Ollama instance.
 type OllamaEmbedder struct {
-	addr       string // e.g. http://localhost:11434
-	model      string // e.g. nomic-embed-text
+	addr       string
+	model      string
 	dimensions int
 	client     *http.Client
 }
@@ -35,7 +34,6 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	return vecs[0], nil
 }
 
-// EmbedBatch calls /api/embed which accepts an array of inputs in one round-trip.
 func (e *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	body, _ := json.Marshal(map[string]any{"model": e.model, "input": texts})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.addr+"/api/embed", bytes.NewReader(body))

@@ -7,28 +7,28 @@ import (
 	"path/filepath"
 	"testing"
 
-	"nadir/internal/engine"
+	"nadir/internal/store"
 )
 
 type fakeRetriever struct {
-	results []engine.ScoredChunk
+	results []store.ScoredChunk
 	err     error
 }
 
-func (f *fakeRetriever) Search(_ context.Context, _ string, _ int, _ *engine.SearchFilter) ([]engine.ScoredChunk, error) {
+func (f *fakeRetriever) Search(_ context.Context, _ string, _ int, _ *store.SearchFilter) ([]store.ScoredChunk, error) {
 	return f.results, f.err
 }
 
-func chunk(file string) engine.ScoredChunk {
-	return engine.ScoredChunk{DocumentChunk: engine.DocumentChunk{FilePath: file}}
+func chunk(file string) store.ScoredChunk {
+	return store.ScoredChunk{FilePath: file}
 }
 
-func chunkWithLine(file string, line int) engine.ScoredChunk {
-	return engine.ScoredChunk{DocumentChunk: engine.DocumentChunk{FilePath: file, LineStart: line}}
+func chunkWithLine(file string, line int) store.ScoredChunk {
+	return store.ScoredChunk{FilePath: file, LineStart: line}
 }
 
 func TestDedupRankedFiles(t *testing.T) {
-	chunks := []engine.ScoredChunk{
+	chunks := []store.ScoredChunk{
 		chunk("gitbook/math/trigonometry.md"),
 		chunk("gitbook/math/trigonometry.md"),
 		chunk("gitbook/golang/goroutine.md"),
@@ -47,7 +47,7 @@ func TestDedupRankedFiles(t *testing.T) {
 }
 
 func TestRankChunks(t *testing.T) {
-	chunks := []engine.ScoredChunk{
+	chunks := []store.ScoredChunk{
 		chunkWithLine("gitbook/math/trigonometry.md", 10),
 		chunkWithLine("gitbook/math/trigonometry.md", 50),
 		chunkWithLine("gitbook/golang/goroutine.md", 1),
@@ -84,7 +84,7 @@ func TestMatchFile(t *testing.T) {
 }
 
 func TestRunner_Run_FileLevel(t *testing.T) {
-	fr := &fakeRetriever{results: []engine.ScoredChunk{
+	fr := &fakeRetriever{results: []store.ScoredChunk{
 		chunk("gitbook/math/trigonometry.md"),
 		chunk("gitbook/golang/goroutine.md"),
 		chunk("gitbook/system-design/rate-limit.md"),
@@ -112,7 +112,7 @@ func TestRunner_Run_FileLevel(t *testing.T) {
 }
 
 func TestRunner_Run_ChunkLevel(t *testing.T) {
-	fr := &fakeRetriever{results: []engine.ScoredChunk{
+	fr := &fakeRetriever{results: []store.ScoredChunk{
 		chunkWithLine("gitbook/math/trigonometry.md", 10),
 		chunkWithLine("gitbook/math/trigonometry.md", 50),
 		chunkWithLine("gitbook/golang/goroutine.md", 1),
@@ -143,7 +143,7 @@ func TestRunner_Run_ChunkLevel(t *testing.T) {
 }
 
 func TestRunner_Run_GradedRelevance(t *testing.T) {
-	fr := &fakeRetriever{results: []engine.ScoredChunk{
+	fr := &fakeRetriever{results: []store.ScoredChunk{
 		chunk("gitbook/math/trigonometry.md"),
 		chunk("gitbook/math/calculus.md"),
 	}}

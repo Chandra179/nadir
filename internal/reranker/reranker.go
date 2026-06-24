@@ -1,4 +1,4 @@
-package engine
+package reranker
 
 import (
 	"bytes"
@@ -8,20 +8,14 @@ import (
 	"net/http"
 	"sort"
 	"time"
+
+	"nadir/internal/store"
 )
 
-// Reranker scores (query, passage) pairs and returns chunks sorted by relevance.
-// Implementations: HTTPReranker (cross-encoder sidecar), nil (disabled).
 type Reranker interface {
-	Rerank(ctx context.Context, query string, chunks []ScoredChunk) ([]ScoredChunk, error)
+	Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error)
 }
 
-// HTTPReranker calls a cross-encoder sidecar at POST /rerank.
-// Expected sidecar: cmd/reranker/main.py (cross-encoder/ms-marco-MiniLM-L-6-v2).
-// Protocol:
-//
-//	request:  {"query": "...", "passages": ["text1", ...]}
-//	response: {"scores": [0.95, -2.3, ...]}  — parallel to passages, higher = more relevant
 type HTTPReranker struct {
 	addr   string
 	client *http.Client
@@ -45,7 +39,7 @@ func NewHTTPReranker(addr string) *HTTPReranker {
 	}
 }
 
-func (r *HTTPReranker) Rerank(ctx context.Context, query string, chunks []ScoredChunk) ([]ScoredChunk, error) {
+func (r *HTTPReranker) Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error) {
 	if len(chunks) == 0 {
 		return chunks, nil
 	}
@@ -84,7 +78,7 @@ func (r *HTTPReranker) Rerank(ctx context.Context, query string, chunks []Scored
 		return nil, fmt.Errorf("reranker score count mismatch: got %d, want %d", len(rrResp.Scores), len(chunks))
 	}
 
-	reranked := make([]ScoredChunk, len(chunks))
+	reranked := make([]store.ScoredChunk, len(chunks))
 	copy(reranked, chunks)
 	for i := range reranked {
 		reranked[i].Score = rrResp.Scores[i]

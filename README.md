@@ -6,9 +6,9 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 
 | Tool | Required? | Purpose |
 |------|-----------|---------|
-| Docker + Docker Compose | **Required** | Qdrant, sidecars (SPLADE, reranker), monitoring |
+| Docker + Docker Compose | **Required** | Qdrant, sidecars (reranker), monitoring |
 | Go 1.26+ | **Required** | Server + CLI |
-| Python 3.10+ | **Required** | SPLADE sidecar, reranker sidecar, PDF conversion |
+| Python 3.10+ | **Required** | Reranker sidecar, PDF conversion |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`nomic-embed-text`) and optional LLM features |
 
 ```bash
@@ -19,7 +19,6 @@ ollama pull nomic-embed-text
 
 ```bash
 # 1. Install sidecar dependencies (one-time)
-make splade-install
 make reranker-install
 make docling-install
 
@@ -27,7 +26,7 @@ make docling-install
 make dev
 ```
 
-`make dev` starts Qdrant, SPLADE sidecar, reranker sidecar, Prometheus, Grafana, Go server, then runs ingest automatically.
+`make dev` starts Qdrant, reranker sidecar, Prometheus, Grafana, Go server, then runs ingest automatically.
 
 Set your document path first — see [Config](#config).
 
@@ -45,7 +44,7 @@ If you get connection errors, see [Troubleshooting](#troubleshooting).
 
 ```bash
 # 1. Start Docker services (Qdrant, sidecars, monitoring)
-docker compose up -d qdrant splade reranker prometheus
+docker compose up -d qdrant reranker prometheus
 
 # 2. Start Go server
 make run
@@ -88,7 +87,6 @@ Key vars:
 |-----|--------------------------|---------|
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
 | `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
-| `SPLADE_ADDR` | `http://splade:5001` | SPLADE sidecar |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
@@ -101,7 +99,6 @@ Some features in `config/config.yaml` are off by default — enable when needed:
 
 | Feature | Config key | Notes |
 |---------|-----------|-------|
-| Chunk filtering | `chunk_filter.enabled: false` | Post-retrieval LLM filter; +10pp PopQA; requires Ollama LLM |
 | Answer generation | `generator.enabled: true` | Already on; POST `/search` with `"generate": true` |
 | Semantic cache | `semantic_cache.enabled: true` | Already on; reuses Qdrant |
 | Reranker | `reranker.enabled: true` | Already on; requires reranker sidecar |
@@ -122,7 +119,7 @@ POST /ingest → FileLister → Fetcher → Pipeline
                                          └── Store.Upsert (Qdrant)
 
 POST /search → Embedder → Store.HybridSearch (dense + BM25 → RRF)
-                                         └── [Reranker] → [ChunkFilter] → response
+                                         └── [Reranker] → response
 ```
 
 ## Run tests

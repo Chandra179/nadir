@@ -1,4 +1,4 @@
-package engine
+package cache
 
 import (
 	"context"
@@ -12,26 +12,23 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+
+	"nadir/internal/embedder"
+	"nadir/internal/store"
 )
 
-// SemanticCache caches search results keyed by query embedding similarity.
-// A query hitting the cache at score >= threshold returns the cached result directly,
-// skipping embedder + store + reranker round-trips.
 type SemanticCache struct {
 	conn       *grpc.ClientConn
 	points     qdrant.PointsClient
 	collection qdrant.CollectionsClient
 	name       string
-	embedder   Embedder
+	embedder   embedder.Embedder
 	threshold  float32
-	ttl        time.Duration // zero = no expiry
+	ttl        time.Duration
 	dimensions int
 }
 
-// NewSemanticCache connects to Qdrant at addr and creates a cache using a dedicated collection.
-// threshold: cosine similarity cutoff (0.85–0.95 typical).
-// ttl: how long entries live; zero disables expiry.
-func NewSemanticCache(addr, collection string, embedder Embedder, threshold float32, ttl time.Duration) (*SemanticCache, error) {
+func NewSemanticCache(addr, collection string, e embedder.Embedder, threshold float32, ttl time.Duration) (*SemanticCache, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("semantic cache dial %s: %w", addr, err)
@@ -41,19 +38,17 @@ func NewSemanticCache(addr, collection string, embedder Embedder, threshold floa
 		points:     qdrant.NewPointsClient(conn),
 		collection: qdrant.NewCollectionsClient(conn),
 		name:       collection,
-		embedder:   embedder,
+		embedder:   e,
 		threshold:  threshold,
 		ttl:        ttl,
-		dimensions: embedder.Dimensions(),
+		dimensions: e.Dimensions(),
 	}, nil
 }
 
-// Close releases the underlying gRPC connection.
 func (c *SemanticCache) Close() error {
 	return c.conn.Close()
 }
 
-// EnsureCollection creates the cache collection if it does not exist.
 func (c *SemanticCache) EnsureCollection(ctx context.Context) error {
 	_, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
 	if err == nil {
@@ -79,9 +74,7 @@ func (c *SemanticCache) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
-// Get embeds query and looks for a cache hit above the similarity threshold.
-// Returns (results, true, nil) on hit; (nil, false, nil) on miss; (nil, false, err) on error.
-func (c *SemanticCache) Get(ctx context.Context, query string) ([]ScoredChunk, bool, error) {
+func (c *SemanticCache) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
 	vec, err := c.embedder.Embed(ctx, query)
 	if err != nil {
 		return nil, false, fmt.Errorf("semantic cache embed: %w", err)
@@ -108,7 +101,7 @@ func (c *SemanticCache) Get(ctx context.Context, query string) ([]ScoredChunk, b
 			if ts, ok := tsRaw.Kind.(*qdrant.Value_StringValue); ok {
 				t, err := time.Parse(time.RFC3339, ts.StringValue)
 				if err == nil && time.Since(t) > c.ttl {
-					return nil, false, nil // expired
+					return nil, false, nil
 				}
 			}
 		}
@@ -119,15 +112,14 @@ func (c *SemanticCache) Get(ctx context.Context, query string) ([]ScoredChunk, b
 		return nil, false, nil
 	}
 
-	var chunks []ScoredChunk
+	var chunks []store.ScoredChunk
 	if err := json.Unmarshal([]byte(rawJSON), &chunks); err != nil {
 		return nil, false, fmt.Errorf("semantic cache decode: %w", err)
 	}
 	return chunks, true, nil
 }
 
-// Set stores query+results in the cache. Embedding is computed internally.
-func (c *SemanticCache) Set(ctx context.Context, query string, chunks []ScoredChunk) error {
+func (c *SemanticCache) Set(ctx context.Context, query string, chunks []store.ScoredChunk) error {
 	vec, err := c.embedder.Embed(ctx, query)
 	if err != nil {
 		return fmt.Errorf("semantic cache embed for set: %w", err)
@@ -138,13 +130,13 @@ func (c *SemanticCache) Set(ctx context.Context, query string, chunks []ScoredCh
 		return fmt.Errorf("semantic cache marshal: %w", err)
 	}
 
-	ns := uuid.MustParse("b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e")
+	ns := uuid.MustParse("b1c2d3e4-f5a6-7b8c-9d00-1f2a3b4c5d6e")
 	id := uuid.NewSHA1(ns, []byte(query)).String()
 
 	payload := map[string]*qdrant.Value{
-		"query":        strVal(query),
-		"results_json": strVal(string(raw)),
-		"cached_at":    strVal(time.Now().UTC().Format(time.RFC3339)),
+		"query":        storeStrVal(query),
+		"results_json": storeStrVal(string(raw)),
+		"cached_at":    storeStrVal(time.Now().UTC().Format(time.RFC3339)),
 	}
 
 	_, err = c.points.Upsert(ctx, &qdrant.UpsertPoints{
@@ -158,4 +150,17 @@ func (c *SemanticCache) Set(ctx context.Context, query string, chunks []ScoredCh
 		},
 	})
 	return err
+}
+
+func pbStr(p map[string]*qdrant.Value, key string) string {
+	if v, ok := p[key]; ok {
+		if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+			return s.StringValue
+		}
+	}
+	return ""
+}
+
+func storeStrVal(s string) *qdrant.Value {
+	return &qdrant.Value{Kind: &qdrant.Value_StringValue{StringValue: s}}
 }

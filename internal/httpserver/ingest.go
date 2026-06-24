@@ -4,19 +4,20 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"nadir/internal/engine"
+	"nadir/internal/ingest"
+	"nadir/internal/store"
 
 	"github.com/Chandra179/gosdk/logger"
 )
 
 type IngestHandler struct {
-	svc *engine.IngestService
+	svc *ingest.Service
 	log logger.Logger
 }
 
-func NewIngestHandler(lister engine.FileLister, pipeline *engine.Pipeline, fetcher engine.Fetcher, store engine.Store, log logger.Logger) *IngestHandler {
+func NewIngestHandler(roots []string, ignorePatterns []string, processor ingest.Processor, s store.Store, log logger.Logger) *IngestHandler {
 	return &IngestHandler{
-		svc: engine.NewIngestService(lister, pipeline, fetcher, store, log),
+		svc: ingest.NewService(roots, ignorePatterns, processor, s, log),
 		log: log,
 	}
 }

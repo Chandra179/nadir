@@ -10,8 +10,7 @@ middleware:
     level: dev  # dev | prod
 
 source:
-  path: "gitbook"           # legacy single dir; still works; override: SOURCE_PATH
-  # paths:                    # additional text dirs (merged with path above)
+  paths: # list of source directories to ingest
 
 ingest:
   ignore_patterns:
@@ -54,10 +53,6 @@ retry:
   max_interval: 10s
   multiplier: 2.0
 
-sparse_scorer:
-  provider: "splade"  # tf (default, zero deps) | splade (requires cmd/splade sidecar)
-  addr: "http://localhost:5001"
-
 reranker:
   enabled: true       # set true + run: python cmd/reranker/main.py
   addr: "http://localhost:5002"
@@ -74,9 +69,3 @@ generator:
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
-
-chunk_filter:
-  enabled: false      # drop irrelevant chunks post-retrieval (arxiv 2410.19572, +10pp PopQA)
-  ollama_addr: ""     # defaults to embedder.ollama_addr
-  model: "gemma3:1b"
-  threshold: 0.5      # 0–1; chunks with LLM score below this are dropped

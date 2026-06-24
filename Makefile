@@ -1,6 +1,6 @@
 .PHONY: vendor up run ingest search generate reset test test-all \
          eval eval-rag eval-both eval-chunk \
-         splade splade-install reranker reranker-install \
+         reranker reranker-install \
          docling docling-install \
          dev check
 
@@ -32,21 +32,25 @@ test:
 test-all:
 	go test -count=1 ./...
 
-# eval — run retrieval eval harness over eval/golden.yaml (requires Qdrant + Ollama running)
+# eval — run retrieval eval harness over a golden set YAML (requires Qdrant + Ollama running)
+# Usage: make eval golden=my-golden.yaml
 eval:
-	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval
+	go run ./cmd/eval -golden $(golden) -fetch-k 10 -mode retrieval
 
 # eval-rag — run RAGAS end-to-end eval (requires Qdrant + Ollama LLM for generation + judging)
+# Usage: make eval-rag golden=my-golden.yaml
 eval-rag:
-	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 5 -mode rag
+	go run ./cmd/eval -golden $(golden) -fetch-k 5 -mode rag
 
 # eval-both — run retrieval + RAGAS metrics in one pass
+# Usage: make eval-both golden=my-golden.yaml
 eval-both:
-	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode both
+	go run ./cmd/eval -golden $(golden) -fetch-k 10 -mode both
 
 # eval-chunk — retrieval eval at chunk granularity (paper-comparable; use with --fetch-k >= 10)
+# Usage: make eval-chunk golden=my-golden.yaml
 eval-chunk:
-	go run ./cmd/eval -golden eval/golden.yaml -fetch-k 10 -mode retrieval -granularity chunk
+	go run ./cmd/eval -golden $(golden) -fetch-k 10 -mode retrieval -granularity chunk
 
 ingest:
 	curl -X POST localhost:8080/ingest
@@ -65,14 +69,6 @@ generate:
 
 reset:
 	curl -X DELETE localhost:6333/collections/documents_chunks
-
-# splade-install — install Python deps for SPLADE sidecar (one-time)
-splade-install:
-	pip install fastembed fastapi uvicorn
-
-# splade — run SPLADE sidecar on :5001. Set sparse_scorer.provider: splade in config/config.yaml to activate.
-splade:
-	FASTEMBED_CACHE_PATH=$$HOME/.cache/fastembed python3 services/splade/main.py
 
 # reranker-install — install Python deps for reranker sidecar (one-time)
 reranker-install:

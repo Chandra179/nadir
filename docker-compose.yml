@@ -6,7 +6,6 @@ services:
     environment:
       - QDRANT_ADDR=qdrant:6334
       - OLLAMA_ADDR=http://host.docker.internal:11434
-      - SPLADE_ADDR=http://splade:5001
       - RERANKER_ADDR=http://reranker:5002
       - LOGGER_LEVEL=prod
       - QDRANT_COLLECTION=documents_chunks
@@ -15,8 +14,6 @@ services:
     restart: unless-stopped
     depends_on:
       qdrant:
-        condition: service_healthy
-      splade:
         condition: service_healthy
       reranker:
         condition: service_healthy
@@ -44,25 +41,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
-  splade:
-    build:
-      context: services/splade
-    ports:
-      - "5001:5001"
-    volumes:
-      - splade_model_cache:/root/.cache/fastembed
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   reranker:
     build:
@@ -118,5 +96,4 @@ services:
 volumes:
   qdrant_data:
   prometheus_data:
-  splade_model_cache:
   reranker_model_cache:

@@ -17,12 +17,10 @@ type Config struct {
 	Qdrant        QdrantConfig        `yaml:"qdrant"`
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
-	Retry         RetryConfig         `yaml:"retry"`
-	SparseScorer  SparseScorerConfig  `yaml:"sparse_scorer"`
-	Reranker      RerankerConfig      `yaml:"reranker"`
+	Retry         RetryConfig    `yaml:"retry"`
+	Reranker      RerankerConfig `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
-	ChunkFilter   ChunkFilterConfig   `yaml:"chunk_filter"`
 }
 
 type HTTPConfig struct {
@@ -94,11 +92,6 @@ type IngestConfig struct {
 	IgnorePatterns []string `yaml:"ignore_patterns"`
 }
 
-type SparseScorerConfig struct {
-	Provider string `yaml:"provider"` // "tf" (default) | "splade"
-	Addr     string `yaml:"addr"`     // sidecar addr for splade, e.g. http://localhost:5001
-}
-
 type RerankerConfig struct {
 	Enabled      bool   `yaml:"enabled"`
 	Addr         string `yaml:"addr"`          // sidecar addr, e.g. http://localhost:5002
@@ -117,13 +110,6 @@ type GeneratorConfig struct {
 	OllamaAddr       string `yaml:"ollama_addr"`        // defaults to embedder.ollama_addr if empty
 	Model            string `yaml:"model"`              // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
 	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
-}
-
-type ChunkFilterConfig struct {
-	Enabled    bool    `yaml:"enabled"`
-	OllamaAddr string  `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
-	Model      string  `yaml:"model"`
-	Threshold  float64 `yaml:"threshold"` // 0–1 relevance cutoff; chunks below are dropped (default 0.5)
 }
 
 func Load(path string) (*Config, error) {
@@ -161,9 +147,6 @@ func (c *Config) applyEnv() {
 	}
 	if v := os.Getenv("EMBEDDER_API_KEY"); v != "" {
 		c.Embedder.APIKey = v
-	}
-	if v := os.Getenv("SPLADE_ADDR"); v != "" {
-		c.SparseScorer.Addr = v
 	}
 	if v := os.Getenv("RERANKER_ADDR"); v != "" {
 		c.Reranker.Addr = v

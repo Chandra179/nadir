@@ -10,17 +10,20 @@ import (
 	"syscall"
 
 	"nadir/config"
+	"nadir/internal/embedder"
 	"nadir/internal/eval"
-	"nadir/internal/engine"
+	"nadir/internal/generator"
+	"nadir/internal/reranker"
+	"nadir/internal/search"
+	"nadir/internal/store"
 )
 
 const (
-	providerSplade           = "splade"
 	defaultRerankerCandidate = 3
 )
 
 func main() {
-	goldenPath := flag.String("golden", "eval/golden.yaml", "path to golden set YAML")
+	goldenPath := flag.String("golden", "", "path to golden set YAML (required)")
 	fetchK := flag.Int("fetch-k", 10, "candidates to retrieve per query")
 	configPath := flag.String("config", "config/config.yaml", "path to config.yaml")
 	mode := flag.String("mode", "retrieval", "eval mode: retrieval | rag | both")
@@ -31,6 +34,10 @@ func main() {
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("load config: %v", err)
+	}
+
+	if *goldenPath == "" {
+		log.Fatal("-golden is required")
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -88,7 +95,7 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 		judgeModel = cfg.Generator.Model
 	}
 
-	gen := engine.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+	gen := generator.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
 	judge := eval.NewOllamaJudge(ollamaAddr+"/v1", judgeModel, "")
 
 	evaluator := &eval.RAGASEvaluator{
@@ -103,37 +110,25 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 	eval.PrintRAGASReport(os.Stdout, rep)
 }
 
-func buildSearcher(ctx context.Context, cfg *config.Config) *engine.SearchService {
-	store, err := engine.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
+func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
+	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
 	if err != nil {
 		log.Fatalf("qdrant init: %v", err)
 	}
-	if cfg.SparseScorer.Provider == providerSplade {
-		store = store.WithSparseScorer(engine.NewSPLADESparseScorer(cfg.SparseScorer.Addr))
-	}
 
-	embedder := engine.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
-	if err := store.EnsureCollection(ctx, embedder.Dimensions()); err != nil {
+	e := embedder.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
+	if err := s.EnsureCollection(ctx, e.Dimensions()); err != nil {
 		log.Fatalf("ensure collection: %v", err)
 	}
 
-	searchService := engine.NewSearchService(embedder, store)
+	searchService := search.NewService(e, s)
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(engine.NewHTTPReranker(cfg.Reranker.Addr), mul)
-	}
-
-	if cfg.ChunkFilter.Enabled {
-		ollamaAddr := cfg.ChunkFilter.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		cf := engine.NewLLMChunkFilter(ollamaAddr+"/v1", cfg.ChunkFilter.Model, "", cfg.ChunkFilter.Threshold)
-		searchService.WithChunkFilter(cf)
+		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr), mul)
 	}
 
 	return searchService
