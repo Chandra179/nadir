@@ -18,17 +18,16 @@ ollama pull nomic-embed-text
 ## Quick start
 
 ```bash
-# 1. Install sidecar dependencies (one-time)
+# 1. Set your document path in config/config.yaml
+# 2. Install sidecar dependencies (one-time)
 make reranker-install
 make docling-install
 
-# 2. Start everything + ingest
+# 3. Start everything + ingest
 make dev
 ```
 
 `make dev` starts Qdrant, reranker sidecar, Prometheus, Grafana, Go server, then runs ingest automatically.
-
-Set your document path first — see [Config](#config).
 
 ### Verify it works
 
@@ -37,8 +36,6 @@ Set your document path first — see [Config](#config).
 make search
 # Expected: JSON response with "results" array containing scored chunks.
 ```
-
-If you get connection errors, see [Troubleshooting](#troubleshooting).
 
 ## Run separately
 
@@ -57,31 +54,20 @@ make ingest
 
 Config file: `config/config.yaml`. All keys with defaults are shown there — edit directly.
 
-### Minimal config to get started
+### Minimal config
 
 Only one thing to change: your document path.
 
 ```yaml
 # config/config.yaml
 source:
-  path: "~/documents"  # your text documents directory
+  paths:
+    - "~/documents"
 ```
 
 Everything else has sensible defaults. For a full reference of every knob, open `config/config.yaml`.
 
-### Document path
-
-Two ways to set:
-
-- Edit `source.path` in `config/config.yaml` (single directory)
-- Add extra dirs under `source.paths` (merged with `path`)
-- Env var override: `SOURCE_PATH=<path> make run`
-
 ### Env vars
-
-All env vars are defined in `docker-compose.yml` under each service's `environment:` block. Edit them there — do **not** set them in `.env` or shell exports for prod.
-
-Key vars:
 
 | Var | Default (docker-compose) | Purpose |
 |-----|--------------------------|---------|
@@ -93,16 +79,6 @@ Key vars:
 
 > `make dev` overrides these to `localhost:*` so Go server on host can reach Docker services.
 
-### Features disabled by default
-
-Some features in `config/config.yaml` are off by default — enable when needed:
-
-| Feature | Config key | Notes |
-|---------|-----------|-------|
-| Answer generation | `generator.enabled: true` | Already on; POST `/search` with `"generate": true` |
-| Semantic cache | `semantic_cache.enabled: true` | Already on; reuses Qdrant |
-| Reranker | `reranker.enabled: true` | Already on; requires reranker sidecar |
-
 ## Routes
 
 | Method | Path | Description |
@@ -113,13 +89,13 @@ Some features in `config/config.yaml` are off by default — enable when needed:
 ## Architecture
 
 ```
-POST /ingest → FileLister → Fetcher → Pipeline
-                                         ├── Chunker (heading→paragraph→sentence→word)
-                                         ├── Embedder (Ollama)
-                                         └── Store.Upsert (Qdrant)
+POST /ingest → ingest.Service (walk + SHA dedup) → Pipeline
+                                          ├── Chunker (heading→paragraph→sentence→word)
+                                          ├── Embedder (Ollama)
+                                          └── Store.Upsert (Qdrant)
 
 POST /search → Embedder → Store.HybridSearch (dense + BM25 → RRF)
-                                         └── [Reranker] → response
+                                          └── [Reranker] → response
 ```
 
 ## Run tests
@@ -129,8 +105,6 @@ POST /search → Embedder → Store.HybridSearch (dense + BM25 → RRF)
 ```bash
 make test        # unit tests only; runs in seconds
 ```
-
-Tests without infrastructure dependencies: chunk matching, ignore patterns.
 
 ## PDF ingestion
 
@@ -146,15 +120,12 @@ make ingest             # ingest converted markdown
 
 ### `make dev` fails with connection errors
 
-Ensure Docker is running and no other services occupy ports 6333/6334/5001/5002/8080. Run `make reset` to clear stale Qdrant state and retry.
+Ensure Docker is running and no other services occupy ports 6333/6334/5002/8080. Run `make reset` to clear stale Qdrant state and retry.
 
 ### Ollama connection refused
 
 ```bash
-# Check Ollama is running
 curl http://localhost:11434/api/tags
-
-# If not, start it manually
 ollama serve
 ```
 
@@ -162,8 +133,7 @@ ollama serve
 
 ```bash
 ollama pull nomic-embed-text
-# If using generator or chunk filter:
-ollama pull gemma3:1b
+ollama pull gemma3:1b   # for answer generation
 ```
 
 ### Qdrant gRPC errors
@@ -173,7 +143,6 @@ The server uses gRPC on port 6334 (not the REST API on 6333). If you see gRPC di
 ### Port already in use
 
 ```bash
-# Find what's using a port
 lsof -i :8080
-# Stop conflicting services, or change http.addr in config/config.yaml
+# Change http.addr in config/config.yaml if needed
 ```

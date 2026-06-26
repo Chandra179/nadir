@@ -127,7 +127,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	ingestHandler := NewIngestHandler(cfg.Source.AllPaths(), cfg.Ingest.IgnorePatterns, pipeline, s, log)
+	ingestHandler := NewIngestHandler(cfg.Source.Paths, cfg.Ingest.IgnorePatterns, pipeline, s, log)
 
 	mux := http.NewServeMux()
 	mux.Handle(routeSearch, globalChain(searchHandler))

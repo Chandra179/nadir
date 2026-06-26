@@ -34,8 +34,8 @@ make check                      # verify prereqs: docker, go, python3, ollama
 Single Go binary at `cmd/server/main.go`. Wiring in `internal/httpserver/server.go`.
 
 ```
-POST /ingest → IngestHandler → FileLister → Fetcher → Pipeline (chunk→embed→upsert)
-POST /search → SearchHandler → Embedder → HybridSearch → [Reranker] → [Generator]
+POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
+POST /search → SearchHandler → search.Service (embed→hybrid search→[reranker]) → [generator]
 GET  /healthz → 200
 ```
 
@@ -55,11 +55,11 @@ GET  /healthz → 200
 
 ## Key rules
 
-- Domain packages (`chunker/`, `embedder/`, `store/`, `ingest/`) must NOT import `engine/`, `httpserver/`, or `middleware/`
-- `engine/` must NOT import `httpserver/` or `middleware/`
+- Domain packages must NOT import `httpserver/` or `middleware/`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
-- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic, no collisions within the namespace
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `SOURCE_PATH`, `QDRANT_ADDR`, `OLLAMA_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`
+- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `OLLAMA_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `QDRANT_COLLECTION`, `EMBEDDER_API_KEY`
+- Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
 
 ## Addresses: local vs Docker
 
@@ -74,3 +74,13 @@ GET  /healthz → 200
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 
 `ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
+
+## Eval CLI
+
+Two binaries: `cmd/server` (the service) and `cmd/eval` (retrieval + RAGAS eval). Eval requires an explicit `-golden` path:
+```bash
+make eval golden=my-golden.yaml
+make eval-rag golden=my-golden.yaml
+```
+
+Eval does NOT ingest data — it queries an already-populated Qdrant collection. The golden set YAML uses suffix-based path matching (`math/trig.md` matches stored `gitbook/math/trig.md`). No golden set ships with the repo; you must provide one.

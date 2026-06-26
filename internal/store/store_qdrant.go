@@ -289,25 +289,6 @@ func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK in
 	return results, nil
 }
 
-func (s *QdrantStore) Search(ctx context.Context, vector []float32, topK int) ([]ScoredChunk, error) {
-	resp, err := s.points.Search(ctx, &qdrant.SearchPoints{
-		CollectionName: s.name,
-		Vector:         vector,
-		Limit:          uint64(topK),
-		WithPayload:    qdrant.NewWithPayload(true),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	results := make([]ScoredChunk, len(resp.Result))
-	for i, r := range resp.Result {
-		results[i] = chunkFromPayload(r.Payload)
-		results[i].Score = r.Score
-	}
-	return results, nil
-}
-
 func (s *QdrantStore) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
 	shas := make(map[string]string)
 	var offset *qdrant.PointId

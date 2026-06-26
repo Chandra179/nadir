@@ -12,7 +12,6 @@ type contextKey string
 const requestIDKey contextKey = "requestID"
 
 const headerKey = "X-Request-ID"
-const grpcMetaKey = "x-request-id" // gRPC metadata keys must be lowercase
 
 func generateRequestID() string {
 	b := make([]byte, 16)
@@ -23,12 +22,6 @@ func generateRequestID() string {
 // storeRequestID stores id into ctx and returns the updated context.
 func storeRequestID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, requestIDKey, id)
-}
-
-// GetRequestID retrieves the request ID from ctx. Returns "" if not set.
-func GetRequestID(ctx context.Context) string {
-	id, _ := ctx.Value(requestIDKey).(string)
-	return id
 }
 
 // RequestID is an HTTP middleware. It reads X-Request-ID from the request

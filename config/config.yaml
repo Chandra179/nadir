@@ -10,7 +10,7 @@ middleware:
     level: dev  # dev | prod
 
 source:
-  paths: # list of source directories to ingest
+  paths:                    # list of source directories to ingest; env: SOURCE_PATH
 
 ingest:
   ignore_patterns:

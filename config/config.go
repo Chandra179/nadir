@@ -17,8 +17,8 @@ type Config struct {
 	Qdrant        QdrantConfig        `yaml:"qdrant"`
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
-	Retry         RetryConfig    `yaml:"retry"`
-	Reranker      RerankerConfig `yaml:"reranker"`
+	Retry         RetryConfig         `yaml:"retry"`
+	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 }
@@ -40,23 +40,8 @@ type LoggerConfig struct {
 }
 
 // SourceConfig points to one or more local directories of text files.
-// Paths is the primary list; Path is kept for backward-compat and merged in.
 type SourceConfig struct {
-	Path  string   `yaml:"path"`  // legacy single-dir; still works
-	Paths []string `yaml:"paths"` // additional dirs (merged with Path at load time)
-}
-
-// AllPaths returns the deduplicated list of source roots.
-func (k SourceConfig) AllPaths() []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, p := range append([]string{k.Path}, k.Paths...) {
-		if p != "" && !seen[p] {
-			seen[p] = true
-			out = append(out, p)
-		}
-	}
-	return out
+	Paths []string `yaml:"paths"`
 }
 
 type QdrantConfig struct {
@@ -133,9 +118,6 @@ func Load(path string) (*Config, error) {
 // applyEnv overrides config fields from environment variables.
 // Env vars take precedence over config.yaml values.
 func (c *Config) applyEnv() {
-	if v := os.Getenv("SOURCE_PATH"); v != "" {
-		c.Source.Path = v
-	}
 	if v := os.Getenv("QDRANT_ADDR"); v != "" {
 		c.Qdrant.Addr = v
 	}

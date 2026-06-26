@@ -13,7 +13,7 @@ Documents flow through a RAG pipeline in eight stages. Six are implemented (inge
 
 ## Ingestion
 
-`IngestService.Run` lists files across one or more roots (`source.path` plus `source.paths`, merged and deduped via `AllPaths()`), filters out paths matching `ingest.ignore_patterns` (glob, with `dir/**` prefix matching), diffs each file's SHA-256 against the store in a single paginated scroll (`GetAllFileSHAs`, page size 1000), and dispatches changed files to 8 concurrent workers (`const ingestWorkers = 8`). Unchanged files are skipped; changed files are upserted in place by deterministic point ID.
+`IngestService.Run` lists files across one or more roots (`source.paths`), filters out paths matching `ingest.ignore_patterns` (glob, with `dir/**` prefix matching), diffs each file's SHA-256 against the store in a single paginated scroll (`GetAllFileSHAs`, page size 1000), and dispatches changed files to 8 concurrent workers (`const ingestWorkers = 8`). Unchanged files are skipped; changed files are upserted in place by deterministic point ID.
 
 * **Deterministic IDs** — `chunkID(filePath, lineStart, chunkIndex)` = UUIDv5 (`uuid.NewSHA1` over a private namespace). Same input always maps to the same point, so upserts replace rather than duplicate.
 * **Contextual embedding** — before embedding, each chunk is prefixed with `filePath > header\n` (or just `filePath\n` when the chunk has no heading) (`chunker.ContextualText`). This anchors chunk semantics to document structure without altering stored text. Embedding is batched: `OllamaEmbedder.EmbedBatch` sends every chunk in a file to Ollama `/api/embed` in one round-trip (`Pipeline` uses the `BatchEmbedder` fast-path).
