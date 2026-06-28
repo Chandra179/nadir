@@ -137,18 +137,21 @@ func (g *GeneratorAdapter) Generate(ctx context.Context, query string, chunks []
 
 // RAGASReport aggregates RAGAS metrics over a golden set.
 type RAGASReport struct {
-	NumQueries      int
-	Faithfulness    float64
-	AnswerRelevance float64
-	ContextPrecision float64
-	ContextRecall   float64
-	PerQuery        []RAGASQueryReport
+	NumQueries       int     `json:"num_queries"`
+	Faithfulness    float64 `json:"faithfulness"`
+	AnswerRelevance float64 `json:"answer_relevance"`
+	ContextPrecision float64 `json:"context_precision"`
+	ContextRecall   float64 `json:"context_recall"`
+	PerQuery        []RAGASQueryReport `json:"-"`
 }
 
 // RAGASQueryReport is the per-query RAGAS breakdown.
 type RAGASQueryReport struct {
 	Query            string
 	Answer           string
+	RetrievedFiles   []RetrievedFile `json:"retrieved_files,omitempty"`
+	LatencyMs        int64           `json:"latency_ms"`
+	GenerateMs       int64           `json:"generate_ms"`
 	Faithfulness     float64
 	AnswerRelevance  float64
 	ContextPrecision float64
@@ -178,12 +181,18 @@ func (e *RAGASEvaluator) Evaluate(ctx context.Context, gs *GoldenSet, searcher R
 	ctxRecallCount := 0
 
 	for _, gq := range gs.Queries {
+		graded := gq.GradedRelevance()
+
+		start := time.Now()
 		chunks, err := searcher.Search(ctx, gq.Query, fetchK, nil)
+		searchMs := time.Since(start).Milliseconds()
 		if err != nil {
 			return RAGASReport{}, fmt.Errorf("ragas: retrieve %q: %w", gq.Query, err)
 		}
 
+		genStart := time.Now()
 		answer, err := e.Generator.Generate(ctx, gq.Query, chunks)
+		genMs := time.Since(genStart).Milliseconds()
 		if err != nil {
 			return RAGASReport{}, fmt.Errorf("ragas: generate %q: %w", gq.Query, err)
 		}
@@ -191,8 +200,11 @@ func (e *RAGASEvaluator) Evaluate(ctx context.Context, gs *GoldenSet, searcher R
 		contextText := buildChunkContext(chunks)
 
 		qr := RAGASQueryReport{
-			Query:  gq.Query,
-			Answer: answer,
+			Query:          gq.Query,
+			Answer:         answer,
+			LatencyMs:      searchMs,
+			GenerateMs:     genMs,
+			RetrievedFiles: dedupRetrievedFiles(chunks, graded),
 		}
 
 		qr.Faithfulness, err = e.scoreFaithfulness(ctx, answer, contextText)

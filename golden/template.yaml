@@ -1,0 +1,68 @@
+# =============================================================================
+# Ground Truth Golden Set — Template
+# =============================================================================
+# 
+# Copy this file and fill in your own queries. The eval command compares
+# search results against these labels to compute Recall, Precision, NDCG,
+# and RAGAS metrics.
+#
+# Usage:
+#   make eval golden=golden/my-set.yaml
+#   make eval-rag golden=golden/my-set.yaml
+#   make eval-both golden=golden/my-set.yaml
+#
+# File matching is by SUFFIX — "math/trig.md" matches
+# "gitbook/math/trig.md" automatically. You don't need full paths.
+# =============================================================================
+
+queries:
+
+  # ── Minimal (retrieval-only) ──────────────────────────────────────────
+  - query: "secant formula"
+    expected_files:
+      - "numerical-methods.md"
+      - "trig-functions.md"
+
+  # ── With graded relevance (for NDCG) ─────────────────────────────────
+  - query: "derivative of sin"
+    expected_files:
+      - "calculus.md"
+    relevance:
+      "calculus.md": 3
+      "trig-functions.md": 2
+
+  # ── Full (retrieval + RAGAS) ─────────────────────────────────────────
+  - query: "eigenvalue definition"
+    expected_files:
+      - "linear-algebra.md"
+    relevance:
+      "linear-algebra.md": 3
+    expected_answer: "A vector v ≠ 0 is an eigenvector of A if A·v = λ·v, where λ is the eigenvalue."
+
+# =============================================================================
+# Field Reference
+# =============================================================================
+#
+# query:           string   (required)  The search query text.
+#
+# expected_files:  [string] (required)  File paths that are relevant.
+#                                        Suffix matching — you can write
+#                                        just the filename or a partial
+#                                        path like "chapter/trig.md".
+#
+# relevance:       {file: int} (optional) Graded relevance for NDCG:
+#                                          0 = irrelevant
+#                                          1 = marginal
+#                                          2 = relevant
+#                                          3 = highly relevant
+#                                        Overrides expected_files when set.
+#
+# expected_answer:  string   (optional) Ground-truth answer for RAGAS
+#                                        ContextRecall metric. Only needed
+#                                        if you run -mode rag or -mode both.
+#
+# notes:            string   (optional) Free-text annotation. Not used
+#                                        in metric computation.
+#
+# expected_headers: [string] (optional) Reserved for future use.
+# =============================================================================

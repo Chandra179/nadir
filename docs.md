@@ -61,7 +61,7 @@ Qdrant stores dense vectors alongside payload metadata:
 **Distance metric:** Cosine, exclusively (dense collection and semantic cache).
 
 **Server-side vs client-side hybrid.** The store supports both, selected at query time:
-* **Client-side (active)** — dense `Search` + BM25 `Scroll` + client SPLADE rescore + manual RRF. This is the only path wired in `server.go` today.
+* **Client-side (active)** — dense `searchWithFilter` + BM25 `Scroll` + client SPLADE rescore + manual RRF. This is the only path wired in `server.go` today.
 * **Server-side (exists, not wired)** — `QueryPoints` with dense+sparse prefetch legs and Qdrant-native `Fusion_RRF` in a single round-trip. Gated on `store.WithSparseEmbedder(...)`, which `server.go` never calls, so sparse vectors are never stored at ingest and this branch is unreachable in the current build.
 
 ***
@@ -119,7 +119,7 @@ Hybrid search fuses a dense leg and a sparse (BM25) leg. The client-side path fe
 * `header` — restrict to a specific section
 * `source_sha` — restrict to a specific document version
 
-Standalone dense `Search(ctx, vector, topK)` takes **no filter** — only the hybrid and keyword paths pre-filter. (The dense leg *inside* hybrid does apply the filter.)
+<!-- dense-only Search was removed; HybridSearch applies the filter to its dense leg internally -->
 
 ### Reranking
 
@@ -156,7 +156,7 @@ generator:
 
 > **Status: implemented (`internal/eval/` + `cmd/eval/`).**
 
-Two eval modes, both driven by a golden set YAML and run through the `cmd/eval` CLI:
+Two eval modes, both driven by a golden set YAML and run through the `cmd/eval` CLI. Place ground truth files in `golden/`; a reusable template with field docs is at `golden/template.yaml`. Sample golden set at `golden/samples.yaml` matches the `samples/` data.
 
 **Retrieval eval** (`-mode retrieval`) — `eval.Runner` runs each golden query through a `SearchService` (rebuilt with the same reranker/chunk-filter wiring as the server, minus semantic cache and generator) and `eval.Aggregate` scores the ranked list:
 
@@ -185,6 +185,8 @@ The judge calls Ollama's OpenAI-compatible `/v1/chat/completions`; the judge mod
 
 **CLI:** `go run ./cmd/eval -golden my-golden.yaml -fetch-k 10 -mode retrieval` (Make targets: `eval`, `eval-rag`, `eval-both`, `eval-chunk`, each requiring `golden=my-golden.yaml`). Flags: `-config` (default `config/config.yaml`), `-golden` (required), `-fetch-k` (default 10), `-mode` (retrieval|rag|both), `-granularity` (file|chunk), `-judge-model`. A warning is printed when `n < 50` (BEIR min ~1k).
 
+**Results persistence:** every run saves a timestamped JSON file to `results/` with meta (timestamp, golden path, mode, config), aggregate metrics, and per-query breakdowns including latency, retrieved files with scores, and generated answer (RAG mode). Results dir is gitignored.
+
 **Tests:** `internal/eval/{metrics,ragas,runner}_test.go` — metric math, RAGAS scoring with a stub judge, and runner aggregation. No integration tests against live Qdrant/Ollama.
 
 > The `EVAL_LLM_BASE_URL` / `EVAL_LLM_MODEL` / `EVAL_HISTORY_PATH` entries were removed from `.env.example` — they were never read by any code.
@@ -212,12 +214,7 @@ No chunker tests, no integration tests against live Qdrant/Ollama, no k6 load sc
 
 ## Monitor
 
-> **Status: scaffolded, broken on `main`.**
-
-* `docker-compose.yml` defines `prometheus` and `node-exporter` but **not** `grafana` or `k6`.
-* `scripts/dev-local.sh` runs `docker compose up ... grafana` — referencing a service the compose file does not define, so `make dev` errors on that line.
-* The compose file mounts `./config/prometheus.yml` and `./config/recording_rules.yml`, but neither file exists in `config/` (only `config.go` and `config.yaml`); Prometheus would fail to start as committed.
-* The Go app exposes **no `/metrics` endpoint** — only `POST /search`, `POST /ingest`, `GET /healthz`. OpenTelemetry metric SDK packages are indirect dependencies (via the logger) and unused for app metrics.
+> **Status: removed.** Prometheus, Grafana, and node-exporter were removed from `docker-compose.yml` and `scripts/dev-local.sh`. The Go app exposes only `POST /search`, `POST /ingest`, `GET /healthz` — no `/metrics` endpoint.
 
 ***
 
@@ -225,8 +222,7 @@ No chunker tests, no integration tests against live Qdrant/Ollama, no k6 load sc
 
 1. **Server-side hybrid search is not wired.** `server.go` calls `store.WithSparseScorer(...)` (client-side SPLADE rescore) but never `store.WithSparseEmbedder(...)`. Sparse vectors are not stored at ingest, so `hybridSearchServer` (the `QueryPoints` + native RRF path) is unreachable in the current build. Only client-side hybrid is active. (`cmd/eval`'s `buildSearcher` mirrors this — same gap.)
 2. **Modified files leave orphan chunks.** `IngestService.Run` upserts changed files by deterministic ID but never calls `DeleteByFile` (the method exists on the store, but is never invoked on the change path). Because `chunkID` is derived from `filePath:lineStart:chunkIndex`, an edit that shifts a chunk's `line_start` produces a new point while the old point remains — stale chunks are not garbage-collected.
-3. **Monitor infra is half-built.** See §Monitor — missing Prometheus config files, undefined Grafana service, no app metrics endpoint.
-4. **`embedder.api_key` / `EMBEDDER_API_KEY` is a dead config field.** It is parsed into `config.Embedder.APIKey` and surfaced in `.env.example`, but `OllamaEmbedder` is constructed with only `(addr, model, dimensions)` and sends no `Authorization` header, so the key is never used. (The RAGAS judge and chunk filter accept an API key, but both are constructed with `""`.)
+3. **`embedder.api_key` / `EMBEDDER_API_KEY` is a dead config field.** It is parsed into `config.Embedder.APIKey` and surfaced in `.env.example`, but `OllamaEmbedder` is constructed with only `(addr, model, dimensions)` and sends no `Authorization` header, so the key is never used. (The RAGAS judge and chunk filter accept an API key, but both are constructed with `""`.)
 
 ***
 

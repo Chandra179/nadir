@@ -247,38 +247,46 @@ func BootstrapCI(values []float64, B int, seed int64) (mean, low, high float64) 
 
 // Report aggregates per-query metrics over a run.
 type Report struct {
-	NumQueries   int
-	RecallAt5    float64
-	RecallAt10   float64
-	PrecisionAt5 float64
-	MRR          float64
-	NDCG10       float64
-	NDCG10Exp    float64
-	MAP          float64
-	SuccessAt5   float64
+	NumQueries   int         `json:"num_queries"`
+	RecallAt5    float64     `json:"recall_at_5"`
+	RecallAt10   float64     `json:"recall_at_10"`
+	PrecisionAt5 float64     `json:"precision_at_5"`
+	MRR          float64     `json:"mrr"`
+	NDCG10       float64     `json:"ndcg_at_10"`
+	NDCG10Exp    float64     `json:"ndcg_at_10_exp"`
+	MAP          float64     `json:"map"`
+	SuccessAt5   float64     `json:"success_at_5"`
 
 	// 95% bootstrap confidence intervals (lower, upper) for each aggregate.
-	RecallAt5CI    [2]float64
-	RecallAt10CI   [2]float64
-	NDCG10CI       [2]float64
-	MAPCI          [2]float64
+	RecallAt5CI    [2]float64 `json:"recall_at_5_ci"`
+	RecallAt10CI   [2]float64 `json:"recall_at_10_ci"`
+	NDCG10CI       [2]float64 `json:"ndcg_at_10_ci"`
+	MAPCI          [2]float64 `json:"map_ci"`
 
-	PerQuery []QueryReport
+	PerQuery []QueryReport `json:"-"`
+}
+
+// RetrievedFile is a single retrieved item with its relevance score.
+type RetrievedFile struct {
+	Path  string  `json:"path"`
+	Score float32 `json:"score"`
 }
 
 // QueryReport is the per-query breakdown for diagnosis.
 type QueryReport struct {
-	Query         string
-	ExpectedFiles []string
-	Retrieved     []string
-	RecallAt5     float64
-	RecallAt10    float64
-	PrecisionAt5  float64
-	RR            float64
-	NDCG10        float64
-	NDCG10Exp     float64
-	AP            float64
-	SuccessAt5    float64
+	Query          string
+	ExpectedFiles  []string
+	Retrieved      []string
+	RetrievedFiles []RetrievedFile `json:"retrieved_files,omitempty"`
+	LatencyMs      int64           `json:"latency_ms"`
+	RecallAt5      float64
+	RecallAt10     float64
+	PrecisionAt5   float64
+	RR             float64
+	NDCG10         float64
+	NDCG10Exp      float64
+	AP             float64
+	SuccessAt5     float64
 }
 
 // Aggregate builds a Report from per-query retrieved/graded pairs.

@@ -61,39 +61,6 @@ services:
       retries: 5
       start_period: 30s
 
-  prometheus:
-    image: prom/prometheus:latest
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./config/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-    restart: unless-stopped
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    pid: "host"
-    network_mode: "host"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    restart: unless-stopped
-
 volumes:
   qdrant_data:
-  prometheus_data:
   reranker_model_cache:

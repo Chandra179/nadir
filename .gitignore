@@ -47,4 +47,4 @@ venv/
 
 # compiled binaries
 /nadir
-/gen-qrels
+/gen-qrelsresults/

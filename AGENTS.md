@@ -9,7 +9,7 @@ go build ./cmd/server
 # Vendor deps (NOT committed — gitignored; run after adding imports)
 make vendor                     # go mod tidy && go mod vendor
 
-# Dev: Qdrant + sidecars + Prometheus + server + auto-ingest
+# Dev: Qdrant + sidecars + server + auto-ingest
 make dev                        # runs scripts/dev-local.sh (env overrides → localhost)
 
 # Run standalone (config/config.yaml, .env sourced)
@@ -75,12 +75,19 @@ GET  /healthz → 200
 
 `ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
 
+## Sample data
+
+`make dev` ingests from `source.paths` in config. A sample set lives at `samples/` (4 math markdown files). Add your own dirs to `source.paths` in `config/config.yaml`.
+
 ## Eval CLI
 
 Two binaries: `cmd/server` (the service) and `cmd/eval` (retrieval + RAGAS eval). Eval requires an explicit `-golden` path:
 ```bash
-make eval golden=my-golden.yaml
-make eval-rag golden=my-golden.yaml
+make eval golden=golden/my-set.yaml
+make eval-rag golden=golden/my-set.yaml
+make eval-both golden=golden/samples.yaml
 ```
 
-Eval does NOT ingest data — it queries an already-populated Qdrant collection. The golden set YAML uses suffix-based path matching (`math/trig.md` matches stored `gitbook/math/trig.md`). No golden set ships with the repo; you must provide one.
+Eval does NOT ingest data — it queries an already-populated Qdrant collection. The golden set YAML uses suffix-based path matching (`math/trig.md` matches stored `gitbook/math/trig.md`). Place ground truth files in `golden/`. A template with field docs is at `golden/template.yaml`.
+
+Run results are saved as timestamped JSON in `results/` (gitignored), containing aggregate metrics, per-query breakdowns, latency, and retrieved files with scores.

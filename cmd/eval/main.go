@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"nadir/config"
 	"nadir/internal/embedder"
@@ -59,20 +62,20 @@ func main() {
 
 	switch *mode {
 	case "retrieval":
-		runRetrieval(ctx, gs, searcher, *fetchK, *granularity)
+		runRetrieval(ctx, gs, searcher, *fetchK, *granularity, *goldenPath, cfg)
 	case "rag":
-		runRAG(ctx, gs, searcher, cfg, *fetchK, *judgeModel)
+		runRAG(ctx, gs, searcher, cfg, *fetchK, *judgeModel, *goldenPath)
 	case "both":
-		runRetrieval(ctx, gs, searcher, *fetchK, *granularity)
+		runRetrieval(ctx, gs, searcher, *fetchK, *granularity, *goldenPath, cfg)
 		fmt.Fprintln(os.Stdout)
 		fmt.Fprintln(os.Stdout, "=== RAG Evaluation (RAGAS) ===")
-		runRAG(ctx, gs, searcher, cfg, *fetchK, *judgeModel)
+		runRAG(ctx, gs, searcher, cfg, *fetchK, *judgeModel, *goldenPath)
 	default:
 		log.Fatalf("unknown mode %q (use: retrieval, rag, both)", *mode)
 	}
 }
 
-func runRetrieval(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, fetchK int, gran string) {
+func runRetrieval(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, fetchK int, gran string, goldenPath string, cfg *config.Config) {
 	g := eval.FileLevel
 	if gran == "chunk" {
 		g = eval.ChunkLevel
@@ -84,9 +87,10 @@ func runRetrieval(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriev
 		log.Fatalf("retrieval eval: %v", err)
 	}
 	eval.PrintReport(os.Stdout, rep)
+	saveRetrievalResults(rep, goldenPath, fetchK, gran, cfg)
 }
 
-func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cfg *config.Config, fetchK int, judgeModel string) {
+func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cfg *config.Config, fetchK int, judgeModel string, goldenPath string) {
 	ollamaAddr := cfg.Generator.OllamaAddr
 	if ollamaAddr == "" {
 		ollamaAddr = cfg.Embedder.OllamaAddr
@@ -108,6 +112,7 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 		log.Fatalf("RAG eval: %v", err)
 	}
 	eval.PrintRAGASReport(os.Stdout, rep)
+	saveRAGResults(rep, goldenPath, fetchK, cfg)
 }
 
 func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
@@ -132,4 +137,84 @@ func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
 	}
 
 	return searchService
+}
+
+// ---------------------------------------------------------------------------
+// Results persistence
+// ---------------------------------------------------------------------------
+
+type runMeta struct {
+	Timestamp   string `json:"timestamp"`
+	Golden      string `json:"golden"`
+	Mode        string `json:"mode"`
+	FetchK      int    `json:"fetch_k"`
+	Granularity string `json:"granularity,omitempty"`
+	Embedder    string `json:"embedder"`
+	Reranker    bool   `json:"reranker"`
+	Generator   string `json:"generator,omitempty"`
+}
+
+type retrievalOutput struct {
+	Meta      runMeta            `json:"meta"`
+	Aggregate eval.Report        `json:"aggregate"`
+	PerQuery  []eval.QueryReport `json:"queries"`
+}
+
+type ragasOutput struct {
+	Meta      runMeta                `json:"meta"`
+	Aggregate eval.RAGASReport       `json:"aggregate"`
+	PerQuery  []eval.RAGASQueryReport `json:"queries"`
+}
+
+func saveRetrievalResults(rep eval.Report, goldenPath string, fetchK int, gran string, cfg *config.Config) {
+	meta := runMeta{
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Golden:      goldenPath,
+		Mode:        "retrieval",
+		FetchK:      fetchK,
+		Granularity: gran,
+		Embedder:    cfg.Embedder.Model,
+		Reranker:    cfg.Reranker.Enabled,
+	}
+	out := retrievalOutput{Meta: meta, Aggregate: rep, PerQuery: rep.PerQuery}
+	saveJSON("retrieval", out)
+}
+
+func saveRAGResults(rep eval.RAGASReport, goldenPath string, fetchK int, cfg *config.Config) {
+	meta := runMeta{
+		Timestamp: time.Now().Format(time.RFC3339),
+		Golden:    goldenPath,
+		Mode:      "rag",
+		FetchK:    fetchK,
+		Embedder:  cfg.Embedder.Model,
+		Reranker:  cfg.Reranker.Enabled,
+		Generator: cfg.Generator.Model,
+	}
+	out := ragasOutput{Meta: meta, Aggregate: rep, PerQuery: rep.PerQuery}
+	saveJSON("rag", out)
+}
+
+func saveJSON(suffix string, v any) {
+	dir := "results"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		log.Printf("WARN: create results dir: %v", err)
+		return
+	}
+	ts := time.Now().Format("2006-01-02T15-04-05")
+	name := fmt.Sprintf("%s_%s.json", ts, suffix)
+	path := filepath.Join(dir, name)
+
+	f, err := os.Create(path)
+	if err != nil {
+		log.Printf("WARN: create result file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		log.Printf("WARN: encode results: %v", err)
+	}
+	fmt.Fprintf(os.Stderr, "results written to %s\n", path)
 }

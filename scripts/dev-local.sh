@@ -12,14 +12,18 @@ export RERANKER_ADDR=http://localhost:5002
 export OLLAMA_ADDR=http://localhost:11434
 export QDRANT_COLLECTION="${QDRANT_COLLECTION:-documents_chunks}"
 
-echo "==> Starting Qdrant, Reranker, Prometheus, Grafana..."
-docker compose up -d qdrant reranker prometheus grafana
+echo "==> Starting Qdrant, Reranker..."
+docker compose up -d --remove-orphans qdrant reranker
 
 echo "==> Waiting for Qdrant to be ready..."
 until curl -sf http://localhost:6333/healthz > /dev/null 2>&1; do sleep 1; done
 
 echo "==> Waiting for Reranker on :5002..."
 until curl -sf http://localhost:5002/health > /dev/null 2>&1; do sleep 1; done
+
+echo "==> Killing any process on :8080..."
+kill "$(lsof -ti :8080)" 2>/dev/null || true
+sleep 1
 
 echo "==> Starting server (background)..."
 go run ./cmd/server &

@@ -1,6 +1,6 @@
 module nadir
 
-go 1.26.1
+go 1.26
 
 require (
 	github.com/Chandra179/gosdk v0.0.0-20260412122738-95b5d4238faa

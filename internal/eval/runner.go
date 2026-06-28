@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"text/tabwriter"
+	"time"
 
 	"nadir/internal/store"
 )
@@ -45,20 +47,49 @@ func (r *Runner) Run(ctx context.Context, gs *GoldenSet, fetchK int) (Report, er
 	retrievedPerQuery := make([][]string, len(gs.Queries))
 	gradedPerQuery := make([]map[string]int, len(gs.Queries))
 	queries := make([]string, len(gs.Queries))
+	latencies := make([]int64, len(gs.Queries))
+	allChunks := make([][]store.ScoredChunk, len(gs.Queries))
 
 	for i, gq := range gs.Queries {
 		queries[i] = gq.Query
 		graded := gq.GradedRelevance()
 		gradedPerQuery[i] = graded
 
+		start := time.Now()
 		chunks, err := r.Searcher.Search(ctx, gq.Query, fetchK, nil)
+		latencies[i] = time.Since(start).Milliseconds()
 		if err != nil {
 			return Report{}, fmt.Errorf("eval: query %d %q: %w", i, gq.Query, err)
 		}
+		allChunks[i] = chunks
 		retrievedPerQuery[i] = r.rankItems(chunks, graded)
 	}
 
-	return Aggregate(retrievedPerQuery, gradedPerQuery, queries), nil
+	rep := Aggregate(retrievedPerQuery, gradedPerQuery, queries)
+
+	for i, chunks := range allChunks {
+		rep.PerQuery[i].RetrievedFiles = dedupRetrievedFiles(chunks, gradedPerQuery[i])
+		rep.PerQuery[i].LatencyMs = latencies[i]
+	}
+
+	return rep, nil
+}
+
+// dedupRetrievedFiles extracts the top score per dedupped file path.
+func dedupRetrievedFiles(chunks []store.ScoredChunk, graded map[string]int) []RetrievedFile {
+	seen := make(map[string]float32)
+	for _, c := range chunks {
+		id := mapToExpected(c.FilePath, graded)
+		if existing, ok := seen[id]; !ok || c.Score > existing {
+			seen[id] = c.Score
+		}
+	}
+	out := make([]RetrievedFile, 0, len(seen))
+	for p, s := range seen {
+		out = append(out, RetrievedFile{Path: p, Score: s})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	return out
 }
 
 // rankItems converts retrieved chunks into a ranked list of identifiers,
