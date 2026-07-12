@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/Chandra179/gosdk/logger"
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
@@ -20,9 +21,10 @@ type QdrantStore struct {
 	collection  qdrant.CollectionsClient
 	name        string
 	prefetchMul int
+	log         logger.Logger
 }
 
-func NewQdrantStore(addr, collection string, prefetchMul int) (*QdrantStore, error) {
+func NewQdrantStore(addr, collection string, prefetchMul int, log logger.Logger) (*QdrantStore, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("qdrant dial %s: %w", addr, err)
@@ -36,6 +38,7 @@ func NewQdrantStore(addr, collection string, prefetchMul int) (*QdrantStore, err
 		collection:  qdrant.NewCollectionsClient(conn),
 		name:        collection,
 		prefetchMul: prefetchMul,
+		log:         log,
 	}, nil
 }
 
@@ -195,7 +198,11 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 
 	bm25Results, err := s.KeywordSearch(ctx, query, fetchN, filter)
 	if err != nil {
-		return nil, fmt.Errorf("bm25 search: %w", err)
+		s.log.Warn(ctx, "bm25 leg failed, falling back to dense-only results", logger.Field{Key: "error", Value: err.Error()})
+		if len(denseResults) > topK {
+			denseResults = denseResults[:topK]
+		}
+		return denseResults, nil
 	}
 
 	rrfK := 60.0

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"nadir/internal/cache"
 	"nadir/internal/ingest"
 	"nadir/internal/store"
 
@@ -11,14 +12,16 @@ import (
 )
 
 type IngestHandler struct {
-	svc *ingest.Service
-	log logger.Logger
+	svc   *ingest.Service
+	cache *cache.SemanticCache
+	log   logger.Logger
 }
 
-func NewIngestHandler(roots []string, ignorePatterns []string, processor ingest.Processor, s store.Store, log logger.Logger) *IngestHandler {
+func NewIngestHandler(roots []string, ignorePatterns []string, processor ingest.Processor, s store.Store, c *cache.SemanticCache, log logger.Logger) *IngestHandler {
 	return &IngestHandler{
-		svc: ingest.NewService(roots, ignorePatterns, processor, s, log),
-		log: log,
+		svc:   ingest.NewService(roots, ignorePatterns, processor, s, log),
+		cache: c,
+		log:   log,
 	}
 }
 
@@ -31,6 +34,12 @@ type ingestResponse struct {
 
 func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if h.cache != nil {
+		if err := h.cache.Clear(ctx); err != nil {
+			h.log.Warn(ctx, "failed to clear semantic cache before ingest", logger.Field{Key: "error", Value: err.Error()})
+		}
+	}
 
 	result, err := h.svc.Run(ctx)
 

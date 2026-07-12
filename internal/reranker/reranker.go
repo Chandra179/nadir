@@ -19,6 +19,7 @@ type Reranker interface {
 type HTTPReranker struct {
 	addr   string
 	client *http.Client
+	sem    chan struct{}
 }
 
 type rerankRequest struct {
@@ -30,17 +31,26 @@ type rerankResponse struct {
 	Scores []float32 `json:"scores"`
 }
 
-func NewHTTPReranker(addr string) *HTTPReranker {
+func NewHTTPReranker(addr string, maxConcurrent int) *HTTPReranker {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 10
+	}
 	return &HTTPReranker{
-		addr: addr,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		addr:   addr,
+		client: &http.Client{Timeout: 30 * time.Second},
+		sem:    make(chan struct{}, maxConcurrent),
 	}
 }
 
 func (r *HTTPReranker) Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error) {
 	if len(chunks) == 0 {
+		return chunks, nil
+	}
+
+	select {
+	case r.sem <- struct{}{}:
+		defer func() { <-r.sem }()
+	case <-ctx.Done():
 		return chunks, nil
 	}
 

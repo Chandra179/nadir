@@ -10,6 +10,8 @@ import (
 	"nadir/internal/embedder"
 	"nadir/internal/reranker"
 	"nadir/internal/store"
+
+	"github.com/Chandra179/gosdk/logger"
 )
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
@@ -19,10 +21,11 @@ type Service struct {
 	store        store.Store
 	reranker     reranker.Reranker
 	candidateMul int
+	log          logger.Logger
 }
 
-func NewService(embedder embedder.Embedder, s store.Store) *Service {
-	return &Service{embedder: embedder, store: s}
+func NewService(embedder embedder.Embedder, s store.Store, log logger.Logger) *Service {
+	return &Service{embedder: embedder, store: s, log: log}
 }
 
 func (s *Service) WithReranker(r reranker.Reranker, candidateMul int) *Service {
@@ -67,11 +70,12 @@ func (s *Service) postProcess(ctx context.Context, query string, chunks []store.
 	if s.reranker != nil && len(chunks) > 0 {
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
-			return nil, fmt.Errorf("rerank failed: %w", err)
-		}
-		chunks = reranked
-		if len(chunks) > topK {
-			chunks = chunks[:topK]
+			s.log.Warn(ctx, "reranker failed, falling back to un-reranked results", logger.Field{Key: "error", Value: err.Error()})
+		} else {
+			chunks = reranked
+			if len(chunks) > topK {
+				chunks = chunks[:topK]
+			}
 		}
 	}
 

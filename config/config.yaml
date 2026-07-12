@@ -58,6 +58,7 @@ reranker:
   enabled: true       # set true + run: python cmd/reranker/main.py
   addr: "http://localhost:5002"
   candidate_mul: 2     # fetch topK*2 candidates before reranking
+  max_concurrent: 10   # max concurrent reranker calls to sidecar
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)

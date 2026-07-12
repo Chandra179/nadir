@@ -81,6 +81,7 @@ type RerankerConfig struct {
 	Enabled      bool   `yaml:"enabled"`
 	Addr         string `yaml:"addr"`          // sidecar addr, e.g. http://localhost:5002
 	CandidateMul int    `yaml:"candidate_mul"` // fetch topK*candidate_mul before reranking (default 3)
+	MaxConcurrent int   `yaml:"max_concurrent"` // max concurrent reranker calls (default 10)
 }
 
 type SemanticCacheConfig struct {

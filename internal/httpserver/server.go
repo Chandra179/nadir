@@ -44,7 +44,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
+	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul, log)
 	if err != nil {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
@@ -76,18 +76,20 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Multiplier:      cfg.Retry.Multiplier,
 	})
 
-	searchService := search.NewService(e, s)
+	searchService := search.NewService(e, s, log)
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr, cfg.Reranker.MaxConcurrent), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
 
 	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK)
+
+	var semanticCache *cache.SemanticCache
 
 	if cfg.SemanticCache.Enabled {
 		col := cfg.SemanticCache.Collection
@@ -98,14 +100,15 @@ func Server(ctx context.Context, cfg *config.Config) {
 		if threshold == 0 {
 			threshold = defaultCacheThreshold
 		}
-		sc, err := cache.NewSemanticCache(cfg.Qdrant.Addr, col, e, threshold, cfg.SemanticCache.TTL)
+		var err error
+		semanticCache, err = cache.NewSemanticCache(cfg.Qdrant.Addr, col, e, threshold, cfg.SemanticCache.TTL)
 		if err != nil {
 			log.Error(context.Background(), "semantic cache init failed", logger.Field{Key: "error", Value: err.Error()})
 		} else {
-			if err := sc.EnsureCollection(context.Background()); err != nil {
+			if err := semanticCache.EnsureCollection(context.Background()); err != nil {
 				log.Error(context.Background(), "semantic cache ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
 			} else {
-				searchHandler.WithSemanticCache(sc)
+				searchHandler.WithSemanticCache(semanticCache)
 				log.Info(context.Background(), "semantic cache enabled",
 					logger.Field{Key: "collection", Value: col},
 					logger.Field{Key: "threshold", Value: threshold},
@@ -127,7 +130,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	ingestHandler := NewIngestHandler(cfg.Source.Paths, cfg.Ingest.IgnorePatterns, pipeline, s, log)
+	ingestHandler := NewIngestHandler(cfg.Source.Paths, cfg.Ingest.IgnorePatterns, pipeline, s, semanticCache, log)
 
 	mux := http.NewServeMux()
 	mux.Handle(routeSearch, globalChain(searchHandler))

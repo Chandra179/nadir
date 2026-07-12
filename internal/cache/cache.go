@@ -49,6 +49,18 @@ func (c *SemanticCache) Close() error {
 	return c.conn.Close()
 }
 
+func (c *SemanticCache) Clear(ctx context.Context) error {
+	_, err := c.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: c.name,
+		Points: &qdrant.PointsSelector{
+			PointsSelectorOneOf: &qdrant.PointsSelector_Filter{
+				Filter: &qdrant.Filter{},
+			},
+		},
+	})
+	return err
+}
+
 func (c *SemanticCache) EnsureCollection(ctx context.Context) error {
 	_, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
 	if err == nil {

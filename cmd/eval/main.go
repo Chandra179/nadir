@@ -19,6 +19,8 @@ import (
 	"nadir/internal/reranker"
 	"nadir/internal/search"
 	"nadir/internal/store"
+
+	"github.com/Chandra179/gosdk/logger"
 )
 
 const (
@@ -116,7 +118,9 @@ func runRAG(ctx context.Context, gs *eval.GoldenSet, searcher eval.Retriever, cf
 }
 
 func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
-	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul)
+	appLog := logger.NewLogger(cfg.Middleware.Logger.Level)
+
+	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul, appLog)
 	if err != nil {
 		log.Fatalf("qdrant init: %v", err)
 	}
@@ -126,14 +130,14 @@ func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
 		log.Fatalf("ensure collection: %v", err)
 	}
 
-	searchService := search.NewService(e, s)
+	searchService := search.NewService(e, s, appLog)
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr), mul)
+		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr, cfg.Reranker.MaxConcurrent), mul)
 	}
 
 	return searchService
