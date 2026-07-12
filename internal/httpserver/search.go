@@ -36,7 +36,7 @@ type SearchHandler struct {
 	searcher      *search.Service
 	topK          int
 	generator     generator.Generator
-	semanticCache *cache.SemanticCache
+	semanticCache cache.Cache
 }
 
 func NewSearchHandler(searcher *search.Service, topK int) *SearchHandler {
@@ -48,7 +48,7 @@ func (h *SearchHandler) WithGenerator(g generator.Generator) *SearchHandler {
 	return h
 }
 
-func (h *SearchHandler) WithSemanticCache(sc *cache.SemanticCache) *SearchHandler {
+func (h *SearchHandler) WithSemanticCache(sc cache.Cache) *SearchHandler {
 	h.semanticCache = sc
 	return h
 }

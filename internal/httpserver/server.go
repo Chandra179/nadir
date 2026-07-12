@@ -89,7 +89,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 
 	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK)
 
-	var semanticCache *cache.SemanticCache
+	var semanticCache cache.Cache
 
 	if cfg.SemanticCache.Enabled {
 		col := cfg.SemanticCache.Collection
