@@ -29,6 +29,10 @@ ingest:
     - "*.jsonc"
     - "build.sh"
     - "CLAUDE.md"
+  max_attempts: 3
+  initial_interval: 500ms
+  max_interval: 10s
+  multiplier: 2.0
 
 qdrant:
   addr: "localhost:6334"
@@ -47,12 +51,6 @@ chunker:
   chunk_size: 512
   chunk_overlap: 64
   window_size: 3          # sentences before+after each sentence (sentence-window only)
-
-retry:
-  max_attempts: 3
-  initial_interval: 500ms
-  max_interval: 10s
-  multiplier: 2.0
 
 reranker:
   enabled: true       # set true + run: python cmd/reranker/main.py

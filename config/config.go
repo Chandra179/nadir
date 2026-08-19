@@ -17,7 +17,6 @@ type Config struct {
 	Qdrant        QdrantConfig        `yaml:"qdrant"`
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
-	Retry         RetryConfig         `yaml:"retry"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
@@ -66,22 +65,20 @@ type ChunkerConfig struct {
 	WindowSize   int    `yaml:"window_size"` // sentences before+after each sentence; used by sentence-window provider
 }
 
-type RetryConfig struct {
+// IngestConfig also controls the backoff used for retrying embed calls during ingest.
+type IngestConfig struct {
+	IgnorePatterns  []string      `yaml:"ignore_patterns"`
 	MaxAttempts     uint64        `yaml:"max_attempts"`
 	InitialInterval time.Duration `yaml:"initial_interval"`
 	MaxInterval     time.Duration `yaml:"max_interval"`
 	Multiplier      float64       `yaml:"multiplier"`
 }
 
-type IngestConfig struct {
-	IgnorePatterns []string `yaml:"ignore_patterns"`
-}
-
 type RerankerConfig struct {
-	Enabled      bool   `yaml:"enabled"`
-	Addr         string `yaml:"addr"`          // sidecar addr, e.g. http://localhost:5002
-	CandidateMul int    `yaml:"candidate_mul"` // fetch topK*candidate_mul before reranking (default 3)
-	MaxConcurrent int   `yaml:"max_concurrent"` // max concurrent reranker calls (default 10)
+	Enabled       bool   `yaml:"enabled"`
+	Addr          string `yaml:"addr"`           // sidecar addr, e.g. http://localhost:5002
+	CandidateMul  int    `yaml:"candidate_mul"`  // fetch topK*candidate_mul before reranking (default 3)
+	MaxConcurrent int    `yaml:"max_concurrent"` // max concurrent reranker calls (default 10)
 }
 
 type SemanticCacheConfig struct {

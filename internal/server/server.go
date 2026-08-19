@@ -1,4 +1,4 @@
-package httpserver
+package server
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"nadir/config"
+	"nadir/internal/api"
 	"nadir/internal/cache"
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
@@ -17,6 +18,10 @@ import (
 	"nadir/internal/store"
 
 	"github.com/Chandra179/gosdk/logger"
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -26,23 +31,26 @@ const (
 	defaultRerankerCandidate = 3
 	defaultCacheCollection   = "search_cache"
 	defaultCacheThreshold    = 0.90
-
-	routeSearch = "POST /search"
-	routeIngest = "POST /ingest"
-	routeHealth = "GET /healthz"
 )
 
 func Server(ctx context.Context, cfg *config.Config) {
 	log := logger.NewLogger(cfg.Middleware.Logger.Level)
-	deps := middleware.NewDependencies(log)
 
-	globalChain := func(h http.Handler) http.Handler {
-		return middleware.Chain(h,
-			deps.Recovery(),
-			middleware.RequestID,
-			middleware.Timeout(middleware.TimeoutConfig{Duration: cfg.Middleware.Timeout}),
-		)
+	zapLevel := zapcore.InfoLevel
+	_ = zapLevel.UnmarshalText([]byte(cfg.Middleware.Logger.Level))
+	zapCfg := zap.NewProductionConfig()
+	zapCfg.Level = zap.NewAtomicLevelAt(zapLevel)
+	zapLogger, err := zapCfg.Build()
+	if err != nil {
+		log.Error(context.Background(), "zap logger init failed", logger.Field{Key: "error", Value: err.Error()})
+		return
 	}
+	defer zapLogger.Sync()
+
+	deps := middleware.NewDependencies(middleware.DependenciesConfig{
+		Logger:   zapLogger,
+		Registry: prometheus.NewRegistry(),
+	})
 
 	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul, log)
 	if err != nil {
@@ -69,25 +77,55 @@ func Server(ctx context.Context, cfg *config.Config) {
 		chunkr = chunker.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
 	}
 
-	pipeline := ingest.NewPipeline(chunkr, e, s, ingest.PipelineConfig{
-		MaxAttempts:     cfg.Retry.MaxAttempts,
-		InitialInterval: cfg.Retry.InitialInterval,
-		MaxInterval:     cfg.Retry.MaxInterval,
-		Multiplier:      cfg.Retry.Multiplier,
+	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
+		Roots:          cfg.Source.Paths,
+		IgnorePatterns: cfg.Ingest.IgnorePatterns,
+		Chunker:        chunkr,
+		Embedder:       e,
+		Store:          s,
+		Retry: ingest.RetryConfig{
+			MaxAttempts:     cfg.Ingest.MaxAttempts,
+			InitialInterval: cfg.Ingest.InitialInterval,
+			MaxInterval:     cfg.Ingest.MaxInterval,
+			Multiplier:      cfg.Ingest.Multiplier,
+		},
+		Log: log,
 	})
 
-	searchService := search.NewService(e, s, log)
+	searchService := search.NewDependencies(search.DependenciesConfig{Embedder: e, Store: s, Log: log})
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr, cfg.Reranker.MaxConcurrent), mul)
+		searchService.WithReranker(reranker.NewDependencies(reranker.DependenciesConfig{
+			Addr:          cfg.Reranker.Addr,
+			MaxConcurrent: cfg.Reranker.MaxConcurrent,
+		}), mul)
 		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
 	}
 
-	searchHandler := NewSearchHandler(searchService, cfg.Qdrant.TopK)
+	var gen generator.Generator
+	if cfg.Generator.Enabled {
+		ollamaAddr := cfg.Generator.OllamaAddr
+		if ollamaAddr == "" {
+			ollamaAddr = cfg.Embedder.OllamaAddr
+		}
+		gen = generator.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+		log.Info(context.Background(), "LLM generator enabled",
+			logger.Field{Key: "model", Value: cfg.Generator.Model},
+			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
+		)
+	}
+
+	apiDeps := api.NewDependencies(api.DependenciesConfig{
+		Search:    searchService,
+		Ingest:    ingestDeps,
+		Generator: gen,
+		TopK:      cfg.Qdrant.TopK,
+		Log:       log,
+	})
 
 	var semanticCache cache.Cache
 
@@ -108,7 +146,8 @@ func Server(ctx context.Context, cfg *config.Config) {
 			if err := semanticCache.EnsureCollection(context.Background()); err != nil {
 				log.Error(context.Background(), "semantic cache ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
 			} else {
-				searchHandler.WithSemanticCache(semanticCache)
+				searchService.WithSemanticCache(semanticCache)
+				ingestDeps.WithCache(semanticCache)
 				log.Info(context.Background(), "semantic cache enabled",
 					logger.Field{Key: "collection", Value: col},
 					logger.Field{Key: "threshold", Value: threshold},
@@ -117,31 +156,13 @@ func Server(ctx context.Context, cfg *config.Config) {
 		}
 	}
 
-	if cfg.Generator.Enabled {
-		ollamaAddr := cfg.Generator.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
-		gen := generator.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
-		searchHandler.WithGenerator(gen)
-		log.Info(context.Background(), "LLM generator enabled",
-			logger.Field{Key: "model", Value: cfg.Generator.Model},
-			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
-		)
-	}
-
-	ingestHandler := NewIngestHandler(cfg.Source.Paths, cfg.Ingest.IgnorePatterns, pipeline, s, semanticCache, log)
-
-	mux := http.NewServeMux()
-	mux.Handle(routeSearch, globalChain(searchHandler))
-	mux.Handle(routeIngest, globalChain(ingestHandler))
-	mux.HandleFunc(routeHealth, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+	engine := gin.New()
+	engine.Use(gin.Recovery(), middleware.RequestID, deps.RequestLog(), deps.Metrics())
+	router := api.NewRouter(engine, apiDeps)
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,

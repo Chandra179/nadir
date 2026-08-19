@@ -130,14 +130,17 @@ func buildSearcher(ctx context.Context, cfg *config.Config) *search.Service {
 		log.Fatalf("ensure collection: %v", err)
 	}
 
-	searchService := search.NewService(e, s, appLog)
+	searchService := search.NewDependencies(search.DependenciesConfig{Embedder: e, Store: s, Log: appLog})
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
 		if mul < 1 {
 			mul = defaultRerankerCandidate
 		}
-		searchService.WithReranker(reranker.NewHTTPReranker(cfg.Reranker.Addr, cfg.Reranker.MaxConcurrent), mul)
+		searchService.WithReranker(reranker.NewDependencies(reranker.DependenciesConfig{
+			Addr:          cfg.Reranker.Addr,
+			MaxConcurrent: cfg.Reranker.MaxConcurrent,
+		}), mul)
 	}
 
 	return searchService
@@ -165,8 +168,8 @@ type retrievalOutput struct {
 }
 
 type ragasOutput struct {
-	Meta      runMeta                `json:"meta"`
-	Aggregate eval.RAGASReport       `json:"aggregate"`
+	Meta      runMeta                 `json:"meta"`
+	Aggregate eval.RAGASReport        `json:"aggregate"`
 	PerQuery  []eval.RAGASQueryReport `json:"queries"`
 }
 

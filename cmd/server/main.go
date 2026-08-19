@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"nadir/config"
-	"nadir/internal/httpserver"
+	"nadir/internal/server"
 )
 
 func main() {
@@ -20,5 +20,5 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	httpserver.Server(ctx, cfg)
+	server.Server(ctx, cfg)
 }

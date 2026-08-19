@@ -7,20 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"time"
 
 	"nadir/internal/store"
 )
-
-type Reranker interface {
-	Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error)
-}
-
-type HTTPReranker struct {
-	addr   string
-	client *http.Client
-	sem    chan struct{}
-}
 
 type rerankRequest struct {
 	Query    string   `json:"query"`
@@ -31,18 +20,7 @@ type rerankResponse struct {
 	Scores []float32 `json:"scores"`
 }
 
-func NewHTTPReranker(addr string, maxConcurrent int) *HTTPReranker {
-	if maxConcurrent <= 0 {
-		maxConcurrent = 10
-	}
-	return &HTTPReranker{
-		addr:   addr,
-		client: &http.Client{Timeout: 30 * time.Second},
-		sem:    make(chan struct{}, maxConcurrent),
-	}
-}
-
-func (r *HTTPReranker) Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error) {
+func (r *dependencies) Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error) {
 	if len(chunks) == 0 {
 		return chunks, nil
 	}

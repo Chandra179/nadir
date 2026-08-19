@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"nadir/internal/embedder"
-	"nadir/internal/reranker"
 	"nadir/internal/store"
 
 	"github.com/Chandra179/gosdk/logger"
@@ -16,28 +14,7 @@ import (
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-type Service struct {
-	embedder     embedder.Embedder
-	store        store.Store
-	reranker     reranker.Reranker
-	candidateMul int
-	log          logger.Logger
-}
-
-func NewService(embedder embedder.Embedder, s store.Store, log logger.Logger) *Service {
-	return &Service{embedder: embedder, store: s, log: log}
-}
-
-func (s *Service) WithReranker(r reranker.Reranker, candidateMul int) *Service {
-	s.reranker = r
-	if candidateMul < 1 {
-		candidateMul = 3
-	}
-	s.candidateMul = candidateMul
-	return s
-}
-
-func (s *Service) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *Dependencies) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -52,7 +29,42 @@ func (s *Service) Search(ctx context.Context, query string, topK int, filter *st
 	return s.postProcess(ctx, query, chunks, topK)
 }
 
-func (s *Service) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+// Query is the top-level entry point for a search request: it dispatches to
+// keyword or semantic search and, for semantic queries, transparently
+// consults the semantic cache before searching and writes back on miss.
+// skipCache bypasses the cache (e.g. the caller wants a fresh generation
+// answer rather than a cached one). fromCache reports whether the result
+// came from the cache.
+func (s *Dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
+	if keyword != "" {
+		chunks, err = s.KeywordSearch(ctx, keyword, topK, filter)
+		return chunks, false, err
+	}
+
+	if s.cache != nil && !skipCache && query != "" {
+		if cached, hit, cerr := s.cache.Get(ctx, query); cerr == nil && hit {
+			if len(cached) > topK {
+				cached = cached[:topK]
+			}
+			return cached, true, nil
+		}
+	}
+
+	chunks, err = s.Search(ctx, query, topK, filter)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if s.cache != nil && query != "" && len(chunks) > 0 {
+		go func() {
+			_ = s.cache.Set(context.Background(), query, chunks)
+		}()
+	}
+
+	return chunks, false, nil
+}
+
+func (s *Dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -66,7 +78,7 @@ func (s *Service) KeywordSearch(ctx context.Context, keyword string, topK int, f
 	return s.postProcess(ctx, keyword, chunks, topK)
 }
 
-func (s *Service) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
+func (s *Dependencies) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
 	if s.reranker != nil && len(chunks) > 0 {
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
@@ -82,7 +94,7 @@ func (s *Service) postProcess(ctx context.Context, query string, chunks []store.
 	return chunks, nil
 }
 
-func (s *Service) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *Dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fragments := splitFragments(query)
 	seen := make(map[string]store.ScoredChunk)
 	for _, frag := range fragments {

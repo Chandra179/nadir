@@ -6,11 +6,8 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$ROOT"
 
-# Override docker-internal hostnames with localhost for host-side Go server
-export QDRANT_ADDR=localhost:6334
-export RERANKER_ADDR=http://localhost:5002
-export OLLAMA_ADDR=http://localhost:11434
-export QDRANT_COLLECTION="${QDRANT_COLLECTION:-documents_chunks}"
+# addrs come from config/config.yaml (already localhost for host-side server);
+# only override here if you need something config.yaml doesn't already have.
 
 echo "==> Starting Qdrant, Reranker..."
 docker compose up -d --remove-orphans qdrant reranker
