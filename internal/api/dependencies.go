@@ -11,16 +11,16 @@ import (
 // DependenciesConfig groups everything needed to construct the API
 // dependencies.
 type DependenciesConfig struct {
-	Search    *search.Dependencies
-	Ingest    *ingest.Dependencies
+	Search    search.Search
+	Ingest    ingest.Ingest
 	Generator generator.Generator
 	TopK      int
 	Log       logger.Logger
 }
 
 type dependencies struct {
-	search    *search.Dependencies
-	ingest    *ingest.Dependencies
+	search    search.Search
+	ingest    ingest.Ingest
 	generator generator.Generator
 	topK      int
 	log       logger.Logger

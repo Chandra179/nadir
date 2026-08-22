@@ -20,7 +20,7 @@ make test                       # unit tests only, no Docker (-short -count=1 ./
 make test-all                   # all tests, requires Qdrant
 go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 
-# Quick ops (server must be on :8080)
+# Quick ops (server must be on :8100)
 make ingest                     # POST /ingest
 make search                     # POST /search "secant formula"
 make generate                   # POST /search with generate=true (streams LLM)

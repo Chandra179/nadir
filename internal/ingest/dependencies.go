@@ -36,7 +36,7 @@ type DependenciesConfig struct {
 // dependencies walks configured source directories, dedups files by
 // SHA-256 against what's already stored, and for each new/changed file
 // runs chunk -> embed -> upsert.
-type Dependencies struct {
+type dependencies struct {
 	roots    []string
 	patterns []string
 	chunker  chunker.Chunker
@@ -47,8 +47,8 @@ type Dependencies struct {
 	log      logger.Logger
 }
 
-func NewDependencies(cfg DependenciesConfig) *Dependencies {
-	return &Dependencies{
+func NewDependencies(cfg DependenciesConfig) *dependencies {
+	return &dependencies{
 		roots:    cfg.Roots,
 		patterns: cfg.IgnorePatterns,
 		chunker:  cfg.Chunker,
@@ -61,7 +61,7 @@ func NewDependencies(cfg DependenciesConfig) *Dependencies {
 
 // WithCache enables clearing the semantic cache at the start of every Run,
 // since a fresh ingest can make cached results stale.
-func (d *Dependencies) WithCache(c cache.Cache) *Dependencies {
+func (d *dependencies) WithCache(c cache.Cache) *dependencies {
 	d.cache = c
 	return d
 }

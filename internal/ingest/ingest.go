@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"nadir/internal/chunker"
 	"nadir/internal/embedder"
 	"nadir/internal/store"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
-func (d *Dependencies) Run(ctx context.Context) (Result, error) {
+func (d *dependencies) Run(ctx context.Context) (Result, error) {
 	if d.cache != nil {
 		if err := d.cache.Clear(ctx); err != nil {
 			d.log.Warn(ctx, "failed to clear semantic cache before ingest", logger.Field{Key: "error", Value: err.Error()})
@@ -83,7 +82,7 @@ type fileInfo struct {
 	sha  string
 }
 
-func (d *Dependencies) listFiles(_ context.Context) ([]fileInfo, error) {
+func (d *dependencies) listFiles(_ context.Context) ([]fileInfo, error) {
 	var files []fileInfo
 	for _, root := range d.roots {
 		if err := d.walk(root, &files); err != nil {
@@ -93,7 +92,7 @@ func (d *Dependencies) listFiles(_ context.Context) ([]fileInfo, error) {
 	return files, nil
 }
 
-func (d *Dependencies) walk(root string, files *[]fileInfo) error {
+func (d *dependencies) walk(root string, files *[]fileInfo) error {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		absRoot = root
@@ -120,7 +119,7 @@ func (d *Dependencies) walk(root string, files *[]fileInfo) error {
 	})
 }
 
-func (d *Dependencies) shouldIgnore(path string) bool {
+func (d *dependencies) shouldIgnore(path string) bool {
 	for _, p := range d.patterns {
 		if matchPattern(p, path) {
 			return true
@@ -149,7 +148,7 @@ func matchPattern(pattern, path string) bool {
 }
 
 // ingestFile chunks, embeds, and upserts a single file's content.
-func (d *Dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA string) error {
+func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA string) error {
 	chunks, err := d.chunker.Chunk(text, filePath)
 	if err != nil {
 		return fmt.Errorf("chunk %s: %w", filePath, err)
@@ -157,7 +156,7 @@ func (d *Dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 
 	embedTexts := make([]string, len(chunks))
 	for i, c := range chunks {
-		embedTexts[i] = chunker.ContextualText(c)
+		embedTexts[i] = d.chunker.ContextualText(c)
 	}
 
 	var vecs [][]float32
@@ -204,7 +203,7 @@ func (d *Dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	return nil
 }
 
-func (d *Dependencies) newBackoff() backoff.BackOff {
+func (d *dependencies) newBackoff() backoff.BackOff {
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = d.cfg.InitialInterval
 	b.MaxInterval = d.cfg.MaxInterval

@@ -1,18 +1,12 @@
 package chunker
 
 import (
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
-)
-
-var (
-	reHTMLComment = regexp.MustCompile(`<!--.*?-->`)
-	reTOCLine     = regexp.MustCompile(`(?m)^.{1,80}\s+\d+\s*$`)
 )
 
 func nodeToPlainText(n ast.Node, src []byte) string {
@@ -58,22 +52,7 @@ func nodeToPlainText(n ast.Node, src []byte) string {
 	return sb.String()
 }
 
-type RecursiveChunker struct {
-	chunkSize    int
-	chunkOverlap int
-	tocThreshold float64
-}
-
-func NewRecursiveChunker(chunkSize, chunkOverlap int) *RecursiveChunker {
-	return &RecursiveChunker{chunkSize: chunkSize, chunkOverlap: chunkOverlap, tocThreshold: 0.6}
-}
-
-func (c *RecursiveChunker) WithTOCThreshold(t float64) *RecursiveChunker {
-	c.tocThreshold = t
-	return c
-}
-
-func (c *RecursiveChunker) isTOCChunk(text string) bool {
+func (c *dependencies) isTOCChunk(text string) bool {
 	if c.tocThreshold <= 0 {
 		return false
 	}
@@ -102,7 +81,7 @@ type section struct {
 	text      string
 }
 
-func (c *RecursiveChunker) Chunk(rawText, filePath string) ([]Chunk, error) {
+func (c *dependencies) chunkRecursive(rawText, filePath string) ([]Chunk, error) {
 	rawText = reHTMLComment.ReplaceAllString(rawText, "")
 
 	sections := extractSections(rawText)
@@ -188,7 +167,7 @@ func extractSections(rawText string) []section {
 	return sections
 }
 
-func (c *RecursiveChunker) splitText(text string) []string {
+func (c *dependencies) splitText(text string) []string {
 	if utf8.RuneCountInString(text) <= c.chunkSize {
 		return []string{text}
 	}
@@ -202,7 +181,7 @@ func (c *RecursiveChunker) splitText(text string) []string {
 	return hardSplit(text, c.chunkSize, c.chunkOverlap)
 }
 
-func (c *RecursiveChunker) mergeSplits(parts []string, sep string) []string {
+func (c *dependencies) mergeSplits(parts []string, sep string) []string {
 	var chunks []string
 	current := ""
 	for _, p := range parts {

@@ -1,5 +1,5 @@
 http:
-  addr: ":8080"
+  addr: ":8100"
   read_timeout: 5s
   write_timeout: 35s
   idle_timeout: 120s

@@ -9,41 +9,11 @@ import (
 	"github.com/Chandra179/gosdk/logger"
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
-type QdrantStore struct {
-	conn        *grpc.ClientConn
-	points      qdrant.PointsClient
-	collection  qdrant.CollectionsClient
-	name        string
-	prefetchMul int
-	log         logger.Logger
-}
-
-func NewQdrantStore(addr, collection string, prefetchMul int, log logger.Logger) (*QdrantStore, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("qdrant dial %s: %w", addr, err)
-	}
-	if prefetchMul <= 0 {
-		prefetchMul = 5
-	}
-	return &QdrantStore{
-		conn:        conn,
-		points:      qdrant.NewPointsClient(conn),
-		collection:  qdrant.NewCollectionsClient(conn),
-		name:        collection,
-		prefetchMul: prefetchMul,
-		log:         log,
-	}, nil
-}
-
-
-func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) error {
+func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
 	if err != nil {
 		if status.Code(err) != codes.NotFound {
@@ -89,7 +59,7 @@ func (s *QdrantStore) EnsureCollection(ctx context.Context, dimensions int) erro
 	return nil
 }
 
-func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
+func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := chunkID(c.FilePath, c.LineStart, c.ChunkIndex)
@@ -114,7 +84,7 @@ func (s *QdrantStore) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	return err
 }
 
-func (s *QdrantStore) DeleteByFile(ctx context.Context, filePath string) error {
+func (s *dependencies) DeleteByFile(ctx context.Context, filePath string) error {
 	_, err := s.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: s.name,
 		Points: &qdrant.PointsSelector{
@@ -184,11 +154,11 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 	return &qdrant.Filter{Must: conds}
 }
 
-func (s *QdrantStore) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	return s.hybridSearchClient(ctx, vector, query, topK, filter)
 }
 
-func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	fetchN := topK * s.prefetchMul
 
 	denseResults, err := s.searchWithFilter(ctx, vector, fetchN, filter)
@@ -250,7 +220,7 @@ func (s *QdrantStore) hybridSearchClient(ctx context.Context, vector []float32, 
 	return merged, nil
 }
 
-func (s *QdrantStore) searchWithFilter(ctx context.Context, vector []float32, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) searchWithFilter(ctx context.Context, vector []float32, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
 	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
@@ -276,7 +246,7 @@ func sortChunksByScore(chunks []ScoredChunk) {
 	sort.Slice(chunks, func(i, j int) bool { return chunks[i].Score > chunks[j].Score })
 }
 
-func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
 	conds := append([]*qdrant.Condition{qdrant.NewMatchText("text", keyword)}, buildFilterConditions(filter)...)
 	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 		CollectionName: s.name,
@@ -296,7 +266,7 @@ func (s *QdrantStore) KeywordSearch(ctx context.Context, keyword string, topK in
 	return results, nil
 }
 
-func (s *QdrantStore) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
+func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
 	shas := make(map[string]string)
 	var offset *qdrant.PointId
 	pageSize := uint32(1000)

@@ -18,23 +18,23 @@ until curl -sf http://localhost:6333/healthz > /dev/null 2>&1; do sleep 1; done
 echo "==> Waiting for Reranker on :5002..."
 until curl -sf http://localhost:5002/health > /dev/null 2>&1; do sleep 1; done
 
-echo "==> Killing any process on :8080..."
-kill "$(lsof -ti :8080)" 2>/dev/null || true
+echo "==> Killing any process on :8100..."
+kill "$(lsof -ti :8100)" 2>/dev/null || true
 sleep 1
 
 echo "==> Starting server (background)..."
 go run ./cmd/server &
 SERVER_PID=$!
 
-echo "==> Waiting for server on :8080..."
-until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do sleep 1; done
+echo "==> Waiting for server on :8100..."
+until curl -sf http://localhost:8100/healthz > /dev/null 2>&1; do sleep 1; done
 
 echo "==> Ingesting documents..."
-curl -sf -X POST localhost:8080/ingest
+curl -sf -X POST localhost:8100/ingest
 
 echo ""
 echo "Local stack running. Server PID=$SERVER_PID"
-echo "  Search: curl -X POST localhost:8080/search -H 'Content-Type: application/json' -d '{\"query\":\"...\",\"top_k\":5}'"
+echo "  Search: curl -X POST localhost:8100/search -H 'Content-Type: application/json' -d '{\"query\":\"...\",\"top_k\":5}'"
 echo "  Stop:   kill $SERVER_PID && docker compose down"
 
 wait "$SERVER_PID"

@@ -8,25 +8,9 @@ import (
 	"net/http"
 )
 
-type OllamaEmbedder struct {
-	addr       string
-	model      string
-	dimensions int
-	client     *http.Client
-}
+func (e *dependencies) Dimensions() int { return e.dimensions }
 
-func NewOllamaEmbedder(addr, model string, dimensions int) *OllamaEmbedder {
-	return &OllamaEmbedder{
-		addr:       addr,
-		model:      model,
-		dimensions: dimensions,
-		client:     &http.Client{},
-	}
-}
-
-func (e *OllamaEmbedder) Dimensions() int { return e.dimensions }
-
-func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+func (e *dependencies) Embed(ctx context.Context, text string) ([]float32, error) {
 	vecs, err := e.EmbedBatch(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -34,7 +18,7 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	return vecs[0], nil
 }
 
-func (e *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	body, _ := json.Marshal(map[string]any{"model": e.model, "input": texts})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.addr+"/api/embed", bytes.NewReader(body))
 	if err != nil {

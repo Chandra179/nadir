@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "8100:8100"
     environment:
       - QDRANT_ADDR=qdrant:6334
       - OLLAMA_ADDR=http://host.docker.internal:11434
@@ -18,7 +18,7 @@ services:
       reranker:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8100/healthz"]
       interval: 10s
       timeout: 3s
       retries: 5

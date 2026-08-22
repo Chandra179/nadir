@@ -14,7 +14,7 @@ import (
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *Dependencies) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -35,7 +35,7 @@ func (s *Dependencies) Search(ctx context.Context, query string, topK int, filte
 // skipCache bypasses the cache (e.g. the caller wants a fresh generation
 // answer rather than a cached one). fromCache reports whether the result
 // came from the cache.
-func (s *Dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
+func (s *dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
 	if keyword != "" {
 		chunks, err = s.KeywordSearch(ctx, keyword, topK, filter)
 		return chunks, false, err
@@ -64,7 +64,7 @@ func (s *Dependencies) Query(ctx context.Context, query, keyword string, topK in
 	return chunks, false, nil
 }
 
-func (s *Dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -78,7 +78,7 @@ func (s *Dependencies) KeywordSearch(ctx context.Context, keyword string, topK i
 	return s.postProcess(ctx, keyword, chunks, topK)
 }
 
-func (s *Dependencies) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
+func (s *dependencies) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
 	if s.reranker != nil && len(chunks) > 0 {
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
@@ -94,7 +94,7 @@ func (s *Dependencies) postProcess(ctx context.Context, query string, chunks []s
 	return chunks, nil
 }
 
-func (s *Dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fragments := splitFragments(query)
 	seen := make(map[string]store.ScoredChunk)
 	for _, frag := range fragments {

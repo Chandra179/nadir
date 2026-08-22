@@ -42,7 +42,7 @@ This starts Qdrant + reranker, runs the Go server, ingests all source files, and
 ```bash
 make search
 # or with a custom query:
-curl -X POST localhost:8080/search \
+curl -X POST localhost:8100/search \
   -H "Content-Type: application/json" \
   -d '{"query":"secant formula","top_k":5}'
 ```
@@ -52,7 +52,7 @@ curl -X POST localhost:8080/search \
 ```bash
 make generate
 # or:
-curl -X POST localhost:8080/search \
+curl -X POST localhost:8100/search \
   -H "Content-Type: application/json" \
   -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
 ```
@@ -71,7 +71,7 @@ source:
     - "/another/directory"
 ```
 
-Then run `make dev` again (or `curl -X POST localhost:8080/ingest` on a running server). Only new/changed files are processed (SHA-256 dedup).
+Then run `make dev` again (or `curl -X POST localhost:8100/ingest` on a running server). Only new/changed files are processed (SHA-256 dedup).
 
 ## Eval (retrieval quality)
 
@@ -210,7 +210,7 @@ make ingest             # ingest converted markdown
 
 ### `make dev` fails with connection errors
 
-Ensure Docker is running and no other services occupy ports 6333/6334/5002/8080. Run `make reset` to clear stale Qdrant state and retry.
+Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Run `make reset` to clear stale Qdrant state and retry.
 
 ### Ollama connection refused
 
@@ -233,6 +233,6 @@ The server uses gRPC on port 6334 (not the REST API on 6333). If you see gRPC di
 ### Port already in use
 
 ```bash
-lsof -i :8080
+lsof -i :8100
 # Change http.addr in config/config.yaml if needed
 ```

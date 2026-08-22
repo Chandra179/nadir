@@ -8,48 +8,17 @@ import (
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	"nadir/internal/embedder"
 	"nadir/internal/store"
 )
 
-type SemanticCache struct {
-	conn       *grpc.ClientConn
-	points     qdrant.PointsClient
-	collection qdrant.CollectionsClient
-	name       string
-	embedder   embedder.Embedder
-	threshold  float32
-	ttl        time.Duration
-	dimensions int
-}
-
-func NewSemanticCache(addr, collection string, e embedder.Embedder, threshold float32, ttl time.Duration) (*SemanticCache, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("semantic cache dial %s: %w", addr, err)
-	}
-	return &SemanticCache{
-		conn:       conn,
-		points:     qdrant.NewPointsClient(conn),
-		collection: qdrant.NewCollectionsClient(conn),
-		name:       collection,
-		embedder:   e,
-		threshold:  threshold,
-		ttl:        ttl,
-		dimensions: e.Dimensions(),
-	}, nil
-}
-
-func (c *SemanticCache) Close() error {
+func (c *dependencies) Close() error {
 	return c.conn.Close()
 }
 
-func (c *SemanticCache) Clear(ctx context.Context) error {
+func (c *dependencies) Clear(ctx context.Context) error {
 	_, err := c.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: c.name,
 		Points: &qdrant.PointsSelector{
@@ -61,7 +30,7 @@ func (c *SemanticCache) Clear(ctx context.Context) error {
 	return err
 }
 
-func (c *SemanticCache) EnsureCollection(ctx context.Context) error {
+func (c *dependencies) EnsureCollection(ctx context.Context) error {
 	_, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
 	if err == nil {
 		return nil
@@ -86,7 +55,7 @@ func (c *SemanticCache) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
-func (c *SemanticCache) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
+func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
 	vec, err := c.embedder.Embed(ctx, query)
 	if err != nil {
 		return nil, false, fmt.Errorf("semantic cache embed: %w", err)
@@ -131,7 +100,7 @@ func (c *SemanticCache) Get(ctx context.Context, query string) ([]store.ScoredCh
 	return chunks, true, nil
 }
 
-func (c *SemanticCache) Set(ctx context.Context, query string, chunks []store.ScoredChunk) error {
+func (c *dependencies) Set(ctx context.Context, query string, chunks []store.ScoredChunk) error {
 	vec, err := c.embedder.Embed(ctx, query)
 	if err != nil {
 		return fmt.Errorf("semantic cache embed for set: %w", err)

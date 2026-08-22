@@ -1,21 +1,10 @@
 package chunker
 
 import (
-	"regexp"
 	"strings"
 )
 
-var sentenceRe = regexp.MustCompile(`[.!?]+[\s]+`)
-
-type SentenceWindowChunker struct {
-	windowSize int
-}
-
-func NewSentenceWindowChunker(windowSize int) *SentenceWindowChunker {
-	return &SentenceWindowChunker{windowSize: windowSize}
-}
-
-func (c *SentenceWindowChunker) Chunk(rawText, filePath string) ([]Chunk, error) {
+func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, error) {
 	sections := extractSections(rawText)
 	var chunks []Chunk
 	for _, sec := range sections {

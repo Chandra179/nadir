@@ -10,35 +10,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"nadir/internal/store"
 )
-
-type Generator interface {
-	Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error)
-}
-
-type OllamaGenerator struct {
-	addr             string
-	model            string
-	maxContextTokens int
-	client           *http.Client
-}
-
-func NewOllamaGenerator(addr, model string, maxContextTokens int) *OllamaGenerator {
-	if maxContextTokens <= 0 {
-		maxContextTokens = 2800
-	}
-	return &OllamaGenerator{
-		addr:             addr,
-		model:            model,
-		maxContextTokens: maxContextTokens,
-		client: &http.Client{
-			Timeout: 120 * time.Second,
-		},
-	}
-}
 
 type ollamaChatRequest struct {
 	Model    string          `json:"model"`
@@ -56,7 +30,7 @@ type ollamaChatChunk struct {
 	Done    bool          `json:"done"`
 }
 
-func (g *OllamaGenerator) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error) {
+func (g *dependencies) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error) {
 	prompt := buildPrompt(query, chunks, g.maxContextTokens)
 	log.Printf("[generator] RAG context passed to LLM:\n%s", prompt)
 

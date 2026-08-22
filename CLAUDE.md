@@ -26,10 +26,10 @@ go test -short -count=1 ./...              # unit tests only, no Docker
 go test -count=1 ./...                     # all tests, requires Qdrant
 go test -run TestMatchPattern ./internal/ingest/   # focused package test
 
-# Quick ops (server must be on :8080)
-curl -X POST localhost:8080/ingest
-curl -X POST localhost:8080/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":10}'
-curl -X POST localhost:8080/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
+# Quick ops (server must be on :8100)
+curl -X POST localhost:8100/ingest
+curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":10}'
+curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 

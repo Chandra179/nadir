@@ -17,7 +17,7 @@ type DependenciesConfig struct {
 	Log      logger.Logger
 }
 
-type Dependencies struct {
+type dependencies struct {
 	embedder     embedder.Embedder
 	store        store.Store
 	reranker     reranker.Reranker
@@ -26,11 +26,11 @@ type Dependencies struct {
 	log          logger.Logger
 }
 
-func NewDependencies(cfg DependenciesConfig) *Dependencies {
-	return &Dependencies{embedder: cfg.Embedder, store: cfg.Store, log: cfg.Log}
+func NewDependencies(cfg DependenciesConfig) *dependencies {
+	return &dependencies{embedder: cfg.Embedder, store: cfg.Store, log: cfg.Log}
 }
 
-func (s *Dependencies) WithReranker(r reranker.Reranker, candidateMul int) *Dependencies {
+func (s *dependencies) WithReranker(r reranker.Reranker, candidateMul int) *dependencies {
 	s.reranker = r
 	if candidateMul < 1 {
 		candidateMul = 3
@@ -41,7 +41,7 @@ func (s *Dependencies) WithReranker(r reranker.Reranker, candidateMul int) *Depe
 
 // WithSemanticCache enables the semantic cache lookup/writeback performed by
 // Query.
-func (s *Dependencies) WithSemanticCache(c cache.Cache) *Dependencies {
+func (s *dependencies) WithSemanticCache(c cache.Cache) *dependencies {
 	s.cache = c
 	return s
 }

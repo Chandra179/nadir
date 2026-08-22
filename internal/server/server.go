@@ -25,12 +25,7 @@ import (
 )
 
 const (
-	providerSentenceWindow = "sentence-window"
-
-	defaultWindowSize        = 3
 	defaultRerankerCandidate = 3
-	defaultCacheCollection   = "search_cache"
-	defaultCacheThreshold    = 0.90
 )
 
 func Server(ctx context.Context, cfg *config.Config) {
@@ -52,29 +47,36 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Registry: prometheus.NewRegistry(),
 	})
 
-	s, err := store.NewQdrantStore(cfg.Qdrant.Addr, cfg.Qdrant.Collection, cfg.Qdrant.PrefetchMul, log)
+	s, err := store.NewDependencies(store.DependenciesConfig{
+		Addr:        cfg.Qdrant.Addr,
+		Collection:  cfg.Qdrant.Collection,
+		PrefetchMul: cfg.Qdrant.PrefetchMul,
+		Log:         log,
+	})
 	if err != nil {
 		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
 
-	e := embedder.NewOllamaEmbedder(cfg.Embedder.OllamaAddr, cfg.Embedder.Model, cfg.Embedder.Dimensions)
+	e := embedder.NewDependencies(embedder.DependenciesConfig{
+		Addr:       cfg.Embedder.OllamaAddr,
+		Model:      cfg.Embedder.Model,
+		Dimensions: cfg.Embedder.Dimensions,
+	})
 
 	if err := s.EnsureCollection(context.Background(), e.Dimensions()); err != nil {
 		log.Error(context.Background(), "qdrant ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
 
-	var chunkr chunker.Chunker
-	if cfg.Chunker.Provider == providerSentenceWindow {
-		windowSize := cfg.Chunker.WindowSize
-		if windowSize <= 0 {
-			windowSize = defaultWindowSize
-		}
-		chunkr = chunker.NewSentenceWindowChunker(windowSize)
-		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: windowSize})
-	} else {
-		chunkr = chunker.NewRecursiveChunker(cfg.Chunker.ChunkSize, cfg.Chunker.ChunkOverlap)
+	chunkr := chunker.NewDependencies(chunker.DependenciesConfig{
+		Provider:     cfg.Chunker.Provider,
+		ChunkSize:    cfg.Chunker.ChunkSize,
+		ChunkOverlap: cfg.Chunker.ChunkOverlap,
+		WindowSize:   cfg.Chunker.WindowSize,
+	})
+	if cfg.Chunker.Provider == chunker.ProviderSentenceWindow {
+		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: cfg.Chunker.WindowSize})
 	}
 
 	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
@@ -112,7 +114,11 @@ func Server(ctx context.Context, cfg *config.Config) {
 		if ollamaAddr == "" {
 			ollamaAddr = cfg.Embedder.OllamaAddr
 		}
-		gen = generator.NewOllamaGenerator(ollamaAddr, cfg.Generator.Model, cfg.Generator.MaxContextTokens)
+		gen = generator.NewDependencies(generator.DependenciesConfig{
+			Addr:             ollamaAddr,
+			Model:            cfg.Generator.Model,
+			MaxContextTokens: cfg.Generator.MaxContextTokens,
+		})
 		log.Info(context.Background(), "LLM generator enabled",
 			logger.Field{Key: "model", Value: cfg.Generator.Model},
 			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
@@ -130,16 +136,14 @@ func Server(ctx context.Context, cfg *config.Config) {
 	var semanticCache cache.Cache
 
 	if cfg.SemanticCache.Enabled {
-		col := cfg.SemanticCache.Collection
-		if col == "" {
-			col = defaultCacheCollection
-		}
-		threshold := cfg.SemanticCache.Threshold
-		if threshold == 0 {
-			threshold = defaultCacheThreshold
-		}
 		var err error
-		semanticCache, err = cache.NewSemanticCache(cfg.Qdrant.Addr, col, e, threshold, cfg.SemanticCache.TTL)
+		semanticCache, err = cache.NewDependencies(cache.DependenciesConfig{
+			Addr:       cfg.Qdrant.Addr,
+			Collection: cfg.SemanticCache.Collection,
+			Embedder:   e,
+			Threshold:  cfg.SemanticCache.Threshold,
+			TTL:        cfg.SemanticCache.TTL,
+		})
 		if err != nil {
 			log.Error(context.Background(), "semantic cache init failed", logger.Field{Key: "error", Value: err.Error()})
 		} else {
@@ -149,8 +153,8 @@ func Server(ctx context.Context, cfg *config.Config) {
 				searchService.WithSemanticCache(semanticCache)
 				ingestDeps.WithCache(semanticCache)
 				log.Info(context.Background(), "semantic cache enabled",
-					logger.Field{Key: "collection", Value: col},
-					logger.Field{Key: "threshold", Value: threshold},
+					logger.Field{Key: "collection", Value: cfg.SemanticCache.Collection},
+					logger.Field{Key: "threshold", Value: cfg.SemanticCache.Threshold},
 				)
 			}
 		}
