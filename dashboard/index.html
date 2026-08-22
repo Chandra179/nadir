@@ -6,7 +6,7 @@
 <title>Nadir · Ingestion</title>
 <script>
   // Applied before first paint so a stored preference doesn't flash the
-  // wrong theme; the toggle button in the header just flips/persists it.
+  // wrong theme; the toggle button in the rail just flips/persists it.
   (function () {
     try {
       var stored = localStorage.getItem('nadir-theme');
@@ -19,42 +19,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Public+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: {
-          sans: ['"Public Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-          serif: ['"Source Serif 4"', 'Georgia', 'serif'],
-          mono: ['"Roboto Mono"', 'ui-monospace', 'monospace'],
-        },
-        colors: {
-          bg: 'var(--bg)',
-          surface: 'var(--surface)',
-          field: 'var(--field)',
-          edge: 'var(--border)',
-          ink: 'var(--text)',
-          dim: 'var(--text-dim)',
-          faint: 'var(--text-faint)',
-          accent: 'var(--accent)',
-          'accent-soft': 'var(--accent-soft)',
-          'accent-ink': 'var(--accent-ink)',
-          success: 'var(--success)',
-          'success-soft': 'var(--success-soft)',
-          warning: 'var(--warning)',
-          'warning-soft': 'var(--warning-soft)',
-          danger: 'var(--danger)',
-          'danger-soft': 'var(--danger-soft)',
-        },
-      },
-    },
-  };
-</script>
-
 <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
 
 <style>
+  /* =========================================================
+     Workbench shell: a fixed-height, three-pane layout (nav
+     rail / control column / console) on desktop, collapsing to
+     a normal-flow stacked page below ~1000px so nothing relies
+     on nested-scroll panes on touch devices. Shared 1:1 with
+     dashboard/search.html — same tokens and component classes.
+     ========================================================= */
   :root {
     --bg: #f4f5f7; --surface: #ffffff; --field: #eef0f3; --border: #e3e5ea;
     --text: #1d2027; --text-dim: #565b6c; --text-faint: #767c90;
@@ -62,7 +36,6 @@
     --success: #2f9e6a; --success-soft: #e6f5ee;
     --warning: #c1922a; --warning-soft: #f8f0dd;
     --danger: #c94a3f; --danger-soft: #fbe9e7;
-    --shadow: 0 1px 2px rgba(29,32,39,0.03), 0 10px 28px rgba(29,32,39,0.05);
     --r-sm: 8px; --r-md: 12px;
     color-scheme: light;
   }
@@ -74,7 +47,6 @@
       --success: #4fbf8f; --success-soft: #16281f;
       --warning: #e0b45a; --warning-soft: #332a14;
       --danger: #e0776c; --danger-soft: #331d1b;
-      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.45);
       color-scheme: dark;
     }
   }
@@ -85,96 +57,123 @@
     --success: #4fbf8f; --success-soft: #16281f;
     --warning: #e0b45a; --warning-soft: #332a14;
     --danger: #e0776c; --danger-soft: #331d1b;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.45);
     color-scheme: dark;
   }
 
-  body { background: var(--bg); color: var(--text); }
-
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2 { font-family: "Source Serif 4", Georgia, serif; margin: 0; text-wrap: balance; }
+  .mono { font-family: "Roboto Mono", ui-monospace, monospace; }
   *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  button { font-family: inherit; }
+  a { text-decoration: none; }
 
-  .card, .panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--r-md); box-shadow: var(--shadow);
-  }
-
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 100px;
-    color: var(--text-dim); transition: color .12s ease, border-color .12s ease; flex-shrink: 0;
-  }
-  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
-  .icon-btn svg { width: 16px; height: 16px; }
-  .icon-btn .sun { display: none; }
-  :root[data-theme="dark"] .icon-btn .sun, :root:not([data-theme="light"]) .icon-btn .sun { display: block; }
-  :root[data-theme="dark"] .icon-btn .moon, :root:not([data-theme="light"]) .icon-btn .moon { display: none; }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .icon-btn .sun { display: none; }
-    :root:not([data-theme]) .icon-btn .moon { display: block; }
-  }
-
-  /* stat cards, rendered by GET /stats */
-  #stats .card { padding: 18px 20px; }
-  #stats .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); font-weight: 600; }
-  #stats .value { font-size: 28px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: "Source Serif 4", serif; color: var(--text); }
-  #stats .value.accent { color: var(--accent); }
-  #stats .value.danger { color: var(--danger); }
-  #stats .delta { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
-
-  .source-tabs button.active { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
-
-  .field-surface { background: var(--field); }
-
-  .chip {
-    font-family: "Roboto Mono", monospace; font-size: 11px; color: var(--text-dim);
-    background: var(--field); border: 1px solid var(--border); padding: 4px 9px; border-radius: 100px; cursor: pointer;
-  }
-  .chip:hover { color: var(--accent); border-color: var(--accent); }
-
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: var(--accent-ink); }
-
-  /* danger strip — deliberately quieter than the primary action: a severity
-     stripe (same pattern the log rows use below) plus a small outline
-     button, not a full-width bold one, so it can't be mistaken for the
-     safe path. */
-  .danger-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 15px 18px; border-left: 3px solid var(--danger); }
-  .danger-row .d-icon { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
-  .danger-row .d-icon svg { width: 17px; height: 17px; display: block; }
-  .danger-row .d-text { flex: 1 1 200px; min-width: 0; }
-  .danger-row .d-text strong { display: block; font-size: 13px; font-weight: 700; color: var(--text); }
-  .danger-row .d-text span { display: block; font-size: 12px; color: var(--text-faint); margin-top: 2px; line-height: 1.5; }
-  .btn-danger-ghost {
-    flex-shrink: 0; background: transparent; color: var(--danger); border: 1px solid var(--danger);
-    border-radius: var(--r-sm); font-size: 12.5px; font-weight: 600; padding: 8px 14px; align-self: center;
-    transition: background .12s ease, color .12s ease;
-  }
-  .btn-danger-ghost:hover { background: var(--danger); color: #fff; }
-  @media (max-width: 400px) {
-    .danger-row { flex-direction: column; align-items: stretch; }
-    .danger-row .d-icon { display: none; }
-    .danger-row .d-text { flex: 0 1 auto; }
-    .btn-danger-ghost { width: 100%; text-align: center; }
-  }
-
-  .feedback { font-size: 12.5px; border-radius: var(--r-sm); padding: 8px 12px; margin-top: 10px; }
-  .feedback-ok { background: var(--success-soft); color: var(--success); }
-  .feedback-err { background: var(--danger-soft); color: var(--danger); }
-
+  .htmx-indicator { opacity: 0; transition: opacity .1s ease; }
+  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
   .spin-icon { display: inline-block; animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spin-icon { animation: none; } }
 
-  /* live-run legend tooltip */
-  .legend {
-    position: relative; display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); color: var(--text-faint);
-    font-size: 10px; font-weight: 700; cursor: default; flex-shrink: 0;
+  /* ---------- shell ---------- */
+  .shell { display: grid; grid-template-columns: 216px 380px 1fr; height: 100vh; height: 100dvh; }
+
+  /* ---------- rail ---------- */
+  .rail { background: var(--surface); border-right: 1px solid var(--border); padding: 22px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+  .mark { display: flex; align-items: center; gap: 9px; padding: 0 6px; margin-bottom: 26px; }
+  .mark .glyph { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-family: "Source Serif 4", serif; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .mark .name { font-family: "Source Serif 4", serif; font-size: 15px; font-weight: 600; }
+
+  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: 20px; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--text-dim); }
+  .sidebar-nav a svg { width: 16px; height: 16px; opacity: .75; flex-shrink: 0; }
+  .sidebar-nav a:hover { color: var(--text); }
+  .sidebar-nav a.active { background: var(--accent-soft); color: var(--accent-ink); }
+  .sidebar-nav a.active svg { opacity: 1; }
+
+  /* stats, rendered by GET /stats — compact label/value rows, not cards */
+  #stats { display: flex; flex-direction: column; gap: 0; padding: 4px 10px; border-top: 1px solid var(--border); }
+  #stats .card { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); background: none; border-radius: 0; box-shadow: none; }
+  #stats .card:last-child { border-bottom: none; }
+  #stats .label { font-size: 11px; color: var(--text-faint); }
+  #stats .value { font-family: "Roboto Mono", monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
+  #stats .value.accent { color: var(--accent); }
+  #stats .value.danger { color: var(--danger); }
+  #stats .delta { display: none; }
+
+  .rail-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .rail-status { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-faint); }
+  .rail-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .rail-theme { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; color: var(--text-faint); background: none; border: none; cursor: pointer; flex-shrink: 0; }
+  .rail-theme:hover { color: var(--accent); background: var(--field); }
+  .rail-theme svg { width: 14px; height: 14px; }
+  .rail-theme .sun { display: none; }
+  :root[data-theme="dark"] .rail-theme .sun, :root:not([data-theme="light"]) .rail-theme .sun { display: block; }
+  :root[data-theme="dark"] .rail-theme .moon, :root:not([data-theme="light"]) .rail-theme .moon { display: none; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .rail-theme .sun { display: none; }
+    :root:not([data-theme]) .rail-theme .moon { display: block; }
   }
-  .legend svg { width: 10px; height: 10px; }
-  .legend:hover, .legend:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+
+  /* ---------- control column ---------- */
+  .control { background: var(--bg); border-right: 1px solid var(--border); padding: 26px 24px; overflow-y: auto; }
+  .c-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; color: var(--text-faint); margin-bottom: 6px; }
+  .control h1 { font-size: 21px; font-weight: 600; margin-bottom: 24px; }
+  .block { margin-bottom: 28px; }
+  .block h2 { font-size: 13.5px; font-weight: 600; margin-bottom: 3px; }
+  .block .b-sub { font-size: 12px; color: var(--text-faint); margin-bottom: 14px; }
+
+  .tabs { display: inline-flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; margin-bottom: 12px; width: 100%; }
+  .tabs button { flex: 1; border: none; background: transparent; font-size: 12px; font-weight: 600; color: var(--text-dim); padding: 7px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  .tabs button.active { background: var(--accent-soft); color: var(--accent-ink); }
+
+  .field-line { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 10px 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 9px; }
+  .field-line:focus-within { border-color: var(--accent); }
+  .field-line input { border: none; background: none; outline: none; font-family: "Roboto Mono", monospace; font-size: 13px; color: var(--text); width: 100%; }
+  .field-line svg { color: var(--text-faint); flex-shrink: 0; }
+
+  .chip { font-family: "Roboto Mono", monospace; font-size: 11px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); padding: 4px 9px; border-radius: 100px; cursor: pointer; }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+
+  .btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 13px; padding: 11px 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:hover { background: var(--accent-ink); }
+
+  .feedback { font-size: 12px; border-radius: var(--r-sm); padding: 8px 12px; margin-top: 10px; }
+  .feedback.feedback-ok { background: var(--success-soft); color: var(--success); }
+  .feedback.feedback-err { background: var(--danger-soft); color: var(--danger); }
+
+  .danger-block { border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); background: var(--danger-soft); border-radius: 10px; padding: 16px; }
+  .danger-block h2 { color: var(--danger); font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .danger-block p { font-size: 11.5px; color: var(--text-dim); line-height: 1.6; margin: 0 0 12px; }
+  .btn-danger { width: 100%; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; font-weight: 600; font-size: 12.5px; padding: 9px 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+
+  /* ---------- console pane ----------
+     Deliberately inverted relative to the control column in both themes
+     (near-black in light mode, near-black-er in dark mode) — the
+     "terminal within the app" read that gives the workbench its
+     identity, and the visual signal that this pane is output, not input. */
+  .console { background: var(--text); color: var(--bg); padding: 26px 30px; overflow-y: auto; }
+  :root[data-theme="dark"] .console, :root:not([data-theme="light"]) .console { background: #0c0d11; color: #c3c7d1; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme]) .console { background: var(--text); color: var(--bg); } }
+
+  .console .cn-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .console h2 { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 7px; }
+  .console .cn-sub { font-size: 11.5px; color: rgba(255,255,255,.4); margin-top: 2px; }
+  .console .cn-block { margin-bottom: 34px; }
+  .console .cn-block:last-child { margin-bottom: 0; }
+
+  /* live-run legend tooltip */
+  .legend { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); color: rgba(255,255,255,.5); font-size: 10px; font-weight: 700; cursor: default; flex-shrink: 0; }
+  .legend svg { width: 9px; height: 9px; }
+  .legend:hover, .legend:focus-visible { color: #fff; border-color: #fff; outline: none; }
   .legend .tip {
-    position: absolute; top: 22px; right: 0; z-index: 5; width: max-content; max-width: min(220px, calc(100vw - 3rem));
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow);
+    position: absolute; top: 20px; left: 0; z-index: 5; width: max-content; max-width: min(220px, calc(100vw - 3rem));
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: 0 10px 28px rgba(0,0,0,.25);
     padding: 10px 12px; font-size: 11.5px; font-weight: 400; color: var(--text-dim); text-align: left; line-height: 1.7;
     opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .12s ease, transform .12s ease;
   }
@@ -183,206 +182,206 @@
   .tip .key + .key { margin-top: 4px; }
   .tip .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
-  /* live-run status line + log rows, rendered by GET /ingest/status */
-  .log-status-line { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text-dim); }
   .live-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
-  .live-badge.idle { color: var(--text-faint); }
-  .live-badge .ring { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: pulse 1.4s ease-in-out infinite; }
+  .live-badge.idle { color: rgba(255,255,255,.35); }
+  .live-badge .ring { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(224,150,74,.2); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live-badge .ring, .icon.spin { animation: none; } }
 
-  .log { max-height: 260px; overflow-y: auto; }
-  .log-row { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 10px; padding: 10px 22px 10px 16px; font-size: 12.5px; font-family: "Roboto Mono", monospace; border-top: 1px solid var(--border); border-left: 3px solid transparent; margin-left: 3px; }
+  .log { display: flex; flex-direction: column; }
+  .log-row { display: grid; grid-template-columns: 16px 1fr; align-items: center; gap: 10px; padding: 9px 0; font-size: 12.5px; font-family: "Roboto Mono", monospace; border-top: 1px solid rgba(255,255,255,.08); }
   .log-row:first-child { border-top: none; }
-  .log-row.s-ok { border-left-color: var(--success); }
-  .log-row.s-skip { border-left-color: var(--text-faint); }
-  .log-row.s-err { border-left-color: var(--danger); }
-  .log-row.s-active { border-left-color: var(--accent); background: var(--accent-soft); }
+  .log-row.s-active { background: rgba(224,150,74,.1); margin: 0 -12px; padding: 9px 12px; border-radius: 6px; }
   .log-row .icon { font-size: 13px; text-align: center; }
   .log-row .icon.ok { color: var(--success); }
-  .log-row .icon.skip { color: var(--text-faint); }
+  .log-row .icon.skip { color: rgba(255,255,255,.35); }
   .log-row .icon.err { color: var(--danger); }
   .log-row .icon.spin { color: var(--accent); animation: spin .9s linear infinite; display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .log-row .path { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .log-row .path b { color: var(--text); font-weight: 500; }
-  .log-row .path .dim { color: var(--text-faint); }
-  .log .empty { padding: 22px; font-size: 12.5px; color: var(--text-faint); }
+  .log-row .path { color: rgba(255,255,255,.75); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-row .path b { color: #fff; font-weight: 500; }
+  .log-row .path .dim { color: rgba(255,255,255,.4); }
+  .console .empty { padding: 8px 0; font-size: 12.5px; color: rgba(255,255,255,.4); }
 
-  @media (prefers-reduced-motion: reduce) {
-    .live-badge .ring, .log-row .icon.spin { animation: none; }
-  }
-
-  /* recent-runs table, rendered by GET /ingest/history */
   .table-scroll { overflow-x: auto; }
-  table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); font-weight: 700; padding: 14px 22px 10px; white-space: nowrap; }
-  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  td { padding: 12px 22px; border-top: 1px solid var(--border); color: var(--text-dim); vertical-align: middle; white-space: nowrap; }
-  td.target { color: var(--text); font-family: "Roboto Mono", monospace; font-size: 12.5px; }
-  tr:first-child td { border-top: none; }
-  .empty-row { color: var(--text-faint); font-size: 12.5px; white-space: normal; }
+  .console table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 12.5px; }
+  .console th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: rgba(255,255,255,.4); font-weight: 700; padding: 0 16px 8px 0; white-space: nowrap; }
+  .console th.num, .console td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .console td { padding: 9px 16px 9px 0; border-top: 1px solid rgba(255,255,255,.08); color: rgba(255,255,255,.65); vertical-align: middle; white-space: nowrap; }
+  .console td.target { color: #fff; font-family: "Roboto Mono", monospace; font-size: 12px; }
+  .console tr:first-child td { border-top: none; }
+  .console .empty-row { color: rgba(255,255,255,.4); font-size: 12.5px; white-space: normal; }
 
   .status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 100px; }
-  .status-badge.ok { background: var(--success-soft); color: var(--success); }
-  .status-badge.warn { background: var(--warning-soft); color: var(--warning); }
-  .status-badge.err { background: var(--danger-soft); color: var(--danger); }
+  .console .status-badge.ok { background: rgba(79,191,143,.15); color: #7fd9ac; }
+  .console .status-badge.warn { background: rgba(224,180,90,.15); color: #f0cf8e; }
+  .console .status-badge.err { background: rgba(224,119,108,.18); color: #f0a99f; }
   .status-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-  .htmx-indicator { opacity: 0; transition: opacity .1s ease; }
-  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+  /* ---------- responsive: below this, stack in normal document flow
+     instead of fixed-height independently-scrolling panes — avoids
+     nested scroll areas on touch devices and lets the page scroll like
+     any other page. ---------- */
+  @media (max-width: 999px) {
+    .shell { display: block; height: auto; }
+    .rail { flex-direction: row; align-items: center; flex-wrap: wrap; padding: 14px 18px; border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
+    .mark { margin-bottom: 0; }
+    .sidebar-nav { flex-direction: row; margin: 0 0 0 auto; gap: 4px; }
+    #stats { flex-direction: row; flex-wrap: wrap; gap: 4px 22px; border-top: none; padding: 0; order: 3; flex-basis: 100%; margin-top: 10px; }
+    #stats .card { border-bottom: none; padding: 0; gap: 6px; }
+    .rail-foot { margin-top: 0; padding-top: 0; border-top: none; order: 2; margin-left: 10px; }
+    .rail-status span:not(.dot) { display: none; }
+
+    .control, .console { border-right: none; overflow-y: visible; }
+    .control { padding: 24px 20px; }
+    .console { padding: 24px 20px; }
+  }
+  @media (max-width: 560px) {
+    #stats { gap: 4px 16px; }
+    .control, .console { padding: 20px 16px; }
+  }
 </style>
 </head>
-<body class="font-sans min-h-screen">
-  <div class="max-w-[1040px] mx-auto px-6 sm:px-7 py-10 pb-24">
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="mark"><span class="glyph">N</span><span class="name">Nadir</span></div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Ingestion
+        </a>
+        <a href="/retrieval">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          Retrieval
+        </a>
+      </nav>
 
-    <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2.5 mb-8">
-      <div>
-        <span class="block text-[11px] uppercase tracking-[0.09em] font-semibold text-faint mb-1.5">Nadir · Search Engine</span>
-        <h1 class="font-serif text-[26px] font-semibold m-0" style="text-wrap:balance">Ingestion</h1>
+      <div id="stats" hx-get="/stats" hx-trigger="load, every 5s, ingest-done from:body" hx-swap="innerHTML">
+        <div class="card"><div class="label">Documents</div><div class="value">—</div></div>
+        <div class="card"><div class="label">Chunks</div><div class="value">—</div></div>
+        <div class="card"><div class="label">Last run</div><div class="value">—</div></div>
+        <div class="card"><div class="label">Failed</div><div class="value">—</div></div>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 text-[12.5px] text-dim px-3 py-1.5 bg-surface border border-edge rounded-full">
-          <span class="w-1.5 h-1.5 rounded-full" style="background:var(--success)"></span>
-          Qdrant &amp; Ollama connected
-        </span>
-        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle color theme">
+
+      <div class="rail-foot">
+        <span class="rail-status"><span class="dot"></span>Qdrant &amp; Ollama</span>
+        <button class="rail-theme" id="theme-toggle" type="button" aria-label="Toggle color theme">
           <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
           <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg>
         </button>
       </div>
-    </header>
+    </aside>
 
-    <div id="stats"
-         class="grid gap-3.5 mb-7" style="grid-template-columns:repeat(auto-fit,minmax(148px,1fr))"
-         hx-get="/stats" hx-trigger="load, every 5s, ingest-done from:body" hx-swap="innerHTML">
-      <div class="card"><div class="label">Documents indexed</div><div class="value">—</div></div>
-      <div class="card"><div class="label">Chunks in collection</div><div class="value">—</div></div>
-      <div class="card"><div class="label">Last run</div><div class="value">—</div></div>
-      <div class="card"><div class="label">Failed last run</div><div class="value">—</div></div>
-    </div>
+    <main class="control">
+      <div class="c-eyebrow">Nadir · Search Engine</div>
+      <h1>Ingestion</h1>
 
-    <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 items-start">
+      <div class="block">
+        <h2>New ingest</h2>
+        <div class="b-sub">Point at a file or a directory to index.</div>
 
-      <div class="flex flex-col gap-5">
-      <div class="panel">
-        <div class="px-[22px] py-[18px] border-b border-edge">
-          <h2 class="font-serif text-[15.5px] font-semibold m-0">New ingest</h2>
-          <p class="text-[12.5px] text-faint m-0 mt-0.5">Point at a file or a directory to index.</p>
+        <div class="tabs" role="tablist">
+          <button type="button" data-kind="file" class="active">File</button>
+          <button type="button" data-kind="dir">Directory</button>
         </div>
-        <div class="px-[22px] py-5 pb-[22px]">
-          <div class="source-tabs flex gap-1.5 mb-4" role="tablist">
-            <button type="button" data-kind="file" class="active flex-1 border border-edge field-surface text-dim text-[12.5px] font-semibold py-2 rounded-lg">File</button>
-            <button type="button" data-kind="dir" class="flex-1 border border-edge field-surface text-dim text-[12.5px] font-semibold py-2 rounded-lg">Directory</button>
+
+        <form hx-post="/ingest" hx-target="#submit-feedback" hx-swap="innerHTML" hx-indicator="#submit-spinner">
+          <div class="field-line">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+            <input id="path-input" name="path" type="text" placeholder="e.g. gitbook/math/trig.md" spellcheck="false" autocomplete="off">
           </div>
 
-          <form hx-post="/ingest" hx-target="#submit-feedback" hx-swap="innerHTML" hx-indicator="#submit-spinner">
-            <label class="block text-xs font-semibold text-dim mb-1.5" for="path-input">Path</label>
-            <div class="field-surface border border-edge rounded-[8px] px-3.5 py-2.5 mb-3">
-              <input id="path-input" name="path" type="text" placeholder="e.g. gitbook/math/trig.md" spellcheck="false" autocomplete="off"
-                     class="w-full bg-transparent outline-none font-mono text-[13px]" style="color:var(--text)">
-            </div>
+          <div id="chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+            {{range .Roots}}<span class="chip" data-fill="{{.Fill}}" title="{{.Fill}}">{{.Label}}</span>
+            {{else}}<span style="font-size:11px;color:var(--text-faint);">no source.paths configured</span>
+            {{end}}
+          </div>
 
-            <label class="block text-xs font-semibold text-dim mb-1.5">Configured roots</label>
-            <div id="chips" class="flex flex-wrap gap-1.5 mb-4">
-              {{range .Roots}}<span class="chip" data-fill="{{.Fill}}" title="{{.Fill}}">{{.Label}}</span>
-              {{else}}<span class="text-[11px] text-faint">no source.paths configured</span>
-              {{end}}
-            </div>
-
-            <button type="submit" class="btn-primary w-full rounded-[8px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2">
-              <span id="submit-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
-              Run ingest
-            </button>
-            <div id="submit-feedback"></div>
-            <p class="text-[11.5px] text-faint mt-2.5 leading-relaxed">
-              Relative to a configured <code class="font-mono text-[11px] bg-accent-soft text-accent px-1.5 py-0.5 rounded">source.paths</code> root, or an absolute path the server can reach. Only <code class="font-mono text-[11px] bg-accent-soft text-accent px-1.5 py-0.5 rounded">.md</code> files are processed; unchanged content is skipped by SHA-256. Leave blank to sweep every configured root.
-            </p>
-          </form>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="danger-row">
-          <span class="d-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
-          </span>
-          <span class="d-text">
-            <strong>Delete all data</strong>
-            <span>Drops and recreates the collection — every indexed chunk is permanently removed. Ingest can rebuild it afterward.</span>
-          </span>
-          <button type="button"
-                  class="btn-danger-ghost"
-                  hx-post="/store/reset"
-                  hx-target="#reset-feedback"
-                  hx-swap="innerHTML"
-                  hx-indicator="#reset-spinner"
-                  hx-confirm="Delete ALL indexed data? This cannot be undone.">
-            <span id="reset-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
-            Delete all
+          <button type="submit" class="btn">
+            <span id="submit-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
+            Run ingest
           </button>
-        </div>
-        <div id="reset-feedback" class="px-[18px] pb-4"></div>
-      </div>
+          <div id="submit-feedback"></div>
+          <p style="font-size:11px;color:var(--text-faint);margin-top:12px;line-height:1.6;">
+            Relative to a configured <code class="mono" style="font-size:10.5px;background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;">source.paths</code> root, or an absolute path the server can reach. Only <code class="mono" style="font-size:10.5px;background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;">.md</code> files are processed; unchanged content is skipped by SHA-256. Leave blank to sweep every configured root.
+          </p>
+        </form>
       </div>
 
-      <div class="flex flex-col gap-5">
-        <div class="panel">
-          <div class="px-[22px] py-[18px] border-b border-edge flex items-center justify-between gap-3">
-            <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
-              Live run
-              <span class="legend" tabindex="0" aria-label="Row color key">
+      <div class="danger-block">
+        <h2>Danger zone</h2>
+        <p><strong style="display:block;margin-bottom:2px;color:var(--text);">Delete all data</strong>Drops and recreates the collection — every indexed chunk is permanently removed. Ingest can rebuild it afterward.</p>
+        <button type="button"
+                class="btn-danger"
+                hx-post="/store/reset"
+                hx-target="#reset-feedback"
+                hx-swap="innerHTML"
+                hx-indicator="#reset-spinner"
+                hx-confirm="Delete ALL indexed data? This cannot be undone.">
+          <span id="reset-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
+          Delete all
+        </button>
+        <div id="reset-feedback"></div>
+      </div>
+    </main>
+
+    <section class="console">
+      <div class="cn-block">
+        <div class="cn-head">
+          <h2>
+            Live run
+            <span class="legend" tabindex="0" aria-label="Row color key">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+              <span class="tip">
+                <span class="key"><span class="swatch" style="background:var(--accent)"></span>in progress — embedding chunk</span>
+                <span class="key"><span class="swatch" style="background:var(--success)"></span>processed — chunked, embedded, upserted</span>
+                <span class="key"><span class="swatch" style="background:var(--text-faint)"></span>skipped — SHA-256 unchanged</span>
+                <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — see server log</span>
+              </span>
+            </span>
+          </h2>
+        </div>
+        <div id="live-status"
+             hx-get="/ingest/status" hx-trigger="load, every 1500ms, ingest-done from:body" hx-swap="innerHTML">
+          <p class="empty">Loading…</p>
+        </div>
+      </div>
+
+      <div class="cn-block">
+        <div class="cn-head">
+          <div>
+            <h2>
+              Recent runs
+              <span class="legend" tabindex="0" aria-label="Status color key">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
                 <span class="tip">
-                  <span class="key"><span class="swatch" style="background:var(--accent)"></span>in progress — embedding chunk</span>
-                  <span class="key"><span class="swatch" style="background:var(--success)"></span>processed — chunked, embedded, upserted</span>
-                  <span class="key"><span class="swatch" style="background:var(--text-faint)"></span>skipped — SHA-256 unchanged</span>
-                  <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — see server log</span>
+                  <span class="key"><span class="swatch" style="background:var(--success)"></span>done — no failures</span>
+                  <span class="key"><span class="swatch" style="background:var(--warning)"></span>no files — nothing new/changed</span>
+                  <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — one or more files errored</span>
                 </span>
               </span>
             </h2>
-          </div>
-          <div id="live-status"
-               hx-get="/ingest/status" hx-trigger="load, every 1500ms, ingest-done from:body" hx-swap="innerHTML">
-            <p class="empty">Loading…</p>
+            <div class="cn-sub">Most recent ingest jobs, newest first</div>
           </div>
         </div>
-
-        <div class="panel">
-          <div class="px-[22px] py-[18px] border-b border-edge flex items-center justify-between gap-3">
-            <div>
-              <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
-                Recent runs
-                <span class="legend" tabindex="0" aria-label="Status color key">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
-                  <span class="tip">
-                    <span class="key"><span class="swatch" style="background:var(--success)"></span>done — no failures</span>
-                    <span class="key"><span class="swatch" style="background:var(--warning)"></span>no files — nothing new/changed</span>
-                    <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — one or more files errored</span>
-                  </span>
-                </span>
-              </h2>
-              <p class="text-[12.5px] text-faint m-0 mt-0.5">Most recent ingest jobs, newest first</p>
-            </div>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Target</th><th class="num">Processed</th><th class="num">Skipped</th><th>Status</th><th>When</th></tr></thead>
-              <tbody id="history" hx-get="/ingest/history" hx-trigger="load, every 4s, ingest-done from:body" hx-swap="innerHTML">
-                <tr><td colspan="5" class="empty-row">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Target</th><th class="num">Processed</th><th class="num">Skipped</th><th>Status</th><th>When</th></tr></thead>
+            <tbody id="history" hx-get="/ingest/history" hx-trigger="load, every 4s, ingest-done from:body" hx-swap="innerHTML">
+              <tr><td colspan="5" class="empty-row">Loading…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 
   <script>
     // Source-type tabs only adjust the input's placeholder; the backend
     // resolves file vs. directory by statting the path itself.
-    document.querySelectorAll('.source-tabs button').forEach(function (btn) {
+    document.querySelectorAll('.tabs button').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        document.querySelectorAll('.source-tabs button').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         var input = document.getElementById('path-input');
         input.placeholder = btn.dataset.kind === 'dir' ? 'e.g. gitbook/math/' : 'e.g. gitbook/math/trig.md';
