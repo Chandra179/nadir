@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"nadir/internal/embedder"
 	"nadir/internal/store"
@@ -17,14 +18,29 @@ import (
 	"go.uber.org/zap"
 )
 
-func (d *dependencies) Run(ctx context.Context) (Result, error) {
+func (d *dependencies) Run(ctx context.Context, target string) (Result, error) {
+	startedAt := time.Now()
+	d.tr.start(target)
+
+	result, err := d.run(ctx, target)
+	d.tr.finish(target, result, err, startedAt)
+	return result, err
+}
+
+func (d *dependencies) run(ctx context.Context, target string) (Result, error) {
 	if d.cache != nil {
 		if err := d.cache.Clear(ctx); err != nil {
 			d.log.Warn("failed to clear semantic cache before ingest", zap.Error(err))
 		}
 	}
 
-	files, err := d.listFiles(ctx)
+	var files []fileInfo
+	var err error
+	if target == "" {
+		files, err = d.listFiles(ctx)
+	} else {
+		files, err = d.listTarget(target)
+	}
 	if err != nil {
 		return Result{}, err
 	}
@@ -41,6 +57,7 @@ func (d *dependencies) Run(ctx context.Context) (Result, error) {
 	for _, f := range files {
 		if f.sha != "" && storedSHAs[f.path] == f.sha {
 			skipped.Add(1)
+			d.tr.record(f.path, EventSkipped, "sha match")
 			continue
 		}
 		wg.Add(1)
@@ -48,6 +65,8 @@ func (d *dependencies) Run(ctx context.Context) (Result, error) {
 		go func(f fileInfo) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			d.tr.record(f.path, EventRunning, "embedding")
 
 			fetchPath := f.path
 			if f.root != "" {
@@ -57,14 +76,17 @@ func (d *dependencies) Run(ctx context.Context) (Result, error) {
 			if err != nil {
 				d.log.Error("read file failed", zap.String("path", f.path), zap.Error(err))
 				failed.Add(1)
+				d.tr.record(f.path, EventFailed, err.Error())
 				return
 			}
 			if err := d.ingestFile(ctx, f.path, string(text), f.sha); err != nil {
 				d.log.Error("ingest failed", zap.String("path", f.path), zap.Error(err))
 				failed.Add(1)
+				d.tr.record(f.path, EventFailed, err.Error())
 				return
 			}
 			processed.Add(1)
+			d.tr.record(f.path, EventProcessed, "")
 		}(f)
 	}
 	wg.Wait()
@@ -85,23 +107,89 @@ type fileInfo struct {
 func (d *dependencies) listFiles(_ context.Context) ([]fileInfo, error) {
 	var files []fileInfo
 	for _, root := range d.roots {
-		if err := d.walk(root, &files); err != nil {
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			absRoot = root
+		}
+		if err := d.walkFrom(absRoot, absRoot, &files); err != nil {
 			return nil, err
 		}
 	}
 	return files, nil
 }
 
-func (d *dependencies) walk(root string, files *[]fileInfo) error {
-	absRoot, err := filepath.Abs(root)
+// listTarget scopes a run to a single file or directory instead of the full
+// configured roots. target may be absolute, or relative to one of the
+// configured roots; it must resolve inside a configured root.
+func (d *dependencies) listTarget(target string) ([]fileInfo, error) {
+	absRoot, absTarget, err := d.resolveTarget(target)
 	if err != nil {
-		absRoot = root
+		return nil, err
 	}
-	return filepath.WalkDir(root, func(abs string, dirEntry os.DirEntry, err error) error {
+
+	info, err := os.Stat(absTarget)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", target, err)
+	}
+
+	var files []fileInfo
+	if info.IsDir() {
+		if err := d.walkFrom(absRoot, absTarget, &files); err != nil {
+			return nil, err
+		}
+		return files, nil
+	}
+
+	rel, err := filepath.Rel(absRoot, absTarget)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", target, err)
+	}
+	if strings.ToLower(filepath.Ext(absTarget)) != ".md" {
+		return nil, fmt.Errorf("only .md files can be ingested: %s", target)
+	}
+	if d.shouldIgnore(rel) {
+		return nil, fmt.Errorf("path is excluded by ignore patterns: %s", target)
+	}
+	return []fileInfo{{path: rel, root: absRoot, sha: fileContentSHA(absTarget)}}, nil
+}
+
+// resolveTarget finds the configured root that contains target and returns
+// both the root's absolute path and target's absolute path. An absolute
+// target must fall under one of the roots; a relative target is tried
+// against each root in order until one exists on disk.
+func (d *dependencies) resolveTarget(target string) (absRoot, absTarget string, err error) {
+	for _, root := range d.roots {
+		aRoot, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+
+		candidate := filepath.Clean(target)
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Clean(filepath.Join(aRoot, target))
+		}
+
+		rel, err := filepath.Rel(aRoot, candidate)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			return aRoot, candidate, nil
+		}
+	}
+	return "", "", fmt.Errorf("path not found under any configured source root: %s", target)
+}
+
+// walkFrom walks the subtree rooted at start, recording files relative to
+// absRoot so IDs and stored file paths stay stable whether the run covers
+// the whole root or just a subset of it.
+func (d *dependencies) walkFrom(absRoot, start string, files *[]fileInfo) error {
+	return filepath.WalkDir(start, func(abs string, dirEntry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(root, abs)
+		rel, _ := filepath.Rel(absRoot, abs)
 		if dirEntry.IsDir() {
 			if d.shouldIgnore(rel + "/") {
 				return filepath.SkipDir

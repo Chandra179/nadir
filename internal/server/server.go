@@ -118,11 +118,13 @@ func Server(ctx context.Context, cfg *config.Config) {
 	}
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
-		Search:    searchService,
-		Ingest:    ingestDeps,
-		Generator: gen,
-		TopK:      cfg.Qdrant.TopK,
-		Log:       log,
+		Search:      searchService,
+		Ingest:      ingestDeps,
+		Store:       s,
+		Generator:   gen,
+		SourceRoots: cfg.Source.Paths,
+		TopK:        cfg.Qdrant.TopK,
+		Log:         log,
 	})
 
 	var semanticCache cache.Cache

@@ -18,8 +18,8 @@ until curl -sf http://localhost:6333/healthz > /dev/null 2>&1; do sleep 1; done
 echo "==> Waiting for Reranker on :5002..."
 until curl -sf http://localhost:5002/health > /dev/null 2>&1; do sleep 1; done
 
-echo "==> Killing any process on :8100..."
-kill "$(lsof -ti :8100)" 2>/dev/null || true
+echo "==> Killing any process on :8100 and :6063..."
+kill $(lsof -ti :8100,6063) 2>/dev/null || true
 sleep 1
 
 echo "==> Starting server (background)..."

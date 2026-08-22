@@ -45,6 +45,7 @@ type dependencies struct {
 	cache    cache.Cache
 	cfg      RetryConfig
 	log      *zap.Logger
+	tr       tracker
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {

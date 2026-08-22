@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nadir · Ingestion</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Public+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['"Public Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          serif: ['"Source Serif 4"', 'Georgia', 'serif'],
+          mono: ['"Roboto Mono"', 'ui-monospace', 'monospace'],
+        },
+        colors: {
+          bg: 'var(--bg)',
+          surface: 'var(--surface)',
+          edge: 'var(--border)',
+          ink: 'var(--text)',
+          dim: 'var(--text-dim)',
+          faint: 'var(--text-faint)',
+          accent: 'var(--accent)',
+          'accent-soft': 'var(--accent-soft)',
+          success: 'var(--success)',
+          'success-soft': 'var(--success-soft)',
+          warning: 'var(--warning)',
+          'warning-soft': 'var(--warning-soft)',
+          danger: 'var(--danger)',
+          'danger-soft': 'var(--danger-soft)',
+        },
+      },
+    },
+  };
+</script>
+
+<script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --border: #e3e5ea;
+    --text: #1d2027; --text-dim: #6b7080; --text-faint: #9298ab;
+    --accent: #b8631f; --accent-soft: #f7e9da;
+    --success: #2f9e6a; --success-soft: #e6f5ee;
+    --warning: #c1922a; --warning-soft: #f8f0dd;
+    --danger: #c94a3f; --danger-soft: #fbe9e7;
+    --shadow: 0 1px 2px rgba(29,32,39,0.03), 0 10px 28px rgba(29,32,39,0.05);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161c; --surface: #1b1e27; --border: #2a2e3a;
+      --text: #e8e9ee; --text-dim: #9298ab; --text-faint: #656b7c;
+      --accent: #e0964a; --accent-soft: #362619;
+      --success: #4fbf8f; --success-soft: #16281f;
+      --warning: #e0b45a; --warning-soft: #332a14;
+      --danger: #e0776c; --danger-soft: #331d1b;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.45);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161c; --surface: #1b1e27; --border: #2a2e3a;
+    --text: #e8e9ee; --text-dim: #9298ab; --text-faint: #656b7c;
+    --accent: #e0964a; --accent-soft: #362619;
+    --success: #4fbf8f; --success-soft: #16281f;
+    --warning: #e0b45a; --warning-soft: #332a14;
+    --danger: #e0776c; --danger-soft: #331d1b;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.45);
+    color-scheme: dark;
+  }
+
+  body { background: var(--bg); color: var(--text); }
+
+  .card, .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow);
+  }
+
+  /* stat cards, rendered by GET /stats */
+  #stats .card { padding: 18px 20px; }
+  #stats .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); font-weight: 600; }
+  #stats .value { font-size: 28px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: "Source Serif 4", serif; color: var(--text); }
+  #stats .value.accent { color: var(--accent); }
+  #stats .value.danger { color: var(--danger); }
+  #stats .delta { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+
+  .source-tabs button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+  .chip {
+    font-family: "Roboto Mono", monospace; font-size: 11px; color: var(--text-dim);
+    background: var(--bg); border: 1px solid var(--border); padding: 4px 9px; border-radius: 100px; cursor: pointer;
+  }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+
+  .feedback { font-size: 12.5px; border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
+  .feedback-ok { background: var(--success-soft); color: var(--success); }
+  .feedback-err { background: var(--danger-soft); color: var(--danger); }
+
+  /* live-run legend tooltip */
+  .legend {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); color: var(--text-faint);
+    font-size: 10px; font-weight: 700; cursor: default; flex-shrink: 0;
+  }
+  .legend:hover, .legend:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+  .legend .tip {
+    position: absolute; top: 22px; right: -8px; z-index: 5; width: 200px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+    padding: 10px 12px; font-size: 11.5px; font-weight: 400; color: var(--text-dim); text-align: left; line-height: 1.7;
+    opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .12s ease, transform .12s ease;
+  }
+  .legend:hover .tip, .legend:focus-visible .tip { opacity: 1; visibility: visible; transform: translateY(0); }
+  .tip .key { display: flex; align-items: center; gap: 7px; }
+  .tip .key + .key { margin-top: 4px; }
+  .tip .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* live-run status line + log rows, rendered by GET /ingest/status */
+  .log-status-line { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text-dim); }
+  .live-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .live-badge.idle { color: var(--text-faint); }
+  .live-badge .ring { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .log { max-height: 260px; overflow-y: auto; }
+  .log-row { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 10px; padding: 10px 22px 10px 16px; font-size: 12.5px; font-family: "Roboto Mono", monospace; border-top: 1px solid var(--border); border-left: 3px solid transparent; margin-left: 3px; }
+  .log-row:first-child { border-top: none; }
+  .log-row.s-ok { border-left-color: var(--success); }
+  .log-row.s-skip { border-left-color: var(--text-faint); }
+  .log-row.s-err { border-left-color: var(--danger); }
+  .log-row.s-active { border-left-color: var(--accent); background: var(--accent-soft); }
+  .log-row .icon { font-size: 13px; text-align: center; }
+  .log-row .icon.ok { color: var(--success); }
+  .log-row .icon.skip { color: var(--text-faint); }
+  .log-row .icon.err { color: var(--danger); }
+  .log-row .icon.spin { color: var(--accent); animation: spin .9s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .log-row .path { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-row .path b { color: var(--text); font-weight: 500; }
+  .log-row .path .dim { color: var(--text-faint); }
+  .log .empty { padding: 22px; font-size: 12.5px; color: var(--text-faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-badge .ring, .log-row .icon.spin { animation: none; }
+  }
+
+  /* recent-runs table, rendered by GET /ingest/history */
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); font-weight: 700; padding: 14px 22px 10px; white-space: nowrap; }
+  td { padding: 12px 22px; border-top: 1px solid var(--border); color: var(--text-dim); vertical-align: middle; white-space: nowrap; }
+  td.target { color: var(--text); font-family: "Roboto Mono", monospace; font-size: 12.5px; }
+  tr:first-child td { border-top: none; }
+  .empty-row { color: var(--text-faint); font-size: 12.5px; white-space: normal; }
+
+  .status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 100px; }
+  .status-badge.ok { background: var(--success-soft); color: var(--success); }
+  .status-badge.warn { background: var(--warning-soft); color: var(--warning); }
+  .status-badge.err { background: var(--danger-soft); color: var(--danger); }
+  .status-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .htmx-indicator { opacity: 0; transition: opacity .1s ease; }
+  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+</style>
+</head>
+<body class="font-sans min-h-screen">
+  <div class="max-w-[1040px] mx-auto px-6 sm:px-7 py-10 pb-24">
+
+    <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2.5 mb-8">
+      <div>
+        <span class="block text-[11px] uppercase tracking-[0.09em] font-semibold text-faint mb-1.5">Nadir · Search Engine</span>
+        <h1 class="font-serif text-[26px] font-semibold m-0" style="text-wrap:balance">Ingestion</h1>
+      </div>
+      <span class="inline-flex items-center gap-1.5 text-[12.5px] text-dim px-3 py-1.5 bg-surface border border-edge rounded-full">
+        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--success)"></span>
+        Qdrant &amp; Ollama configured
+      </span>
+    </header>
+
+    <div id="stats"
+         class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-7"
+         hx-get="/stats" hx-trigger="load, every 5s, ingest-done from:body" hx-swap="innerHTML">
+      <div class="card"><div class="label">Documents indexed</div><div class="value">—</div></div>
+      <div class="card"><div class="label">Chunks in collection</div><div class="value">—</div></div>
+      <div class="card"><div class="label">Last run</div><div class="value">—</div></div>
+      <div class="card"><div class="label">Failed last run</div><div class="value">—</div></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
+
+      <div class="panel">
+        <div class="px-[22px] py-[18px] border-b border-edge">
+          <h2 class="font-serif text-[15.5px] font-semibold m-0">New ingest</h2>
+          <p class="text-[12.5px] text-faint m-0 mt-0.5">Point at a file or a directory to index.</p>
+        </div>
+        <div class="px-[22px] py-5 pb-[22px]">
+          <div class="source-tabs flex gap-1.5 mb-4" role="tablist">
+            <button type="button" data-kind="file" class="active flex-1 border border-edge bg-bg text-dim text-[12.5px] font-semibold py-2 rounded-lg">File</button>
+            <button type="button" data-kind="dir" class="flex-1 border border-edge bg-bg text-dim text-[12.5px] font-semibold py-2 rounded-lg">Directory</button>
+          </div>
+
+          <form hx-post="/ingest" hx-target="#submit-feedback" hx-swap="innerHTML" hx-indicator="#submit-spinner">
+            <label class="block text-xs font-semibold text-dim mb-1.5" for="path-input">Path</label>
+            <div class="border border-edge rounded-[9px] bg-bg px-3.5 py-2.5 mb-3">
+              <input id="path-input" name="path" type="text" placeholder="e.g. gitbook/math/trig.md" spellcheck="false" autocomplete="off"
+                     class="w-full bg-transparent outline-none font-mono text-[13px]" style="color:var(--text)">
+            </div>
+
+            <label class="block text-xs font-semibold text-dim mb-1.5">Configured roots</label>
+            <div id="chips" class="flex flex-wrap gap-1.5 mb-4">
+              {{range .Roots}}<span class="chip" data-fill="{{.Fill}}" title="{{.Fill}}">{{.Label}}</span>
+              {{else}}<span class="text-[11px] text-faint">no source.paths configured</span>
+              {{end}}
+            </div>
+
+            <button type="submit" class="btn-primary w-full rounded-[9px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2">
+              <span id="submit-spinner" class="htmx-indicator" aria-hidden="true">⟳</span>
+              Run ingest
+            </button>
+            <div id="submit-feedback"></div>
+            <p class="text-[11.5px] text-faint mt-2.5 leading-relaxed">
+              Relative to a configured <code class="font-mono text-[11px] bg-accent-soft text-accent px-1.5 py-0.5 rounded">source.paths</code> root, or an absolute path the server can reach. Only <code class="font-mono text-[11px] bg-accent-soft text-accent px-1.5 py-0.5 rounded">.md</code> files are processed; unchanged content is skipped by SHA-256. Leave blank to sweep every configured root.
+            </p>
+          </form>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <div class="panel">
+          <div class="px-[22px] py-[18px] border-b border-edge flex items-center justify-between gap-3">
+            <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
+              Live run
+              <span class="legend" tabindex="0" aria-label="Row color key">?
+                <span class="tip">
+                  <span class="key"><span class="swatch" style="background:var(--accent)"></span>in progress — embedding chunk</span>
+                  <span class="key"><span class="swatch" style="background:var(--success)"></span>processed — chunked, embedded, upserted</span>
+                  <span class="key"><span class="swatch" style="background:var(--text-faint)"></span>skipped — SHA-256 unchanged</span>
+                  <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — see server log</span>
+                </span>
+              </span>
+            </h2>
+          </div>
+          <div id="live-status"
+               hx-get="/ingest/status" hx-trigger="load, every 1500ms, ingest-done from:body" hx-swap="innerHTML">
+            <p class="empty">Loading…</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="px-[22px] py-[18px] border-b border-edge flex items-center justify-between gap-3">
+            <div>
+              <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
+                Recent runs
+                <span class="legend" tabindex="0" aria-label="Status color key">?
+                  <span class="tip">
+                    <span class="key"><span class="swatch" style="background:var(--success)"></span>done — no failures</span>
+                    <span class="key"><span class="swatch" style="background:var(--warning)"></span>no files — nothing new/changed</span>
+                    <span class="key"><span class="swatch" style="background:var(--danger)"></span>failed — one or more files errored</span>
+                  </span>
+                </span>
+              </h2>
+              <p class="text-[12.5px] text-faint m-0 mt-0.5">Most recent ingest jobs, newest first</p>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Target</th><th>Processed</th><th>Skipped</th><th>Status</th><th>When</th></tr></thead>
+              <tbody id="history" hx-get="/ingest/history" hx-trigger="load, every 4s, ingest-done from:body" hx-swap="innerHTML">
+                <tr><td colspan="5" class="empty-row">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Source-type tabs only adjust the input's placeholder; the backend
+    // resolves file vs. directory by statting the path itself.
+    document.querySelectorAll('.source-tabs button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.source-tabs button').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var input = document.getElementById('path-input');
+        input.placeholder = btn.dataset.kind === 'dir' ? 'e.g. gitbook/math/' : 'e.g. gitbook/math/trig.md';
+      });
+    });
+
+    document.getElementById('chips').addEventListener('click', function (e) {
+      var chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.getElementById('path-input').value = chip.dataset.fill;
+    });
+  </script>
+</body>
+</html>
