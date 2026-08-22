@@ -12,16 +12,15 @@ import (
 	"nadir/internal/embedder"
 	"nadir/internal/generator"
 	"nadir/internal/ingest"
+	"nadir/internal/logger"
 	"nadir/internal/middleware"
 	"nadir/internal/reranker"
 	"nadir/internal/search"
 	"nadir/internal/store"
 
-	"github.com/Chandra179/gosdk/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -29,21 +28,14 @@ const (
 )
 
 func Server(ctx context.Context, cfg *config.Config) {
-	log := logger.NewLogger(cfg.Middleware.Logger.Level)
-
-	zapLevel := zapcore.InfoLevel
-	_ = zapLevel.UnmarshalText([]byte(cfg.Middleware.Logger.Level))
-	zapCfg := zap.NewProductionConfig()
-	zapCfg.Level = zap.NewAtomicLevelAt(zapLevel)
-	zapLogger, err := zapCfg.Build()
+	log, err := logger.New(cfg.Middleware.Logger.Level)
 	if err != nil {
-		log.Error(context.Background(), "zap logger init failed", logger.Field{Key: "error", Value: err.Error()})
 		return
 	}
-	defer zapLogger.Sync()
+	defer log.Sync()
 
 	deps := middleware.NewDependencies(middleware.DependenciesConfig{
-		Logger:   zapLogger,
+		Logger:   log,
 		Registry: prometheus.NewRegistry(),
 	})
 
@@ -54,7 +46,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Log:         log,
 	})
 	if err != nil {
-		log.Error(context.Background(), "qdrant init failed", logger.Field{Key: "error", Value: err.Error()})
+		log.Error("qdrant init failed", zap.Error(err))
 		return
 	}
 
@@ -65,7 +57,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	})
 
 	if err := s.EnsureCollection(context.Background(), e.Dimensions()); err != nil {
-		log.Error(context.Background(), "qdrant ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
+		log.Error("qdrant ensure collection failed", zap.Error(err))
 		return
 	}
 
@@ -76,7 +68,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		WindowSize:   cfg.Chunker.WindowSize,
 	})
 	if cfg.Chunker.Provider == chunker.ProviderSentenceWindow {
-		log.Info(context.Background(), "sentence-window chunker enabled", logger.Field{Key: "window_size", Value: cfg.Chunker.WindowSize})
+		log.Info("sentence-window chunker enabled", zap.Int("window_size", cfg.Chunker.WindowSize))
 	}
 
 	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
@@ -105,7 +97,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 			Addr:          cfg.Reranker.Addr,
 			MaxConcurrent: cfg.Reranker.MaxConcurrent,
 		}), mul)
-		log.Info(context.Background(), "cross-encoder reranker enabled", logger.Field{Key: "addr", Value: cfg.Reranker.Addr})
+		log.Info("cross-encoder reranker enabled", zap.String("addr", cfg.Reranker.Addr))
 	}
 
 	var gen generator.Generator
@@ -119,9 +111,9 @@ func Server(ctx context.Context, cfg *config.Config) {
 			Model:            cfg.Generator.Model,
 			MaxContextTokens: cfg.Generator.MaxContextTokens,
 		})
-		log.Info(context.Background(), "LLM generator enabled",
-			logger.Field{Key: "model", Value: cfg.Generator.Model},
-			logger.Field{Key: "max_context_tokens", Value: cfg.Generator.MaxContextTokens},
+		log.Info("LLM generator enabled",
+			zap.String("model", cfg.Generator.Model),
+			zap.Int("max_context_tokens", cfg.Generator.MaxContextTokens),
 		)
 	}
 
@@ -145,16 +137,16 @@ func Server(ctx context.Context, cfg *config.Config) {
 			TTL:        cfg.SemanticCache.TTL,
 		})
 		if err != nil {
-			log.Error(context.Background(), "semantic cache init failed", logger.Field{Key: "error", Value: err.Error()})
+			log.Error("semantic cache init failed", zap.Error(err))
 		} else {
 			if err := semanticCache.EnsureCollection(context.Background()); err != nil {
-				log.Error(context.Background(), "semantic cache ensure collection failed", logger.Field{Key: "error", Value: err.Error()})
+				log.Error("semantic cache ensure collection failed", zap.Error(err))
 			} else {
 				searchService.WithSemanticCache(semanticCache)
 				ingestDeps.WithCache(semanticCache)
-				log.Info(context.Background(), "semantic cache enabled",
-					logger.Field{Key: "collection", Value: cfg.SemanticCache.Collection},
-					logger.Field{Key: "threshold", Value: cfg.SemanticCache.Threshold},
+				log.Info("semantic cache enabled",
+					zap.String("collection", cfg.SemanticCache.Collection),
+					zap.Float32("threshold", cfg.SemanticCache.Threshold),
 				)
 			}
 		}
@@ -174,16 +166,16 @@ func Server(ctx context.Context, cfg *config.Config) {
 
 	go func() {
 		<-ctx.Done()
-		log.Info(context.Background(), "http server shutting down")
+		log.Info("http server shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Error(context.Background(), "http server shutdown error", logger.Field{Key: "error", Value: err.Error()})
+			log.Error("http server shutdown error", zap.Error(err))
 		}
 	}()
 
-	log.Info(context.Background(), "http server starting", logger.Field{Key: "addr", Value: srv.Addr})
+	log.Info("http server starting", zap.String("addr", srv.Addr))
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Error(context.Background(), "http server error", logger.Field{Key: "error", Value: err.Error()})
+		log.Error("http server error", zap.Error(err))
 	}
 }

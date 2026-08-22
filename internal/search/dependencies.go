@@ -6,7 +6,7 @@ import (
 	"nadir/internal/reranker"
 	"nadir/internal/store"
 
-	"github.com/Chandra179/gosdk/logger"
+	"go.uber.org/zap"
 )
 
 // DependenciesConfig groups everything needed to construct the search
@@ -14,7 +14,7 @@ import (
 type DependenciesConfig struct {
 	Embedder embedder.Embedder
 	Store    store.Store
-	Log      logger.Logger
+	Log      *zap.Logger
 }
 
 type dependencies struct {
@@ -23,7 +23,7 @@ type dependencies struct {
 	reranker     reranker.Reranker
 	candidateMul int
 	cache        cache.Cache
-	log          logger.Logger
+	log          *zap.Logger
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {

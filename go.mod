@@ -1,9 +1,8 @@
 module nadir
 
-go 1.26
+go 1.26.6
 
 require (
-	github.com/Chandra179/gosdk v0.0.0-20260412122738-95b5d4238faa
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0

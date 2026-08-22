@@ -4,8 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/Chandra179/gosdk/logger"
+	"go.uber.org/zap"
 )
 
 type ingestResponse struct {
@@ -20,7 +19,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 
 	result, err := d.ingest.Run(ctx)
 	if err != nil {
-		d.log.Error(ctx, "ingest run failed", logger.Field{Key: "error", Value: err.Error()})
+		d.log.Error("ingest run failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, ingestResponse{Error: err.Error()})
 		return
 	}

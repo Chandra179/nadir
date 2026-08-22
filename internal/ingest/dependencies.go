@@ -8,7 +8,7 @@ import (
 	"nadir/internal/embedder"
 	"nadir/internal/store"
 
-	"github.com/Chandra179/gosdk/logger"
+	"go.uber.org/zap"
 )
 
 const ingestWorkers = 8
@@ -30,7 +30,7 @@ type DependenciesConfig struct {
 	Embedder       embedder.Embedder
 	Store          store.Store
 	Retry          RetryConfig
-	Log            logger.Logger
+	Log            *zap.Logger
 }
 
 // dependencies walks configured source directories, dedups files by
@@ -44,7 +44,7 @@ type dependencies struct {
 	store    store.Store
 	cache    cache.Cache
 	cfg      RetryConfig
-	log      logger.Logger
+	log      *zap.Logger
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {

@@ -9,7 +9,7 @@ import (
 
 	"nadir/internal/store"
 
-	"github.com/Chandra179/gosdk/logger"
+	"go.uber.org/zap"
 )
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
@@ -82,7 +82,7 @@ func (s *dependencies) postProcess(ctx context.Context, query string, chunks []s
 	if s.reranker != nil && len(chunks) > 0 {
 		reranked, err := s.reranker.Rerank(ctx, query, chunks)
 		if err != nil {
-			s.log.Warn(ctx, "reranker failed, falling back to un-reranked results", logger.Field{Key: "error", Value: err.Error()})
+			s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
 		} else {
 			chunks = reranked
 			if len(chunks) > topK {

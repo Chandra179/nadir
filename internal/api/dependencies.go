@@ -5,7 +5,7 @@ import (
 	"nadir/internal/ingest"
 	"nadir/internal/search"
 
-	"github.com/Chandra179/gosdk/logger"
+	"go.uber.org/zap"
 )
 
 // DependenciesConfig groups everything needed to construct the API
@@ -15,7 +15,7 @@ type DependenciesConfig struct {
 	Ingest    ingest.Ingest
 	Generator generator.Generator
 	TopK      int
-	Log       logger.Logger
+	Log       *zap.Logger
 }
 
 type dependencies struct {
@@ -23,7 +23,7 @@ type dependencies struct {
 	ingest    ingest.Ingest
 	generator generator.Generator
 	topK      int
-	log       logger.Logger
+	log       *zap.Logger
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {

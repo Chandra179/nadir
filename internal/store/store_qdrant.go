@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/Chandra179/gosdk/logger"
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -168,7 +168,7 @@ func (s *dependencies) hybridSearchClient(ctx context.Context, vector []float32,
 
 	bm25Results, err := s.KeywordSearch(ctx, query, fetchN, filter)
 	if err != nil {
-		s.log.Warn(ctx, "bm25 leg failed, falling back to dense-only results", logger.Field{Key: "error", Value: err.Error()})
+		s.log.Warn("bm25 leg failed, falling back to dense-only results", zap.Error(err))
 		if len(denseResults) > topK {
 			denseResults = denseResults[:topK]
 		}

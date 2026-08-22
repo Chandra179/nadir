@@ -3,8 +3,8 @@ package store
 import (
 	"fmt"
 
-	"github.com/Chandra179/gosdk/logger"
 	qdrant "github.com/qdrant/go-client/qdrant"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -17,7 +17,7 @@ type DependenciesConfig struct {
 	Addr        string
 	Collection  string
 	PrefetchMul int
-	Log         logger.Logger
+	Log         *zap.Logger
 }
 
 // dependencies is a hybrid (dense + BM25) search store backed by Qdrant.
@@ -27,7 +27,7 @@ type dependencies struct {
 	collection  qdrant.CollectionsClient
 	name        string
 	prefetchMul int
-	log         logger.Logger
+	log         *zap.Logger
 }
 
 var _ Store = (*dependencies)(nil)

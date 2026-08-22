@@ -13,14 +13,14 @@ import (
 	"nadir/internal/embedder"
 	"nadir/internal/store"
 
-	"github.com/Chandra179/gosdk/logger"
 	"github.com/cenkalti/backoff/v4"
+	"go.uber.org/zap"
 )
 
 func (d *dependencies) Run(ctx context.Context) (Result, error) {
 	if d.cache != nil {
 		if err := d.cache.Clear(ctx); err != nil {
-			d.log.Warn(ctx, "failed to clear semantic cache before ingest", logger.Field{Key: "error", Value: err.Error()})
+			d.log.Warn("failed to clear semantic cache before ingest", zap.Error(err))
 		}
 	}
 
@@ -55,12 +55,12 @@ func (d *dependencies) Run(ctx context.Context) (Result, error) {
 			}
 			text, err := os.ReadFile(fetchPath)
 			if err != nil {
-				d.log.Error(ctx, "read file failed", logger.Field{Key: "path", Value: f.path}, logger.Field{Key: "error", Value: err.Error()})
+				d.log.Error("read file failed", zap.String("path", f.path), zap.Error(err))
 				failed.Add(1)
 				return
 			}
 			if err := d.ingestFile(ctx, f.path, string(text), f.sha); err != nil {
-				d.log.Error(ctx, "ingest failed", logger.Field{Key: "path", Value: f.path}, logger.Field{Key: "error", Value: err.Error()})
+				d.log.Error("ingest failed", zap.String("path", f.path), zap.Error(err))
 				failed.Add(1)
 				return
 			}
