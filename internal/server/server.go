@@ -129,16 +129,6 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	apiDeps := api.NewDependencies(api.DependenciesConfig{
-		Search:      searchService,
-		Ingest:      ingestDeps,
-		Store:       s,
-		Generator:   gen,
-		SourceRoots: cfg.Source.Paths,
-		TopK:        cfg.Qdrant.TopK,
-		Log:         log,
-	})
-
 	var semanticCache cache.Cache
 
 	if cfg.SemanticCache.Enabled {
@@ -165,6 +155,17 @@ func Server(ctx context.Context, cfg *config.Config) {
 			}
 		}
 	}
+
+	apiDeps := api.NewDependencies(api.DependenciesConfig{
+		Search:      searchService,
+		Ingest:      ingestDeps,
+		Store:       s,
+		Generator:   gen,
+		Cache:       semanticCache,
+		SourceRoots: cfg.Source.Paths,
+		TopK:        cfg.Qdrant.TopK,
+		Log:         log,
+	})
 
 	engine := gin.New()
 	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog(), deps.Metrics())

@@ -293,13 +293,21 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	// change that shifts section/line boundaries produces different IDs
 	// than the previous version of this file. Without this delete, the old
 	// chunks would never be overwritten and would linger in the collection
-	// as stale, orphaned points.
-	if err := d.store.DeleteByFile(ctx, filePath); err != nil {
-		return fmt.Errorf("delete stale chunks for %s: %w", filePath, err)
+	// as stale, orphaned points. Delete and upsert share one retry: a
+	// transient failure between them (delete succeeds, upsert doesn't)
+	// would otherwise leave the file with zero indexed chunks until the
+	// next sweep.
+	op := func() error {
+		if err := d.store.DeleteByFile(ctx, filePath); err != nil {
+			return fmt.Errorf("delete stale chunks for %s: %w", filePath, err)
+		}
+		if err := d.store.Upsert(ctx, scored); err != nil {
+			return fmt.Errorf("upsert %s: %w", filePath, err)
+		}
+		return nil
 	}
-
-	if err := d.store.Upsert(ctx, scored); err != nil {
-		return fmt.Errorf("upsert %s: %w", filePath, err)
+	if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+		return err
 	}
 	return nil
 }

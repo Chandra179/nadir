@@ -100,6 +100,9 @@
   .chip:hover { color: var(--accent); border-color: var(--accent); }
 
   .btn-primary { background: var(--accent); color: #fff; }
+  .btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .panel-danger { border-color: var(--danger); }
 
   .feedback { font-size: 12.5px; border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
   .feedback-ok { background: var(--success-soft); color: var(--success); }
@@ -196,6 +199,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
 
+      <div class="flex flex-col gap-5">
       <div class="panel">
         <div class="px-[22px] py-[18px] border-b border-edge">
           <h2 class="font-serif text-[15.5px] font-semibold m-0">New ingest</h2>
@@ -231,6 +235,27 @@
             </p>
           </form>
         </div>
+      </div>
+
+      <div class="panel panel-danger">
+        <div class="px-[22px] py-[18px] border-b border-edge">
+          <h2 class="font-serif text-[15.5px] font-semibold m-0" style="color:var(--danger)">Danger zone</h2>
+          <p class="text-[12.5px] text-faint m-0 mt-0.5">Permanently delete every indexed chunk. The collection itself is kept, so ingest can rebuild it.</p>
+        </div>
+        <div class="px-[22px] py-5 pb-[22px]">
+          <button type="button"
+                  class="btn-danger w-full rounded-[9px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2"
+                  hx-post="/store/reset"
+                  hx-target="#reset-feedback"
+                  hx-swap="innerHTML"
+                  hx-indicator="#reset-spinner"
+                  hx-confirm="Delete ALL indexed data? This cannot be undone.">
+            <span id="reset-spinner" class="htmx-indicator" aria-hidden="true">⟳</span>
+            Delete all data
+          </button>
+          <div id="reset-feedback"></div>
+        </div>
+      </div>
       </div>
 
       <div class="flex flex-col gap-5">

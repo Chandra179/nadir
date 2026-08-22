@@ -129,6 +129,20 @@ func (s *dependencies) DeleteByFile(ctx context.Context, filePath string) error 
 	return err
 }
 
+// DeleteAll removes every point in the collection via an unconditional
+// (empty) filter match, without dropping the collection or its indexes.
+func (s *dependencies) DeleteAll(ctx context.Context) error {
+	_, err := s.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: s.name,
+		Points: &qdrant.PointsSelector{
+			PointsSelectorOneOf: &qdrant.PointsSelector_Filter{
+				Filter: &qdrant.Filter{},
+			},
+		},
+	})
+	return err
+}
+
 func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
 	if f == nil {
 		return nil
