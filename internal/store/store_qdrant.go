@@ -19,30 +19,42 @@ import (
 const sparseVectorName = "bm25"
 
 func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
+	s.dimensions = dimensions
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
 	if err != nil {
 		if status.Code(err) != codes.NotFound {
 			return fmt.Errorf("qdrant get collection: %w", err)
 		}
-		idf := qdrant.Modifier_Idf
-		_, err = s.collection.Create(ctx, &qdrant.CreateCollection{
-			CollectionName: s.name,
-			VectorsConfig: &qdrant.VectorsConfig{
-				Config: &qdrant.VectorsConfig_Params{
-					Params: &qdrant.VectorParams{
-						Size:     uint64(dimensions),
-						Distance: qdrant.Distance_Cosine,
-					},
+		return s.createCollection(ctx, dimensions)
+	}
+	return nil
+}
+
+// createCollection creates the collection (dense + BM25 sparse vectors) and
+// its payload field indexes from scratch. Qdrant fixes a collection's named
+// vectors at creation time — an existing collection can't gain a new named
+// vector (e.g. the bm25 sparse leg) via an in-place update, only by dropping
+// and recreating it.
+func (s *dependencies) createCollection(ctx context.Context, dimensions int) error {
+	idf := qdrant.Modifier_Idf
+	_, err := s.collection.Create(ctx, &qdrant.CreateCollection{
+		CollectionName: s.name,
+		VectorsConfig: &qdrant.VectorsConfig{
+			Config: &qdrant.VectorsConfig_Params{
+				Params: &qdrant.VectorParams{
+					Size:     uint64(dimensions),
+					Distance: qdrant.Distance_Cosine,
 				},
 			},
-			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
-				sparseVectorName: {Modifier: &idf},
-			}),
-		})
-		if err != nil {
-			return fmt.Errorf("qdrant create collection: %w", err)
-		}
+		},
+		SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
+			sparseVectorName: {Modifier: &idf},
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("qdrant create collection: %w", err)
 	}
+
 	ft := qdrant.FieldType_FieldTypeText
 	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
 		CollectionName: s.name,
@@ -129,18 +141,18 @@ func (s *dependencies) DeleteByFile(ctx context.Context, filePath string) error 
 	return err
 }
 
-// DeleteAll removes every point in the collection via an unconditional
-// (empty) filter match, without dropping the collection or its indexes.
+// DeleteAll drops the collection entirely and recreates it from scratch
+// (dense + bm25 sparse vectors, payload field indexes). A point-only delete
+// isn't enough to fix a collection whose schema has drifted from what the
+// current code expects (e.g. a collection created before the bm25 sparse
+// vector was added) — Qdrant fixes named vectors at creation time, so the
+// only way to pick up a schema change is to drop and recreate.
 func (s *dependencies) DeleteAll(ctx context.Context) error {
-	_, err := s.points.Delete(ctx, &qdrant.DeletePoints{
-		CollectionName: s.name,
-		Points: &qdrant.PointsSelector{
-			PointsSelectorOneOf: &qdrant.PointsSelector_Filter{
-				Filter: &qdrant.Filter{},
-			},
-		},
-	})
-	return err
+	_, err := s.collection.Delete(ctx, &qdrant.DeleteCollection{CollectionName: s.name})
+	if err != nil && status.Code(err) != codes.NotFound {
+		return fmt.Errorf("qdrant delete collection: %w", err)
+	}
+	return s.createCollection(ctx, s.dimensions)
 }
 
 func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {

@@ -24,6 +24,7 @@ type dependencies struct {
 	collection  qdrant.CollectionsClient
 	name        string
 	prefetchMul int
+	dimensions  int
 	log         *zap.Logger
 }
 

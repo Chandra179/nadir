@@ -14,9 +14,9 @@ type deleteAllResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// DeleteAllData permanently removes every indexed chunk from the store's
-// collection (leaving the collection and its indexes intact) and, if a
-// semantic cache is configured, clears it too so it can't keep serving
+// DeleteAllData permanently removes every indexed chunk by dropping and
+// recreating the store's collection (also picking up any schema drift) and,
+// if a semantic cache is configured, clears it too so it can't keep serving
 // results for content that no longer exists.
 func (d *dependencies) DeleteAllData(c *gin.Context) {
 	ctx := c.Request.Context()
