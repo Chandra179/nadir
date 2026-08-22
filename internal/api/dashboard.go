@@ -165,8 +165,8 @@ var historyTmpl = template.Must(template.New("history").Parse(`
 {{if .Runs}}
 {{range .Runs}}<tr>
 <td class="target">{{.Target}}</td>
-<td>{{.Processed}}</td>
-<td>{{.Skipped}}</td>
+<td class="num">{{.Processed}}</td>
+<td class="num">{{.Skipped}}</td>
 <td>{{.Badge}}</td>
 <td>{{.When}}</td>
 </tr>

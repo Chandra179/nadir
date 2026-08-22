@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nadir · Ingestion</title>
+<script>
+  // Applied before first paint so a stored preference doesn't flash the
+  // wrong theme; the toggle button in the header just flips/persists it.
+  (function () {
+    try {
+      var stored = localStorage.getItem('nadir-theme');
+      if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+    } catch (e) {}
+  })();
+</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,12 +32,14 @@
         colors: {
           bg: 'var(--bg)',
           surface: 'var(--surface)',
+          field: 'var(--field)',
           edge: 'var(--border)',
           ink: 'var(--text)',
           dim: 'var(--text-dim)',
           faint: 'var(--text-faint)',
           accent: 'var(--accent)',
           'accent-soft': 'var(--accent-soft)',
+          'accent-ink': 'var(--accent-ink)',
           success: 'var(--success)',
           'success-soft': 'var(--success-soft)',
           warning: 'var(--warning)',
@@ -44,20 +56,21 @@
 
 <style>
   :root {
-    --bg: #f4f5f7; --surface: #ffffff; --border: #e3e5ea;
-    --text: #1d2027; --text-dim: #6b7080; --text-faint: #9298ab;
-    --accent: #b8631f; --accent-soft: #f7e9da;
+    --bg: #f4f5f7; --surface: #ffffff; --field: #eef0f3; --border: #e3e5ea;
+    --text: #1d2027; --text-dim: #565b6c; --text-faint: #767c90;
+    --accent: #b8631f; --accent-soft: #f7e9da; --accent-ink: #8f4c17;
     --success: #2f9e6a; --success-soft: #e6f5ee;
     --warning: #c1922a; --warning-soft: #f8f0dd;
     --danger: #c94a3f; --danger-soft: #fbe9e7;
     --shadow: 0 1px 2px rgba(29,32,39,0.03), 0 10px 28px rgba(29,32,39,0.05);
+    --r-sm: 8px; --r-md: 12px;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #14161c; --surface: #1b1e27; --border: #2a2e3a;
-      --text: #e8e9ee; --text-dim: #9298ab; --text-faint: #656b7c;
-      --accent: #e0964a; --accent-soft: #362619;
+      --bg: #14161c; --surface: #1b1e27; --field: #22252f; --border: #2a2e3a;
+      --text: #e8e9ee; --text-dim: #a7acbe; --text-faint: #7d8399;
+      --accent: #e0964a; --accent-soft: #362619; --accent-ink: #f2c087;
       --success: #4fbf8f; --success-soft: #16281f;
       --warning: #e0b45a; --warning-soft: #332a14;
       --danger: #e0776c; --danger-soft: #331d1b;
@@ -66,9 +79,9 @@
     }
   }
   :root[data-theme="dark"] {
-    --bg: #14161c; --surface: #1b1e27; --border: #2a2e3a;
-    --text: #e8e9ee; --text-dim: #9298ab; --text-faint: #656b7c;
-    --accent: #e0964a; --accent-soft: #362619;
+    --bg: #14161c; --surface: #1b1e27; --field: #22252f; --border: #2a2e3a;
+    --text: #e8e9ee; --text-dim: #a7acbe; --text-faint: #7d8399;
+    --accent: #e0964a; --accent-soft: #362619; --accent-ink: #f2c087;
     --success: #4fbf8f; --success-soft: #16281f;
     --warning: #e0b45a; --warning-soft: #332a14;
     --danger: #e0776c; --danger-soft: #331d1b;
@@ -78,9 +91,26 @@
 
   body { background: var(--bg); color: var(--text); }
 
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
   .card, .panel {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; box-shadow: var(--shadow);
+    border-radius: var(--r-md); box-shadow: var(--shadow);
+  }
+
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 100px;
+    color: var(--text-dim); transition: color .12s ease, border-color .12s ease; flex-shrink: 0;
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn .sun { display: none; }
+  :root[data-theme="dark"] .icon-btn .sun, :root:not([data-theme="light"]) .icon-btn .sun { display: block; }
+  :root[data-theme="dark"] .icon-btn .moon, :root:not([data-theme="light"]) .icon-btn .moon { display: none; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .icon-btn .sun { display: none; }
+    :root:not([data-theme]) .icon-btn .moon { display: block; }
   }
 
   /* stat cards, rendered by GET /stats */
@@ -91,22 +121,48 @@
   #stats .value.danger { color: var(--danger); }
   #stats .delta { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
 
-  .source-tabs button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .source-tabs button.active { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+
+  .field-surface { background: var(--field); }
 
   .chip {
     font-family: "Roboto Mono", monospace; font-size: 11px; color: var(--text-dim);
-    background: var(--bg); border: 1px solid var(--border); padding: 4px 9px; border-radius: 100px; cursor: pointer;
+    background: var(--field); border: 1px solid var(--border); padding: 4px 9px; border-radius: 100px; cursor: pointer;
   }
   .chip:hover { color: var(--accent); border-color: var(--accent); }
 
   .btn-primary { background: var(--accent); color: #fff; }
-  .btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
-  .btn-danger:hover { background: var(--danger); color: #fff; }
-  .panel-danger { border-color: var(--danger); }
+  .btn-primary:hover { background: var(--accent-ink); }
 
-  .feedback { font-size: 12.5px; border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
+  /* danger strip — deliberately quieter than the primary action: a severity
+     stripe (same pattern the log rows use below) plus a small outline
+     button, not a full-width bold one, so it can't be mistaken for the
+     safe path. */
+  .danger-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 15px 18px; border-left: 3px solid var(--danger); }
+  .danger-row .d-icon { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
+  .danger-row .d-icon svg { width: 17px; height: 17px; display: block; }
+  .danger-row .d-text { flex: 1 1 200px; min-width: 0; }
+  .danger-row .d-text strong { display: block; font-size: 13px; font-weight: 700; color: var(--text); }
+  .danger-row .d-text span { display: block; font-size: 12px; color: var(--text-faint); margin-top: 2px; line-height: 1.5; }
+  .btn-danger-ghost {
+    flex-shrink: 0; background: transparent; color: var(--danger); border: 1px solid var(--danger);
+    border-radius: var(--r-sm); font-size: 12.5px; font-weight: 600; padding: 8px 14px; align-self: center;
+    transition: background .12s ease, color .12s ease;
+  }
+  .btn-danger-ghost:hover { background: var(--danger); color: #fff; }
+  @media (max-width: 400px) {
+    .danger-row { flex-direction: column; align-items: stretch; }
+    .danger-row .d-icon { display: none; }
+    .danger-row .d-text { flex: 0 1 auto; }
+    .btn-danger-ghost { width: 100%; text-align: center; }
+  }
+
+  .feedback { font-size: 12.5px; border-radius: var(--r-sm); padding: 8px 12px; margin-top: 10px; }
   .feedback-ok { background: var(--success-soft); color: var(--success); }
   .feedback-err { background: var(--danger-soft); color: var(--danger); }
+
+  .spin-icon { display: inline-block; animation: spin .9s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .spin-icon { animation: none; } }
 
   /* live-run legend tooltip */
   .legend {
@@ -114,10 +170,11 @@
     width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); color: var(--text-faint);
     font-size: 10px; font-weight: 700; cursor: default; flex-shrink: 0;
   }
+  .legend svg { width: 10px; height: 10px; }
   .legend:hover, .legend:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
   .legend .tip {
-    position: absolute; top: 22px; right: -8px; z-index: 5; width: 200px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+    position: absolute; top: 22px; right: 0; z-index: 5; width: max-content; max-width: min(220px, calc(100vw - 3rem));
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow);
     padding: 10px 12px; font-size: 11.5px; font-weight: 400; color: var(--text-dim); text-align: left; line-height: 1.7;
     opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .12s ease, transform .12s ease;
   }
@@ -159,6 +216,7 @@
   .table-scroll { overflow-x: auto; }
   table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); font-weight: 700; padding: 14px 22px 10px; white-space: nowrap; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td { padding: 12px 22px; border-top: 1px solid var(--border); color: var(--text-dim); vertical-align: middle; white-space: nowrap; }
   td.target { color: var(--text); font-family: "Roboto Mono", monospace; font-size: 12.5px; }
   tr:first-child td { border-top: none; }
@@ -182,14 +240,20 @@
         <span class="block text-[11px] uppercase tracking-[0.09em] font-semibold text-faint mb-1.5">Nadir · Search Engine</span>
         <h1 class="font-serif text-[26px] font-semibold m-0" style="text-wrap:balance">Ingestion</h1>
       </div>
-      <span class="inline-flex items-center gap-1.5 text-[12.5px] text-dim px-3 py-1.5 bg-surface border border-edge rounded-full">
-        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--success)"></span>
-        Qdrant &amp; Ollama configured
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 text-[12.5px] text-dim px-3 py-1.5 bg-surface border border-edge rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full" style="background:var(--success)"></span>
+          Qdrant &amp; Ollama connected
+        </span>
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle color theme">
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+          <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg>
+        </button>
+      </div>
     </header>
 
     <div id="stats"
-         class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-7"
+         class="grid gap-3.5 mb-7" style="grid-template-columns:repeat(auto-fit,minmax(148px,1fr))"
          hx-get="/stats" hx-trigger="load, every 5s, ingest-done from:body" hx-swap="innerHTML">
       <div class="card"><div class="label">Documents indexed</div><div class="value">—</div></div>
       <div class="card"><div class="label">Chunks in collection</div><div class="value">—</div></div>
@@ -197,7 +261,7 @@
       <div class="card"><div class="label">Failed last run</div><div class="value">—</div></div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-5 items-start">
+    <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 items-start">
 
       <div class="flex flex-col gap-5">
       <div class="panel">
@@ -207,13 +271,13 @@
         </div>
         <div class="px-[22px] py-5 pb-[22px]">
           <div class="source-tabs flex gap-1.5 mb-4" role="tablist">
-            <button type="button" data-kind="file" class="active flex-1 border border-edge bg-bg text-dim text-[12.5px] font-semibold py-2 rounded-lg">File</button>
-            <button type="button" data-kind="dir" class="flex-1 border border-edge bg-bg text-dim text-[12.5px] font-semibold py-2 rounded-lg">Directory</button>
+            <button type="button" data-kind="file" class="active flex-1 border border-edge field-surface text-dim text-[12.5px] font-semibold py-2 rounded-lg">File</button>
+            <button type="button" data-kind="dir" class="flex-1 border border-edge field-surface text-dim text-[12.5px] font-semibold py-2 rounded-lg">Directory</button>
           </div>
 
           <form hx-post="/ingest" hx-target="#submit-feedback" hx-swap="innerHTML" hx-indicator="#submit-spinner">
             <label class="block text-xs font-semibold text-dim mb-1.5" for="path-input">Path</label>
-            <div class="border border-edge rounded-[9px] bg-bg px-3.5 py-2.5 mb-3">
+            <div class="field-surface border border-edge rounded-[8px] px-3.5 py-2.5 mb-3">
               <input id="path-input" name="path" type="text" placeholder="e.g. gitbook/math/trig.md" spellcheck="false" autocomplete="off"
                      class="w-full bg-transparent outline-none font-mono text-[13px]" style="color:var(--text)">
             </div>
@@ -225,8 +289,8 @@
               {{end}}
             </div>
 
-            <button type="submit" class="btn-primary w-full rounded-[9px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2">
-              <span id="submit-spinner" class="htmx-indicator" aria-hidden="true">⟳</span>
+            <button type="submit" class="btn-primary w-full rounded-[8px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2">
+              <span id="submit-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
               Run ingest
             </button>
             <div id="submit-feedback"></div>
@@ -237,24 +301,27 @@
         </div>
       </div>
 
-      <div class="panel panel-danger">
-        <div class="px-[22px] py-[18px] border-b border-edge">
-          <h2 class="font-serif text-[15.5px] font-semibold m-0" style="color:var(--danger)">Danger zone</h2>
-          <p class="text-[12.5px] text-faint m-0 mt-0.5">Permanently delete every indexed chunk by dropping and recreating the collection. Ingest can rebuild it afterward.</p>
-        </div>
-        <div class="px-[22px] py-5 pb-[22px]">
+      <div class="panel">
+        <div class="danger-row">
+          <span class="d-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+          </span>
+          <span class="d-text">
+            <strong>Delete all data</strong>
+            <span>Drops and recreates the collection — every indexed chunk is permanently removed. Ingest can rebuild it afterward.</span>
+          </span>
           <button type="button"
-                  class="btn-danger w-full rounded-[9px] text-[13.5px] font-bold py-3 flex items-center justify-center gap-2"
+                  class="btn-danger-ghost"
                   hx-post="/store/reset"
                   hx-target="#reset-feedback"
                   hx-swap="innerHTML"
                   hx-indicator="#reset-spinner"
                   hx-confirm="Delete ALL indexed data? This cannot be undone.">
-            <span id="reset-spinner" class="htmx-indicator" aria-hidden="true">⟳</span>
-            Delete all data
+            <span id="reset-spinner" class="htmx-indicator spin-icon" aria-hidden="true">⟳</span>
+            Delete all
           </button>
-          <div id="reset-feedback"></div>
         </div>
+        <div id="reset-feedback" class="px-[18px] pb-4"></div>
       </div>
       </div>
 
@@ -263,7 +330,8 @@
           <div class="px-[22px] py-[18px] border-b border-edge flex items-center justify-between gap-3">
             <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
               Live run
-              <span class="legend" tabindex="0" aria-label="Row color key">?
+              <span class="legend" tabindex="0" aria-label="Row color key">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
                 <span class="tip">
                   <span class="key"><span class="swatch" style="background:var(--accent)"></span>in progress — embedding chunk</span>
                   <span class="key"><span class="swatch" style="background:var(--success)"></span>processed — chunked, embedded, upserted</span>
@@ -284,7 +352,8 @@
             <div>
               <h2 class="font-serif text-[15.5px] font-semibold m-0 flex items-center gap-1.5">
                 Recent runs
-                <span class="legend" tabindex="0" aria-label="Status color key">?
+                <span class="legend" tabindex="0" aria-label="Status color key">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
                   <span class="tip">
                     <span class="key"><span class="swatch" style="background:var(--success)"></span>done — no failures</span>
                     <span class="key"><span class="swatch" style="background:var(--warning)"></span>no files — nothing new/changed</span>
@@ -297,7 +366,7 @@
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Target</th><th>Processed</th><th>Skipped</th><th>Status</th><th>When</th></tr></thead>
+              <thead><tr><th>Target</th><th class="num">Processed</th><th class="num">Skipped</th><th>Status</th><th>When</th></tr></thead>
               <tbody id="history" hx-get="/ingest/history" hx-trigger="load, every 4s, ingest-done from:body" hx-swap="innerHTML">
                 <tr><td colspan="5" class="empty-row">Loading…</td></tr>
               </tbody>
@@ -325,6 +394,19 @@
       if (!chip) return;
       document.getElementById('path-input').value = chip.dataset.fill;
     });
+
+    (function () {
+      var root = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function () {
+        var current = root.getAttribute('data-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var effectiveDark = current ? current === 'dark' : prefersDark;
+        var next = effectiveDark ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('nadir-theme', next); } catch (e) {}
+      });
+    })();
   </script>
 </body>
 </html>
