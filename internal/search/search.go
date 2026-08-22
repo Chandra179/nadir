@@ -6,11 +6,18 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
+	"nadir/internal/embedder"
 	"nadir/internal/store"
 
 	"go.uber.org/zap"
 )
+
+// maxChunksPerFile caps how many chunks from the same source file can
+// appear in a result set, so one large or heavily-overlapping document
+// can't crowd out relevant context from other files.
+const maxChunksPerFile = 3
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
@@ -96,32 +103,87 @@ func (s *dependencies) postProcess(ctx context.Context, query string, chunks []s
 
 func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fragments := splitFragments(query)
-	seen := make(map[string]store.ScoredChunk)
-	for _, frag := range fragments {
-		vec, err := s.embedder.Embed(ctx, frag)
-		if err != nil {
-			return nil, fmt.Errorf("embed: %w", err)
-		}
-		results, err := s.store.HybridSearch(ctx, vec, frag, topK, filter)
-		if err != nil {
-			return nil, fmt.Errorf("search failed")
-		}
-		for _, c := range results {
-			key := c.Key()
-			if existing, ok := seen[key]; !ok || c.Score > existing.Score {
-				seen[key] = c
-			}
-		}
+
+	vecs, err := s.embedFragments(ctx, fragments)
+	if err != nil {
+		return nil, fmt.Errorf("embed: %w", err)
 	}
+
+	var (
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+		seen     = make(map[string]store.ScoredChunk)
+		firstErr error
+	)
+	for i, frag := range fragments {
+		wg.Add(1)
+		go func(frag string, vec []float32) {
+			defer wg.Done()
+			results, err := s.store.HybridSearch(ctx, vec, frag, topK, filter)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				if firstErr == nil {
+					firstErr = fmt.Errorf("search failed")
+				}
+				return
+			}
+			for _, c := range results {
+				key := c.Key()
+				if existing, ok := seen[key]; !ok || c.Score > existing.Score {
+					seen[key] = c
+				}
+			}
+		}(frag, vecs[i])
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+
 	merged := make([]store.ScoredChunk, 0, len(seen))
 	for _, c := range seen {
 		merged = append(merged, c)
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i].Score > merged[j].Score })
+	merged = capPerFile(merged, maxChunksPerFile)
 	if len(merged) > topK {
 		merged = merged[:topK]
 	}
 	return merged, nil
+}
+
+// embedFragments embeds all query fragments in one batch call when the
+// embedder supports it, instead of one round trip per fragment.
+func (s *dependencies) embedFragments(ctx context.Context, fragments []string) ([][]float32, error) {
+	if be, ok := s.embedder.(embedder.BatchEmbedder); ok {
+		return be.EmbedBatch(ctx, fragments)
+	}
+	vecs := make([][]float32, len(fragments))
+	for i, frag := range fragments {
+		vec, err := s.embedder.Embed(ctx, frag)
+		if err != nil {
+			return nil, err
+		}
+		vecs[i] = vec
+	}
+	return vecs, nil
+}
+
+// capPerFile keeps at most maxPerFile chunks per source file, preserving
+// the input (score-sorted) order, so one document can't crowd out context
+// from other files in the result set.
+func capPerFile(chunks []store.ScoredChunk, maxPerFile int) []store.ScoredChunk {
+	counts := make(map[string]int)
+	out := make([]store.ScoredChunk, 0, len(chunks))
+	for _, c := range chunks {
+		if counts[c.FilePath] >= maxPerFile {
+			continue
+		}
+		counts[c.FilePath]++
+		out = append(out, c)
+	}
+	return out
 }
 
 func splitFragments(query string) []string {

@@ -1,12 +1,10 @@
 package cache
 
 import (
-	"fmt"
 	"time"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"nadir/internal/embedder"
 )
@@ -17,9 +15,10 @@ const (
 )
 
 // DependenciesConfig groups everything needed to construct the semantic
-// cache.
+// cache. Conn is a shared gRPC connection to Qdrant (the caller dials it
+// once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
-	Addr       string
+	Conn       *grpc.ClientConn
 	Collection string
 	Embedder   embedder.Embedder
 	Threshold  float32
@@ -28,7 +27,6 @@ type DependenciesConfig struct {
 
 // dependencies is a semantic cache backed by a dedicated Qdrant collection.
 type dependencies struct {
-	conn       *grpc.ClientConn
 	points     qdrant.PointsClient
 	collection qdrant.CollectionsClient
 	name       string
@@ -50,14 +48,9 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		threshold = defaultThreshold
 	}
 
-	conn, err := grpc.NewClient(cfg.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("semantic cache dial %s: %w", cfg.Addr, err)
-	}
 	return &dependencies{
-		conn:       conn,
-		points:     qdrant.NewPointsClient(conn),
-		collection: qdrant.NewCollectionsClient(conn),
+		points:     qdrant.NewPointsClient(cfg.Conn),
+		collection: qdrant.NewCollectionsClient(cfg.Conn),
 		name:       collection,
 		embedder:   cfg.Embedder,
 		threshold:  threshold,

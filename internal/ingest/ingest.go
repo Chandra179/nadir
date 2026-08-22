@@ -28,12 +28,6 @@ func (d *dependencies) Run(ctx context.Context, target string) (Result, error) {
 }
 
 func (d *dependencies) run(ctx context.Context, target string) (Result, error) {
-	if d.cache != nil {
-		if err := d.cache.Clear(ctx); err != nil {
-			d.log.Warn("failed to clear semantic cache before ingest", zap.Error(err))
-		}
-	}
-
 	var files []fileInfo
 	var err error
 	if target == "" {
@@ -90,6 +84,16 @@ func (d *dependencies) run(ctx context.Context, target string) (Result, error) {
 		}(f)
 	}
 	wg.Wait()
+
+	// Only clear the semantic cache when content actually changed: a full
+	// sweep where every file is unchanged (all skipped) has nothing stale
+	// to invalidate, so clearing unconditionally on every run wiped a warm
+	// cache for no reason.
+	if d.cache != nil && processed.Load() > 0 {
+		if err := d.cache.Clear(ctx); err != nil {
+			d.log.Warn("failed to clear semantic cache after ingest", zap.Error(err))
+		}
+	}
 
 	return Result{
 		Processed: int(processed.Load()),
@@ -283,6 +287,15 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 			Vector:     vecs[i],
 			SourceSHA:  sourceSHA,
 		})
+	}
+
+	// Chunk IDs are derived from filePath:lineStart:chunkIndex, so a content
+	// change that shifts section/line boundaries produces different IDs
+	// than the previous version of this file. Without this delete, the old
+	// chunks would never be overwritten and would linger in the collection
+	// as stale, orphaned points.
+	if err := d.store.DeleteByFile(ctx, filePath); err != nil {
+		return fmt.Errorf("delete stale chunks for %s: %w", filePath, err)
 	}
 
 	if err := d.store.Upsert(ctx, scored); err != nil {

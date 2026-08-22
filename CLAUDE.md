@@ -66,7 +66,7 @@ Wiring lives in `internal/httpserver/server.go`.
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
 - `eval/` — golden set loading, retrieval/RAGAS metrics, eval runner (used by `cmd/eval`)
 
-`internal/middleware/` — stdlib chain. `Chain()` applies outermost-first: `Recovery→RequestID→Timeout`.
+`internal/middleware/` — gin middleware, registered outermost-first in `server.go`: `Recovery→RequestID→Timeout→RequestLog→Metrics`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls via request context deadline; `POST /ingest` is exempt since a full sweep can legitimately run long.
 
 `services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
 
@@ -75,7 +75,7 @@ Wiring lives in `internal/httpserver/server.go`.
 1. **Ingest & chunk** — sentence-based chunking for precise citations; configurable chunk size/overlap/strategy.
 2. **Embed** — each chunk is prefixed with its file path + heading before embedding, anchoring the vector in document structure without altering the stored text.
 3. **Semantic cache** — query embedding is checked against a dedicated Qdrant collection by cosine similarity before search; above threshold, returns cached results immediately, otherwise writes back asynchronously on miss. Only active when the client is not requesting generation.
-4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25 + SPLADE rescaling) legs run in parallel and fuse via Reciprocal Rank Fusion (RRF). Long queries are split into sentence fragments, searched independently, then deduped/re-sorted. `POST /search` accepts an optional `"filter"` object (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
+4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25-style term vectors, IDF-weighted server-side by Qdrant) legs run as native Qdrant prefetches and fuse via Reciprocal Rank Fusion (RRF) in a single query. Long queries are split into sentence fragments, embedded in one batch call, searched in parallel, then deduped/re-sorted with a per-file cap for diversity. `POST /search` accepts an optional `"filter"` object (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
 5. **Re-rank** — top-N candidates re-scored by the cross-encoder reranker sidecar, if enabled/available.
 6. **Generate** — chunks reordered by the "lost in the middle" heuristic (most relevant at both ends of context, least relevant in the middle) before being placed in the system prompt; Ollama streams the answer token by token.
 

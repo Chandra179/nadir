@@ -1,6 +1,9 @@
 package embedder
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 // DependenciesConfig groups everything needed to construct the Ollama
 // embedder.
@@ -23,6 +26,6 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		addr:       cfg.Addr,
 		model:      cfg.Model,
 		dimensions: cfg.Dimensions,
-		client:     &http.Client{},
+		client:     &http.Client{Timeout: 60 * time.Second},
 	}
 }

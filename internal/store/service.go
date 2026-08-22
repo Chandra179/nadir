@@ -14,6 +14,7 @@ type ScoredChunk struct {
 	ChunkIndex int
 	Vector     []float32
 	SourceSHA  string
+	IngestedAt string
 	Score      float32
 }
 

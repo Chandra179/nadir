@@ -3,15 +3,20 @@ package store
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// sparseVectorName is the named sparse vector field alongside the default
+// (unnamed) dense vector. Qdrant's Idf modifier applies corpus-wide IDF
+// weighting server-side to the raw term counts vectorizeSparse produces,
+// giving a real BM25-style ranked leg instead of an unranked text filter.
+const sparseVectorName = "bm25"
 
 func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
 	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
@@ -19,6 +24,7 @@ func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) err
 		if status.Code(err) != codes.NotFound {
 			return fmt.Errorf("qdrant get collection: %w", err)
 		}
+		idf := qdrant.Modifier_Idf
 		_, err = s.collection.Create(ctx, &qdrant.CreateCollection{
 			CollectionName: s.name,
 			VectorsConfig: &qdrant.VectorsConfig{
@@ -29,6 +35,9 @@ func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) err
 					},
 				},
 			},
+			SparseVectorsConfig: qdrant.NewSparseVectorsConfig(map[string]*qdrant.SparseVectorParams{
+				sparseVectorName: {Modifier: &idf},
+			}),
 		})
 		if err != nil {
 			return fmt.Errorf("qdrant create collection: %w", err)
@@ -47,14 +56,16 @@ func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) err
 	if err != nil {
 		return fmt.Errorf("qdrant create text index: %w", err)
 	}
-	fk := qdrant.FieldType_FieldTypeKeyword
-	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-		CollectionName: s.name,
-		FieldName:      "file_path",
-		FieldType:      &fk,
-	})
-	if err != nil {
-		return fmt.Errorf("qdrant create file_path index: %w", err)
+	for _, field := range []string{"file_path", "header", "source_sha"} {
+		fk := qdrant.FieldType_FieldTypeKeyword
+		_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
+			CollectionName: s.name,
+			FieldName:      field,
+			FieldType:      &fk,
+		})
+		if err != nil {
+			return fmt.Errorf("qdrant create %s index: %w", field, err)
+		}
 	}
 	return nil
 }
@@ -63,9 +74,17 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := chunkID(c.FilePath, c.LineStart, c.ChunkIndex)
+		sparseIdx, sparseVal := vectorizeSparse(c.Text)
+		ingestedAt := c.IngestedAt
+		if ingestedAt == "" {
+			ingestedAt = time.Now().UTC().Format(time.RFC3339)
+		}
 		points[i] = &qdrant.PointStruct{
-			Id:      qdrant.NewIDUUID(id),
-			Vectors: qdrant.NewVectors(c.Vector...),
+			Id: qdrant.NewIDUUID(id),
+			Vectors: qdrant.NewVectorsMap(map[string]*qdrant.Vector{
+				"":               qdrant.NewVectorDense(c.Vector),
+				sparseVectorName: qdrant.NewVectorSparse(sparseIdx, sparseVal),
+			}),
 			Payload: map[string]*qdrant.Value{
 				"file_path":   strVal(c.FilePath),
 				"header":      strVal(c.Header),
@@ -74,6 +93,7 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 				"text":        strVal(c.Text),
 				"window_text": strVal(c.WindowText),
 				"source_sha":  strVal(c.SourceSHA),
+				"ingested_at": strVal(ingestedAt),
 			},
 		}
 	}
@@ -154,84 +174,42 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 	return &qdrant.Filter{Must: conds}
 }
 
+// HybridSearch runs dense and BM25-style sparse legs as Qdrant-native
+// prefetches and fuses them server-side with RRF in a single round trip,
+// rather than issuing two separate queries and re-implementing RRF in Go.
 func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	return s.hybridSearchClient(ctx, vector, query, topK, filter)
-}
-
-func (s *dependencies) hybridSearchClient(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	fetchN := topK * s.prefetchMul
-
-	denseResults, err := s.searchWithFilter(ctx, vector, fetchN, filter)
-	if err != nil {
-		return nil, fmt.Errorf("dense search: %w", err)
-	}
-
-	bm25Results, err := s.KeywordSearch(ctx, query, fetchN, filter)
-	if err != nil {
-		s.log.Warn("bm25 leg failed, falling back to dense-only results", zap.Error(err))
-		if len(denseResults) > topK {
-			denseResults = denseResults[:topK]
-		}
-		return denseResults, nil
-	}
-
-	rrfK := 60.0
-	denseRank := make(map[string]int)
-	for i, r := range denseResults {
-		denseRank[r.Key()] = i + 1
-	}
-	bm25Rank := make(map[string]int)
-	for i, r := range bm25Results {
-		bm25Rank[r.Key()] = i + 1
-	}
-
-	seen := make(map[string]ScoredChunk)
-	for _, r := range denseResults {
-		scored := r
-		scored.Score = 0
-		if dr, ok := denseRank[r.Key()]; ok {
-			scored.Score += float32(1.0 / (rrfK + float64(dr)))
-		}
-		if br, ok := bm25Rank[r.Key()]; ok {
-			scored.Score += float32(1.0 / (rrfK + float64(br)))
-		}
-		seen[r.Key()] = scored
-	}
-	for _, r := range bm25Results {
-		if _, ok := seen[r.Key()]; ok {
-			continue
-		}
-		scored := r
-		scored.Score = 0
-		if br, ok := bm25Rank[r.Key()]; ok {
-			scored.Score += float32(1.0 / (rrfK + float64(br)))
-		}
-		seen[r.Key()] = scored
-	}
-
-	merged := make([]ScoredChunk, 0, len(seen))
-	for _, c := range seen {
-		merged = append(merged, c)
-	}
-	sortChunksByScore(merged)
-	if len(merged) > topK {
-		merged = merged[:topK]
-	}
-	return merged, nil
-}
-
-func (s *dependencies) searchWithFilter(ctx context.Context, vector []float32, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+	fetchN := uint64(topK * s.prefetchMul)
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
+	sparseIdx, sparseVal := vectorizeSparse(query)
+
+	prefetch := []*qdrant.PrefetchQuery{
+		{
+			Query:  qdrant.NewQueryDense(vector),
+			Filter: qf,
+			Limit:  &fetchN,
+		},
+	}
+	if len(sparseIdx) > 0 {
+		sparseName := sparseVectorName
+		prefetch = append(prefetch, &qdrant.PrefetchQuery{
+			Query:  qdrant.NewQuerySparse(sparseIdx, sparseVal),
+			Using:  &sparseName,
+			Filter: qf,
+			Limit:  &fetchN,
+		})
+	}
+
 	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
 		CollectionName: s.name,
-		Query:          qdrant.NewQueryDense(vector),
-		Limit:          &limit,
+		Prefetch:       prefetch,
+		Query:          qdrant.NewQueryFusion(qdrant.Fusion_RRF),
 		Filter:         qf,
+		Limit:          &limit,
 		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hybrid search: %w", err)
 	}
 
 	results := make([]ScoredChunk, len(resp.Result))
@@ -240,10 +218,6 @@ func (s *dependencies) searchWithFilter(ctx context.Context, vector []float32, t
 		results[i].Score = r.Score
 	}
 	return results, nil
-}
-
-func sortChunksByScore(chunks []ScoredChunk) {
-	sort.Slice(chunks, func(i, j int) bool { return chunks[i].Score > chunks[j].Score })
 }
 
 func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
@@ -328,6 +302,7 @@ func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
 		LineStart:  int(pbInt(p, "line_start")),
 		ChunkIndex: int(pbInt(p, "chunk_index")),
 		SourceSHA:  pbStr(p, "source_sha"),
+		IngestedAt: pbStr(p, "ingested_at"),
 	}
 }
 

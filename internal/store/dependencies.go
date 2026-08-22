@@ -1,20 +1,18 @@
 package store
 
 import (
-	"fmt"
-
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 const defaultPrefetchMul = 5
 
 // DependenciesConfig groups everything needed to construct the Qdrant
-// store.
+// store. Conn is a shared gRPC connection to Qdrant (the caller dials it
+// once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
-	Addr        string
+	Conn        *grpc.ClientConn
 	Collection  string
 	PrefetchMul int
 	Log         *zap.Logger
@@ -22,7 +20,6 @@ type DependenciesConfig struct {
 
 // dependencies is a hybrid (dense + BM25) search store backed by Qdrant.
 type dependencies struct {
-	conn        *grpc.ClientConn
 	points      qdrant.PointsClient
 	collection  qdrant.CollectionsClient
 	name        string
@@ -38,14 +35,9 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		prefetchMul = defaultPrefetchMul
 	}
 
-	conn, err := grpc.NewClient(cfg.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("qdrant dial %s: %w", cfg.Addr, err)
-	}
 	return &dependencies{
-		conn:        conn,
-		points:      qdrant.NewPointsClient(conn),
-		collection:  qdrant.NewCollectionsClient(conn),
+		points:      qdrant.NewPointsClient(cfg.Conn),
+		collection:  qdrant.NewCollectionsClient(cfg.Conn),
 		name:        cfg.Collection,
 		prefetchMul: prefetchMul,
 		log:         cfg.Log,

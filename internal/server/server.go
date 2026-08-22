@@ -21,6 +21,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -39,8 +41,18 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Registry: prometheus.NewRegistry(),
 	})
 
+	// Shared gRPC connection to Qdrant: store and the semantic cache both
+	// talk to the same address, so they reuse one connection instead of
+	// each dialing their own.
+	qdrantConn, err := grpc.NewClient(cfg.Qdrant.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Error("qdrant dial failed", zap.Error(err))
+		return
+	}
+	defer qdrantConn.Close()
+
 	s, err := store.NewDependencies(store.DependenciesConfig{
-		Addr:        cfg.Qdrant.Addr,
+		Conn:        qdrantConn,
 		Collection:  cfg.Qdrant.Collection,
 		PrefetchMul: cfg.Qdrant.PrefetchMul,
 		Log:         log,
@@ -132,7 +144,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	if cfg.SemanticCache.Enabled {
 		var err error
 		semanticCache, err = cache.NewDependencies(cache.DependenciesConfig{
-			Addr:       cfg.Qdrant.Addr,
+			Conn:       qdrantConn,
 			Collection: cfg.SemanticCache.Collection,
 			Embedder:   e,
 			Threshold:  cfg.SemanticCache.Threshold,
@@ -155,7 +167,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	}
 
 	engine := gin.New()
-	engine.Use(gin.Recovery(), middleware.RequestID, deps.RequestLog(), deps.Metrics())
+	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog(), deps.Metrics())
 	router := api.NewRouter(engine, apiDeps)
 
 	srv := &http.Server{

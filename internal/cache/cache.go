@@ -14,10 +14,6 @@ import (
 	"nadir/internal/store"
 )
 
-func (c *dependencies) Close() error {
-	return c.conn.Close()
-}
-
 func (c *dependencies) Clear(ctx context.Context) error {
 	_, err := c.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: c.name,
