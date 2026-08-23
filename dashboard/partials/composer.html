@@ -1,37 +1,38 @@
 {{define "composer"}}
-<div class="flex-none border-t border-[#e3e2d8] px-4 md:px-7 pt-3.5 pb-5">
+<div class="flex-none border-[#e3e2d8] px-4 md:px-7 pt-3.5 pb-5">
   <form id="composer-form" x-ref="composerForm" class="mx-auto max-w-[768px]"
         hx-post="/retrieval/search" hx-target="#reader-inner" hx-swap="beforeend"
         hx-on::config-request="if(event.target===this){ nadirConfigRequest(event); }"
         hx-on::before-request="if(event.target===this){ nadirBeforeSearch(this); }"
-        hx-on::after-request="if(event.target===this){ nadirAfterSearch(this); }">
+        hx-on::after-request="if(event.target===this){ nadirAfterSearch(this, event); }">
     <div class="rounded-[16px] border border-[#dcd8c9] bg-[#f7f7f4] shadow-[0_20px_40px_-26px_rgba(32,36,31,0.28)] px-[18px] pt-[16px] pb-[12px]">
       <div id="composer-attachments" class="flex flex-wrap gap-2 mb-2.5"></div>
       <textarea id="composer-input" x-ref="composerInput" name="query" rows="1" required
-        class="w-full resize-none bg-transparent outline-none text-[14.5px] leading-[1.6] pb-2.5 placeholder-[#8b8f81] max-h-[160px]"
+        class="w-full resize-none bg-transparent outline-none text-[16px] leading-[1.6] pb-2.5 placeholder-[#8b8f81] max-h-[160px]"
         placeholder="Ask about your documents…"
         @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,160)+'px'"
         @keydown.enter="if(!$event.shiftKey){ $event.preventDefault(); htmx.trigger($refs.composerForm,'submit'); }"></textarea>
       <input type="hidden" name="top_k" value="{{.DefaultTopK}}">
       <input type="hidden" name="generate" value="on">
+      <input type="hidden" name="session_id" id="composer-session-id" value="{{.SessionID}}">
       <div class="flex items-center gap-2">
         <div class="relative" x-data="{ open:false }" @click.outside="open=false">
           <button type="button" @click="open = !open" :aria-expanded="open.toString()"
             class="w-[29px] h-[29px] rounded-full border border-[#dcd8c9] text-[#5c6156] text-[17px] leading-none flex items-center justify-center hover:border-[#2f5d50] hover:text-[#234840] transition"
             aria-haspopup="true" aria-label="Add files">+</button>
           <div x-show="open" x-cloak class="absolute bottom-[calc(100%+8px)] left-0 min-w-[200px] bg-white border border-[#dcd8c9] rounded-[11px] shadow-lg p-1.5 z-20">
-            <label class="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[12.5px] text-[#5c6156] cursor-pointer hover:bg-[#eeece3] hover:text-[#20241f]">
+            <label class="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[14px] text-[#5c6156] cursor-pointer hover:bg-[#eeece3] hover:text-[#20241f]">
               <input type="file" name="files" accept=".md,.markdown" multiple class="hidden"
                 hx-post="/ingest" hx-encoding="multipart/form-data" hx-trigger="change"
                 hx-target="#composer-attachments" hx-swap="beforeend"
                 @change="open=false">
               <span class="w-4 text-center text-[#8b8f81]">▤</span> Import Markdown
             </label>
-            <div class="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[12.5px] text-[#8b8f81]">
+            <div class="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[14px] text-[#8b8f81]">
               <span class="w-4 text-center text-[#8b8f81]">▥</span> Import PDF
-              <span class="ml-auto text-[9px] tracking-wide uppercase border border-[#e3e2d8] rounded-full px-1.5 py-0.5">Soon</span>
+              <span class="ml-auto text-[10px] tracking-wide uppercase border border-[#e3e2d8] rounded-full px-1.5 py-0.5">Soon</span>
             </div>
-            <div class="px-2.5 pt-1.5 pb-0.5 text-[10.5px] text-[#8b8f81]">More formats later</div>
+            <div class="px-2.5 pt-1.5 pb-0.5 text-[12px] text-[#8b8f81]">More formats later</div>
           </div>
         </div>
         <button type="submit" class="ml-auto w-[29px] h-[29px] rounded-full bg-[#2f5d50] text-white flex items-center justify-center hover:bg-[#234840] transition">
@@ -39,7 +40,7 @@
         </button>
       </div>
     </div>
-    <div id="composer-hint" class="text-center text-[10.5px] text-[#8b8f81] mt-2">Every answer is grounded in retrieved passages, shown above it.</div>
+    <div id="composer-hint" class="text-center text-[12px] text-[#8b8f81] mt-2">Every answer is grounded in retrieved passages, shown above it.</div>
   </form>
 </div>
 {{end}}

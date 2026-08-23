@@ -54,3 +54,7 @@ generator:
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
+
+history:
+  enabled: true              # persists chat sessions/turns to Qdrant, no extra infra
+  collection: "chat_history"

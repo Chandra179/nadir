@@ -4,6 +4,7 @@ import (
 	"nadir/config"
 	"nadir/internal/cache"
 	"nadir/internal/generator"
+	"nadir/internal/history"
 	"nadir/internal/ingest"
 	"nadir/internal/search"
 	"nadir/internal/store"
@@ -21,6 +22,9 @@ type DependenciesConfig struct {
 	// Cache is optional: when set, a full data reset also clears the
 	// semantic cache so it can't keep serving results for deleted content.
 	Cache cache.Cache
+	// History is optional: when nil, chat sessions/turns are not persisted
+	// and the sidebar's chat list is simply empty.
+	History history.History
 	// SourceRoots are the configured source.paths roots, used to render
 	// the dashboard's "recent roots" quick-fill chips.
 	SourceRoots []string
@@ -38,6 +42,7 @@ type dependencies struct {
 	store       store.Store
 	generator   generator.Generator
 	cache       cache.Cache
+	history     history.History
 	sourceRoots []string
 	topK        int
 	cfg         *config.Config
@@ -51,6 +56,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		store:       cfg.Store,
 		generator:   cfg.Generator,
 		cache:       cfg.Cache,
+		history:     cfg.History,
 		sourceRoots: cfg.SourceRoots,
 		topK:        cfg.TopK,
 		cfg:         cfg.Config,

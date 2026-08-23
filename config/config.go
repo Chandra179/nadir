@@ -20,6 +20,7 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
+	History       HistoryConfig       `yaml:"history"`
 }
 
 type HTTPConfig struct {
@@ -94,6 +95,14 @@ type GeneratorConfig struct {
 	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
 }
 
+// HistoryConfig persists chat sessions/turns to a dedicated Qdrant
+// collection (reuses the same Qdrant instance as document search/semantic
+// cache, no extra infra required).
+type HistoryConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Collection string `yaml:"collection"`
+}
+
 func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -141,6 +150,12 @@ func (c *Config) applyEnv() {
 			c.SemanticCache.Threshold = float32(f)
 		}
 	}
+	if v := os.Getenv("HISTORY_ENABLED"); v != "" {
+		c.History.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("HISTORY_COLLECTION"); v != "" {
+		c.History.Collection = v
+	}
 }
 
 func (c *Config) Validate() error {
@@ -161,6 +176,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Qdrant.Collection == "" {
 		return fmt.Errorf("config: qdrant.collection must not be empty")
+	}
+	if c.History.Enabled && c.History.Collection == "" {
+		c.History.Collection = "chat_history"
 	}
 	return nil
 }

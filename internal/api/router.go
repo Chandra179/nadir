@@ -18,6 +18,8 @@ const (
 	RouteRetrieval       = "/retrieval"
 	RouteRetrievalSearch = "/retrieval/search"
 	RouteSettings        = "/settings"
+	RouteHistorySessions = "/history/sessions"
+	RouteHistorySession  = "/history/sessions/:id"
 )
 
 // NewRouter registers Search, Ingest, the dashboard, and Healthz on engine.
@@ -35,6 +37,8 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.GET(RouteRetrieval, deps.Retrieval)
 	engine.POST(RouteRetrievalSearch, deps.RetrievalSearch)
 	engine.GET(RouteSettings, deps.Settings)
+	engine.GET(RouteHistorySessions, deps.HistorySessions)
+	engine.GET(RouteHistorySession, deps.HistorySession)
 	engine.GET(RouteHealth, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

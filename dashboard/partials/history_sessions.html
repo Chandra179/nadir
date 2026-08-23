@@ -1,0 +1,11 @@
+{{define "history-sessions"}}
+{{if not .Enabled}}
+<div class="px-2.5 py-2 text-[13px] text-[#8b8f81]">History disabled</div>
+{{else if not .Sessions}}
+<div class="px-2.5 py-2 text-[13px] text-[#8b8f81]">No chats yet</div>
+{{else}}
+{{range .Sessions}}
+<a href="/history/sessions/{{.ID}}" @click="sidebarOpen = false" class="rounded-[7px] hover:bg-[#eeece3] text-[#20241f] text-[14px] px-2.5 py-2 truncate block">{{.Title}}</a>
+{{end}}
+{{end}}
+{{end}}

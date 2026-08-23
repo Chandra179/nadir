@@ -54,8 +54,9 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 - `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
 - `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
+- `history/` — `History` interface, `Session`/`Turn` value types, chat persistence backed by a dedicated Qdrant collection (see `history.enabled`)
 
-`internal/api/` — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Dashboard`, `Retrieval`, `RetrievalSearch`) and `NewRouter`, which registers them all on the gin engine.
+`internal/api/` — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Dashboard`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`, `HistorySession`) and `NewRouter`, which registers them all on the gin engine.
 
 `internal/server/` — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 
@@ -77,7 +78,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`
 - Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
 
 ## Addresses: local vs Docker
@@ -91,6 +92,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 | Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
+| Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |
 
 `ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
 

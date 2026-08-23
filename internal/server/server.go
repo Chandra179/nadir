@@ -11,6 +11,7 @@ import (
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
 	"nadir/internal/generator"
+	"nadir/internal/history"
 	"nadir/internal/ingest"
 	"nadir/internal/logger"
 	"nadir/internal/middleware"
@@ -154,12 +155,31 @@ func Server(ctx context.Context, cfg *config.Config) {
 		}
 	}
 
+	var hist history.History
+	if cfg.History.Enabled {
+		h, err := history.NewDependencies(history.DependenciesConfig{
+			Conn:       qdrantConn,
+			Collection: cfg.History.Collection,
+			Embedder:   e,
+			Log:        log,
+		})
+		if err != nil {
+			log.Error("history init failed", zap.Error(err))
+		} else if err := h.EnsureCollection(context.Background()); err != nil {
+			log.Error("history ensure collection failed", zap.Error(err))
+		} else {
+			hist = h
+			log.Info("chat history persistence enabled", zap.String("collection", cfg.History.Collection))
+		}
+	}
+
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
 		Search:      searchService,
 		Ingest:      ingestDeps,
 		Store:       s,
 		Generator:   gen,
 		Cache:       semanticCache,
+		History:     hist,
 		SourceRoots: cfg.Source.Paths,
 		TopK:        cfg.Qdrant.TopK,
 		Config:      cfg,
