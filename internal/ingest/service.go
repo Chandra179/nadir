@@ -8,12 +8,19 @@ type Result struct {
 	Failed    int
 }
 
-// Ingest runs an ingest pass. target selects what to (re)index: empty runs
-// the full configured source.paths sweep; a non-empty value is a single
-// .md file or a directory, absolute or relative to one of the configured
-// roots, and scopes the run to just that path.
+// UploadFile is one file submitted to POST /ingest as multipart form data.
+// Name is used both as the store's FilePath key (for dedup and citations)
+// and to derive the chunker's file-extension check.
+type UploadFile struct {
+	Name string
+	Data []byte
+}
+
+// Ingest runs an ingest pass over a batch of uploaded files: chunk, embed,
+// and upsert each one that's new or changed since the last run (by content
+// SHA-256).
 type Ingest interface {
-	Run(ctx context.Context, target string) (Result, error)
+	Run(ctx context.Context, files []UploadFile) (Result, error)
 	// Status returns a snapshot of the current or most recently finished
 	// run, for dashboard polling.
 	Status() RunStatus

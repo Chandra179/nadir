@@ -24,21 +24,17 @@ type RetryConfig struct {
 // DependenciesConfig groups everything needed to construct the ingest
 // dependencies.
 type DependenciesConfig struct {
-	Roots          []string
-	IgnorePatterns []string
-	Chunker        chunker.Chunker
-	Embedder       embedder.Embedder
-	Store          store.Store
-	Retry          RetryConfig
-	Log            *zap.Logger
+	Chunker  chunker.Chunker
+	Embedder embedder.Embedder
+	Store    store.Store
+	Retry    RetryConfig
+	Log      *zap.Logger
 }
 
-// dependencies walks configured source directories, dedups files by
-// SHA-256 against what's already stored, and for each new/changed file
-// runs chunk -> embed -> upsert.
+// dependencies takes a batch of uploaded files, dedups them by SHA-256
+// against what's already stored, and for each new/changed file runs
+// chunk -> embed -> upsert.
 type dependencies struct {
-	roots    []string
-	patterns []string
 	chunker  chunker.Chunker
 	embedder embedder.Embedder
 	store    store.Store
@@ -50,8 +46,6 @@ type dependencies struct {
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
-		roots:    cfg.Roots,
-		patterns: cfg.IgnorePatterns,
 		chunker:  cfg.Chunker,
 		embedder: cfg.Embedder,
 		store:    cfg.Store,

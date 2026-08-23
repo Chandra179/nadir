@@ -84,11 +84,9 @@ func Server(ctx context.Context, cfg *config.Config) {
 	}
 
 	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
-		Roots:          cfg.Source.Paths,
-		IgnorePatterns: cfg.Ingest.IgnorePatterns,
-		Chunker:        chunkr,
-		Embedder:       e,
-		Store:          s,
+		Chunker:  chunkr,
+		Embedder: e,
+		Store:    s,
 		Retry: ingest.RetryConfig{
 			MaxAttempts:     cfg.Ingest.MaxAttempts,
 			InitialInterval: cfg.Ingest.InitialInterval,
@@ -164,6 +162,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Cache:       semanticCache,
 		SourceRoots: cfg.Source.Paths,
 		TopK:        cfg.Qdrant.TopK,
+		Config:      cfg,
 		Log:         log,
 	})
 

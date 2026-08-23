@@ -67,7 +67,6 @@ type ChunkerConfig struct {
 
 // IngestConfig also controls the backoff used for retrying embed calls during ingest.
 type IngestConfig struct {
-	IgnorePatterns  []string      `yaml:"ignore_patterns"`
 	MaxAttempts     uint64        `yaml:"max_attempts"`
 	InitialInterval time.Duration `yaml:"initial_interval"`
 	MaxInterval     time.Duration `yaml:"max_interval"`

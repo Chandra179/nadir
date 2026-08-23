@@ -30,7 +30,7 @@ type ollamaChatChunk struct {
 	Done    bool          `json:"done"`
 }
 
-func (g *dependencies) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (io.ReadCloser, error) {
+func (g *dependencies) Generate(ctx context.Context, query string, chunks []store.ScoredChunk) (string, io.ReadCloser, error) {
 	prompt := buildPrompt(query, chunks, g.maxContextTokens)
 	log.Printf("[generator] RAG context passed to LLM:\n%s", prompt)
 
@@ -44,20 +44,20 @@ func (g *dependencies) Generate(ctx context.Context, query string, chunks []stor
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.addr+"/api/chat", bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("generator build request: %w", err)
+		return prompt, nil, fmt.Errorf("generator build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := g.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("generator request: %w", err)
+		return prompt, nil, fmt.Errorf("generator request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
+		return prompt, nil, fmt.Errorf("generator: status %d", resp.StatusCode)
 	}
 
-	return &ollamaTokenReader{body: resp.Body, scanner: bufio.NewScanner(resp.Body)}, nil
+	return prompt, &ollamaTokenReader{body: resp.Body, scanner: bufio.NewScanner(resp.Body)}, nil
 }
 
 type ollamaTokenReader struct {

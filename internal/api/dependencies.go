@@ -1,6 +1,7 @@
 package api
 
 import (
+	"nadir/config"
 	"nadir/internal/cache"
 	"nadir/internal/generator"
 	"nadir/internal/ingest"
@@ -24,7 +25,11 @@ type DependenciesConfig struct {
 	// the dashboard's "recent roots" quick-fill chips.
 	SourceRoots []string
 	TopK        int
-	Log         *zap.Logger
+	// Config is the fully-loaded, env-overridden config used to boot this
+	// server — surfaced read-only via the settings panel so users can see
+	// what's actually running without shelling in to read config.yaml.
+	Config *config.Config
+	Log    *zap.Logger
 }
 
 type dependencies struct {
@@ -35,6 +40,7 @@ type dependencies struct {
 	cache       cache.Cache
 	sourceRoots []string
 	topK        int
+	cfg         *config.Config
 	log         *zap.Logger
 }
 
@@ -47,6 +53,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		cache:       cfg.Cache,
 		sourceRoots: cfg.SourceRoots,
 		topK:        cfg.TopK,
+		cfg:         cfg.Config,
 		log:         cfg.Log,
 	}
 }

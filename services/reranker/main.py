@@ -10,8 +10,8 @@ Install:
     pip install sentence-transformers fastapi uvicorn
 
 Run:
-    python cmd/reranker/main.py
-    # or: uvicorn cmd.reranker.main:app --port 5002
+    python services/reranker/main.py
+    # or: uvicorn services.reranker.main:app --port 5002
 
 API:
     POST /rerank  {"query": "...", "passages": ["...", ...]}

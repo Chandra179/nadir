@@ -14,21 +14,6 @@ source:
     - "samples"
 
 ingest:
-  ignore_patterns:
-    - ".gitbook/**"
-    - ".git/**"
-    - "node_modules/**"
-    - "dist/**"
-    - ".wrangler/**"
-    - "scripts/**"
-    - "diagrams/**"
-    - ".claude/**"
-    - "package.json"
-    - "package-lock.json"
-    - "*.config.js"
-    - "*.jsonc"
-    - "build.sh"
-    - "CLAUDE.md"
   max_attempts: 3
   initial_interval: 500ms
   max_interval: 10s
@@ -53,7 +38,7 @@ chunker:
   window_size: 3          # sentences before+after each sentence (sentence-window only)
 
 reranker:
-  enabled: true       # set true + run: python cmd/reranker/main.py
+  enabled: true       # set true + run: python services/reranker/main.py
   addr: "http://localhost:5002"
   candidate_mul: 4     # fetch topK*4 candidates before reranking (more headroom for the reranker to reorder)
   max_concurrent: 10   # max concurrent reranker calls to sidecar

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. Single Go binary at `cmd/server/main.go`; a second CLI binary at `cmd/eval` runs retrieval/RAGAS evaluation. Two Python sidecars live under `services/` (reranker, docling PDF→MD).
+Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. Single Go binary at `cmd/server/main.go`. Two Python sidecars live under `services/` (reranker, docling PDF→MD).
 
 ## Commands
 
@@ -33,17 +33,7 @@ curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"que
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 
-> **Note:** `Makefile` currently only defines a `dev` target — the `test`/`run`/`ingest`/`search`/`generate`/`reset`/`vendor`/`eval*`/`docling*`/`reranker*`/`check` targets referenced in `AGENTS.md`/`README.md` were lost in a past commit that truncated the file. Use the raw commands above (or `go run ./cmd/eval ...`, see Eval CLI below) until the Makefile is restored.
-
-Eval CLI (two binaries: `cmd/server` the service, `cmd/eval` retrieval + RAGAS eval; requires an explicit `-golden` path and an already-populated Qdrant collection — it does not ingest):
-
-```bash
-go run ./cmd/eval -golden golden/samples.yaml -fetch-k 10 -mode retrieval
-go run ./cmd/eval -golden golden/samples.yaml -fetch-k 5 -mode rag
-go run ./cmd/eval -golden golden/samples.yaml -fetch-k 10 -mode both
-```
-
-The golden set YAML uses suffix-based path matching (`math/trig.md` matches stored `gitbook/math/trig.md`). Ground truth files go in `golden/`; a template with field docs is at `golden/template.yaml`. Run results are saved as timestamped JSON in `results/` (gitignored): aggregate metrics with confidence intervals, per-query breakdowns, latency, retrieved files with scores.
+> **Note:** `Makefile` currently only defines a `run` target (`./scripts/local.sh`) — the `dev`/`test`/`ingest`/`search`/`generate`/`reset`/`vendor`/`docling*`/`reranker*`/`check` targets referenced in `AGENTS.md`/`README.md` were lost in a past commit that truncated the file. Use the raw commands above until the Makefile is restored. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists in this codebase; `internal/golden/` still holds leftover golden-set YAML from that era but nothing imports it.
 
 ## Architecture
 
@@ -53,7 +43,7 @@ POST /search → SearchHandler → search.Service (embed→hybrid search→[rera
 GET  /healthz → 200
 ```
 
-Wiring lives in `internal/httpserver/server.go`.
+Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)`, called from `cmd/server/main.go`); HTTP handlers and route registration live in `internal/api/`.
 
 **Domain packages (under `internal/`):**
 - `chunker/` — `Chunker` interface, `Chunk` value type, `RecursiveChunker`, `SentenceWindowChunker`, `ContextualText`
@@ -64,13 +54,16 @@ Wiring lives in `internal/httpserver/server.go`.
 - `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
 - `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
-- `eval/` — golden set loading, retrieval/RAGAS metrics, eval runner (used by `cmd/eval`)
 
-`internal/middleware/` — gin middleware, registered outermost-first in `server.go`: `Recovery→RequestID→Timeout→RequestLog→Metrics`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls via request context deadline; `POST /ingest` is exempt since a full sweep can legitimately run long.
+`internal/api/` — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Dashboard`, `Retrieval`, `RetrievalSearch`) and `NewRouter`, which registers them all on the gin engine.
+
+`internal/server/` — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
+
+`internal/middleware/` — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog→Metrics`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls via request context deadline; `POST /ingest` is exempt since a full sweep can legitimately run long.
 
 `services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
 
-### Request pipeline details (see `docs.md` for the full write-up)
+### Request pipeline details
 
 1. **Ingest & chunk** — sentence-based chunking for precise citations; configurable chunk size/overlap/strategy.
 2. **Embed** — each chunk is prefixed with its file path + heading before embedding, anchoring the vector in document structure without altering the stored text.
@@ -81,10 +74,10 @@ Wiring lives in `internal/httpserver/server.go`.
 
 ## Key rules
 
-- Domain packages must NOT import `httpserver/` or `middleware/`
+- Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `OLLAMA_ADDR`, `RERANKER_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `QDRANT_COLLECTION`, `EMBEDDER_API_KEY`
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`
 - Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
 
 ## Addresses: local vs Docker

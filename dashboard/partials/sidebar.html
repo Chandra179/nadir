@@ -1,0 +1,28 @@
+{{define "sidebar"}}
+<aside class="h-full bg-[#f7f7f4] border-r border-[#e3e2d8] flex flex-col min-h-0">
+  <div class="flex items-baseline gap-1.5 px-[18px] pt-[18px] pb-3.5">
+    <span class="font-serif-display font-semibold text-[17px]">Nadir</span>
+    <span class="text-[10.5px] text-[#8b8f81]">reading room</span>
+  </div>
+
+  <a href="/retrieval" @click="sidebarOpen = false" class="mx-3 mb-3.5 rounded-[9px] border border-[#dcd8c9] bg-white text-[#5c6156] text-[12.5px] px-3 py-2 flex items-center gap-2 hover:border-[#2f5d50] hover:text-[#234840] transition">+ New chat</a>
+
+  <div class="px-[18px] pb-1.5 text-[10px] tracking-[0.1em] uppercase text-[#8b8f81]">Chats</div>
+  <div class="px-2 flex flex-col gap-0.5">
+    <div class="rounded-[7px] bg-[#2f5d5017] text-[#234840] font-medium text-[12.8px] px-2.5 py-2 truncate">Current session</div>
+  </div>
+
+  <div class="mt-auto px-[18px] py-3.5 border-t border-[#e3e2d8] flex items-center gap-2">
+    <div class="w-6 h-6 rounded-full bg-[#e4e1d5] border border-[#dcd8c9] flex-none"></div>
+    <div class="min-w-0 flex-1">
+      <div class="text-[11.5px] text-[#5c6156]">Local</div>
+      <div class="text-[10px] text-[#8b8f81] font-mono-ui truncate">nomic-embed-text</div>
+    </div>
+    <button type="button" @click="settingsOpen = true" aria-label="Settings"
+      hx-get="/settings" hx-target="#settings-body" hx-trigger="click" hx-swap="innerHTML"
+      class="w-7 h-7 rounded-lg flex items-center justify-center text-[#8b8f81] hover:bg-[#eeece3] hover:text-[#20241f] transition flex-none">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2.06 2.06 0 1 1-2.92 2.92l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V20a2.06 2.06 0 1 1-4.12 0v-.09A1.7 1.7 0 0 0 8.77 18.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2.06 2.06 0 1 1-2.92-2.92l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H2.6a2.06 2.06 0 1 1 0-4.12h.09A1.7 1.7 0 0 0 4.3 7.23a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2.06 2.06 0 1 1 2.92-2.92l.06.06a1.7 1.7 0 0 0 1.87.34H8.77A1.7 1.7 0 0 0 9.8 1.22V2.6a2.06 2.06 0 1 1 4.12 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2.06 2.06 0 1 1 2.92 2.92l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.03h.38a2.06 2.06 0 1 1 0 4.12h-.09a1.7 1.7 0 0 0-1.56 1.03Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</aside>
+{{end}}

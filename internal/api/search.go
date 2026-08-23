@@ -50,7 +50,7 @@ func (d *dependencies) Search(c *gin.Context) {
 	}
 
 	if req.Generate && d.generator != nil && req.Query != "" && len(chunks) > 0 {
-		stream, err := d.generator.Generate(c.Request.Context(), req.Query, chunks)
+		_, stream, err := d.generator.Generate(c.Request.Context(), req.Query, chunks)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "generate failed")
 			return

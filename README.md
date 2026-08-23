@@ -1,6 +1,6 @@
 # nadir
 
-Semantic document search engine. Ingests text files, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP. Includes eval harness for measuring retrieval quality and RAGAS metrics.
+Semantic document search engine. Ingests text files, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ source:
 ### 2. Start everything
 
 ```bash
-make dev
+./scripts/local.sh
 ```
 
 This starts Qdrant + reranker, runs the Go server, ingests all source files, and blocks on the server.
@@ -40,8 +40,6 @@ This starts Qdrant + reranker, runs the Go server, ingests all source files, and
 ### 3. Test search
 
 ```bash
-make search
-# or with a custom query:
 curl -X POST localhost:8100/search \
   -H "Content-Type: application/json" \
   -d '{"query":"secant formula","top_k":5}'
@@ -50,8 +48,6 @@ curl -X POST localhost:8100/search \
 ### 4. Include LLM answer generation
 
 ```bash
-make generate
-# or:
 curl -X POST localhost:8100/search \
   -H "Content-Type: application/json" \
   -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
@@ -71,62 +67,7 @@ source:
     - "/another/directory"
 ```
 
-Then run `make dev` again (or `curl -X POST localhost:8100/ingest` on a running server). Only new/changed files are processed (SHA-256 dedup).
-
-## Eval (retrieval quality)
-
-The `cmd/eval` binary tests retrieval quality against labeled ground truth.
-
-### Ground truth (golden sets)
-
-Place YAML files in `golden/`. A template with field docs is at `golden/template.yaml`:
-
-```yaml
-# golden/my-dataset.yaml
-queries:
-  - query: "secant formula"
-    expected_files:
-      - "numerical-methods.md"
-    relevance:
-      "numerical-methods.md": 3
-      "trig-functions.md": 1
-    expected_answer: "The secant formula is ..."
-```
-
-File matching is by suffix — `"math/trig.md"` matches stored `"gitbook/math/trig.md"`.
-
-### Run eval
-
-```bash
-make eval golden=golden/samples.yaml          # retrieval metrics
-make eval-rag golden=golden/samples.yaml      # RAGAS metrics (needs LLM)
-make eval-both golden=golden/samples.yaml     # both in one pass
-```
-
-Output is printed to stdout and saved to `results/` as timestamped JSON:
-
-```
-results/2026-06-28T13-32-16_retrieval.json
-```
-
-Each JSON file contains:
-
-| Field | Description |
-|-------|-------------|
-| `meta` | Run metadata (timestamp, golden, mode, config) |
-| `aggregate` | Aggregate metrics with confidence intervals |
-| `queries` | Per-query breakdown with scores, latency, retrieved files |
-
-### Per-query JSON fields
-
-| Field | Description |
-|-------|-------------|
-| `query` | Search query text |
-| `expected_files` | Ground-truth relevant files from golden set |
-| `retrieved` | File paths retrieved (deduped, ranked) |
-| `retrieved_files` | Files with raw similarity scores |
-| `latency_ms` | Search latency in milliseconds |
-| `recall_at_5`, `ndcg_at_10`, ... | Per-query metric values |
+Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/ingest` on a running server). Only new/changed files are processed (SHA-256 dedup).
 
 ## Run separately
 
@@ -135,10 +76,10 @@ Each JSON file contains:
 docker compose up -d qdrant reranker
 
 # 2. Start Go server
-make run
+go run ./cmd/server
 
 # 3. Ingest documents
-make ingest
+curl -X POST localhost:8100/ingest
 ```
 
 ## Config
@@ -161,19 +102,30 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 | Var | Default (docker-compose) | Purpose |
 |-----|--------------------------|---------|
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
-| `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
-| `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
+| `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
+| `EMBEDDER_API_KEY` | — | Embedder API key, if required |
+| `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
+| `RERANKER_ENABLED` | — | `true`/`1` to force-enable the reranker |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
+| `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
 
-> `make dev` overrides these to `localhost:*` so Go server on host can reach Docker services.
+> `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. `docker-compose.yml` sets these env vars on the containerized `app` service to reach the other Docker services.
 
 ## Routes
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/ingest` | Walk document dir, chunk+embed new/changed files |
+| GET | `/ingest/status` | Live status of the in-progress ingest run |
+| GET | `/ingest/history` | Recent ingest job history |
 | POST | `/search` | Hybrid semantic search over embedded chunks |
+| POST | `/store/reset` | Drop and recreate the Qdrant collection |
+| GET | `/stats` | Document/chunk counts, last run, failures |
+| GET | `/dashboard` | Ingestion dashboard UI |
+| GET | `/retrieval` | Retrieval (search) dashboard UI |
+| POST | `/retrieval/search` | Dashboard-facing search endpoint |
+| GET | `/healthz` | Health check |
 
 ## Architecture
 
@@ -192,25 +144,31 @@ POST /search → Embedder → Store.HybridSearch (dense + sparse → RRF)
 ### Unit tests (no Docker required)
 
 ```bash
-make test        # unit tests only; runs in seconds
-make test-all    # all tests (requires Qdrant)
+go test -short -count=1 ./...   # unit tests only; runs in seconds
+go test -count=1 ./...          # all tests (requires Qdrant)
 ```
 
 ## PDF ingestion
 
-Docling converts PDFs to markdown for ingestion. See `make docling`.
+Docling converts PDFs to markdown for ingestion (`services/docling/main.py`).
 
 ```bash
-make docling-install   # one-time: install Python deps
-make docling            # convert PDFs → markdown
-make ingest             # ingest converted markdown
+pip install -r services/docling/requirements.txt   # one-time: install Python deps
+python services/docling/main.py --input pdfs/raw --output pdfs/converted   # convert PDFs → markdown
+curl -X POST localhost:8100/ingest                  # ingest converted markdown
 ```
 
 ## Troubleshooting
 
-### `make dev` fails with connection errors
+### `./scripts/local.sh` fails with connection errors
 
-Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Run `make reset` to clear stale Qdrant state and retry.
+Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
+
+```bash
+curl -X DELETE localhost:6333/collections/documents_chunks
+```
+
+(or use the "Delete all" button in the ingestion dashboard at `/dashboard`, which does the same drop-and-recreate.)
 
 ### Ollama connection refused
 

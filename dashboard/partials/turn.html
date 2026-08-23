@@ -1,0 +1,86 @@
+{{define "turn"}}
+<div class="mb-8">
+  {{if .AttachedFiles}}
+  <div class="flex justify-end flex-wrap gap-2 mb-2">
+    {{range .AttachedFiles}}
+    <div class="w-[118px] bg-[#eeece3] border border-[#e3e2d8] rounded-[12px] px-2.5 py-2.5 flex flex-col items-start gap-2">
+      <div class="w-7 h-7 rounded-[7px] bg-[#dce8fb] text-[#2f5db0] flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="text-[10.5px] text-[#5c6156] truncate w-full">{{.}}</div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  <div class="flex justify-end mb-3.5">
+    <div class="text-[14.5px] leading-[1.5] bg-[#2f5d5017] border border-[#2f5d5017] rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[14px] rounded-br-[3px] px-[15px] py-[10px] max-w-[82%]">{{.Query}}</div>
+  </div>
+
+  {{if .Error}}
+  <p class="text-[13px] text-[#b04a3f]">{{.Error}}</p>
+  {{else}}
+  <div class="flex flex-col gap-0.5 mb-3.5">
+    <div class="flex gap-2.5 py-1.5">
+      <span class="w-4 text-center text-[#8b8f81] flex-none">⊕</span>
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap gap-1.5 items-baseline text-[12.5px]">
+          <span class="font-semibold text-[#5c6156]">Tool</span><span class="text-[#8b8f81]">·</span>
+          <span class="text-[#8b8f81]">Retrieve relevant passages</span>
+        </div>
+        <div class="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5"
+             x-data="{ open: {{if .HasAnswer}}false{{else}}true{{end}}, raw: false }">
+          <button type="button" @click="open = !open" class="w-full text-left flex items-center gap-1.5 py-0.5 text-[12px] text-[#5c6156] font-mono-ui">
+            <svg class="w-2.5 h-2.5 text-[#8b8f81] transition-transform" :class="{ 'rotate-90': open }" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span><b class="text-[#20241f] font-semibold">Search</b> · "{{.Query}}"</span>
+          </button>
+          <div x-show="open" x-cloak class="pt-2">
+            {{if .Results}}
+            <div class="bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] py-2">
+              {{range .Results}}
+              <div class="grid grid-cols-[14px_1fr_auto] gap-2.5 items-baseline px-3 py-[3px] font-mono-ui text-[11.5px]">
+                <span class="text-[#8b8f81]">·</span>
+                <span class="text-[#5c6156] truncate"><b class="text-[#20241f] font-medium">{{.FilePath}}</b>{{if .Header}} · {{.Header}}{{end}} · L{{.LineStart}}</span>
+                <span class="text-[#8b8f81]">{{.ScoreStr}}</span>
+              </div>
+              {{end}}
+            </div>
+            {{else}}
+            <p class="text-[12px] text-[#8b8f81]">No matching chunks.</p>
+            {{end}}
+            <button type="button" @click="raw = !raw" class="mt-2 font-mono-ui text-[10.5px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect</button>
+            <pre x-show="raw" x-cloak class="mt-2 font-mono-ui text-[11.5px] leading-relaxed text-[#5c6156] bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] px-3 py-2 overflow-x-auto">{
+  "query": "{{.Query}}",
+  "top_k": {{.TopK}},
+  "generate": {{.Generate}}
+}
+&rarr; {{.Count}} chunks &middot; {{.ElapsedMS}}ms{{if .FromCache}} &middot; cached{{end}}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {{if .HasAnswer}}
+    <div class="flex gap-2.5 py-1.5">
+      <span class="w-4 text-center text-[#8b8f81] flex-none">⊗</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px]">
+          <span class="font-semibold text-[#5c6156]">Think</span><span class="text-[#8b8f81]"> · </span>
+          <span class="text-[#8b8f81]">Reordering retrieved chunks (lost-in-middle) and generating the answer.</span>
+        </div>
+        {{if .Prompt}}
+        <div class="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5" x-data="{ ctxOpen: false }">
+          <button type="button" @click="ctxOpen = !ctxOpen" class="font-mono-ui text-[10.5px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect context sent to the LLM</button>
+          <pre x-show="ctxOpen" x-cloak class="mt-2 font-mono-ui text-[11.5px] leading-relaxed text-[#5c6156] bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] px-3 py-2 overflow-x-auto whitespace-pre-wrap">{{.Prompt}}</pre>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .HasAnswer}}
+  <div class="text-[15.5px] text-[#20241f] leading-[1.6]">
+    <p>{{.Answer}}</p>
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}

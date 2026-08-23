@@ -17,6 +17,7 @@ const (
 	RouteStoreReset      = "/store/reset"
 	RouteRetrieval       = "/retrieval"
 	RouteRetrievalSearch = "/retrieval/search"
+	RouteSettings        = "/settings"
 )
 
 // NewRouter registers Search, Ingest, the dashboard, and Healthz on engine.
@@ -30,9 +31,10 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.GET(RouteIngestStatus, deps.IngestStatus)
 	engine.GET(RouteIngestHistory, deps.IngestHistory)
 	engine.GET(RouteStats, deps.Stats)
-	engine.GET(RouteDashboard, deps.Dashboard)
+	engine.GET(RouteDashboard, deps.Retrieval)
 	engine.GET(RouteRetrieval, deps.Retrieval)
 	engine.POST(RouteRetrievalSearch, deps.RetrievalSearch)
+	engine.GET(RouteSettings, deps.Settings)
 	engine.GET(RouteHealth, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
