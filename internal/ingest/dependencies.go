@@ -48,7 +48,6 @@ type dependencies struct {
 	hypeQuestions  int
 	contextual     bool
 	log            *zap.Logger
-	tr             tracker
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
@@ -30,20 +29,7 @@ type Enricher interface {
 }
 
 func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, error) {
-	startedAt := time.Now()
-	label := runLabel(files)
-	d.tr.start(label)
-
-	result, err := d.run(ctx, files)
-	d.tr.finish(label, result, err, startedAt)
-	return result, err
-}
-
-func runLabel(files []UploadFile) string {
-	if len(files) == 1 {
-		return files[0].Name
-	}
-	return fmt.Sprintf("%d files", len(files))
+	return d.run(ctx, files)
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, error) {
@@ -60,7 +46,6 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 		sha := contentSHA(f.Data)
 		if sha != "" && storedSHAs[f.Name] == sha {
 			skipped.Add(1)
-			d.tr.record(f.Name, EventSkipped, "sha match")
 			continue
 		}
 		wg.Add(1)
@@ -69,22 +54,18 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			d.tr.record(f.Name, EventRunning, "embedding")
-
 			if strings.ToLower(filepath.Ext(f.Name)) != ".md" {
 				err := fmt.Errorf("only .md files can be ingested: %s", f.Name)
 				failed.Add(1)
-				d.tr.record(f.Name, EventFailed, err.Error())
+				d.log.Warn("skipping non-markdown upload", zap.String("path", f.Name), zap.Error(err))
 				return
 			}
 			if err := d.ingestFile(ctx, f.Name, string(f.Data), sha); err != nil {
 				d.log.Error("ingest failed", zap.String("path", f.Name), zap.Error(err))
 				failed.Add(1)
-				d.tr.record(f.Name, EventFailed, err.Error())
 				return
 			}
 			processed.Add(1)
-			d.tr.record(f.Name, EventProcessed, "")
 		}(f, sha)
 	}
 	wg.Wait()

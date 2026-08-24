@@ -1,6 +1,0 @@
-{{define "stats"}}
-<div class="card"><div class="label">Documents indexed</div><div class="value">{{.Documents}}</div></div>
-<div class="card"><div class="label">Chunks in collection</div><div class="value">{{.Chunks}}</div></div>
-<div class="card"><div class="label">Last run</div><div class="value accent">{{.LastRun}}</div><div class="delta">{{.LastTarget}}</div></div>
-<div class="card"><div class="label">Failed last run</div><div class="value{{if .LastFailed}} danger{{end}}">{{.LastFailedCount}}</div></div>
-{{end}}

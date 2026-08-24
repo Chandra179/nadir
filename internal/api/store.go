@@ -28,9 +28,6 @@ func (d *dependencies) DeleteAllData(c *gin.Context) {
 	}
 
 	if isHX {
-		// Reuse the same trigger name POST /ingest fires: the dashboard's
-		// stats/live-run/history panels already listen for it.
-		c.Header("HX-Trigger", "ingest-done")
 		c.String(http.StatusOK, `<div class="feedback feedback-ok">All indexed data deleted.</div>`)
 		return
 	}
@@ -40,7 +37,6 @@ func (d *dependencies) DeleteAllData(c *gin.Context) {
 func (d *dependencies) respondDeleteAllError(c *gin.Context, isHX bool, err error) {
 	msg := fmt.Sprintf("delete failed: %s", err.Error())
 	if isHX {
-		c.Header("HX-Trigger", "ingest-done")
 		c.String(http.StatusInternalServerError, fmt.Sprintf(`<div class="feedback feedback-err">%s</div>`, html.EscapeString(msg)))
 		return
 	}

@@ -21,9 +21,4 @@ type UploadFile struct {
 // SHA-256).
 type Ingest interface {
 	Run(ctx context.Context, files []UploadFile) (Result, error)
-	// Status returns a snapshot of the current or most recently finished
-	// run, for dashboard polling.
-	Status() RunStatus
-	// History returns completed runs, most recent first.
-	History() []RunSummary
 }

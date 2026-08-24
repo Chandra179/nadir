@@ -57,7 +57,7 @@ GET  /healthz → 200
 - `enrichment/` — index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
 - `eval/` — golden-set retrieval metrics (HitRate/Recall/MRR/nDCG) used by `cmd/evalbench`; reports in `tests/eval/reports/`
 
-**`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
+**`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
 
 **`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 

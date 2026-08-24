@@ -22,8 +22,7 @@ type ingestResponse struct {
 // more) — the chat UI's file picker, or curl -F. Each file is chunked,
 // embedded, and upserted; files whose content SHA-256 matches what's
 // already stored are skipped. On an htmx request it responds with the
-// attachment-chip fragment and sets HX-Trigger so live panels refresh
-// immediately instead of waiting for their next poll.
+// attachment-chip fragment instead of JSON.
 func (d *dependencies) Ingest(c *gin.Context) {
 	ctx := c.Request.Context()
 	isHX := c.GetHeader("HX-Request") == "true"
@@ -68,7 +67,6 @@ func (d *dependencies) Ingest(c *gin.Context) {
 	}
 
 	if isHX {
-		c.Header("HX-Trigger", "ingest-done")
 		d.renderHTML(c, http.StatusOK, "chips-ok", names)
 		return
 	}
@@ -81,7 +79,6 @@ func (d *dependencies) Ingest(c *gin.Context) {
 
 func (d *dependencies) respondIngestError(c *gin.Context, isHX bool, status int, msg string) {
 	if isHX {
-		c.Header("HX-Trigger", "ingest-done")
 		d.renderHTML(c, status, "chips-error", struct{ Message string }{msg})
 		return
 	}

@@ -72,8 +72,6 @@ type History interface {
 	ListSessions(ctx context.Context, limit int) ([]Session, error)
 	GetSession(ctx context.Context, sessionID string) (Session, error)
 	ListTurns(ctx context.Context, sessionID string) ([]Turn, error)
-	// DeleteSession removes a session and all of its turns.
-	DeleteSession(ctx context.Context, sessionID string) error
 }
 
 func (d *dependencies) CreateSession(ctx context.Context, title string) (Session, error) {
@@ -238,26 +236,6 @@ func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn,
 		out[i] = turn
 	}
 	return out, nil
-}
-
-// DeleteSession removes the session point and every turn point that
-// references it via session_id — a single filtered delete rather than
-// listing turns first, since Qdrant can match both point shapes in one
-// Should filter.
-func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) error {
-	_, err := d.points.Delete(ctx, &qdrant.DeletePoints{
-		CollectionName: d.name,
-		Points: qdrant.NewPointsSelectorFilter(&qdrant.Filter{
-			Should: []*qdrant.Condition{
-				matchKeyword("session_id", sessionID),
-				qdrant.NewHasID(qdrant.NewIDUUID(sessionID)),
-			},
-		}),
-	})
-	if err != nil {
-		return fmt.Errorf("history: delete session: %w", err)
-	}
-	return nil
 }
 
 func truncateTitle(s string) string {
