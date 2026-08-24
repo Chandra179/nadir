@@ -1,6 +1,6 @@
 module nadir
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
