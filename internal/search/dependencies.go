@@ -15,6 +15,9 @@ type DependenciesConfig struct {
 	Embedder embedder.Embedder
 	Store    store.Store
 	Log      *zap.Logger
+	// QueryPrefix is prepended to every embedded query fragment (e.g.
+	// "search_query: " for nomic-embed-text task instructions).
+	QueryPrefix string
 }
 
 type dependencies struct {
@@ -23,11 +26,12 @@ type dependencies struct {
 	reranker     reranker.Reranker
 	candidateMul int
 	cache        cache.Cache
+	queryPrefix  string
 	log          *zap.Logger
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
-	return &dependencies{embedder: cfg.Embedder, store: cfg.Store, log: cfg.Log}
+	return &dependencies{embedder: cfg.Embedder, store: cfg.Store, queryPrefix: cfg.QueryPrefix, log: cfg.Log}
 }
 
 func (s *dependencies) WithReranker(r reranker.Reranker, candidateMul int) *dependencies {
@@ -38,6 +42,10 @@ func (s *dependencies) WithReranker(r reranker.Reranker, candidateMul int) *depe
 	s.candidateMul = candidateMul
 	return s
 }
+
+// RerankerEnabled reports whether a reranker is wired in; used by eval
+// tooling to label reports.
+func (s *dependencies) RerankerEnabled() bool { return s.reranker != nil }
 
 // WithSemanticCache enables the semantic cache lookup/writeback performed by
 // Query.

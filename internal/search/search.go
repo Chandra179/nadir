@@ -154,8 +154,16 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 }
 
 // embedFragments embeds all query fragments in one batch call when the
-// embedder supports it, instead of one round trip per fragment.
+// embedder supports it, instead of one round trip per fragment. The query
+// task prefix (if configured) is applied to every fragment.
 func (s *dependencies) embedFragments(ctx context.Context, fragments []string) ([][]float32, error) {
+	if s.queryPrefix != "" {
+		prefixed := make([]string, len(fragments))
+		for i, f := range fragments {
+			prefixed[i] = s.queryPrefix + f
+		}
+		fragments = prefixed
+	}
 	if be, ok := s.embedder.(embedder.BatchEmbedder); ok {
 		return be.EmbedBatch(ctx, fragments)
 	}

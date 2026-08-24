@@ -22,6 +22,11 @@ go test -short -count=1 ./...              # unit tests only, no Docker
 go test -count=1 ./...                     # all tests, requires Qdrant
 go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 
+# Retrieval eval (needs live Qdrant + Ollama [+ reranker sidecar])
+go run ./cmd/evalbench --ensure-ingest             # baseline/A-B reports → tests/eval/reports/
+go run ./cmd/evalbench --no-rerank                 # measure reranker contribution
+go run ./cmd/evalbench --golden tests/eval/golden.json --top-k 5 --runs 3
+
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
 curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":10}'
@@ -40,14 +45,16 @@ GET  /healthz → 200
 ```
 
 **Domain packages (under `internal/`):**
-- `chunker/` — `Chunker` interface, `Chunk` value type, `RecursiveChunker`, `SentenceWindowChunker`, `ContextualText`
-- `embedder/` — `Embedder`, `BatchEmbedder` interfaces, `OllamaEmbedder`
-- `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, `QdrantStore`
-- `ingest/` — `Processor` interface, `Pipeline` (chunk→embed→upsert), `Service` (dir walk + SHA dedup + concurrent processing)
-- `search/` — `Service` (multi-fragment hybrid search → rerank)
-- `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
-- `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
+- `chunker/` — `Chunker` interface, `Chunk` value type, recursive + sentence-window providers, `ContextualText`
+- `embedder/` — `Embedder`, `BatchEmbedder` interfaces, Ollama HTTP client
+- `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, Qdrant hybrid store (dense + BM25 sparse + RRF)
+- `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; optional `Enricher` (HyPE questions/contextual intros)
+- `search/` — multi-fragment hybrid search → rerank → semantic cache
+- `generator/` — `Generator` interface, Ollama chat client, `buildPrompt`, `lostInMiddleOrder`
+- `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
+- `enrichment/` — index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
+- `eval/` — golden-set retrieval metrics (HitRate/Recall/MRR/nDCG) used by `cmd/evalbench`; reports in `tests/eval/reports/`
 
 **`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Dashboard`, `Retrieval`, `RetrievalSearch`) and `NewRouter`, registering them all on the gin engine.
 
@@ -60,10 +67,12 @@ GET  /healthz → 200
 ## Key rules
 
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
-- Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
-- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`
+- Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
+- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — deterministic upserts, no duplicates
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`
 - Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
+- Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
+- Enrichment flags (`enrichment.hype.enabled`, `enrichment.contextual.enabled`) affect ingest only; enabling after a prior ingest requires a reindex
 
 ## Addresses: local vs Docker
 
@@ -76,8 +85,10 @@ GET  /healthz → 200
 | Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
+| HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
+| Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (and enrichment falls back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart).
 
 ## Sample data
 

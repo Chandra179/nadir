@@ -10,6 +10,7 @@ import (
 	"nadir/internal/cache"
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
+	"nadir/internal/enrichment"
 	"nadir/internal/generator"
 	"nadir/internal/history"
 	"nadir/internal/ingest"
@@ -94,10 +95,48 @@ func Server(ctx context.Context, cfg *config.Config) {
 			MaxInterval:     cfg.Ingest.MaxInterval,
 			Multiplier:      cfg.Ingest.Multiplier,
 		},
-		Log: log,
+		DocumentPrefix: cfg.Embedder.DocumentPrefix,
+		Log:            log,
 	})
 
-	searchService := search.NewDependencies(search.DependenciesConfig{Embedder: e, Store: s, Log: log})
+	// Index-time LLM enrichment (HyPE questions, contextual intros): both
+	// are one-time costs per chunk at ingest, zero query-time latency.
+	// Enabling either after a collection was already ingested requires a
+	// reindex to take effect.
+	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
+		enrichAddr := cfg.Enrichment.Hype.OllamaAddr
+		enrichModel := cfg.Enrichment.Hype.Model
+		if cfg.Enrichment.Contextual.Enabled {
+			if enrichAddr == "" {
+				enrichAddr = cfg.Enrichment.Contextual.OllamaAddr
+			}
+			if enrichModel == "" {
+				enrichModel = cfg.Enrichment.Contextual.Model
+			}
+		}
+		if enrichAddr == "" {
+			enrichAddr = cfg.Generator.OllamaAddr
+		}
+		if enrichAddr == "" {
+			enrichAddr = cfg.Embedder.OllamaAddr
+		}
+		if enrichModel == "" {
+			enrichModel = cfg.Generator.Model
+		}
+		ingestDeps.WithEnrichment(
+			enrichment.NewDependencies(enrichment.DependenciesConfig{Addr: enrichAddr, Model: enrichModel}),
+			cfg.Enrichment.Hype.QuestionsPerChunk,
+			cfg.Enrichment.Contextual.Enabled,
+		)
+		log.Info("index-time LLM enrichment enabled",
+			zap.Bool("hype", cfg.Enrichment.Hype.Enabled),
+			zap.Int("questions_per_chunk", cfg.Enrichment.Hype.QuestionsPerChunk),
+			zap.Bool("contextual", cfg.Enrichment.Contextual.Enabled),
+			zap.String("model", enrichModel),
+			zap.String("addr", enrichAddr))
+	}
+
+	searchService := search.NewDependencies(search.DependenciesConfig{Embedder: e, Store: s, QueryPrefix: cfg.Embedder.QueryPrefix, Log: log})
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul

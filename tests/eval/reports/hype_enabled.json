@@ -1,0 +1,693 @@
+{
+  "timestamp": "2026-08-24T12:16:33Z",
+  "top_k": 5,
+  "reranker_enabled": true,
+  "per_query": [
+    {
+      "id": "secant-trig-definition",
+      "query": "what is the secant of an angle",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 993.294,
+      "latencies": [
+        1160.023,
+        993.294,
+        986.12
+      ]
+    },
+    {
+      "id": "secant-method-root-finding",
+      "query": "how does the secant method approximate a root",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1456.796,
+      "latencies": [
+        1459.931,
+        1368.945,
+        1456.796
+      ]
+    },
+    {
+      "id": "secant-formula-iteration",
+      "query": "secant method iteration formula x_{n+1}",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 2179.952,
+      "latencies": [
+        2179.952,
+        2178.855,
+        2195.19
+      ]
+    },
+    {
+      "id": "secant-method-failure-mode",
+      "query": "when does the secant method break down",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 1131.48,
+      "latencies": [
+        1166.263,
+        1106.351,
+        1131.48
+      ]
+    },
+    {
+      "id": "derivative-power-rule",
+      "query": "how do I take the derivative of x^n",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 2137.281,
+      "latencies": [
+        2223.886,
+        2133.914,
+        2137.281
+      ]
+    },
+    {
+      "id": "derivative-product-rule",
+      "query": "rule for differentiating a product of two functions",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "latency_ms": 2153.385,
+      "latencies": [
+        2100.55,
+        2176.827,
+        2153.385
+      ]
+    },
+    {
+      "id": "derivative-quotient-rule",
+      "query": "quotient rule for derivatives",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1288.178,
+      "latencies": [
+        1262.292,
+        1361.441,
+        1288.178
+      ]
+    },
+    {
+      "id": "derivative-chain-rule",
+      "query": "differentiate a composition f(g(x))",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1002.946,
+      "latencies": [
+        973.29,
+        1002.946,
+        1058.452
+      ]
+    },
+    {
+      "id": "derivative-of-tangent",
+      "query": "what is the derivative of tan(x)",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1815.968,
+      "latencies": [
+        1888.735,
+        1815.968,
+        1790.315
+      ]
+    },
+    {
+      "id": "derivative-of-secant-function",
+      "query": "derivative of sec(x)",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1780.68,
+      "latencies": [
+        1780.68,
+        1763.917,
+        1800.63
+      ]
+    },
+    {
+      "id": "integral-exponential",
+      "query": "integral of e^x",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1994.309,
+      "latencies": [
+        1994.309,
+        1950.037,
+        2017.686
+      ]
+    },
+    {
+      "id": "integral-natural-log",
+      "query": "what is the integral of 1 over x",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 2353.304,
+      "latencies": [
+        2355.03,
+        2353.304,
+        2352.828
+      ]
+    },
+    {
+      "id": "integral-power-rule",
+      "query": "general antiderivative of a power function",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 2064.467,
+      "latencies": [
+        2064.467,
+        2055.978,
+        2166.337
+      ]
+    },
+    {
+      "id": "vector-definition",
+      "query": "what is a vector in n-dimensional space",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1137.359,
+      "latencies": [
+        1188.083,
+        1103.125,
+        1137.359
+      ]
+    },
+    {
+      "id": "dot-product",
+      "query": "compute the dot product of two vectors",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1288.01,
+      "latencies": [
+        1294.694,
+        1271,
+        1288.01
+      ]
+    },
+    {
+      "id": "matrix-multiplication-dimensions",
+      "query": "if A is m by n and B is n by p what size is the product AB",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1744.572,
+      "latencies": [
+        1744.572,
+        1816.184,
+        1622.447
+      ]
+    },
+    {
+      "id": "identity-matrix",
+      "query": "definition of the identity matrix",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1101.032,
+      "latencies": [
+        1126.71,
+        1101.032,
+        1060.318
+      ]
+    },
+    {
+      "id": "symmetric-matrix",
+      "query": "what makes a matrix symmetric",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1218.732,
+      "latencies": [
+        1169.083,
+        1218.732,
+        1273.541
+      ]
+    },
+    {
+      "id": "orthogonal-matrix",
+      "query": "orthogonal matrix transpose property",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1211.843,
+      "latencies": [
+        1211.843,
+        1183.394,
+        1243.798
+      ]
+    },
+    {
+      "id": "eigenvector-definition",
+      "query": "when is a vector an eigenvector of a matrix",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1234.436,
+      "latencies": [
+        1361.728,
+        1231.481,
+        1234.436
+      ]
+    },
+    {
+      "id": "eigenvalues-characteristic-polynomial",
+      "query": "how do you find eigenvalues",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "latency_ms": 3306.443,
+      "latencies": [
+        3355.884,
+        3306.443,
+        3283.472
+      ]
+    },
+    {
+      "id": "eigenvector-applications",
+      "query": "practical uses of eigenvalues and eigenvectors",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 1496.301,
+      "latencies": [
+        1474.634,
+        1513.84,
+        1496.301
+      ]
+    },
+    {
+      "id": "sine-definition",
+      "query": "definition of sine in a right triangle",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1327.974,
+      "latencies": [
+        1327.974,
+        1305.993,
+        1382.702
+      ]
+    },
+    {
+      "id": "cosine-definition",
+      "query": "what ratio defines cosine",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1238.834,
+      "latencies": [
+        1238.834,
+        1211.595,
+        1262.348
+      ]
+    },
+    {
+      "id": "tangent-ratio",
+      "query": "tangent as a ratio of sine and cosine",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1628.475,
+      "latencies": [
+        1628.475,
+        1642.924,
+        1522.051
+      ]
+    },
+    {
+      "id": "cosecant-reciprocal",
+      "query": "cosecant reciprocal relationship",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 2020.141,
+      "latencies": [
+        2020.141,
+        1986.675,
+        2062.314
+      ]
+    },
+    {
+      "id": "cotangent-reciprocal",
+      "query": "define cotangent",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 3087.328,
+      "latencies": [
+        2990.776,
+        3144.419,
+        3087.328
+      ]
+    },
+    {
+      "id": "pythagorean-identity-tan-sec",
+      "query": "identity relating tangent squared and secant squared",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 1063.736,
+      "latencies": [
+        1097.901,
+        1060.375,
+        1063.736
+      ]
+    },
+    {
+      "id": "sin-45-degrees",
+      "query": "value of sine at 45 degrees",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1419.261,
+      "latencies": [
+        1401.56,
+        1419.261,
+        1554.418
+      ]
+    },
+    {
+      "id": "degrees-to-radians-30",
+      "query": "30 degrees expressed in radians",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 3800.689,
+      "latencies": [
+        3706.095,
+        3999.982,
+        3800.689
+      ]
+    },
+    {
+      "id": "newton-raphson-formula",
+      "query": "Newton-Raphson update rule",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 1542.352,
+      "latencies": [
+        1524.011,
+        1542.352,
+        1569.634
+      ]
+    },
+    {
+      "id": "newton-quadratic-convergence",
+      "query": "convergence speed of Newton's method near a root",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 890.415,
+      "latencies": [
+        956.05,
+        862.741,
+        890.415
+      ]
+    },
+    {
+      "id": "bisection-interval-sign-change",
+      "query": "requirement for choosing the bisection interval endpoints",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1548.077,
+      "latencies": [
+        1548.077,
+        1544.965,
+        1646.756
+      ]
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "query": "which converges faster bisection or Newton's method",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 1417.896,
+      "latencies": [
+        1417.896,
+        1430.748,
+        1351.726
+      ]
+    }
+  ],
+  "aggregate": {
+    "queries": 34,
+    "top_k": 5,
+    "hit_rate_at_k": 0.8823529411764706,
+    "recall_at_k": 0.8823529411764706,
+    "mrr_at_10": 0.8039215686274509,
+    "ndcg_at_k": 0.8233024373446542,
+    "p50_latency_ms": 1476.5484999999999,
+    "p95_latency_ms": 3164.0182499999996
+  }
+}

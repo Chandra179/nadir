@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -85,11 +86,28 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
-		id := chunkID(c.FilePath, c.LineStart, c.ChunkIndex)
-		sparseIdx, sparseVal := vectorizeSparse(c.Text)
+		id := pointID(c)
+		sparseSrc := c.SparseText
+		if sparseSrc == "" {
+			sparseSrc = contextualSparseText(c.FilePath, c.Header, c.Text)
+		}
+		sparseIdx, sparseVal := vectorizeSparse(sparseSrc)
 		ingestedAt := c.IngestedAt
 		if ingestedAt == "" {
 			ingestedAt = time.Now().UTC().Format(time.RFC3339)
+		}
+		payload := map[string]*qdrant.Value{
+			"file_path":   strVal(c.FilePath),
+			"header":      strVal(c.Header),
+			"line_start":  intVal(int64(c.LineStart)),
+			"chunk_index": intVal(int64(c.ChunkIndex)),
+			"text":        strVal(c.Text),
+			"window_text": strVal(c.WindowText),
+			"source_sha":  strVal(c.SourceSHA),
+			"ingested_at": strVal(ingestedAt),
+		}
+		if c.HypeQuestion != "" {
+			payload["hype_question"] = strVal(c.HypeQuestion)
 		}
 		points[i] = &qdrant.PointStruct{
 			Id: qdrant.NewIDUUID(id),
@@ -97,16 +115,7 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 				"":               qdrant.NewVectorDense(c.Vector),
 				sparseVectorName: qdrant.NewVectorSparse(sparseIdx, sparseVal),
 			}),
-			Payload: map[string]*qdrant.Value{
-				"file_path":   strVal(c.FilePath),
-				"header":      strVal(c.Header),
-				"line_start":  intVal(int64(c.LineStart)),
-				"chunk_index": intVal(int64(c.ChunkIndex)),
-				"text":        strVal(c.Text),
-				"window_text": strVal(c.WindowText),
-				"source_sha":  strVal(c.SourceSHA),
-				"ingested_at": strVal(ingestedAt),
-			},
+			Payload: payload,
 		}
 	}
 	_, err := s.points.Upsert(ctx, &qdrant.UpsertPoints{
@@ -314,9 +323,29 @@ func (s *dependencies) Stats(ctx context.Context) (Stats, error) {
 
 var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 
-func chunkID(filePath string, lineStart, idx int) string {
-	key := filePath + ":" + strconv.Itoa(lineStart) + ":" + strconv.Itoa(idx)
+// pointID derives a stable UUID for a chunk (or HyPE sibling) from its
+// identity fields; siblings get ":hype:<n>" appended so they never collide
+// with their parent.
+func pointID(c ScoredChunk) string {
+	key := c.FilePath + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
+	if c.HypeQuestion != "" {
+		key += ":hype:" + strconv.Itoa(c.HypeIndex)
+	}
 	return uuid.NewSHA1(chunkIDNamespace, []byte(key)).String()
+}
+
+// contextualSparseText mirrors the chunker's ContextualText format so the
+// BM25 leg indexes the same context the dense leg embeds.
+func contextualSparseText(filePath, header, text string) string {
+	var sb strings.Builder
+	sb.WriteString(filePath)
+	if header != "" {
+		sb.WriteString(" > ")
+		sb.WriteString(header)
+	}
+	sb.WriteString("\n")
+	sb.WriteString(text)
+	return sb.String()
 }
 
 func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {

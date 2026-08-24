@@ -21,6 +21,7 @@ type Config struct {
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	History       HistoryConfig       `yaml:"history"`
+	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
 }
 
 type HTTPConfig struct {
@@ -52,11 +53,13 @@ type QdrantConfig struct {
 }
 
 type EmbedderConfig struct {
-	Provider   string `yaml:"provider"`
-	Model      string `yaml:"model"`
-	APIKey     string `yaml:"api_key"`
-	OllamaAddr string `yaml:"ollama_addr"`
-	Dimensions int    `yaml:"dimensions"`
+	Provider       string `yaml:"provider"`
+	Model          string `yaml:"model"`
+	APIKey         string `yaml:"api_key"`
+	OllamaAddr     string `yaml:"ollama_addr"`
+	Dimensions     int    `yaml:"dimensions"`
+	QueryPrefix    string `yaml:"query_prefix"`    // prepended to search queries (e.g. "search_query: " for nomic-embed-text)
+	DocumentPrefix string `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
 }
 
 type ChunkerConfig struct {
@@ -77,6 +80,7 @@ type IngestConfig struct {
 type RerankerConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	Addr          string `yaml:"addr"`           // sidecar addr, e.g. http://localhost:5002
+	Model         string `yaml:"model"`          // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
 	CandidateMul  int    `yaml:"candidate_mul"`  // fetch topK*candidate_mul before reranking (default 3)
 	MaxConcurrent int    `yaml:"max_concurrent"` // max concurrent reranker calls (default 10)
 }
@@ -101,6 +105,33 @@ type GeneratorConfig struct {
 type HistoryConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	Collection string `yaml:"collection"`
+}
+
+// EnrichmentConfig controls index-time LLM enrichment. Both features cost
+// one-time LLM calls per chunk during ingest and add zero query-time
+// latency; enabling either requires a reindex to take effect.
+type EnrichmentConfig struct {
+	Hype       HypeConfig       `yaml:"hype"`
+	Contextual ContextualConfig `yaml:"contextual"`
+}
+
+// HypeConfig enables HyPE (Hypothetical Prompt Embeddings): N hypothetical
+// questions are generated per chunk at ingest and embedded as extra points,
+// turning retrieval into question-to-question matching.
+type HypeConfig struct {
+	Enabled           bool   `yaml:"enabled"`
+	QuestionsPerChunk int    `yaml:"questions_per_chunk"` // default 3 when enabled
+	OllamaAddr        string `yaml:"ollama_addr"`         // defaults to generator, then embedder addr
+	Model             string `yaml:"model"`               // defaults to generator.model
+}
+
+// ContextualConfig enables Anthropic-style contextual retrieval: a short
+// LLM-written situational summary is prepended to each chunk before it is
+// embedded/indexed.
+type ContextualConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	OllamaAddr string `yaml:"ollama_addr"`
+	Model      string `yaml:"model"`
 }
 
 func Load(path string) (*Config, error) {
@@ -142,6 +173,9 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("RERANKER_ENABLED"); v != "" {
 		c.Reranker.Enabled = v == "true" || v == "1"
 	}
+	if v := os.Getenv("RERANKER_MODEL"); v != "" {
+		c.Reranker.Model = v
+	}
 	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
 		c.Middleware.Logger.Level = v
 	}
@@ -155,6 +189,12 @@ func (c *Config) applyEnv() {
 	}
 	if v := os.Getenv("HISTORY_COLLECTION"); v != "" {
 		c.History.Collection = v
+	}
+	if v := os.Getenv("HYPE_ENABLED"); v != "" {
+		c.Enrichment.Hype.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("CONTEXTUAL_ENABLED"); v != "" {
+		c.Enrichment.Contextual.Enabled = v == "true" || v == "1"
 	}
 }
 
@@ -176,6 +216,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Qdrant.Collection == "" {
 		return fmt.Errorf("config: qdrant.collection must not be empty")
+	}
+	if c.Reranker.Model == "" {
+		c.Reranker.Model = "BAAI/bge-reranker-v2-m3"
+	}
+	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
+		c.Enrichment.Hype.QuestionsPerChunk = 3
 	}
 	if c.History.Enabled && c.History.Collection == "" {
 		c.History.Collection = "chat_history"

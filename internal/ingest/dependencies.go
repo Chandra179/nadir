@@ -29,28 +29,36 @@ type DependenciesConfig struct {
 	Store    store.Store
 	Retry    RetryConfig
 	Log      *zap.Logger
+	// DocumentPrefix is prepended to every embedded text at ingest time
+	// (e.g. "search_document: " for nomic-embed-text task instructions).
+	DocumentPrefix string
 }
 
 // dependencies takes a batch of uploaded files, dedups them by SHA-256
 // against what's already stored, and for each new/changed file runs
 // chunk -> embed -> upsert.
 type dependencies struct {
-	chunker  chunker.Chunker
-	embedder embedder.Embedder
-	store    store.Store
-	cache    cache.Cache
-	cfg      RetryConfig
-	log      *zap.Logger
-	tr       tracker
+	chunker        chunker.Chunker
+	embedder       embedder.Embedder
+	store          store.Store
+	cache          cache.Cache
+	cfg            RetryConfig
+	documentPrefix string
+	enrich         Enricher
+	hypeQuestions  int
+	contextual     bool
+	log            *zap.Logger
+	tr             tracker
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
-		chunker:  cfg.Chunker,
-		embedder: cfg.Embedder,
-		store:    cfg.Store,
-		cfg:      cfg.Retry,
-		log:      cfg.Log,
+		chunker:        cfg.Chunker,
+		embedder:       cfg.Embedder,
+		store:          cfg.Store,
+		cfg:            cfg.Retry,
+		documentPrefix: cfg.DocumentPrefix,
+		log:            cfg.Log,
 	}
 }
 
@@ -58,5 +66,14 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 // since a fresh ingest can make cached results stale.
 func (d *dependencies) WithCache(c cache.Cache) *dependencies {
 	d.cache = c
+	return d
+}
+
+// WithEnrichment wires index-time LLM enrichment: hypeQuestions > 0 enables
+// HyPE question siblings, contextual enables LLM-written chunk intros.
+func (d *dependencies) WithEnrichment(e Enricher, hypeQuestions int, contextual bool) *dependencies {
+	d.enrich = e
+	d.hypeQuestions = hypeQuestions
+	d.contextual = contextual
 	return d
 }

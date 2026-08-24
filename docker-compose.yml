@@ -45,6 +45,10 @@ services:
   reranker:
     build:
       context: services/reranker
+      args:
+        RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+    environment:
+      - RERANKER_MODEL=${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
     ports:
       - "5002:5002"
     volumes:
@@ -53,13 +57,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 3g
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
 volumes:
   qdrant_data:

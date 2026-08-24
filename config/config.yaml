@@ -30,6 +30,8 @@ embedder:
   model: "nomic-embed-text"
   ollama_addr: "http://localhost:11434"
   dimensions: 768
+  query_prefix: "search_query: "      # prepended to queries at search time (nomic-embed-text task instruction; empty = off)
+  document_prefix: "search_document: " # prepended to chunks at ingest time; requires reindex when changed
 
 chunker:
   provider: "recursive"  # recursive | sentence-window
@@ -40,8 +42,22 @@ chunker:
 reranker:
   enabled: true       # set true + run: python services/reranker/main.py
   addr: "http://localhost:5002"
+  model: "BAAI/bge-reranker-v2-m3" # swappable sidecar cross-encoder (env RERANKER_MODEL overrides); revert to cross-encoder/ms-marco-MiniLM-L-6-v2 for the tiny/fast baseline
   candidate_mul: 4     # fetch topK*4 candidates before reranking (more headroom for the reranker to reorder)
   max_concurrent: 10   # max concurrent reranker calls to sidecar
+
+enrichment:
+  # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero
+  # query-time latency). Changing these requires a reindex to take effect.
+  hype:
+    enabled: false          # FEATURE FLAG: HyPE — embed N hypothetical questions per chunk (question-to-question matching)
+    questions_per_chunk: 3
+    ollama_addr: ""         # defaults to generator.ollama_addr, then embedder.ollama_addr
+    model: ""               # defaults to generator.model
+  contextual:
+    enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
+    ollama_addr: ""
+    model: ""
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)

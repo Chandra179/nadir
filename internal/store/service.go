@@ -16,6 +16,18 @@ type ScoredChunk struct {
 	SourceSHA  string
 	IngestedAt string
 	Score      float32
+
+	// SparseText overrides the text used to build the BM25 sparse vector.
+	// Empty falls back to the contextual "path > header\ntext" form. Ingest
+	// sets it so both retrieval legs index identical context.
+	SparseText string
+
+	// HypeQuestion/HypeIndex mark a HyPE sibling point: an embedded
+	// hypothetical question sharing its parent chunk's identity fields, so
+	// search-side Key() dedup collapses siblings onto the parent while the
+	// point ID stays unique.
+	HypeQuestion string
+	HypeIndex    int
 }
 
 func (s ScoredChunk) Key() string {

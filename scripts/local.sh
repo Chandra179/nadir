@@ -9,6 +9,12 @@ cd "$ROOT"
 # addrs come from config/config.yaml (already localhost for host-side server);
 # only override here if you need something config.yaml doesn't already have.
 
+# The reranker sidecar runs in Docker, so its swappable model name travels
+# from config.yaml (reranker.model) through the RERANKER_MODEL env var.
+RERANKER_MODEL="$(awk '/^reranker:/{f=1; next} f && /^[^ ]/{f=0} f && /model:/{gsub(/[\"'"'"']/, ""); sub(/#.*/, "", $2); print $2; exit}' config/config.yaml)"
+export RERANKER_MODEL
+echo "==> Reranker model: ${RERANKER_MODEL:-<compose default>}"
+
 echo "==> Starting Qdrant, Reranker..."
 docker compose up -d --remove-orphans qdrant reranker
 
