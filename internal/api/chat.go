@@ -225,10 +225,7 @@ func applyRelativeScores(views []retrievalResultView) {
 	for i := range views {
 		pct := 100
 		if maxScore > 0 {
-			pct = int(views[i].Score / maxScore * 100)
-			if pct < 4 {
-				pct = 4
-			}
+			pct = max(int(views[i].Score/maxScore*100), 4)
 		}
 		views[i].ScorePct = pct
 		views[i].ScoreStr = strconv.FormatFloat(float64(views[i].Score), 'f', 3, 32)

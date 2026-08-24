@@ -26,12 +26,7 @@ func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	start := time.Now()
 
 	if d.history != nil && req.SessionID == "" {
-		session, err := d.history.CreateSession(ctx, req.Query)
-		if err != nil {
-			d.log.Warn("chat create session failed", zap.String("query", req.Query), zap.Error(err))
-		} else {
-			res.SessionID = session.ID
-		}
+		res.SessionID = d.mintSession(ctx, req.Query)
 	}
 
 	chunks, fromCache, err := d.searcher.Query(ctx, req.Query, "", req.TopK, req.Filter, req.Generate)
@@ -45,28 +40,47 @@ func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	res.Chunks = chunks
 
 	if req.Generate && d.generator != nil && len(chunks) > 0 {
-		prompt, stream, err := d.generator.Generate(ctx, req.Query, chunks)
-		res.Prompt = prompt
-		switch {
-		case err != nil:
-			d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
-			res.GenerateError = "Answer generation failed: " + err.Error()
-		default:
-			answer, err := io.ReadAll(stream)
-			stream.Close()
-			if err != nil {
-				d.log.Warn("chat generate stream read failed", zap.Error(err))
-				res.GenerateError = "Answer generation failed: " + err.Error()
-			} else {
-				res.Answer = string(answer)
-				res.HasAnswer = true
-			}
-		}
+		d.generateAnswer(ctx, req.Query, chunks, &res)
 	}
 
 	res.ElapsedMS = time.Since(start).Milliseconds()
 	d.persist(ctx, req, res, false)
 	return res
+}
+
+// mintSession creates a conversation session for the first turn of a chat.
+// Best-effort: failures are logged and return "" so the turn proceeds
+// without a session.
+func (d *dependencies) mintSession(ctx context.Context, query string) string {
+	session, err := d.history.CreateSession(ctx, query)
+	if err != nil {
+		d.log.Warn("chat create session failed", zap.String("query", query), zap.Error(err))
+		return ""
+	}
+	return session.ID
+}
+
+// generateAnswer buffers one LLM answer into res. Best-effort: any failure
+// lands in res.GenerateError while the retrieval results still render.
+func (d *dependencies) generateAnswer(ctx context.Context, query string, chunks []store.ScoredChunk, res *Result) {
+	prompt, stream, err := d.generator.Generate(ctx, query, chunks)
+	res.Prompt = prompt
+	if err != nil {
+		d.log.Warn("chat generate failed", zap.String("query", query), zap.Error(err))
+		res.GenerateError = "Answer generation failed: " + err.Error()
+		return
+	}
+
+	answer, readErr := io.ReadAll(stream)
+	stream.Close()
+	if readErr != nil {
+		d.log.Warn("chat generate stream read failed", zap.Error(readErr))
+		res.GenerateError = "Answer generation failed: " + readErr.Error()
+		return
+	}
+
+	res.Answer = string(answer)
+	res.HasAnswer = true
 }
 
 // persist saves a turn to history in a best-effort, detached goroutine —

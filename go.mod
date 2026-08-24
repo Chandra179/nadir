@@ -9,7 +9,6 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/qdrant/go-client v1.17.1
 	github.com/yuin/goldmark v1.8.2
-	go.opentelemetry.io/otel/trace v1.43.0
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.80.0
 	gopkg.in/yaml.v3 v3.0.1

@@ -14,14 +14,8 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 			if sent == "" {
 				continue
 			}
-			lo := i - c.windowSize
-			if lo < 0 {
-				lo = 0
-			}
-			hi := i + c.windowSize + 1
-			if hi > len(sentences) {
-				hi = len(sentences)
-			}
+			lo := max(i-c.windowSize, 0)
+			hi := min(i+c.windowSize+1, len(sentences))
 			window := strings.TrimSpace(strings.Join(sentences[lo:hi], " "))
 			chunks = append(chunks, Chunk{
 				Text:       sent,

@@ -36,12 +36,7 @@ func nodeToPlainText(n ast.Node, src []byte) string {
 				sb.Write(line.Value(src))
 			}
 			return ast.WalkSkipChildren, nil
-		case *ast.Link:
-			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
-				sb.WriteString(nodeToPlainText(c, src))
-			}
-			return ast.WalkSkipChildren, nil
-		case *ast.Image:
+		case *ast.Link, *ast.Image:
 			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
 				sb.WriteString(nodeToPlainText(c, src))
 			}
@@ -139,22 +134,23 @@ func extractSections(rawText string) []section {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
-		if h, ok := n.(*ast.Heading); ok {
+		switch v := n.(type) {
+		case *ast.Heading:
 			flush()
 			currentLines = nil
-			seg := h.Lines()
+			seg := v.Lines()
 			if seg != nil && seg.Len() > 0 {
 				currentLine = lineOf(seg.At(0).Start)
 			}
-			currentHeader = strings.TrimSpace(nodeToPlainText(h, src))
-		} else if p, ok := n.(*ast.Paragraph); ok {
-			currentLines = append(currentLines, nodeToPlainText(p, src))
+			currentHeader = strings.TrimSpace(nodeToPlainText(v, src))
+		case *ast.Paragraph:
+			currentLines = append(currentLines, nodeToPlainText(v, src))
 			return ast.WalkSkipChildren, nil
-		} else if list, ok := n.(*ast.List); ok {
-			currentLines = append(currentLines, nodeToPlainText(list, src))
+		case *ast.List:
+			currentLines = append(currentLines, nodeToPlainText(v, src))
 			return ast.WalkSkipChildren, nil
-		} else if bq, ok := n.(*ast.Blockquote); ok {
-			currentLines = append(currentLines, nodeToPlainText(bq, src))
+		case *ast.Blockquote:
+			currentLines = append(currentLines, nodeToPlainText(v, src))
 			return ast.WalkSkipChildren, nil
 		}
 		return ast.WalkContinue, nil
@@ -190,13 +186,14 @@ func (c *dependencies) mergeSplits(parts []string, sep string) []string {
 			candidate += sep
 		}
 		candidate += p
-		if utf8.RuneCountInString(candidate) > c.chunkSize && current != "" {
-			chunks = append(chunks, current)
-			overlap := overlapSuffix(current, c.chunkOverlap)
-			current = overlap + sep + p
-		} else {
+
+		if utf8.RuneCountInString(candidate) <= c.chunkSize || current == "" {
 			current = candidate
+			continue
 		}
+
+		chunks = append(chunks, current)
+		current = overlapSuffix(current, c.chunkOverlap) + sep + p
 	}
 	if current != "" {
 		chunks = append(chunks, current)

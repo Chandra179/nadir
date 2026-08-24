@@ -2,3 +2,6 @@
 
 run:
 	./scripts/local.sh
+
+mdn:
+	go fix ./...

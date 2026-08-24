@@ -63,7 +63,7 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 		FieldType:      &ft,
 		FieldIndexParams: qdrant.NewPayloadIndexParamsText(&qdrant.TextIndexParams{
 			Tokenizer: qdrant.TokenizerType_Word,
-			Lowercase: qdrant.PtrOf(true),
+			Lowercase: new(true),
 		}),
 	})
 	if err != nil {
@@ -262,7 +262,7 @@ func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK i
 		Filter: &qdrant.Filter{
 			Must: conds,
 		},
-		Limit:       qdrant.PtrOf(uint32(topK)),
+		Limit:       new(uint32(topK)),
 		WithPayload: qdrant.NewWithPayload(true),
 	})
 	if err != nil {

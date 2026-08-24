@@ -21,7 +21,7 @@ const maxChunksPerFile = 3
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *dependencies) Search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -33,7 +33,7 @@ func (s *dependencies) Search(ctx context.Context, query string, topK int, filte
 		return nil, err
 	}
 
-	return s.postProcess(ctx, query, chunks, topK)
+	return s.rerankTopK(ctx, query, chunks, topK), nil
 }
 
 // Query is the top-level entry point for a search request: it dispatches to
@@ -44,20 +44,15 @@ func (s *dependencies) Search(ctx context.Context, query string, topK int, filte
 // came from the cache.
 func (s *dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
 	if keyword != "" {
-		chunks, err = s.KeywordSearch(ctx, keyword, topK, filter)
+		chunks, err = s.keywordSearch(ctx, keyword, topK, filter)
 		return chunks, false, err
 	}
 
-	if s.cache != nil && !skipCache && query != "" {
-		if cached, hit, cerr := s.cache.Get(ctx, query); cerr == nil && hit {
-			if len(cached) > topK {
-				cached = cached[:topK]
-			}
-			return cached, true, nil
-		}
+	if cached, ok := s.getCached(ctx, query, topK, skipCache); ok {
+		return cached, true, nil
 	}
 
-	chunks, err = s.Search(ctx, query, topK, filter)
+	chunks, err = s.search(ctx, query, topK, filter)
 	if err != nil {
 		return nil, false, err
 	}
@@ -71,7 +66,24 @@ func (s *dependencies) Query(ctx context.Context, query, keyword string, topK in
 	return chunks, false, nil
 }
 
-func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+// getCached consults the semantic cache unless the caller asked to skip it.
+// Returns false on miss or cache error so lookups stay best-effort; hits
+// are truncated to topK to match a fresh search's result size.
+func (s *dependencies) getCached(ctx context.Context, query string, topK int, skip bool) ([]store.ScoredChunk, bool) {
+	if s.cache == nil || skip || query == "" {
+		return nil, false
+	}
+	cached, hit, err := s.cache.Get(ctx, query)
+	if err != nil || !hit {
+		return nil, false
+	}
+	if len(cached) > topK {
+		cached = cached[:topK]
+	}
+	return cached, true
+}
+
+func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -82,23 +94,25 @@ func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK i
 		return nil, err
 	}
 
-	return s.postProcess(ctx, keyword, chunks, topK)
+	return s.rerankTopK(ctx, keyword, chunks, topK), nil
 }
 
-func (s *dependencies) postProcess(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) ([]store.ScoredChunk, error) {
-	if s.reranker != nil && len(chunks) > 0 {
-		reranked, err := s.reranker.Rerank(ctx, query, chunks)
-		if err != nil {
-			s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
-		} else {
-			chunks = reranked
-			if len(chunks) > topK {
-				chunks = chunks[:topK]
-			}
-		}
+// rerankTopK re-scores candidates with the cross-encoder when configured,
+// keeping the best topK. Best-effort: on reranker failure the original
+// (un-truncated) candidates are returned so retrieval still yields results.
+func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) []store.ScoredChunk {
+	if s.reranker == nil || len(chunks) == 0 {
+		return chunks
 	}
-
-	return chunks, nil
+	reranked, err := s.reranker.Rerank(ctx, query, chunks)
+	if err != nil {
+		s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
+		return chunks
+	}
+	if len(reranked) > topK {
+		reranked = reranked[:topK]
+	}
+	return reranked
 }
 
 func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
@@ -158,11 +172,9 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 // task prefix (if configured) is applied to every fragment.
 func (s *dependencies) embedFragments(ctx context.Context, fragments []string) ([][]float32, error) {
 	if s.queryPrefix != "" {
-		prefixed := make([]string, len(fragments))
-		for i, f := range fragments {
-			prefixed[i] = s.queryPrefix + f
+		for i := range fragments {
+			fragments[i] = s.queryPrefix + fragments[i]
 		}
-		fragments = prefixed
 	}
 	if be, ok := s.embedder.(embedder.BatchEmbedder); ok {
 		return be.EmbedBatch(ctx, fragments)

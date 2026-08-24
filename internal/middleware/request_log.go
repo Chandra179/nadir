@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
 // RequestLog returns Gin middleware that logs one canonical line per HTTP
 // request. Level follows the response status (Info 2xx/3xx, Warn 4xx,
 // Error 5xx); a handler's c.Error(err) is attached for 4xx/5xx. Request
-// and response bodies are never logged. Details: docs/logging.md.
+// and response bodies are never logged.
 func (d *dependencies) RequestLog() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
@@ -27,10 +26,6 @@ func (d *dependencies) RequestLog() gin.HandlerFunc {
 			zap.String("path", c.Request.URL.Path),
 			zap.Int("status", status),
 			zap.Int64("duration_ms", duration.Milliseconds()),
-		}
-
-		if sc := trace.SpanContextFromContext(c.Request.Context()); sc.IsValid() {
-			fields = append(fields, zap.String("trace_id", sc.TraceID().String()))
 		}
 
 		if c.Request.URL.RawQuery != "" {

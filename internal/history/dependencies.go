@@ -22,13 +22,6 @@ const (
 	docTypeTurn    = "turn"
 )
 
-// DependenciesConfig groups everything needed to construct the chat-history
-// store. Conn is a shared gRPC connection to Qdrant (the caller dials it
-// once and reuses it across store/cache/history, rather than each opening
-// its own). Embedder is required — every session/turn is embedded from its
-// title/query text so history shares the same vector space as document
-// search and could itself be searched semantically later, rather than
-// Qdrant being used as a bare key-value store.
 type DependenciesConfig struct {
 	Conn       *grpc.ClientConn
 	Collection string
@@ -36,11 +29,6 @@ type DependenciesConfig struct {
 	Log        *zap.Logger
 }
 
-// dependencies is chat-history persistence backed by a dedicated Qdrant
-// collection. Sessions and turns are both stored as points in the same
-// collection, discriminated by a "doc_type" payload field — Qdrant has no
-// notion of separate tables, so a single collection with a type tag plays
-// that role.
 type dependencies struct {
 	points     qdrant.PointsClient
 	collection qdrant.CollectionsClient

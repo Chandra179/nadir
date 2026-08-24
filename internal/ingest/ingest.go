@@ -69,16 +69,7 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 		}(f, sha)
 	}
 	wg.Wait()
-
-	// Only clear the semantic cache when content actually changed: a full
-	// sweep where every file is unchanged (all skipped) has nothing stale
-	// to invalidate, so clearing unconditionally on every run wiped a warm
-	// cache for no reason.
-	if d.cache != nil && processed.Load() > 0 {
-		if err := d.cache.Clear(ctx); err != nil {
-			d.log.Warn("failed to clear semantic cache after ingest", zap.Error(err))
-		}
-	}
+	d.clearSemanticCache(ctx, processed.Load() > 0)
 
 	return Result{
 		Processed: int(processed.Load()),
@@ -113,17 +104,7 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	// enriched with an LLM-written intro.
 	ctxTexts := make([]string, len(chunks))
 	for i, c := range chunks {
-		t := d.chunker.ContextualText(c)
-		if d.contextual && d.enrich != nil {
-			intro, err := d.enrich.ContextualIntro(ctx, documentExcerpt(text, docExcerptChars), c.Text)
-			if err != nil {
-				d.log.Warn("contextual enrichment failed; indexing chunk without it",
-					zap.String("path", filePath), zap.Int("chunk", c.ChunkIndex), zap.Error(err))
-			} else if intro != "" {
-				t = intro + "\n" + t
-			}
-		}
-		ctxTexts[i] = t
+		ctxTexts[i] = d.contextualText(ctx, text, c, d.chunker.ContextualText(c))
 	}
 
 	embedInputs := make([]string, len(chunks))
@@ -150,15 +131,7 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 		})
 	}
 
-	if d.enrich != nil && d.hypeQuestions > 0 {
-		siblings, err := d.hypeSiblings(ctx, filePath, chunks, sourceSHA)
-		if err != nil {
-			d.log.Warn("HyPE question embedding failed; indexing without hype points",
-				zap.String("path", filePath), zap.Error(err))
-		} else {
-			scored = append(scored, siblings...)
-		}
-	}
+	scored = d.appendHypeSiblings(ctx, scored, filePath, chunks, sourceSHA)
 
 	// Chunk IDs are derived from filePath:lineStart:chunkIndex, so a content
 	// change that shifts section/line boundaries produces different IDs
@@ -184,9 +157,57 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	return nil
 }
 
+// clearSemanticCache drops cached answers whose source content may have
+// changed. Only runs when something was actually ingested — an all-skipped
+// sweep has nothing stale to invalidate, and clearing unconditionally would
+// wipe a warm cache for no reason. Best-effort: failures are logged.
+func (d *dependencies) clearSemanticCache(ctx context.Context, changed bool) {
+	if d.cache == nil || !changed {
+		return
+	}
+	if err := d.cache.Clear(ctx); err != nil {
+		d.log.Warn("failed to clear semantic cache after ingest", zap.Error(err))
+	}
+}
+
+// contextualText fronts the chunk's contextual text with an LLM-written
+// situational intro when contextual retrieval is enabled. Best-effort:
+// generation failures (or empty intros) fall back to the plain text.
+func (d *dependencies) contextualText(ctx context.Context, docText string, c chunker.Chunk, base string) string {
+	if !d.contextual || d.enrich == nil {
+		return base
+	}
+	intro, err := d.enrich.ContextualIntro(ctx, documentExcerpt(docText, docExcerptChars), c.Text)
+	if err != nil {
+		d.log.Warn("contextual enrichment failed; indexing chunk without it",
+			zap.String("path", c.FilePath), zap.Int("chunk", c.ChunkIndex), zap.Error(err))
+		return base
+	}
+	if intro == "" {
+		return base
+	}
+	return intro + "\n" + base
+}
+
 type hypeSibling struct {
 	parentIdx int
 	question  string
+}
+
+// appendHypeSiblings extends scored with HyPE sibling points when HyPE is
+// enabled. Best-effort: generation/embedding failures index the file
+// without hype points.
+func (d *dependencies) appendHypeSiblings(ctx context.Context, scored []store.ScoredChunk, filePath string, chunks []chunker.Chunk, sourceSHA string) []store.ScoredChunk {
+	if d.enrich == nil || d.hypeQuestions <= 0 {
+		return scored
+	}
+	siblings, err := d.hypeSiblings(ctx, filePath, chunks, sourceSHA)
+	if err != nil {
+		d.log.Warn("HyPE question embedding failed; indexing without hype points",
+			zap.String("path", filePath), zap.Error(err))
+		return scored
+	}
+	return append(scored, siblings...)
 }
 
 // hypeSiblings generates hypothetical questions per chunk, embeds them in
