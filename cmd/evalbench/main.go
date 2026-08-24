@@ -187,7 +187,7 @@ func run(configPath, goldenPath string, topKFlag int, noRerank bool, runs int, r
 		topK = cfg.Qdrant.TopK
 	}
 
-	h := eval.NewHarness(searchService, log)
+	h := eval.NewDependencies(eval.DependenciesConfig{Searcher: searchService, Log: log})
 	report, err := h.Run(ctx, gs, topK, runs)
 	if err != nil {
 		return err

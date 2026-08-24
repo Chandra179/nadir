@@ -106,15 +106,6 @@ type Report struct {
 	Aggregate Aggregate     `json:"aggregate"`
 }
 
-type Harness struct {
-	searcher Searcher
-	log      *zap.Logger
-}
-
-func NewHarness(s Searcher, log *zap.Logger) *Harness {
-	return &Harness{searcher: s, log: log}
-}
-
 // Run evaluates every golden query, repeating each runs times and keeping
 // the median latency plus the final run's ranking (retrieval is assumed
 // deterministic enough that only timing varies between runs).

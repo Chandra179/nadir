@@ -12,31 +12,9 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 )
 
-// DependenciesConfig groups everything needed to construct the enrichment
-// client.
-type DependenciesConfig struct {
-	Addr  string // Ollama base addr, e.g. http://localhost:11434
-	Model string // instruct LLM used for generation
-}
-
-type dependencies struct {
-	addr   string
-	model  string
-	client *http.Client
-}
-
-var _ Enricher = (*dependencies)(nil)
-
-func NewDependencies(cfg DependenciesConfig) *dependencies {
-	return &dependencies{
-		addr:   cfg.Addr,
-		model:  cfg.Model,
-		client: &http.Client{Timeout: 120 * time.Second},
-	}
-}
+const hypeSystemPrompt = `You write search queries. Given a passage from a knowledge base, produce short standalone questions that a user might type and that this exact passage answers. Questions must be self-contained: never refer to "the passage" or "this section". Reply ONLY with a JSON array of strings.`
 
 // Enricher is consumed by the ingest pipeline; both methods are allowed to
 // fail — callers degrade gracefully.
@@ -44,8 +22,6 @@ type Enricher interface {
 	HypotheticalQuestions(ctx context.Context, header, text string, n int) ([]string, error)
 	ContextualIntro(ctx context.Context, documentExcerpt, chunkText string) (string, error)
 }
-
-const hypeSystemPrompt = `You write search queries. Given a passage from a knowledge base, produce short standalone questions that a user might type and that this exact passage answers. Questions must be self-contained: never refer to "the passage" or "this section". Reply ONLY with a JSON array of strings.`
 
 func (d *dependencies) HypotheticalQuestions(ctx context.Context, header, text string, n int) ([]string, error) {
 	if n <= 0 {
