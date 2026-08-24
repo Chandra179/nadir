@@ -1,3 +1,7 @@
+// Chat transport: everything the chat UI talks to. Handlers here are pure
+// HTTP — parse request, call the chat use-case (internal/chat) or history,
+// map to a view, render a fragment. The page shell renders via "page",
+// each exchange appends one "turn" fragment via htmx.
 package api
 
 import (
@@ -12,6 +16,29 @@ import (
 	"nadir/internal/history"
 	"nadir/internal/store"
 )
+
+// historySessionsView is the sidebar's chat list.
+type historySessionsView struct {
+	Enabled  bool
+	Sessions []history.Session
+}
+
+// HistorySessions renders the sidebar's chat list — loaded on page load and
+// again whenever RetrievalSearch fires the nadir:turn-appended event, so
+// the list re-sorts live as conversations happen.
+func (d *dependencies) HistorySessions(c *gin.Context) {
+	view := historySessionsView{Enabled: d.history != nil}
+	if d.history != nil {
+		sessions, err := d.history.ListSessions(c.Request.Context(), 50)
+		if err != nil {
+			d.log.Warn("history list sessions failed", zap.Error(err))
+		} else {
+			view.Sessions = sessions
+		}
+	}
+
+	d.renderHTML(c, http.StatusOK, "history-sessions", view)
+}
 
 // pageView is the data passed to the "page" template: the composer's
 // default top_k, and — when replaying a past conversation via
