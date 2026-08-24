@@ -5,7 +5,14 @@
 <div class="px-2.5 py-2 text-[13px] text-[#8b8f81]">No chats yet</div>
 {{else}}
 {{range .Sessions}}
-<a href="/history/sessions/{{.ID}}" @click="sidebarOpen = false" class="rounded-[7px] hover:bg-[#eeece3] text-[#20241f] text-[14px] px-2.5 py-2 truncate block">{{.Title}}</a>
+<div class="group flex items-center rounded-[7px] hover:bg-[#eeece3]">
+  <a href="/history/sessions/{{.ID}}" @click="sidebarOpen = false" class="flex-1 min-w-0 text-[#20241f] text-[14px] px-2.5 py-2 truncate">{{.Title}}</a>
+  <button type="button" aria-label="Chat options"
+          @click="deleteSession = { id: '{{.ID}}', title: $el.previousElementSibling.textContent.trim() }"
+          class="flex-none w-6 h-6 mr-1 rounded-[6px] flex items-center justify-center text-[#8b8f81] hover:bg-[#e3e0d3] hover:text-[#20241f] transition">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
+  </button>
+</div>
 {{end}}
 {{end}}
 {{end}}

@@ -72,6 +72,8 @@ type History interface {
 	ListSessions(ctx context.Context, limit int) ([]Session, error)
 	GetSession(ctx context.Context, sessionID string) (Session, error)
 	ListTurns(ctx context.Context, sessionID string) ([]Turn, error)
+	// DeleteSession removes a session and all of its turns.
+	DeleteSession(ctx context.Context, sessionID string) error
 }
 
 func (d *dependencies) CreateSession(ctx context.Context, title string) (Session, error) {
@@ -236,6 +238,34 @@ func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn,
 		out[i] = turn
 	}
 	return out, nil
+}
+
+// DeleteSession removes a session and all of its turns. Turns go first so
+// a failure can't leave orphaned turns pointing at a missing session; the
+// turn side is a filtered delete (session_id index) rather than fetching
+// IDs up front.
+func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) error {
+	wait := true
+	if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: d.name,
+		Wait:           &wait,
+		Points: qdrant.NewPointsSelectorFilter(&qdrant.Filter{
+			Must: []*qdrant.Condition{
+				matchKeyword("doc_type", docTypeTurn),
+				matchKeyword("session_id", sessionID),
+			},
+		}),
+	}); err != nil {
+		return fmt.Errorf("history: delete turns: %w", err)
+	}
+	if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: d.name,
+		Wait:           &wait,
+		Points: qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
+	}); err != nil {
+		return fmt.Errorf("history: delete session: %w", err)
+	}
+	return nil
 }
 
 func truncateTitle(s string) string {

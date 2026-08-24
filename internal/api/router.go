@@ -28,6 +28,7 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.GET(RouteSettings, deps.Settings)
 	engine.GET(RouteHistorySessions, deps.HistorySessions)
 	engine.GET(RouteHistorySession, deps.HistorySession)
+	engine.DELETE(RouteHistorySession, deps.HistorySessionDelete)
 	engine.GET(RouteHealth, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

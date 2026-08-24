@@ -90,6 +90,23 @@ func (d *dependencies) HistorySession(c *gin.Context) {
 	d.renderPage(c, pageView{DefaultTopK: topK, SessionID: sessionID, Turns: views})
 }
 
+// HistorySessionDelete permanently removes a chat session and all of its
+// turns, invoked from the sidebar's delete modal.
+func (d *dependencies) HistorySessionDelete(c *gin.Context) {
+	if d.history == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "chat history is disabled"})
+		return
+	}
+
+	sessionID := c.Param("id")
+	if err := d.history.DeleteSession(c.Request.Context(), sessionID); err != nil {
+		d.log.Warn("history delete session failed", zap.String("session_id", sessionID), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"deleted": true})
+}
+
 func (d *dependencies) renderPage(c *gin.Context, data pageView) {
 	d.renderHTML(c, http.StatusOK, "page", data)
 }
