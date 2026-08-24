@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN go build -o /nadir ./cmd/server
 
-FROM alpine:3.20
+FROM alpine:3.24
 WORKDIR /app
 COPY --from=builder /nadir /app/nadir
 COPY config/config.yaml /app/config/config.yaml
