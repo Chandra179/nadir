@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"time"
 
@@ -95,11 +94,14 @@ func (d *dependencies) IngestStatus(c *gin.Context) {
 }
 
 type historyRowView struct {
-	Target    string
-	Processed int
-	Skipped   int
-	Badge     template.HTML
-	When      string
+	Target      string
+	Processed   int
+	Skipped     int
+	FailedCount int
+	// State drives the badge markup in run_history.html: "error",
+	// "failed", "empty", or "done".
+	State string
+	When  string
 }
 
 // IngestHistory renders the recent-runs table body.
@@ -108,23 +110,22 @@ func (d *dependencies) IngestHistory(c *gin.Context) {
 
 	rows := make([]historyRowView, 0, len(runs))
 	for _, r := range runs {
-		var badge template.HTML
+		state := "done"
 		switch {
 		case r.Err != "":
-			badge = template.HTML(`<span class="status-badge err"><span class="dot"></span>error</span>`)
+			state = "error"
 		case r.Failed > 0:
-			badge = template.HTML(fmt.Sprintf(`<span class="status-badge err"><span class="dot"></span>%d failed</span>`, r.Failed))
+			state = "failed"
 		case r.Processed == 0 && r.Skipped == 0:
-			badge = template.HTML(`<span class="status-badge warn"><span class="dot"></span>no files</span>`)
-		default:
-			badge = template.HTML(`<span class="status-badge ok"><span class="dot"></span>done</span>`)
+			state = "empty"
 		}
 		rows = append(rows, historyRowView{
-			Target:    displayTarget(r.Target),
-			Processed: r.Processed,
-			Skipped:   r.Skipped,
-			Badge:     badge,
-			When:      relativeTime(r.FinishedAt),
+			Target:      displayTarget(r.Target),
+			Processed:   r.Processed,
+			Skipped:     r.Skipped,
+			FailedCount: r.Failed,
+			State:       state,
+			When:        relativeTime(r.FinishedAt),
 		})
 	}
 

@@ -1,16 +1,14 @@
 package api
 
 import (
-	"context"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"nadir/internal/chat"
 	"nadir/internal/history"
 	"nadir/internal/store"
 )
@@ -100,17 +98,12 @@ type turnView struct {
 	GenerateError string
 }
 
-// RetrievalSearch runs a search from the chat composer and renders one
+// RetrievalSearch runs a chat turn through the chat use-case (search,
+// optional buffered answer, best-effort persistence) and renders one
 // appended turn: the question, the retrieval tool call, and the answer.
 // Unlike POST /search, a requested answer is buffered in full rather than
 // streamed, since it's rendered as a single fragment append.
 func (d *dependencies) RetrievalSearch(c *gin.Context) {
-	start := time.Now()
-
-	query := c.PostForm("query")
-	generate := c.PostForm("generate") == "on"
-	sessionID := c.PostForm("session_id")
-
 	topK := d.topK
 	if topK <= 0 {
 		topK = 8
@@ -124,103 +117,27 @@ func (d *dependencies) RetrievalSearch(c *gin.Context) {
 		filter = &store.SearchFilter{FilePath: filePath, Header: header, SourceSHA: sha}
 	}
 
-	data := turnView{Query: query, AttachedFiles: attachedFileNames(c.PostForm("attached_files")), TopK: topK, Generate: generate}
-
-	if query == "" {
-		data.Error = "Enter a question to search."
-		d.renderTurn(c, data)
-		return
+	req := chat.Request{
+		Query:         c.PostForm("query"),
+		TopK:          topK,
+		Filter:        filter,
+		Generate:      c.PostForm("generate") == "on",
+		SessionID:     c.PostForm("session_id"),
+		AttachedFiles: attachedFileNames(c.PostForm("attached_files")),
 	}
 
-	// A session id is minted on the first turn of a conversation (never
-	// client-generated, so a client can't spoof/collide another session's
-	// id) and handed back via a response header for the composer to carry
-	// on subsequent posts. Must happen before any writes to c.Writer.
-	if d.history != nil && sessionID == "" {
-		if session, err := d.history.CreateSession(c.Request.Context(), query); err != nil {
-			d.log.Warn("history create session failed", zap.Error(err))
-		} else {
-			sessionID = session.ID
-		}
-	}
-	if sessionID != "" {
-		c.Header("X-Nadir-Session-Id", sessionID)
+	res := d.chat.Ask(c.Request.Context(), req)
+
+	// A session id is minted by the chat service on the first turn of a
+	// conversation (never client-generated, so a client can't spoof/collide
+	// another session's id) and handed back via a response header for the
+	// composer to carry on subsequent posts.
+	if res.SessionID != "" {
+		c.Header("X-Nadir-Session-Id", res.SessionID)
 		c.Header("HX-Trigger", "nadir:turn-appended")
 	}
 
-	chunks, fromCache, err := d.search.Query(c.Request.Context(), query, "", topK, filter, generate)
-	if err != nil {
-		d.log.Warn("retrieval chat search failed", zap.Error(err))
-		data.Error = "Search failed: " + err.Error()
-		d.renderTurn(c, data)
-		d.persistTurn(c.Request.Context(), sessionID, data, true)
-		return
-	}
-
-	if generate && d.generator != nil && len(chunks) > 0 {
-		prompt, stream, err := d.generator.Generate(c.Request.Context(), query, chunks)
-		data.Prompt = prompt
-		if err != nil {
-			d.log.Warn("retrieval chat generate failed", zap.Error(err))
-			data.GenerateError = "Answer generation failed: " + err.Error()
-		} else {
-			answer, err := io.ReadAll(stream)
-			stream.Close()
-			if err != nil {
-				d.log.Warn("retrieval chat generate stream read failed", zap.Error(err))
-				data.GenerateError = "Answer generation failed: " + err.Error()
-			} else {
-				data.Answer = string(answer)
-				data.HasAnswer = true
-			}
-		}
-	}
-
-	data.Results = toRetrievalResultViews(chunks)
-	data.Count = len(chunks)
-	data.ElapsedMS = time.Since(start).Milliseconds()
-	data.FromCache = fromCache
-
-	d.renderTurn(c, data)
-	d.persistTurn(c.Request.Context(), sessionID, data, false)
-}
-
-// persistTurn saves a turn to history in a best-effort, detached goroutine
-// kicked off after the live response has already been written — a slow or
-// unreachable Qdrant must never delay or break the chat the user is
-// actually watching. Failures are logged and dropped, never retried.
-func (d *dependencies) persistTurn(reqCtx context.Context, sessionID string, data turnView, failed bool) {
-	if d.history == nil || sessionID == "" {
-		return
-	}
-
-	turn := history.Turn{
-		Query:         data.Query,
-		AttachedFiles: data.AttachedFiles,
-		TopK:          data.TopK,
-		Generate:      data.Generate,
-		Results:       toHistoryResults(data.Results),
-		Count:         data.Count,
-		ElapsedMS:     data.ElapsedMS,
-		FromCache:     data.FromCache,
-		Prompt:        data.Prompt,
-		Answer:        data.Answer,
-		HasAnswer:     data.HasAnswer,
-		Error:         data.Error,
-		GenerateError: data.GenerateError,
-		Failed:        failed,
-	}
-	if d.cfg != nil {
-		turn.Model = d.cfg.Generator.Model
-	}
-
-	go func() {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(reqCtx), 5*time.Second)
-		defer cancel()
-		if err := d.history.AppendTurn(ctx, sessionID, turn, data.Query); err != nil {
-			d.log.Warn("history append turn failed", zap.String("session_id", sessionID), zap.Error(err))
-		}
-	}()
+	d.renderTurn(c, d.turnViewFromResult(req, res))
 }
 
 // attachedFileNames splits the comma-joined "attached_files" field the
@@ -246,28 +163,14 @@ func (d *dependencies) renderTurn(c *gin.Context, data turnView) {
 	d.renderHTML(c, http.StatusOK, "turn", data)
 }
 
-// toRetrievalResultViews builds the display rows for a result set. Scores
-// aren't bounded to [0,1] — RRF fusion and the reranker each produce their
-// own ranges — so the bar width is scaled relative to the top score in this
-// result set rather than against an assumed absolute max.
+// toRetrievalResultViews builds the display rows for a result set, then
+// scales bar widths relative to the top score (see applyRelativeScores).
 func toRetrievalResultViews(chunks []store.ScoredChunk) []retrievalResultView {
-	var maxScore float32
-	for _, ch := range chunks {
-		maxScore = max(maxScore, ch.Score)
-	}
-
 	views := make([]retrievalResultView, len(chunks))
 	for i, ch := range chunks {
 		text := ch.WindowText
 		if text == "" {
 			text = ch.Text
-		}
-		pct := 100
-		if maxScore > 0 {
-			pct = int(ch.Score / maxScore * 100)
-			if pct < 4 {
-				pct = 4
-			}
 		}
 		views[i] = retrievalResultView{
 			FilePath:  ch.FilePath,
@@ -275,30 +178,55 @@ func toRetrievalResultViews(chunks []store.ScoredChunk) []retrievalResultView {
 			LineStart: ch.LineStart,
 			Score:     ch.Score,
 			SourceSHA: ch.SourceSHA,
-			ScorePct:  pct,
-			ScoreStr:  strconv.FormatFloat(float64(ch.Score), 'f', 3, 32),
 			Text:      text,
 		}
 	}
+	applyRelativeScores(views)
 	return views
 }
 
-func toHistoryResults(results []retrievalResultView) []history.TurnResult {
-	if len(results) == 0 {
-		return nil
+// applyRelativeScores fills each view's ScorePct. Scores aren't bounded to
+// [0,1] — RRF fusion and the reranker each produce their own ranges — so
+// the bar width is scaled relative to the top score in this result set
+// rather than against an assumed absolute max. Shared by the live path and
+// history replay so both render identically.
+func applyRelativeScores(views []retrievalResultView) {
+	var maxScore float32
+	for _, v := range views {
+		maxScore = max(maxScore, v.Score)
 	}
-	out := make([]history.TurnResult, len(results))
-	for i, r := range results {
-		out[i] = history.TurnResult{
-			FilePath:  r.FilePath,
-			Header:    r.Header,
-			LineStart: r.LineStart,
-			Score:     r.Score,
-			Text:      r.Text,
-			SourceSHA: r.SourceSHA,
+	for i := range views {
+		pct := 100
+		if maxScore > 0 {
+			pct = int(views[i].Score / maxScore * 100)
+			if pct < 4 {
+				pct = 4
+			}
 		}
+		views[i].ScorePct = pct
+		views[i].ScoreStr = strconv.FormatFloat(float64(views[i].Score), 'f', 3, 32)
 	}
-	return out
+}
+
+// turnViewFromResult maps the chat use-case's result onto what the turn
+// fragment renders.
+func (d *dependencies) turnViewFromResult(req chat.Request, res chat.Result) turnView {
+	views := toRetrievalResultViews(res.Chunks)
+	return turnView{
+		Error:         res.Error,
+		Query:         req.Query,
+		AttachedFiles: req.AttachedFiles,
+		TopK:          req.TopK,
+		Generate:      req.Generate,
+		Results:       views,
+		Count:         len(res.Chunks),
+		ElapsedMS:     res.ElapsedMS,
+		FromCache:     res.FromCache,
+		Answer:        res.Answer,
+		HasAnswer:     res.HasAnswer,
+		Prompt:        res.Prompt,
+		GenerateError: res.GenerateError,
+	}
 }
 
 // historyTurnToView converts a persisted turn back into the same turnView
@@ -306,29 +234,17 @@ func toHistoryResults(results []retrievalResultView) []history.TurnResult {
 // replay history.
 func historyTurnToView(t history.Turn) turnView {
 	results := make([]retrievalResultView, len(t.Results))
-	var maxScore float32
-	for _, r := range t.Results {
-		maxScore = max(maxScore, r.Score)
-	}
 	for i, r := range t.Results {
-		pct := 100
-		if maxScore > 0 {
-			pct = int(r.Score / maxScore * 100)
-			if pct < 4 {
-				pct = 4
-			}
-		}
 		results[i] = retrievalResultView{
 			FilePath:  r.FilePath,
 			Header:    r.Header,
 			LineStart: r.LineStart,
 			Score:     r.Score,
 			SourceSHA: r.SourceSHA,
-			ScorePct:  pct,
-			ScoreStr:  strconv.FormatFloat(float64(r.Score), 'f', 3, 32),
 			Text:      r.Text,
 		}
 	}
+	applyRelativeScores(results)
 	return turnView{
 		Error:         t.Error,
 		Query:         t.Query,

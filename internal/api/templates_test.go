@@ -1,7 +1,6 @@
 package api
 
 import (
-	"html/template"
 	"io"
 	"strings"
 	"testing"
@@ -37,9 +36,28 @@ func TestUITemplatesExecute(t *testing.T) {
 			Target  string
 			Events  []statusEventView
 		}{Running: true, HasRun: true, Target: "samples/", Events: []statusEventView{{Path: "p.md", Detail: "ok", Icon: "✓", IconClass: "ok", StripeClass: "ok"}}},
-		"run-history": struct{ Runs []historyRowView }{Runs: []historyRowView{{Target: "samples/", Processed: 1, Skipped: 0, Badge: template.HTML("<b>done</b>"), When: "2m ago"}}},
+		"run-history": struct{ Runs []historyRowView }{Runs: []historyRowView{{Target: "samples/", Processed: 1, Skipped: 0, State: "done", When: "2m ago"}}},
 		"chips-ok":    []string{"trig-functions.md"},
 		"chips-error": struct{ Message string }{"no files provided"},
+	}
+
+	for _, state := range []struct {
+		state string
+		want  string
+	}{
+		{"error", "error"},
+		{"failed", "3 failed"},
+		{"empty", "no files"},
+		{"done", "done"},
+	} {
+		var buf strings.Builder
+		data := struct{ Runs []historyRowView }{Runs: []historyRowView{{State: state.state, FailedCount: 3, Target: "t", When: "now"}}}
+		if err := uiTemplates.ExecuteTemplate(&buf, "run-history", data); err != nil {
+			t.Fatalf("run-history %s: %v", state.state, err)
+		}
+		if !strings.Contains(buf.String(), state.want) {
+			t.Errorf("run-history state %q: expected %q in output:\n%s", state.state, state.want, buf.String())
+		}
 	}
 
 	for name, data := range cases {

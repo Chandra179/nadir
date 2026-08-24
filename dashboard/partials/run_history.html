@@ -4,7 +4,7 @@
 <td class="target">{{.Target}}</td>
 <td class="num">{{.Processed}}</td>
 <td class="num">{{.Skipped}}</td>
-<td>{{.Badge}}</td>
+<td>{{if eq .State "error"}}<span class="status-badge err"><span class="dot"></span>error</span>{{else if eq .State "failed"}}<span class="status-badge err"><span class="dot"></span>{{.FailedCount}} failed</span>{{else if eq .State "empty"}}<span class="status-badge warn"><span class="dot"></span>no files</span>{{else}}<span class="status-badge ok"><span class="dot"></span>done</span>{{end}}</td>
 <td>{{.When}}</td>
 </tr>
 {{end}}

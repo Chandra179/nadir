@@ -14,24 +14,17 @@ type deleteAllResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// DeleteAllData permanently removes every indexed chunk by dropping and
-// recreating the store's collection (also picking up any schema drift) and,
-// if a semantic cache is configured, clears it too so it can't keep serving
-// results for content that no longer exists.
+// DeleteAllData permanently removes every indexed chunk by delegating to
+// the store's DeleteAll (which drops and recreates the collection, also
+// picking up any schema drift). Cache invalidation on reset is enforced by
+// the store decorator wired in internal/server.
 func (d *dependencies) DeleteAllData(c *gin.Context) {
-	ctx := c.Request.Context()
 	isHX := c.GetHeader("HX-Request") == "true"
 
-	if err := d.store.DeleteAll(ctx); err != nil {
+	if err := d.store.DeleteAll(c.Request.Context()); err != nil {
 		d.log.Error("delete all data failed", zap.Error(err))
 		d.respondDeleteAllError(c, isHX, err)
 		return
-	}
-
-	if d.cache != nil {
-		if err := d.cache.Clear(ctx); err != nil {
-			d.log.Warn("clear semantic cache after delete-all failed", zap.Error(err))
-		}
 	}
 
 	if isHX {

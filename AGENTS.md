@@ -50,6 +50,7 @@ GET  /healthz → 200
 - `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, Qdrant hybrid store (dense + BM25 sparse + RRF)
 - `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; optional `Enricher` (HyPE questions/contextual intros)
 - `search/` — multi-fragment hybrid search → rerank → semantic cache
+- `chat/` — chat use-case (`Ask`: session mint → retrieve → buffered generate → detached persist); handlers only map request/result
 - `generator/` — `Generator` interface, Ollama chat client, `buildPrompt`, `lostInMiddleOrder`
 - `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection

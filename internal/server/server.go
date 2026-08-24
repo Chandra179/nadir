@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"nadir/config"
 	"nadir/internal/api"
 	"nadir/internal/cache"
+	"nadir/internal/chat"
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
 	"nadir/internal/enrichment"
@@ -212,13 +214,30 @@ func Server(ctx context.Context, cfg *config.Config) {
 		}
 	}
 
+	// Composite data-reset rule: dropping the collection must also clear
+	// the semantic cache, or it keeps serving stale results for deleted
+	// content. Enforced once here at the composition root so every caller
+	// of Store.DeleteAll gets it for free.
+	storeSvc := store.Store(s)
+	if semanticCache != nil {
+		storeSvc = &cacheInvalidatingStore{Store: s, cache: semanticCache}
+	}
+
+	chatService := chat.NewDependencies(chat.DependenciesConfig{
+		Searcher:  searchService,
+		Generator: gen,
+		History:   hist,
+		Model:     cfg.Generator.Model,
+		Log:       log,
+	})
+
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
 		Search:    searchService,
 		Ingest:    ingestDeps,
-		Store:     s,
+		Store:     storeSvc,
 		Generator: gen,
-		Cache:     semanticCache,
 		History:   hist,
+		Chat:      chatService,
 		TopK:      cfg.Qdrant.TopK,
 		Config:    cfg,
 		Log:       log,
@@ -250,4 +269,22 @@ func Server(ctx context.Context, cfg *config.Config) {
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Error("http server error", zap.Error(err))
 	}
+}
+
+// cacheInvalidatingStore decorates Store.DeleteAll so a full data reset
+// also clears the semantic cache — otherwise the cache keeps serving
+// results for content that no longer exists.
+type cacheInvalidatingStore struct {
+	store.Store
+	cache cache.Cache
+}
+
+func (d *cacheInvalidatingStore) DeleteAll(ctx context.Context) error {
+	if err := d.Store.DeleteAll(ctx); err != nil {
+		return err
+	}
+	if err := d.cache.Clear(ctx); err != nil {
+		return fmt.Errorf("clear semantic cache: %w", err)
+	}
+	return nil
 }
