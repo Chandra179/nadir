@@ -213,16 +213,15 @@ func Server(ctx context.Context, cfg *config.Config) {
 	}
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
-		Search:      searchService,
-		Ingest:      ingestDeps,
-		Store:       s,
-		Generator:   gen,
-		Cache:       semanticCache,
-		History:     hist,
-		SourceRoots: cfg.Source.Paths,
-		TopK:        cfg.Qdrant.TopK,
-		Config:      cfg,
-		Log:         log,
+		Search:    searchService,
+		Ingest:    ingestDeps,
+		Store:     s,
+		Generator: gen,
+		Cache:     semanticCache,
+		History:   hist,
+		TopK:      cfg.Qdrant.TopK,
+		Config:    cfg,
+		Log:       log,
 	})
 
 	engine := gin.New()

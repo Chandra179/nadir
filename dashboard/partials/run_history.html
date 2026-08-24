@@ -1,0 +1,14 @@
+{{define "run-history"}}
+{{if .Runs}}
+{{range .Runs}}<tr>
+<td class="target">{{.Target}}</td>
+<td class="num">{{.Processed}}</td>
+<td class="num">{{.Skipped}}</td>
+<td>{{.Badge}}</td>
+<td>{{.When}}</td>
+</tr>
+{{end}}
+{{else}}
+<tr><td colspan="5" class="empty-row">No runs yet.</td></tr>
+{{end}}
+{{end}}

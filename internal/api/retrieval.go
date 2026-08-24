@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"html/template"
 	"io"
 	"net/http"
 	"strconv"
@@ -67,22 +66,7 @@ func (d *dependencies) HistorySession(c *gin.Context) {
 }
 
 func (d *dependencies) renderPage(c *gin.Context, data pageView) {
-	tmpl, err := template.ParseFiles(
-		"dashboard/search.html",
-		"dashboard/partials/sidebar.html",
-		"dashboard/partials/composer.html",
-		"dashboard/partials/turn.html",
-	)
-	if err != nil {
-		d.log.Error("parse retrieval template failed", zap.Error(err))
-		c.String(http.StatusInternalServerError, "retrieval dashboard unavailable")
-		return
-	}
-
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.ExecuteTemplate(c.Writer, "page", data); err != nil {
-		d.log.Error("render retrieval template failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "page", data)
 }
 
 type retrievalResultView struct {
@@ -259,16 +243,7 @@ func attachedFileNames(raw string) []string {
 }
 
 func (d *dependencies) renderTurn(c *gin.Context, data turnView) {
-	tmpl, err := template.ParseFiles("dashboard/partials/turn.html")
-	if err != nil {
-		d.log.Error("parse turn template failed", zap.Error(err))
-		c.String(http.StatusInternalServerError, "")
-		return
-	}
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.ExecuteTemplate(c.Writer, "turn", data); err != nil {
-		d.log.Error("render turn fragment failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "turn", data)
 }
 
 // toRetrievalResultViews builds the display rows for a result set. Scores

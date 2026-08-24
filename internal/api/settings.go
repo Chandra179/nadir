@@ -1,14 +1,12 @@
 package api
 
 import (
-	"html/template"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 
 	"nadir/config"
 )
@@ -31,17 +29,7 @@ type settingsGroup struct {
 // startup (config.Load) and never re-read, so the panel says so explicitly
 // rather than implying a live editor.
 func (d *dependencies) Settings(c *gin.Context) {
-	tmpl, err := template.ParseFiles("dashboard/partials/settings.html")
-	if err != nil {
-		d.log.Error("parse settings template failed", zap.Error(err))
-		c.String(http.StatusInternalServerError, "settings unavailable")
-		return
-	}
-
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.ExecuteTemplate(c.Writer, "settings", struct{ Groups []settingsGroup }{buildSettingsGroups(d.cfg)}); err != nil {
-		d.log.Error("render settings fragment failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "settings", struct{ Groups []settingsGroup }{buildSettingsGroups(d.cfg)})
 }
 
 // envOverridden mirrors the exact set of vars config.Config.applyEnv reads,

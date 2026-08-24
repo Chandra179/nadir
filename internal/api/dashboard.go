@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,49 +11,6 @@ import (
 
 	"nadir/internal/ingest"
 )
-
-type dashboardRoot struct {
-	// Label is the root as configured (source.paths entry), shown on the
-	// chip.
-	Label string
-	// Fill is the absolute path used as the input's value, so the chip
-	// always resolves regardless of how many roots are configured.
-	Fill string
-}
-
-// Dashboard renders the dashboard page (Tailwind + htmx via CDN, templated
-// at request time so its "recent roots" chips reflect the live
-// source.paths config); the interactive pieces poll the fragment endpoints
-// below.
-func (d *dependencies) Dashboard(c *gin.Context) {
-	tmpl, err := template.ParseFiles("dashboard/index.html")
-	if err != nil {
-		d.log.Error("parse dashboard template failed", zap.Error(err))
-		c.String(http.StatusInternalServerError, "dashboard unavailable")
-		return
-	}
-
-	roots := make([]dashboardRoot, 0, len(d.sourceRoots))
-	for _, r := range d.sourceRoots {
-		abs, err := filepath.Abs(r)
-		if err != nil {
-			abs = r
-		}
-		roots = append(roots, dashboardRoot{Label: r, Fill: abs})
-	}
-
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(c.Writer, struct{ Roots []dashboardRoot }{roots}); err != nil {
-		d.log.Error("render dashboard template failed", zap.Error(err))
-	}
-}
-
-var statsTmpl = template.Must(template.New("stats").Parse(`
-<div class="card"><div class="label">Documents indexed</div><div class="value">{{.Documents}}</div></div>
-<div class="card"><div class="label">Chunks in collection</div><div class="value">{{.Chunks}}</div></div>
-<div class="card"><div class="label">Last run</div><div class="value accent">{{.LastRun}}</div><div class="delta">{{.LastTarget}}</div></div>
-<div class="card"><div class="label">Failed last run</div><div class="value{{if .LastFailed}} danger{{end}}">{{.LastFailedCount}}</div></div>
-`))
 
 // Stats renders the stat-card row: collection size from the store, plus
 // last-run info from the ingest tracker's history.
@@ -88,28 +44,8 @@ func (d *dependencies) Stats(c *gin.Context) {
 		data.LastFailed = last.Failed > 0
 	}
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := statsTmpl.Execute(c.Writer, data); err != nil {
-		d.log.Error("render stats fragment failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "stats", data)
 }
-
-var statusTmpl = template.Must(template.New("status").Parse(`
-{{if .HasRun}}
-<div class="log-status-line">
-<span class="log-status-target">{{if .Running}}Running · {{.Target}}{{else}}Last run · {{.Target}}{{end}}</span>
-{{if .Running}}<span class="live-badge"><span class="ring"></span>live</span>{{else}}<span class="live-badge idle">idle</span>{{end}}
-</div>
-{{end}}
-{{if .Events}}
-<div class="log">
-{{range .Events}}<div class="log-row s-{{.StripeClass}}"><span class="icon {{.IconClass}}">{{.Icon}}</span><span class="path"><b>{{.Path}}</b>{{if .Detail}} <span class="dim">{{.Detail}}</span>{{end}}</span></div>
-{{end}}
-</div>
-{{else}}
-<p class="empty">No ingest has run yet. Submit a path to get started.</p>
-{{end}}
-`))
 
 type statusEventView struct {
 	Path        string
@@ -155,26 +91,8 @@ func (d *dependencies) IngestStatus(c *gin.Context) {
 		Events:  events,
 	}
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := statusTmpl.Execute(c.Writer, data); err != nil {
-		d.log.Error("render status fragment failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "run-status", data)
 }
-
-var historyTmpl = template.Must(template.New("history").Parse(`
-{{if .Runs}}
-{{range .Runs}}<tr>
-<td class="target">{{.Target}}</td>
-<td class="num">{{.Processed}}</td>
-<td class="num">{{.Skipped}}</td>
-<td>{{.Badge}}</td>
-<td>{{.When}}</td>
-</tr>
-{{end}}
-{{else}}
-<tr><td colspan="5" class="empty-row">No runs yet.</td></tr>
-{{end}}
-`))
 
 type historyRowView struct {
 	Target    string
@@ -210,10 +128,7 @@ func (d *dependencies) IngestHistory(c *gin.Context) {
 		})
 	}
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	if err := historyTmpl.Execute(c.Writer, struct{ Runs []historyRowView }{rows}); err != nil {
-		d.log.Error("render history fragment failed", zap.Error(err))
-	}
+	d.renderHTML(c, http.StatusOK, "run-history", struct{ Runs []historyRowView }{rows})
 }
 
 func displayTarget(target string) string {

@@ -1,0 +1,17 @@
+{{define "chips-ok"}}{{range .}}
+<div class="relative flex items-center gap-2.5 w-[196px] flex-none bg-[#eeece3] border border-[#e3e2d8] rounded-[14px] pl-2.5 pr-7 py-2" data-chip data-filename="{{.}}">
+  <div class="w-8 h-8 rounded-[9px] bg-[#dce8fb] text-[#2f5db0] flex items-center justify-center flex-none">{{template "docIcon"}}</div>
+  <div class="min-w-0"><div class="text-[12px] font-semibold text-[#20241f] truncate">{{.}}</div><div class="text-[10.5px] text-[#8b8f81]">File</div></div>
+  {{template "dismissButton"}}
+</div>{{end}}{{end}}
+
+{{define "chips-error"}}
+<div class="relative flex items-center gap-2.5 w-[196px] flex-none bg-[#f7e6e3] border border-[#e3c4bd] rounded-[14px] pl-2.5 pr-7 py-2" data-chip>
+  <div class="w-8 h-8 rounded-[9px] bg-[#f3d2cc] text-[#b04a3f] flex items-center justify-center flex-none">{{template "docIcon"}}</div>
+  <div class="min-w-0"><div class="text-[12px] font-semibold text-[#8a3a30] truncate">Import failed</div><div class="text-[10.5px] text-[#b04a3f] truncate">{{.Message}}</div></div>
+  {{template "dismissButton"}}
+</div>{{end}}
+
+{{define "docIcon"}}<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{{end}}
+
+{{define "dismissButton"}}<button type="button" onclick="this.closest('[data-chip]').remove()" aria-label="Dismiss" class="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#20241f] text-white flex items-center justify-center text-[9px] leading-none hover:bg-black">✕</button>{{end}}
