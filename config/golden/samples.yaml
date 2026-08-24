@@ -1,5 +1,5 @@
 # Sample ground truth for the 4 sample files in samples/
-# Usage: make eval-both golden=golden/samples.yaml
+# Usage: make eval-both golden=config/golden/samples.yaml
 queries:
   - query: "secant formula"
     expected_files:

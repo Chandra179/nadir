@@ -7,9 +7,9 @@
 # and RAGAS metrics.
 #
 # Usage:
-#   make eval golden=golden/my-set.yaml
-#   make eval-rag golden=golden/my-set.yaml
-#   make eval-both golden=golden/my-set.yaml
+#   make eval golden=config/golden/my-set.yaml
+#   make eval-rag golden=config/golden/my-set.yaml
+#   make eval-both golden=config/golden/my-set.yaml
 #
 # File matching is by SUFFIX — "math/trig.md" matches
 # "gitbook/math/trig.md" automatically. You don't need full paths.
