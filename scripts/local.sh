@@ -40,7 +40,7 @@ curl -sf -X POST localhost:8100/ingest $(for f in samples/*.md; do echo -F "file
 
 echo ""
 echo "Local stack running. Server PID=$SERVER_PID"
-echo "  Search: curl -X POST localhost:8100/search -H 'Content-Type: application/json' -d '{\"query\":\"...\",\"top_k\":5}'"
+echo "  Search: curl -X POST localhost:8100/retrieval/search --data-urlencode 'query=...'"
 echo "  Stop:   kill $SERVER_PID && docker compose down"
 
 wait "$SERVER_PID"

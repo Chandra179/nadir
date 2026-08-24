@@ -40,17 +40,19 @@ This starts Qdrant + reranker, runs the Go server, ingests all source files, and
 ### 3. Test search
 
 ```bash
-curl -X POST localhost:8100/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"secant formula","top_k":5}'
+curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
 ```
+
+Returns an HTML fragment (the chat UI's turn card) plus an `X-Nadir-Session-Id`
+header for follow-up turns. Add `-F generate=true` to include an LLM answer.
 
 ### 4. Include LLM answer generation
 
+Pass `generate=true` to run answer generation over the retrieved chunks:
+
 ```bash
-curl -X POST localhost:8100/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
+curl -X POST localhost:8100/retrieval/search \
+  --data-urlencode "query=secant formula" -F generate=true
 ```
 
 ## Source data
@@ -116,28 +118,27 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/ingest` | Walk document dir, chunk+embed new/changed files |
-| GET | `/ingest/status` | Live status of the in-progress ingest run |
-| GET | `/ingest/history` | Recent ingest job history |
-| POST | `/search` | Hybrid semantic search over embedded chunks |
+| POST | `/ingest` | Ingest uploaded files: chunk+embed new/changed ones (SHA-256 dedup) |
 | POST | `/store/reset` | Drop and recreate the Qdrant collection |
-| GET | `/stats` | Document/chunk counts, last run, failures |
-| GET | `/dashboard` | Ingestion dashboard UI |
-| GET | `/retrieval` | Retrieval (search) dashboard UI |
-| POST | `/retrieval/search` | Dashboard-facing search endpoint |
+| GET | `/retrieval` | Chat UI |
+| POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
+| GET | `/history/sessions` | Recent chat sessions (sidebar) |
+| GET | `/history/sessions/:id` | Replay a past session |
+| GET | `/settings` | Effective runtime configuration panel |
 | GET | `/healthz` | Health check |
 
 ## Architecture
 
 ```
-POST /ingest → ingest.Service (walk + SHA dedup) → Pipeline
-                                          ├── Chunker (recursive / sentence-window)
-                                          ├── Embedder (Ollama)
-                                          └── Store.Upsert (Qdrant)
+POST /ingest → ingest.Service (SHA dedup) → Pipeline
+                                 ├── Chunker (recursive / sentence-window)
+                                 ├── Embedder (Ollama)
+                                 └── Store.Upsert (Qdrant)
 
-POST /search → Embedder → Store.HybridSearch (dense + sparse → RRF)
-                                          └── [Reranker] → response
-```
+POST /retrieval/search → chat.Service.Ask
+                 ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
+                 ├── [Generator] buffered answer over retrieved chunks
+                 └── History persist (detached)
 
 ## Run tests
 

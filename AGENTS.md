@@ -29,8 +29,7 @@ go run ./cmd/evalbench --golden tests/eval/golden.json --top-k 5 --runs 3
 
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
-curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":10}'
-curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
+curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 
@@ -40,7 +39,7 @@ Single Go binary at `cmd/server/main.go`. Wiring in `internal/server/server.go` 
 
 ```
 POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /search → SearchHandler → search.Service (embed→hybrid search→[reranker]) → [generator]
+POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → search.Service retrieve → buffered generate → detached persist)
 GET  /healthz → 200
 ```
 
@@ -83,7 +82,7 @@ GET  /healthz → 200
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
+| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=true` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |

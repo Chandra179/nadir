@@ -28,8 +28,7 @@ go test -run TestMatchPattern ./internal/ingest/   # focused package test
 
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
-curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":10}'
-curl -X POST localhost:8100/search -H "Content-Type: application/json" -d '{"query":"secant formula","top_k":5,"generate":true}' --no-buffer
+curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 
@@ -39,7 +38,7 @@ curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant coll
 
 ```
 POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /search → SearchHandler → search.Service (embed→hybrid search→[reranker]) → [generator]
+POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → search.Service retrieve → buffered generate → detached persist)
 GET  /healthz → 200
 ```
 
@@ -69,7 +68,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 1. **Ingest & chunk** — sentence-based chunking for precise citations; configurable chunk size/overlap/strategy.
 2. **Embed** — each chunk is prefixed with its file path + heading before embedding, anchoring the vector in document structure without altering the stored text.
 3. **Semantic cache** — query embedding is checked against a dedicated Qdrant collection by cosine similarity before search; above threshold, returns cached results immediately, otherwise writes back asynchronously on miss. Only active when the client is not requesting generation.
-4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25-style term vectors, IDF-weighted server-side by Qdrant) legs run as native Qdrant prefetches and fuse via Reciprocal Rank Fusion (RRF) in a single query. Long queries are split into sentence fragments, embedded in one batch call, searched in parallel, then deduped/re-sorted with a per-file cap for diversity. `POST /search` accepts an optional `"filter"` object (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
+4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25-style term vectors, IDF-weighted server-side by Qdrant) legs run as native Qdrant prefetches and fuse via Reciprocal Rank Fusion (RRF) in a single query. Long queries are split into sentence fragments, embedded in one batch call, searched in parallel, then deduped/re-sorted with a per-file cap for diversity. The search use-case accepts an optional filter (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
 5. **Re-rank** — top-N candidates re-scored by the cross-encoder reranker sidecar, if enabled/available.
 6. **Generate** — chunks reordered by the "lost in the middle" heuristic (most relevant at both ends of context, least relevant in the middle) before being placed in the system prompt; Ollama streams the answer token by token.
 
@@ -89,7 +88,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| Answer generation | `generator.enabled` (on by default) | Ollama LLM; `POST /search` with `{"generate": true}` |
+| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=true` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |

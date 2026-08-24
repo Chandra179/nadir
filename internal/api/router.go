@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	RouteSearch          = "/search"
 	RouteIngest          = "/ingest"
 	RouteStoreReset      = "/store/reset"
 	RouteRetrieval       = "/retrieval"
@@ -22,7 +21,6 @@ const (
 // (recovery, request ID, request log, metrics) is expected to already be
 // attached to engine via engine.Use(...) before this is called.
 func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
-	engine.POST(RouteSearch, deps.Search)
 	engine.POST(RouteIngest, deps.Ingest)
 	engine.POST(RouteStoreReset, deps.DeleteAllData)
 	engine.GET(RouteRetrieval, deps.Retrieval)
