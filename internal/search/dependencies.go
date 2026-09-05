@@ -25,7 +25,7 @@ type dependencies struct {
 	store        store.Store
 	reranker     reranker.Reranker
 	candidateMul int
-	cache        cache.Cache
+	cache        cache.SemanticCache
 	queryPrefix  string
 	log          *zap.Logger
 }
@@ -49,7 +49,7 @@ func (s *dependencies) RerankerEnabled() bool { return s.reranker != nil }
 
 // WithSemanticCache enables the semantic cache lookup/writeback performed by
 // Query.
-func (s *dependencies) WithSemanticCache(c cache.Cache) *dependencies {
+func (s *dependencies) WithSemanticCache(c cache.SemanticCache) *dependencies {
 	s.cache = c
 	return s
 }

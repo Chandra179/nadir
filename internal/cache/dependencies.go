@@ -36,7 +36,7 @@ type dependencies struct {
 	dimensions int
 }
 
-var _ Cache = (*dependencies)(nil)
+var _ SemanticCache = (*dependencies)(nil)
 
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	collection := cfg.Collection

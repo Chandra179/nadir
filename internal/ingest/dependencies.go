@@ -42,7 +42,7 @@ type dependencies struct {
 	chunker        chunker.Chunker
 	embedder       embedder.Embedder
 	store          store.Store
-	cache          cache.Cache
+	cache          cache.SemanticCache
 	cfg            RetryConfig
 	documentPrefix string
 	enrich         enrichment.Enricher
@@ -62,9 +62,9 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 }
 
-// WithCache enables clearing the semantic cache at the start of every Run,
-// since a fresh ingest can make cached results stale.
-func (d *dependencies) WithCache(c cache.Cache) *dependencies {
+// WithSemanticCache enables clearing the semantic cache at the start of every
+// Run, since a fresh ingest can make cached results stale.
+func (d *dependencies) WithSemanticCache(c cache.SemanticCache) *dependencies {
 	d.cache = c
 	return d
 }

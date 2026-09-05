@@ -170,7 +170,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		)
 	}
 
-	var semanticCache cache.Cache
+	var semanticCache cache.SemanticCache
 
 	if cfg.SemanticCache.Enabled {
 		var err error
@@ -188,7 +188,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 				log.Error("semantic cache ensure collection failed", zap.Error(err))
 			} else {
 				searchService.WithSemanticCache(semanticCache)
-				ingestDeps.WithCache(semanticCache)
+				ingestDeps.WithSemanticCache(semanticCache)
 				log.Info("semantic cache enabled",
 					zap.String("collection", cfg.SemanticCache.Collection),
 					zap.Float32("threshold", cfg.SemanticCache.Threshold),
@@ -306,7 +306,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 // results for content that no longer exists.
 type cacheInvalidatingStore struct {
 	store.Store
-	cache cache.Cache
+	cache cache.SemanticCache
 }
 
 func (d *cacheInvalidatingStore) DeleteAll(ctx context.Context) error {
