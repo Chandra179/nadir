@@ -36,12 +36,9 @@ func (s *dependencies) search(ctx context.Context, query string, topK int, filte
 	return s.rerankTopK(ctx, query, chunks, topK), nil
 }
 
-// Query is the top-level entry point for a search request: it dispatches to
-// keyword or semantic search and, for semantic queries, transparently
-// consults the semantic cache before searching and writes back on miss.
-// skipCache bypasses the cache (e.g. the caller wants a fresh generation
-// answer rather than a cached one). fromCache reports whether the result
-// came from the cache.
+// Query is the top-level search entry point: dispatches to keyword or
+// semantic search, consulting the semantic cache first when wired
+// (skipCache bypasses it). fromCache reports a cache hit.
 func (s *dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
 	if keyword != "" {
 		chunks, err = s.keywordSearch(ctx, keyword, topK, filter)

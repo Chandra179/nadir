@@ -22,11 +22,6 @@ go test -short -count=1 ./...              # unit tests only, no Docker
 go test -count=1 ./...                     # all tests, requires Qdrant
 go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 
-# Retrieval eval (needs live Qdrant + Ollama [+ reranker sidecar])
-go run ./cmd/evalbench --ensure-ingest             # baseline/A-B reports → tests/eval/reports/
-go run ./cmd/evalbench --no-rerank                 # measure reranker contribution
-go run ./cmd/evalbench --golden tests/eval/golden.json --top-k 5 --runs 3
-
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
 curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
@@ -55,13 +50,12 @@ GET  /healthz → 200
 - `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
 - `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
-- `eval/` — golden-set retrieval metrics (HitRate/Recall/MRR/nDCG) used by `cmd/evalbench`; reports in `tests/eval/reports/`
 
 **`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
 
 **`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 
-**`internal/middleware/`** — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog→Metrics`.
+**`internal/middleware/`** — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`.
 
 **`services/`** — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
 

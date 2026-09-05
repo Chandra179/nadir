@@ -9,7 +9,7 @@ sidecars (reranker, PDF converter).
 
 ```mermaid
 flowchart TB
-    Client[Browser / curl / evalbench]
+    Client[Browser / curl]
     Ollama[("Ollama<br/>embeddings + LLM")]
     Qdrant[("Qdrant<br/>vector store")]
     RerankerSvc["Reranker sidecar"]

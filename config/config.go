@@ -23,6 +23,12 @@ type Config struct {
 	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
+
+	// Overridden records which config paths applyEnv replaced from the
+	// environment at boot (config path → env var name). It is the single
+	// source of truth for "where did this value come from" and is not part
+	// of the yaml document.
+	Overridden map[string]string `yaml:"-" json:"-"`
 }
 
 type HTTPConfig struct {
@@ -110,9 +116,8 @@ type HistoryConfig struct {
 
 // RewriterConfig enables conversational query rewriting (Rewrite-Retrieve-
 // Read): follow-up turns are rewritten into standalone search queries
-// against the session's last N turns before retrieval. Costs one extra LLM
-// call per follow-up turn; skipped when a session has no prior turns, and
-// any rewrite failure falls back to the raw query.
+// against the session's last N turns. Skipped on the first turn; failures
+// fall back to the raw query.
 type RewriterConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	Turns      int    `yaml:"turns"`       // prior turns fed to the rewriter (default 4)
@@ -166,63 +171,66 @@ func Load(path string) (*Config, error) {
 }
 
 // applyEnv overrides config fields from environment variables.
-// Env vars take precedence over config.yaml values.
+// Env vars take precedence over config.yaml values; every applied override
+// is recorded in Overridden (keyed by config path) so consumers can tell
+// which values came from the environment rather than config.yaml.
 func (c *Config) applyEnv() {
-	if v := os.Getenv("QDRANT_ADDR"); v != "" {
-		c.Qdrant.Addr = v
+	c.envStr(&c.Qdrant.Addr, "qdrant.addr", "QDRANT_ADDR")
+	c.envStr(&c.Qdrant.Collection, "qdrant.collection", "QDRANT_COLLECTION")
+	c.envStr(&c.Embedder.OllamaAddr, "embedder.ollama_addr", "OLLAMA_ADDR")
+	c.envStr(&c.Embedder.APIKey, "embedder.api_key", "EMBEDDER_API_KEY")
+	c.envStr(&c.Reranker.Addr, "reranker.addr", "RERANKER_ADDR")
+	c.envBool(&c.Reranker.Enabled, "reranker.enabled", "RERANKER_ENABLED")
+	c.envStr(&c.Reranker.Model, "reranker.model", "RERANKER_MODEL")
+	c.envStr(&c.Middleware.Logger.Level, "middleware.logger.level", "LOGGER_LEVEL")
+	c.envFloat32(&c.SemanticCache.Threshold, "semantic_cache.threshold", "SEMANTIC_CACHE_THRESHOLD")
+	c.envBool(&c.History.Enabled, "history.enabled", "HISTORY_ENABLED")
+	c.envStr(&c.History.Collection, "history.collection", "HISTORY_COLLECTION")
+	c.envBool(&c.Enrichment.Hype.Enabled, "enrichment.hype.enabled", "HYPE_ENABLED")
+	c.envBool(&c.Enrichment.Contextual.Enabled, "enrichment.contextual.enabled", "CONTEXTUAL_ENABLED")
+	c.envBool(&c.Rewriter.Enabled, "rewriter.enabled", "REWRITE_ENABLED")
+	c.envStr(&c.Rewriter.OllamaAddr, "rewriter.ollama_addr", "REWRITE_ADDR")
+	c.envStr(&c.Rewriter.Model, "rewriter.model", "REWRITE_MODEL")
+	c.envInt(&c.Rewriter.Turns, "rewriter.turns", "REWRITE_TURNS")
+}
+
+func (c *Config) envStr(dst *string, key, env string) {
+	if v := os.Getenv(env); v != "" {
+		*dst = v
+		c.record(key, env)
 	}
-	if v := os.Getenv("QDRANT_COLLECTION"); v != "" {
-		c.Qdrant.Collection = v
+}
+
+func (c *Config) envBool(dst *bool, key, env string) {
+	if v := os.Getenv(env); v != "" {
+		*dst = v == "true" || v == "1"
+		c.record(key, env)
 	}
-	if v := os.Getenv("OLLAMA_ADDR"); v != "" {
-		c.Embedder.OllamaAddr = v
-	}
-	if v := os.Getenv("EMBEDDER_API_KEY"); v != "" {
-		c.Embedder.APIKey = v
-	}
-	if v := os.Getenv("RERANKER_ADDR"); v != "" {
-		c.Reranker.Addr = v
-	}
-	if v := os.Getenv("RERANKER_ENABLED"); v != "" {
-		c.Reranker.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("RERANKER_MODEL"); v != "" {
-		c.Reranker.Model = v
-	}
-	if v := os.Getenv("LOGGER_LEVEL"); v != "" {
-		c.Middleware.Logger.Level = v
-	}
-	if v := os.Getenv("SEMANTIC_CACHE_THRESHOLD"); v != "" {
+}
+
+func (c *Config) envFloat32(dst *float32, key, env string) {
+	if v := os.Getenv(env); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil {
-			c.SemanticCache.Threshold = float32(f)
+			*dst = float32(f)
+			c.record(key, env)
 		}
 	}
-	if v := os.Getenv("HISTORY_ENABLED"); v != "" {
-		c.History.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("HISTORY_COLLECTION"); v != "" {
-		c.History.Collection = v
-	}
-	if v := os.Getenv("HYPE_ENABLED"); v != "" {
-		c.Enrichment.Hype.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("CONTEXTUAL_ENABLED"); v != "" {
-		c.Enrichment.Contextual.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("REWRITE_ENABLED"); v != "" {
-		c.Rewriter.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("REWRITE_ADDR"); v != "" {
-		c.Rewriter.OllamaAddr = v
-	}
-	if v := os.Getenv("REWRITE_MODEL"); v != "" {
-		c.Rewriter.Model = v
-	}
-	if v := os.Getenv("REWRITE_TURNS"); v != "" {
+}
+
+func (c *Config) envInt(dst *int, key, env string) {
+	if v := os.Getenv(env); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
-			c.Rewriter.Turns = n
+			*dst = n
+			c.record(key, env)
 		}
 	}
+}
+
+func (c *Config) record(key, env string) {
+	if c.Overridden == nil {
+		c.Overridden = make(map[string]string)
+	}
+	c.Overridden[key] = env
 }
 
 func (c *Config) Validate() error {

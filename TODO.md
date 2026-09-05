@@ -2,7 +2,7 @@
 
 Retrieval-accuracy roadmap (audit + research cross-reference, Aug 2026; items
 re-audited and research pass re-verified Sep 2026). Each change is measured
-with `cmd/evalbench` (HitRate@k / Recall@k / MRR@10 / nDCG@k) before and after.
+against the golden set (HitRate@k / Recall@k / MRR@10 / nDCG@k) before and after.
 
 ## Measured results (34-query golden set over `samples/`, top_k=5)
 
@@ -20,12 +20,8 @@ Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
 
 ## Phase 0 — Eval foundation ✅
 
-- [x] `internal/eval` metrics (Recall@k, MRR, binary nDCG@k, HitRate@k, latency percentiles)
-- [x] Golden-set runner + JSON reports (`tests/eval/reports/`): `Harness` in
-      `internal/eval/dependencies.go`, `Run`/`LoadGoldenSet`/`WriteReport` in
-      `internal/eval/service.go`
-- [x] `cmd/evalbench` CLI (`--ensure-ingest`, `--no-rerank`, `--runs`, `--report`)
-- [x] Seed golden set: `tests/eval/golden.json` (34 queries over `samples/`)
+- [x] Golden set: `tests/eval/golden.json` (34 queries over `samples/`) with
+      committed run reports in `tests/eval/reports/`
 - [ ] Grow golden set to 100+ queries as real corpus grows; keep distractor pairs
 
 ## Phase 1 — Cheap wins ✅
@@ -79,7 +75,7 @@ after a prior ingest requires a reindex.
       - ONNX int8 (ms-marco-MiniLM through production `load_model()`):
         p50 365ms → 178ms (2.06×), top-1 agreement 5/5; runtime weights
         ~2.3GB → ~0.6GB.
-      - torch-int8 (bge-v2-m3, evalbench A/B, 34 queries × 3 runs, reports
+      - torch-int8 (bge-v2-m3, golden-set A/B, 34 queries × 3 runs, reports
         `rerank_ab_fp32_control` / `rerank_ab_torch_int8`): HitRate 0.853 →
         0.824, MRR@10 0.793 → 0.765, nDCG@5 0.826 → 0.798, p50 4358ms →
         3372ms (1.29×) — keeps ~60% of the reranker's MRR gain for ~1.5GB
@@ -88,9 +84,10 @@ after a prior ingest requires a reindex.
       Remaining: the v2-m3 ONNX bake peaks ~8–10GB (export) / ~7GB (quantize
       parse) — this 15GB desktop with a full 4GB swap OOM-killed every
       attempt, so bake on a machine with headroom (`docker compose build
-      reranker`, or rerun from the saved fp32 graph in /tmp), then evalbench
-      A/B the baked artifact; expect ≈2× with fp32-equal ranking per sbert's
-      NanoBEIR benchmarks. torch-int8 is the zero-hassle fallback meanwhile.
+      reranker`, or rerun from the saved fp32 graph in /tmp), then A/B the
+      baked artifact over the golden set; expect ≈2× with fp32-equal ranking
+      per sbert's NanoBEIR benchmarks. torch-int8 is the zero-hassle fallback
+      meanwhile.
 - [ ] Adaptive retrieval fallback for weak results (arXiv 2507.16754, "Never
       Come Up Empty": for novel queries, lowering the similarity bar beats
       returning nothing). Nadir adaptation: retrieval never filters by score
@@ -117,9 +114,9 @@ after a prior ingest requires a reindex.
       it an HTTP endpoint or a pre-ingest hook. Tradeoff: docling latency at
       ingest, and PDF structure doesn't map 1:1 onto the markdown
       `path > header` identity prefix — needs its own contextual-text rule.
-- [ ] Per-stage observability: the `Metrics()` middleware is an empty stub
-      (rfc.md open question). Record embed / search / rerank / generate
-      durations + cache-hit rate so prod latency matches what evalbench sees;
+- [ ] Per-stage observability (rfc.md open question; the empty `Metrics()`
+      stub was removed). Record embed / search / rerank / generate
+      durations + cache-hit rate so prod latency matches the golden-set numbers;
       cheap and de-risks every item above.
 
 ## Phase 4 — Research candidates (paper → proven impl → tradeoff; measure first)
@@ -130,8 +127,8 @@ after a prior ingest requires a reindex.
       `corrective-rag` template. Tradeoff: +1 judge call on the query-time
       path, misgrading risk with a 1B judge; reuses the rewriter from Phase 3.
 - [ ] Generation-side eval with RAGAS (proven lib, LLM-as-judge): faithfulness,
-      answer relevancy, context precision/recall. evalbench measures retrieval
-      only — gemma3:1b answer quality is unmeasured. Needs a judge model bigger
+      answer relevancy, context precision/recall. The golden-set metrics
+      measure retrieval only — gemma3:1b answer quality is unmeasured. Needs a judge model bigger
       than the one under test (Ollama-hosted); LLM-judge noise and cost are the
       tradeoff. Retrieval metrics keep the binary ground truth.
 - [ ] Speculative RAG (arXiv 2407.08223, Google): a small drafter generates
@@ -156,8 +153,8 @@ after a prior ingest requires a reindex.
 - [ ] Embedder swap (bge-m3 / snowflake-arctic-embed-l class via Ollama, new
       dims + full reindex) — only if Phase 0 numbers show recall ceiling at nomic
 - [ ] A/B sentence-window vs recursive chunker on the golden set (rfc.md open
-      question; `window_size: 3`). Zero new code — pure harness run before any
-      default change.
+      question; `window_size: 3`). No retrieval-code change — run both chunker
+      configs over the golden set before any default change.
 
 ## Rejected (research says skip for this domain)
 

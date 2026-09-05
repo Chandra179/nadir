@@ -24,7 +24,6 @@ import (
 	"nadir/internal/store"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,8 +41,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	defer log.Sync()
 
 	deps := middleware.NewDependencies(middleware.DependenciesConfig{
-		Logger:   log,
-		Registry: prometheus.NewRegistry(),
+		Logger: log,
 	})
 
 	// Shared gRPC connection to Qdrant: store and the semantic cache both
@@ -60,7 +58,6 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Conn:        qdrantConn,
 		Collection:  cfg.Qdrant.Collection,
 		PrefetchMul: cfg.Qdrant.PrefetchMul,
-		Log:         log,
 	})
 	if err != nil {
 		log.Error("qdrant init failed", zap.Error(err))
@@ -203,7 +200,6 @@ func Server(ctx context.Context, cfg *config.Config) {
 			Conn:       qdrantConn,
 			Collection: cfg.History.Collection,
 			Embedder:   e,
-			Log:        log,
 		})
 		if err != nil {
 			log.Error("history init failed", zap.Error(err))
@@ -274,7 +270,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	})
 
 	engine := gin.New()
-	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog(), deps.Metrics())
+	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog())
 	router := api.NewRouter(engine, apiDeps)
 
 	srv := &http.Server{

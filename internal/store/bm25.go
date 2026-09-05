@@ -6,12 +6,10 @@ import (
 	"unicode"
 )
 
-// vectorizeSparse builds a term-frequency sparse vector for BM25-style
-// keyword retrieval: terms are hashed into a fixed index space instead of
-// a persisted vocabulary, so ingest-time (Upsert) and query-time
-// (HybridSearch) encoding stay consistent without any shared state. IDF
-// weighting itself is applied server-side by Qdrant's sparse vector
-// Modifier_Idf, driven by these raw term counts.
+// vectorizeSparse builds a term-frequency sparse vector for the BM25 leg.
+// Terms are hashed into a fixed index space (no persisted vocabulary), so
+// ingest and query-time encodings match; IDF is applied server-side by
+// Qdrant's Idf modifier.
 func vectorizeSparse(text string) (indices []uint32, values []float32) {
 	counts := make(map[uint32]float32)
 	for _, tok := range tokenize(text) {

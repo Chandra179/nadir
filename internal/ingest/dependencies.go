@@ -62,8 +62,9 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 }
 
-// WithSemanticCache enables clearing the semantic cache at the start of every
-// Run, since a fresh ingest can make cached results stale.
+// WithSemanticCache enables clearing the semantic cache after every Run
+// that actually ingested something, since new content makes cached results
+// stale.
 func (d *dependencies) WithSemanticCache(c cache.SemanticCache) *dependencies {
 	d.cache = c
 	return d

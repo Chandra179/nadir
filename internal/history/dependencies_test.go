@@ -6,7 +6,6 @@ import (
 	"time"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -50,7 +49,6 @@ func testDependencies(t *testing.T) *dependencies {
 		Conn:       conn,
 		Collection: "chat_history_test",
 		Embedder:   fakeEmbedder{},
-		Log:        zap.NewNop(),
 	})
 	if err != nil {
 		t.Fatalf("NewDependencies: %v", err)

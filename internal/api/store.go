@@ -15,9 +15,9 @@ type deleteAllResponse struct {
 }
 
 // DeleteAllData permanently removes every indexed chunk by delegating to
-// the store's DeleteAll (which drops and recreates the collection, also
-// picking up any schema drift). Cache invalidation on reset is enforced by
-// the store decorator wired in internal/server.
+// the store's DeleteAll (drops and recreates the collection, picking up any
+// schema drift). Cache invalidation on reset is enforced by the store
+// decorator wired in internal/server.
 func (d *dependencies) DeleteAllData(c *gin.Context) {
 	isHX := c.GetHeader("HX-Request") == "true"
 

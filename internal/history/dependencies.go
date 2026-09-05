@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,7 +25,6 @@ type DependenciesConfig struct {
 	Conn       *grpc.ClientConn
 	Collection string
 	Embedder   embedder.Embedder
-	Log        *zap.Logger
 }
 
 type dependencies struct {
@@ -35,7 +33,6 @@ type dependencies struct {
 	name       string
 	embedder   embedder.Embedder
 	dimensions int
-	log        *zap.Logger
 }
 
 var _ History = (*dependencies)(nil)
@@ -51,7 +48,6 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		name:       collection,
 		embedder:   cfg.Embedder,
 		dimensions: cfg.Embedder.Dimensions(),
-		log:        cfg.Log,
 	}, nil
 }
 

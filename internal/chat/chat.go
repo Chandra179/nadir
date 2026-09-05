@@ -1,8 +1,6 @@
 // Package chat implements the chat use-case: turn a user question into a
 // persisted conversation turn by orchestrating retrieval, answer
-// generation, and history — the composition the HTTP handlers previously
-// performed inline. It is a domain package and must not import
-// api/server/middleware packages.
+// generation, and history. A domain package: must not import api/server/middleware.
 package chat
 
 import (

@@ -1,7 +1,6 @@
-// Chat transport: everything the chat UI talks to. Handlers here are pure
-// HTTP — parse request, call the chat use-case (internal/chat) or history,
-// map to a view, render a fragment. The page shell renders via "page",
-// each exchange appends one "turn" fragment via htmx.
+// Chat transport: pure HTTP handlers — parse request, call the chat
+// use-case or history, map to a view, render an htmx fragment. The page
+// shell renders via "page", each exchange appends one "turn" fragment.
 package api
 
 import (
@@ -41,9 +40,8 @@ func (d *dependencies) HistorySessions(c *gin.Context) {
 }
 
 // pageView is the data passed to the "page" template: the composer's
-// default top_k, and — when replaying a past conversation via
-// /history/sessions/:id — the session id to keep appending to and its
-// turns to pre-render in place of the empty state.
+// default top_k, and when replaying a past conversation the session id to
+// keep appending to plus its turns to pre-render.
 type pageView struct {
 	DefaultTopK int
 	SessionID   string
@@ -145,8 +143,6 @@ type turnView struct {
 // RetrievalSearch runs a chat turn through the chat use-case (search,
 // optional buffered answer, best-effort persistence) and renders one
 // appended turn: the question, the retrieval tool call, and the answer.
-// Unlike POST /search, a requested answer is buffered in full rather than
-// streamed, since it's rendered as a single fragment append.
 func (d *dependencies) RetrievalSearch(c *gin.Context) {
 	topK := d.topK
 	if topK <= 0 {
@@ -184,11 +180,9 @@ func (d *dependencies) RetrievalSearch(c *gin.Context) {
 	d.renderTurn(c, d.turnViewFromResult(req, res))
 }
 
-// attachedFileNames splits the comma-joined "attached_files" field the
-// composer sends alongside a query — the names of files imported just
-// before the message was sent, shown above the question for context. This
-// is display-only: the files were already chunked/embedded/upserted at
-// import time, independent of this search, and aren't used to scope it.
+// attachedFileNames splits the comma-joined "attached_files" field — names
+// of recently imported files shown above the question. Display-only: the
+// files were already ingested and don't scope this search.
 func attachedFileNames(raw string) []string {
 	if raw == "" {
 		return nil
@@ -230,10 +224,8 @@ func toRetrievalResultViews(chunks []store.ScoredChunk) []retrievalResultView {
 }
 
 // applyRelativeScores fills each view's ScorePct. Scores aren't bounded to
-// [0,1] — RRF fusion and the reranker each produce their own ranges — so
-// the bar width is scaled relative to the top score in this result set
-// rather than against an assumed absolute max. Shared by the live path and
-// history replay so both render identically.
+// [0,1] (RRF and reranker produce different ranges), so bars scale relative
+// to the top score of the result set.
 func applyRelativeScores(views []retrievalResultView) {
 	var maxScore float32
 	for _, v := range views {

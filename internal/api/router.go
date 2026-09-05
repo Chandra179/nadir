@@ -18,7 +18,7 @@ const (
 )
 
 // NewRouter registers the API endpoints on engine. Global middleware
-// (recovery, request ID, request log, metrics) is expected to already be
+// (recovery, request ID, timeout, request log) is expected to already be
 // attached to engine via engine.Use(...) before this is called.
 func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.POST(RouteIngest, deps.Ingest)

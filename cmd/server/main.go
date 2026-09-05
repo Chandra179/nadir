@@ -13,8 +13,7 @@ import (
 	"nadir/internal/server"
 )
 
-// pprofAddr is the dedicated debug listener consumed by external profiling
-// tools (e.g. a pipeline.Analyze dashboard fetching /debug/pprof/heap live).
+// pprofAddr is the dedicated debug listener for external profiling tools.
 const pprofAddr = ":6063"
 
 func main() {

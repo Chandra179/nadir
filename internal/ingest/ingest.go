@@ -17,7 +17,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Enricher performs index-time LLM enrichment — see interface.go.
+// Run ingests uploaded files: SHA dedup, then chunk → enrich → embed →
+// upsert per file on concurrent workers.
 func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, error) {
 	return d.run(ctx, files)
 }
@@ -73,17 +74,11 @@ func contentSHA(data []byte) string {
 	return fmt.Sprintf("%x", h)
 }
 
-// ingestFile chunks, enriches, embeds, and upserts a single file's content.
-//
-// Dense embeddings are computed over "<document prefix><contextual text>",
-// where the contextual text is file path > header plus the chunk body,
-// optionally fronted by an LLM-written contextual intro. The BM25 sparse
-// leg indexes the same contextual text without the task prefix, keeping
-// both retrieval legs aligned on identical context.
-//
-// When HyPE is enabled, each chunk additionally gets N sibling points whose
-// dense vectors are embedded hypothetical questions; siblings carry the
-// parent's payload so dedup/citation logic treats them as the same chunk.
+// ingestFile chunks, enriches, embeds, and upserts one file. Dense
+// embeddings cover "<document prefix><contextual text>"; the BM25 leg
+// indexes the same contextual text without the prefix. With HyPE enabled,
+// each chunk additionally gets sibling points from embedded hypothetical
+// questions.
 func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA string) error {
 	chunks, err := d.chunker.Chunk(text, filePath)
 	if err != nil {
@@ -123,15 +118,10 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 
 	scored = d.appendHypeSiblings(ctx, scored, filePath, chunks, sourceSHA)
 
-	// Chunk IDs are derived from filePath:lineStart:chunkIndex, so a content
-	// change that shifts section/line boundaries produces different IDs
-	// than the previous version of this file. Without this delete, the old
-	// chunks would never be overwritten and would linger in the collection
-	// as stale, orphaned points. Delete and upsert share one retry: a
-	// transient failure between them (delete succeeds, upsert doesn't)
-	// would otherwise leave the file with zero indexed chunks until the
-	// next sweep. DeleteByFile's file_path filter also removes any HyPE
-	// sibling points from the previous version of the file.
+	// Chunk IDs derive from filePath:lineStart:chunkIndex, so content that
+	// shifts line boundaries changes IDs and stale old points must be
+	// deleted first (also removes prior HyPE siblings). Delete and upsert
+	// share one retry so a partial failure can't leave the file unindexed.
 	op := func() error {
 		if err := d.store.DeleteByFile(ctx, filePath); err != nil {
 			return fmt.Errorf("delete stale chunks for %s: %w", filePath, err)

@@ -18,11 +18,10 @@ type ingestResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// Ingest accepts multipart/form-data uploads (field name "files", one or
-// more) — the chat UI's file picker, or curl -F. Each file is chunked,
-// embedded, and upserted; files whose content SHA-256 matches what's
-// already stored are skipped. On an htmx request it responds with the
-// attachment-chip fragment instead of JSON.
+// Ingest accepts multipart/form-data uploads (field "files") — the chat
+// UI's file picker or curl -F. Files are chunked, embedded, upserted;
+// SHA-256 duplicates are skipped. htmx requests get a fragment response
+// instead of JSON.
 func (d *dependencies) Ingest(c *gin.Context) {
 	ctx := c.Request.Context()
 	isHX := c.GetHeader("HX-Request") == "true"

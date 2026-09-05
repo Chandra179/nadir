@@ -13,10 +13,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// sparseVectorName is the named sparse vector field alongside the default
-// (unnamed) dense vector. Qdrant's Idf modifier applies corpus-wide IDF
-// weighting server-side to the raw term counts vectorizeSparse produces,
-// giving a real BM25-style ranked leg instead of an unranked text filter.
+// sparseVectorName is the named sparse vector next to the unnamed dense
+// one. Qdrant's Idf modifier applies corpus-wide IDF server-side over the
+// raw term counts, giving a real BM25-style ranked leg.
 const sparseVectorName = "bm25"
 
 func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
@@ -32,10 +31,9 @@ func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) err
 }
 
 // createCollection creates the collection (dense + BM25 sparse vectors) and
-// its payload field indexes from scratch. Qdrant fixes a collection's named
-// vectors at creation time — an existing collection can't gain a new named
-// vector (e.g. the bm25 sparse leg) via an in-place update, only by dropping
-// and recreating it.
+// payload field indexes from scratch. Qdrant fixes a collection's named
+// vectors at creation time, so a new named vector can only arrive via
+// drop + recreate, never in place.
 func (s *dependencies) createCollection(ctx context.Context, dimensions int) error {
 	idf := qdrant.Modifier_Idf
 	_, err := s.collection.Create(ctx, &qdrant.CreateCollection{
@@ -150,12 +148,10 @@ func (s *dependencies) DeleteByFile(ctx context.Context, filePath string) error 
 	return err
 }
 
-// DeleteAll drops the collection entirely and recreates it from scratch
-// (dense + bm25 sparse vectors, payload field indexes). A point-only delete
-// isn't enough to fix a collection whose schema has drifted from what the
-// current code expects (e.g. a collection created before the bm25 sparse
-// vector was added) — Qdrant fixes named vectors at creation time, so the
-// only way to pick up a schema change is to drop and recreate.
+// DeleteAll drops the collection and recreates it (dense + bm25 sparse
+// vectors, payload indexes). Qdrant fixes named vectors at creation time,
+// so a schema change can only be picked up by drop + recreate, not point
+// deletes.
 func (s *dependencies) DeleteAll(ctx context.Context) error {
 	_, err := s.collection.Delete(ctx, &qdrant.DeleteCollection{CollectionName: s.name})
 	if err != nil && status.Code(err) != codes.NotFound {

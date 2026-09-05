@@ -2,9 +2,8 @@ package history
 
 import "context"
 
-// History persists chat sessions and their turns. Callers are expected to
-// invoke AppendTurn in a best-effort, non-blocking manner (see
-// internal/api/retrieval.go) — a degraded or unreachable store must never
+// History persists chat sessions and their turns. Callers must invoke
+// AppendTurn best-effort and non-blocking — a degraded store must never
 // affect the live chat response.
 type History interface {
 	CreateSession(ctx context.Context, title string) (Session, error)

@@ -2,7 +2,6 @@ package store
 
 import (
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -15,7 +14,6 @@ type DependenciesConfig struct {
 	Conn        *grpc.ClientConn
 	Collection  string
 	PrefetchMul int
-	Log         *zap.Logger
 }
 
 // dependencies is a hybrid (dense + BM25) search store backed by Qdrant.
@@ -25,7 +23,6 @@ type dependencies struct {
 	name        string
 	prefetchMul int
 	dimensions  int
-	log         *zap.Logger
 }
 
 var _ Store = (*dependencies)(nil)
@@ -41,6 +38,5 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		collection:  qdrant.NewCollectionsClient(cfg.Conn),
 		name:        cfg.Collection,
 		prefetchMul: prefetchMul,
-		log:         cfg.Log,
 	}, nil
 }

@@ -11,11 +11,9 @@ import (
 	"nadir/internal/store"
 )
 
-// Ask runs one full chat turn: validate → mint session (first turn of a
-// conversation) → rewrite follow-ups into standalone queries → retrieve →
-// optionally buffer-generate an answer → kick off best-effort persistence.
-// It never returns an error; failures land in Result.Error /
-// Result.GenerateError so the caller can always render a turn.
+// Ask runs one full chat turn: mint session (first turn) → rewrite
+// follow-ups → retrieve → optionally generate → best-effort persist. Never
+// returns an error: failures land in Result.Error/Result.GenerateError.
 func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	res := Result{SessionID: req.SessionID}
 
@@ -54,12 +52,9 @@ func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	return res
 }
 
-// rewriteQuery resolves conversational references in a follow-up against
-// the session's recent turns (Rewrite-Retrieve-Read), so retrieval sees
-// "what does the secant formula compute?" instead of "what about the second
-// one?". The rewritten query drives retrieval and generation; the raw query
-// is still what gets persisted and displayed. Best-effort: history read
-// failures, an empty turn list, or rewrite errors all return the raw query.
+// rewriteQuery rewrites a follow-up into a standalone query against the
+// session's recent turns (Rewrite-Retrieve-Read). The rewritten query drives
+// retrieval and generation; the raw query is what gets persisted.
 func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string) string {
 	turns, err := d.history.ListTurns(ctx, sessionID)
 	if err != nil {

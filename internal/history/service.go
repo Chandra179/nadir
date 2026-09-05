@@ -84,11 +84,9 @@ func (d *dependencies) CreateSession(ctx context.Context, title string) (Session
 	return Session{ID: id, Title: title, CreatedAt: now, UpdatedAt: now}, nil
 }
 
-// AppendTurn creates the session on the fly (using firstTurnTitle) if
-// sessionID doesn't exist yet — a defensive fallback for the common path of
-// CreateSession having already run. The session's turn_count/updated_at are
-// updated via SetPayload rather than a full Upsert, so the session's
-// existing vector doesn't need to be re-supplied on every turn.
+// AppendTurn creates the session on the fly (firstTurnTitle) if it doesn't
+// exist yet. Session turn_count/updated_at are updated via SetPayload so the
+// session's vector never needs re-supplying.
 func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Turn, firstTurnTitle string) error {
 	now := time.Now().UTC()
 
@@ -245,7 +243,7 @@ func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) erro
 	if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: d.name,
 		Wait:           &wait,
-		Points: qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
+		Points:         qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
 	}); err != nil {
 		return fmt.Errorf("history: delete session: %w", err)
 	}
