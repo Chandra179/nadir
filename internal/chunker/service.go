@@ -11,13 +11,6 @@ type Chunk struct {
 	ChunkIndex int
 }
 
-type Chunker interface {
-	Chunk(text string, filePath string) ([]Chunk, error)
-	// ContextualText returns c's text prefixed with its file path and
-	// heading, for embedding.
-	ContextualText(c Chunk) string
-}
-
 func (d *dependencies) Chunk(rawText, filePath string) ([]Chunk, error) {
 	if d.provider == ProviderSentenceWindow {
 		return d.chunkSentenceWindow(rawText, filePath)

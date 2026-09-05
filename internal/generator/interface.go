@@ -3,6 +3,7 @@ package generator
 import (
 	"context"
 	"io"
+
 	"nadir/internal/store"
 )
 

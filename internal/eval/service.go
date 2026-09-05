@@ -53,12 +53,6 @@ func LoadGoldenSet(path string) (*GoldenSet, error) {
 	return &gs, nil
 }
 
-// Searcher mirrors the search service's Query entry point; defined here so
-// the harness depends on an interface instead of the search package.
-type Searcher interface {
-	Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error)
-}
-
 // MatchedRelevant returns the indices of rel that chunk c satisfies.
 func MatchedRelevant(c store.ScoredChunk, rel []RelevantChunk) []int {
 	var matched []int

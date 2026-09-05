@@ -16,13 +16,6 @@ import (
 
 const hypeSystemPrompt = `You write search queries. Given a passage from a knowledge base, produce short standalone questions that a user might type and that this exact passage answers. Questions must be self-contained: never refer to "the passage" or "this section". Reply ONLY with a JSON array of strings.`
 
-// Enricher is consumed by the ingest pipeline; both methods are allowed to
-// fail — callers degrade gracefully.
-type Enricher interface {
-	HypotheticalQuestions(ctx context.Context, header, text string, n int) ([]string, error)
-	ContextualIntro(ctx context.Context, documentExcerpt, chunkText string) (string, error)
-}
-
 func (d *dependencies) HypotheticalQuestions(ctx context.Context, header, text string, n int) ([]string, error) {
 	if n <= 0 {
 		n = 3

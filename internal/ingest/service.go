@@ -1,7 +1,5 @@
 package ingest
 
-import "context"
-
 type Result struct {
 	Processed int
 	Skipped   int
@@ -14,11 +12,4 @@ type Result struct {
 type UploadFile struct {
 	Name string
 	Data []byte
-}
-
-// Ingest runs an ingest pass over a batch of uploaded files: chunk, embed,
-// and upsert each one that's new or changed since the last run (by content
-// SHA-256).
-type Ingest interface {
-	Run(ctx context.Context, files []UploadFile) (Result, error)
 }
