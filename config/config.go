@@ -20,6 +20,7 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
+	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
 }
@@ -105,6 +106,18 @@ type GeneratorConfig struct {
 type HistoryConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	Collection string `yaml:"collection"`
+}
+
+// RewriterConfig enables conversational query rewriting (Rewrite-Retrieve-
+// Read): follow-up turns are rewritten into standalone search queries
+// against the session's last N turns before retrieval. Costs one extra LLM
+// call per follow-up turn; skipped when a session has no prior turns, and
+// any rewrite failure falls back to the raw query.
+type RewriterConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Turns      int    `yaml:"turns"`       // prior turns fed to the rewriter (default 4)
+	OllamaAddr string `yaml:"ollama_addr"` // defaults to generator.ollama_addr, then embedder.ollama_addr
+	Model      string `yaml:"model"`       // defaults to generator.model
 }
 
 // EnrichmentConfig controls index-time LLM enrichment. Both features cost
@@ -196,6 +209,20 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("CONTEXTUAL_ENABLED"); v != "" {
 		c.Enrichment.Contextual.Enabled = v == "true" || v == "1"
 	}
+	if v := os.Getenv("REWRITE_ENABLED"); v != "" {
+		c.Rewriter.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("REWRITE_ADDR"); v != "" {
+		c.Rewriter.OllamaAddr = v
+	}
+	if v := os.Getenv("REWRITE_MODEL"); v != "" {
+		c.Rewriter.Model = v
+	}
+	if v := os.Getenv("REWRITE_TURNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Rewriter.Turns = n
+		}
+	}
 }
 
 func (c *Config) Validate() error {
@@ -225,6 +252,9 @@ func (c *Config) Validate() error {
 	}
 	if c.History.Enabled && c.History.Collection == "" {
 		c.History.Collection = "chat_history"
+	}
+	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
+		c.Rewriter.Turns = 4
 	}
 	return nil
 }

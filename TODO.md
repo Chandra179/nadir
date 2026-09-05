@@ -11,6 +11,7 @@ with `cmd/evalbench` (HitRate@k / Recall@k / MRR@10 / nDCG@k) before and after.
 | Baseline (MiniLM reranker, un-prefixed index) | 0.824 | 0.689 | 0.742 | 201ms |
 | + nomic prefixes + BM25 contextual align | 0.853 | 0.707 | 0.762 | 190ms |
 | + bge-reranker-v2-m3 sidecar | **0.882** | **0.824** | **0.857** | 3206ms |
+| same, torch-int8 quantized (Sep 2026 A/B) | 0.824 | 0.765 | 0.798 | 3372ms |
 | same, no-rerank reference | — | 0.740 | 0.784 | 49ms |
 | HyPE enabled on toy corpus | 0.882 | 0.804 | 0.823 | ~flat |
 
@@ -48,8 +49,10 @@ Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
 Zero query-time latency; one-time Ollama cost per chunk at ingest. Enabling
 after a prior ingest requires a reindex.
 
-- [x] `internal/enrichment` — Ollama chat client, lenient JSON parsing, graceful
-      per-chunk degradation (warn + index without enrichment)
+- [x] `internal/enrichment` — `Enricher` interface (in `interface.go`, the
+      single definition; ingest imports it), Ollama chat client, lenient
+      JSON parsing, graceful per-chunk degradation (warn + index without
+      enrichment)
 - [x] HyPE feature flag `enrichment.hype.enabled` (+ `questions_per_chunk`,
       default 3): hypothetical questions embedded as extra sibling points that
       carry the parent's identity fields → existing Key() dedup collapses them;
@@ -64,15 +67,30 @@ after a prior ingest requires a reindex.
 
 ## Phase 3 — Measured gaps (next up)
 
-- [ ] Rerank latency: quantize the existing sidecar before swapping models.
-      `services/reranker` runs `sentence_transformers.CrossEncoder` fp32 on CPU
-      (p50 ≈ 3.2s > 1–2s budget; the reranker buys +8.4pp MRR). Documented,
-      proven path: ONNX dynamic int8 via Optimum
-      (`CrossEncoder(..., backend="onnx")`) or OpenVINO qint8 —
-      sentence-transformers' own CPU benchmarks recommend openvino-qint8 when
-      small quality degradations are acceptable, onnx-O3 otherwise, with
-      NanoBEIR nDCG@10 tracking fp32 within noise for most configs. A/B with
-      evalbench; if quality drops, fall back to a quantized bge-reranker-base.
+- [~] Rerank latency: quantize the existing sidecar before swapping models.
+      `services/reranker` ran `sentence_transformers.CrossEncoder` fp32 on CPU
+      (p50 ≈ 3.2–4.4s > 1–2s budget; the reranker buys +7.2pp MRR over
+      no-rerank on the fresh control run). Implemented: `RERANKER_BACKEND`
+      knob with two int8 routes — `onnx` (default: dynamic-int8 export baked
+      into the image at build by `quantize.py`; runtime-swapped models
+      degrade to fp32-onnx → fp32 torch) and `torch-int8` (PyTorch-native
+      dynamic int8 at startup via `TorchInt8Reranker`, no export step, works
+      with any swappable model). Measured:
+      - ONNX int8 (ms-marco-MiniLM through production `load_model()`):
+        p50 365ms → 178ms (2.06×), top-1 agreement 5/5; runtime weights
+        ~2.3GB → ~0.6GB.
+      - torch-int8 (bge-v2-m3, evalbench A/B, 34 queries × 3 runs, reports
+        `rerank_ab_fp32_control` / `rerank_ab_torch_int8`): HitRate 0.853 →
+        0.824, MRR@10 0.793 → 0.765, nDCG@5 0.826 → 0.798, p50 4358ms →
+        3372ms (1.29×) — keeps ~60% of the reranker's MRR gain for ~1.5GB
+        less RAM; weaker than ONNX int8 (which also fuses attention) on both
+        speed and fidelity.
+      Remaining: the v2-m3 ONNX bake peaks ~8–10GB (export) / ~7GB (quantize
+      parse) — this 15GB desktop with a full 4GB swap OOM-killed every
+      attempt, so bake on a machine with headroom (`docker compose build
+      reranker`, or rerun from the saved fp32 graph in /tmp), then evalbench
+      A/B the baked artifact; expect ≈2× with fp32-equal ranking per sbert's
+      NanoBEIR benchmarks. torch-int8 is the zero-hassle fallback meanwhile.
 - [ ] Adaptive retrieval fallback for weak results (arXiv 2507.16754, "Never
       Come Up Empty": for novel queries, lowering the similarity bar beats
       returning nothing). Nadir adaptation: retrieval never filters by score
@@ -81,12 +99,19 @@ after a prior ingest requires a reindex.
       the filter / with wider prefetch and per-file cap before answering
       "I don't know". Tradeoff: noise reaches the generator; the
       answer-only-from-context prompt is the guard.
-- [ ] Conversational query rewriting: `chat.Ask` feeds the raw follow-up text
-      to retrieval, so "what about the second one?" searches garbage. Rewrite
-      follow-ups against the last N turns before search (Rewrite-Retrieve-Read,
-      arXiv 2305.14283; proven as LangChain's condense-question pattern).
-      Tradeoff: +1 LLM call per follow-up (cheap on gemma3:1b) and rewrite
-      drift; skip when the session has no prior turns.
+- [x] Conversational query rewriting: `chat.Ask` used to feed the raw
+      follow-up text to retrieval, so "what about the second one?" searched
+      garbage. Done: `internal/rewriter` (`Rewriter` interface + Ollama
+      client, Rewrite-Retrieve-Read arXiv 2305.14283 / LangChain
+      condense-question pattern) rewrites follow-ups against the last
+      `rewriter.turns` (default 4) turns before search and generation; the
+      raw query is still what gets persisted and displayed. Flag
+      `rewriter.enabled` (env `REWRITE_ENABLED`), on by default; skipped
+      when a session has no prior turns; any failure (history read, rewrite,
+      8s timeout) falls back to the raw query. Tradeoff confirmed in
+      practice: +1 LLM call per follow-up ≈ 0.6–0.8s warm on gemma3:1b;
+      drift is possible but temperature-0 + "return it unchanged if already
+      standalone" keeps pass-through queries intact.
 - [ ] Wire docling sidecar into ingest (currently `.md` uploads only; the
       sidecar is a standalone PDF→MD batch CLI with zero Go references). Make
       it an HTTP endpoint or a pre-ingest hook. Tradeoff: docling latency at

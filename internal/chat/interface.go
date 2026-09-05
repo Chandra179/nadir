@@ -24,6 +24,9 @@ type Generator interface {
 type History interface {
 	CreateSession(ctx context.Context, title string) (history.Session, error)
 	AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error
+	// ListTurns returns a session's turns in sequence order; read when
+	// rewriting a follow-up query against prior conversation context.
+	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
 }
 
 // Chat is consumed by the API layer.

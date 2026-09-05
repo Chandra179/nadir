@@ -6,6 +6,7 @@ import (
 	"nadir/internal/cache"
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
+	"nadir/internal/enrichment"
 	"nadir/internal/store"
 
 	"go.uber.org/zap"
@@ -44,7 +45,7 @@ type dependencies struct {
 	cache          cache.Cache
 	cfg            RetryConfig
 	documentPrefix string
-	enrich         Enricher
+	enrich         enrichment.Enricher
 	hypeQuestions  int
 	contextual     bool
 	log            *zap.Logger
@@ -70,7 +71,7 @@ func (d *dependencies) WithCache(c cache.Cache) *dependencies {
 
 // WithEnrichment wires index-time LLM enrichment: hypeQuestions > 0 enables
 // HyPE question siblings, contextual enables LLM-written chunk intros.
-func (d *dependencies) WithEnrichment(e Enricher, hypeQuestions int, contextual bool) *dependencies {
+func (d *dependencies) WithEnrichment(e enrichment.Enricher, hypeQuestions int, contextual bool) *dependencies {
 	d.enrich = e
 	d.hypeQuestions = hypeQuestions
 	d.contextual = contextual

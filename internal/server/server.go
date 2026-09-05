@@ -19,6 +19,7 @@ import (
 	"nadir/internal/logger"
 	"nadir/internal/middleware"
 	"nadir/internal/reranker"
+	"nadir/internal/rewriter"
 	"nadir/internal/search"
 	"nadir/internal/store"
 
@@ -223,12 +224,43 @@ func Server(ctx context.Context, cfg *config.Config) {
 		storeSvc = &cacheInvalidatingStore{Store: s, cache: semanticCache}
 	}
 
+	// Conversational query rewriting: follow-ups are rewritten into
+	// standalone search queries against the session's recent turns before
+	// retrieval (Rewrite-Retrieve-Read). Skipped when a session has no
+	// prior turns; rewrite failures fall back to the raw query.
+	var chatRewriter rewriter.Rewriter
+	if cfg.Rewriter.Enabled {
+		rewriteAddr := cfg.Rewriter.OllamaAddr
+		if rewriteAddr == "" {
+			rewriteAddr = cfg.Generator.OllamaAddr
+		}
+		if rewriteAddr == "" {
+			rewriteAddr = cfg.Embedder.OllamaAddr
+		}
+		rewriteModel := cfg.Rewriter.Model
+		if rewriteModel == "" {
+			rewriteModel = cfg.Generator.Model
+		}
+		if rewriteAddr == "" || rewriteModel == "" {
+			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
+				zap.String("addr", rewriteAddr), zap.String("model", rewriteModel))
+		} else {
+			chatRewriter = rewriter.NewDependencies(rewriter.DependenciesConfig{Addr: rewriteAddr, Model: rewriteModel})
+			log.Info("conversational query rewriting enabled",
+				zap.String("model", rewriteModel),
+				zap.String("addr", rewriteAddr),
+				zap.Int("turns", cfg.Rewriter.Turns))
+		}
+	}
+
 	chatService := chat.NewDependencies(chat.DependenciesConfig{
-		Searcher:  searchService,
-		Generator: gen,
-		History:   hist,
-		Model:     cfg.Generator.Model,
-		Log:       log,
+		Searcher:     searchService,
+		Generator:    gen,
+		History:      hist,
+		Rewriter:     chatRewriter,
+		RewriteTurns: cfg.Rewriter.Turns,
+		Model:        cfg.Generator.Model,
+		Log:          log,
 	})
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{

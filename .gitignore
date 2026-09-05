@@ -48,3 +48,7 @@ venv/
 # compiled binaries
 /nadir
 /gen-qrelsresults/
+
+# Python sidecars (services/)
+__pycache__/
+*.pyc

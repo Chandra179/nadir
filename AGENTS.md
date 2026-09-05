@@ -39,7 +39,7 @@ Single Go binary at `cmd/server/main.go`. Wiring in `internal/server/server.go` 
 
 ```
 POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → search.Service retrieve → buffered generate → detached persist)
+POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → rewrite follow-up → search.Service retrieve → buffered generate → detached persist)
 GET  /healthz → 200
 ```
 
@@ -47,13 +47,14 @@ GET  /healthz → 200
 - `chunker/` — `Chunker` interface, `Chunk` value type, recursive + sentence-window providers, `ContextualText`
 - `embedder/` — `Embedder`, `BatchEmbedder` interfaces, Ollama HTTP client
 - `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, Qdrant hybrid store (dense + BM25 sparse + RRF)
-- `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; optional `Enricher` (HyPE questions/contextual intros)
+- `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; consumes `enrichment.Enricher`
 - `search/` — multi-fragment hybrid search → rerank → semantic cache
-- `chat/` — chat use-case (`Ask`: session mint → retrieve → buffered generate → detached persist); handlers only map request/result
+- `chat/` — chat use-case (`Ask`: session mint → rewrite follow-up → retrieve → buffered generate → detached persist); handlers only map request/result
 - `generator/` — `Generator` interface, Ollama chat client, `buildPrompt`, `lostInMiddleOrder`
+- `rewriter/` — `Rewriter` interface, Ollama client rewriting conversational follow-ups into standalone search queries (feature-flagged)
 - `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
-- `enrichment/` — index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
+- `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
 - `eval/` — golden-set retrieval metrics (HitRate/Recall/MRR/nDCG) used by `cmd/evalbench`; reports in `tests/eval/reports/`
 
 **`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
@@ -69,7 +70,7 @@ GET  /healthz → 200
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`
 - Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
 - Enrichment flags (`enrichment.hype.enabled`, `enrichment.contextual.enabled`) affect ingest only; enabling after a prior ingest requires a reindex
@@ -85,10 +86,11 @@ GET  /healthz → 200
 | Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=true` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
+| Query rewriting | `rewriter.enabled` (on by default) | Ollama LLM; follow-up turns only (+1 LLM call); chat history enabled |
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (and enrichment falls back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart).
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt.
 
 ## Sample data
 

@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"nadir/internal/history"
+	"nadir/internal/rewriter"
 	"nadir/internal/store"
 )
 
 // Ask runs one full chat turn: validate → mint session (first turn of a
-// conversation) → retrieve → optionally buffer-generate an answer → kick
-// off best-effort persistence. It never returns an error; failures land in
-// Result.Error / Result.GenerateError so the caller can always render a
-// turn.
+// conversation) → rewrite follow-ups into standalone queries → retrieve →
+// optionally buffer-generate an answer → kick off best-effort persistence.
+// It never returns an error; failures land in Result.Error /
+// Result.GenerateError so the caller can always render a turn.
 func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	res := Result{SessionID: req.SessionID}
 
@@ -29,7 +30,12 @@ func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 		res.SessionID = d.mintSession(ctx, req.Query)
 	}
 
-	chunks, fromCache, err := d.searcher.Query(ctx, req.Query, "", req.TopK, req.Filter, req.Generate)
+	retrievalQuery := req.Query
+	if d.rewriter != nil && d.history != nil && req.SessionID != "" {
+		retrievalQuery = d.rewriteQuery(ctx, req.SessionID, req.Query)
+	}
+
+	chunks, fromCache, err := d.searcher.Query(ctx, retrievalQuery, "", req.TopK, req.Filter, req.Generate)
 	res.FromCache = fromCache
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
@@ -40,12 +46,50 @@ func (d *dependencies) Ask(ctx context.Context, req Request) Result {
 	res.Chunks = chunks
 
 	if req.Generate && d.generator != nil && len(chunks) > 0 {
-		d.generateAnswer(ctx, req.Query, chunks, &res)
+		d.generateAnswer(ctx, retrievalQuery, chunks, &res)
 	}
 
 	res.ElapsedMS = time.Since(start).Milliseconds()
 	d.persist(ctx, req, res, false)
 	return res
+}
+
+// rewriteQuery resolves conversational references in a follow-up against
+// the session's recent turns (Rewrite-Retrieve-Read), so retrieval sees
+// "what does the secant formula compute?" instead of "what about the second
+// one?". The rewritten query drives retrieval and generation; the raw query
+// is still what gets persisted and displayed. Best-effort: history read
+// failures, an empty turn list, or rewrite errors all return the raw query.
+func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string) string {
+	turns, err := d.history.ListTurns(ctx, sessionID)
+	if err != nil {
+		d.log.Warn("rewrite skipped: list turns failed",
+			zap.String("session_id", sessionID), zap.Error(err))
+		return query
+	}
+	prior := make([]rewriter.Turn, 0, len(turns))
+	for _, t := range turns {
+		prior = append(prior, rewriter.Turn{Query: t.Query, Answer: t.Answer})
+	}
+	if len(prior) == 0 {
+		return query
+	}
+	if len(prior) > d.rewriteTurns {
+		prior = prior[len(prior)-d.rewriteTurns:]
+	}
+	rewritten, err := d.rewriter.Rewrite(ctx, prior, query)
+	if err != nil {
+		d.log.Warn("rewrite failed; searching raw query",
+			zap.String("session_id", sessionID), zap.String("query", query), zap.Error(err))
+		return query
+	}
+	if rewritten != query {
+		d.log.Info("rewrote follow-up query",
+			zap.String("session_id", sessionID),
+			zap.String("raw", query),
+			zap.String("rewritten", rewritten))
+	}
+	return rewritten
 }
 
 // mintSession creates a conversation session for the first turn of a chat.

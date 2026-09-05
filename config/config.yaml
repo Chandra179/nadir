@@ -71,6 +71,18 @@ generator:
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
 
+rewriter:
+  # Conversational query rewriting (Rewrite-Retrieve-Read): follow-up turns
+  # are rewritten into standalone search queries against the session's last
+  # `turns` turns before retrieval, so "what about the second one?" stops
+  # searching garbage. Skipped when a session has no prior turns; any
+  # rewrite failure falls back to the raw query. Costs +1 LLM call per
+  # follow-up turn.
+  enabled: true
+  turns: 4           # prior turns fed to the rewriter
+  ollama_addr: ""    # defaults to generator.ollama_addr, then embedder.ollama_addr
+  model: ""          # defaults to generator.model
+
 history:
   enabled: true              # persists chat sessions/turns to Qdrant, no extra infra
   collection: "chat_history"
