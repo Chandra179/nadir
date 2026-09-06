@@ -1,3 +1,11 @@
+{{define "copy-button"}}
+<button type="button" @click="nadirCopyText($el)" aria-label="Copy" title="Copy"
+  class="p-1.5 text-[#8b8f81] hover:text-[#20241f] rounded-md transition">
+  <svg data-icon-copy width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+  <svg data-icon-check class="hidden" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{{end}}
+
 {{define "turn"}}
 <div class="mb-8">
   {{if .AttachedFiles}}
@@ -10,8 +18,39 @@
     {{end}}
   </div>
   {{end}}
-  <div class="flex justify-end mb-3.5">
-    <div class="text-[16px] leading-[1.5] bg-[#2f5d5017] border border-[#2f5d5017] rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[14px] rounded-br-[3px] px-[15px] py-[10px] max-w-[82%]">{{.Query}}</div>
+  <div class="nadir-turn-q flex flex-col items-end" x-data="{ editing: false }">
+    <div x-show="!editing" data-copy-text
+         class="text-[16px] leading-[1.5] bg-[#2f5d5017] border border-[#2f5d5017] rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[14px] rounded-br-[3px] px-[15px] py-[10px] max-w-[82%]">{{.Query}}</div>
+
+    <div x-show="editing" x-cloak class="w-full max-w-[82%] mb-3.5">
+      <form class="rounded-[16px] border border-[#dcd8c9] bg-[#f7f7f4] shadow-[0_20px_40px_-26px_rgba(32,36,31,0.28)] px-[18px] pt-[14px] pb-[12px]"
+            hx-post="/retrieval/search" hx-target="#reader-inner" hx-swap="beforeend"
+            hx-on::before-request="if(event.target===this){ nadirBeforeEdit(this); }"
+            hx-on::after-request="if(event.target===this){ nadirAfterEdit(this, event); }">
+        <textarea name="query" rows="2" required x-ref="editbox"
+          class="w-full resize-none bg-transparent outline-none text-[16px] leading-[1.6] pb-2.5 max-h-[200px]"
+          @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,200)+'px'"
+          @keydown.enter="if(!$event.shiftKey){ $event.preventDefault(); $el.form.requestSubmit(); }">{{.Query}}</textarea>
+        <input type="hidden" name="top_k" value="{{.TopK}}">
+        {{if .Generate}}<input type="hidden" name="generate" value="on">{{end}}
+        <input type="hidden" name="session_id" value="{{.SessionID}}">
+        {{if .AttachedFiles}}<input type="hidden" name="attached_files" value="{{range .AttachedFiles}}{{.}},{{end}}">{{end}}
+        <div class="flex justify-end gap-2 mt-1">
+          <button type="button" @click="editing = false"
+            class="text-[13.5px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-1.5 hover:bg-[#eeece3] transition">Cancel</button>
+          <button type="submit"
+            class="text-[13.5px] text-white bg-[#2f5d50] rounded-lg px-3.5 py-1.5 hover:bg-[#234840] transition">Send</button>
+        </div>
+      </form>
+    </div>
+
+    <div x-show="!editing" class="nadir-msg-actions flex items-center gap-0.5 mt-1.5 mb-3.5">
+      {{template "copy-button"}}
+      <button type="button" @click="editing = true; $nextTick(() => $refs.editbox.focus())" aria-label="Edit question" title="Edit"
+        class="p-1.5 text-[#8b8f81] hover:text-[#20241f] rounded-md transition">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </div>
 
   {{if .Error}}
@@ -89,13 +128,19 @@
   </div>
 
   {{if .HasAnswer}}
-  <div class="text-[17px] text-[#20241f] leading-[1.7]">
-    <p>{{.Answer}}</p>
+  <div class="nadir-turn-a text-[17px] text-[#20241f] leading-[1.7]">
+    <p data-copy-text>{{.Answer}}</p>
+    <div class="nadir-msg-actions flex items-center gap-0.5 mt-1.5 -ml-1.5">
+      {{template "copy-button"}}
+    </div>
   </div>
   {{else if .StreamURL}}
-  <div class="text-[17px] text-[#20241f] leading-[1.7] nadir-streaming" data-stream-url="{{.StreamURL}}" data-turn-id="{{.TurnID}}">
-    <p class="nadir-answer"></p>
+  <div class="nadir-turn-a text-[17px] text-[#20241f] leading-[1.7] nadir-streaming" data-stream-url="{{.StreamURL}}" data-turn-id="{{.TurnID}}">
+    <p class="nadir-answer" data-copy-text></p>
     <p class="nadir-generror text-[14px] text-[#b04a3f] mt-2"></p>
+    <div class="nadir-msg-actions flex items-center gap-0.5 mt-1.5 -ml-1.5">
+      {{template "copy-button"}}
+    </div>
   </div>
   {{end}}
   {{end}}

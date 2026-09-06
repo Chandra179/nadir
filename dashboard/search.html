@@ -47,6 +47,27 @@
       .catch(function(err) { console.error(err); });
   }
 
+  // Copy a chat message's text. The button lives in the same hover group as
+  // the copyable element ([data-copy-text]); the icon swaps to a checkmark
+  // for a moment as feedback.
+  function nadirCopyText(btn) {
+    var host = btn.closest('.nadir-turn-q, .nadir-turn-a');
+    var textEl = host && host.querySelector('[data-copy-text]');
+    if (!textEl) return;
+    var flash = function() {
+      var copy = btn.querySelector('[data-icon-copy]');
+      var check = btn.querySelector('[data-icon-check]');
+      if (!copy || !check) return;
+      copy.classList.add('hidden');
+      check.classList.remove('hidden');
+      setTimeout(function() {
+        copy.classList.remove('hidden');
+        check.classList.add('hidden');
+      }, 1400);
+    };
+    navigator.clipboard.writeText(textEl.innerText).then(flash, function(err) { console.error(err); });
+  }
+
   function nadirEndStream(elt, es) {
     if (!elt.dataset.streaming) return;
     delete elt.dataset.streaming;
@@ -141,29 +162,9 @@
   // SSE from the turn's event endpoint, see nadirStartStream). This appends
   // an optimistic placeholder turn (question + attached files + a pulsing
   // "retrieving" row) the instant the request goes out, then removes it once
-  // the real turn fragment has been swapped in.
-  function nadirBeforeSearch(form) {
-    document.getElementById('empty-state')?.remove();
-    var input = form.querySelector('#composer-input');
-    var query = input ? input.value.trim() : '';
-    if (!query) return;
-
-    nadirBusyAdd(1);
-    var attachedNames = nadirAttachedNames();
-
-    // Attachment chips only confirm an import already finished — the file
-    // isn't scoped to this message, so clear them once the message is sent
-    // (their names were already captured above, and by configRequest).
-    var attachments = document.getElementById('composer-attachments');
-    if (attachments) attachments.innerHTML = '';
-
-    // htmx has already snapshotted the form's parameters by the time this
-    // fires, so clearing the textarea here doesn't affect what gets sent —
-    // it just makes the composer feel instant instead of waiting on the
-    // retrieval response before clearing.
-    input.value = '';
-    input.style.height = 'auto';
-
+  // the real turn fragment has been swapped in. Shared with the question
+  // editor, which posts the same endpoint (see nadirBeforeEdit).
+  function nadirAppendPendingTurn(query, attachedNames) {
     var ri = document.getElementById('reader-inner');
     var wrap = document.createElement('div');
     wrap.id = 'pending-turn';
@@ -192,9 +193,43 @@
     wrap.appendChild(userRow);
     wrap.appendChild(trace);
     ri.appendChild(wrap);
+    nadirScrollReader();
+  }
 
-    var rd = document.getElementById('reader');
-    if (rd) rd.scrollTop = rd.scrollHeight;
+  function nadirBeforeSearch(form) {
+    document.getElementById('empty-state')?.remove();
+    var input = form.querySelector('#composer-input');
+    var query = input ? input.value.trim() : '';
+    if (!query) return;
+
+    nadirBusyAdd(1);
+    var attachedNames = nadirAttachedNames();
+
+    // Attachment chips only confirm an import already finished — the file
+    // isn't scoped to this message, so clear them once the message is sent
+    // (their names were already captured above, and by configRequest).
+    var attachments = document.getElementById('composer-attachments');
+    if (attachments) attachments.innerHTML = '';
+
+    // htmx has already snapshotted the form's parameters by the time this
+    // fires, so clearing the textarea here doesn't affect what gets sent —
+    // it just makes the composer feel instant instead of waiting on the
+    // retrieval response before clearing.
+    input.value = '';
+    input.style.height = 'auto';
+
+    nadirAppendPendingTurn(query, attachedNames);
+  }
+
+  function nadirApplySessionId(xhr) {
+    // The server mints a session id on the first turn (never client-side,
+    // so a client can't spoof/collide another session's id) and hands it
+    // back via this header; the composer's hidden field has to be updated
+    // from it for follow-up turns.
+    var sid = xhr ? xhr.getResponseHeader('X-Nadir-Session-Id') : null;
+    if (!sid) return;
+    var sidInput = document.getElementById('composer-session-id');
+    if (sidInput) sidInput.value = sid;
   }
 
   function nadirAfterSearch(form, evt) {
@@ -208,18 +243,43 @@
     // this decrement never drops it below the live stream's count.
     nadirBusyAdd(-1);
 
-    // The server mints a session id on the first turn (never client-side,
-    // so a client can't spoof/collide another session's id) and hands it
-    // back via this header; form.reset() above reverts the hidden field to
-    // its original rendered value, so it has to be re-applied after.
-    var sid = evt && evt.detail && evt.detail.xhr ? evt.detail.xhr.getResponseHeader('X-Nadir-Session-Id') : null;
-    if (sid) {
-      var sidInput = document.getElementById('composer-session-id');
-      if (sidInput) sidInput.value = sid;
-    }
+    // form.reset() above reverts the hidden field to its original rendered
+    // value, so the minted session id has to be re-applied after.
+    nadirApplySessionId(evt && evt.detail ? evt.detail.xhr : null);
 
-    var rd = document.getElementById('reader');
-    if (rd) rd.scrollTop = rd.scrollHeight;
+    nadirScrollReader();
+  }
+
+  // Question editor: the inline form posts the same /retrieval/search with
+  // the turn's original parameters (top_k, generate, attachments) and the
+  // session it belongs to, so the edited question is re-asked and the new
+  // turn appends below. History is append-only — nothing is deleted or
+  // branched.
+  function nadirBeforeEdit(form) {
+    // Close the editor before the request goes out; requestSubmit() has
+    // already enforced the textarea's validity by the time we get here.
+    var scope = window.Alpine ? Alpine.$data(form) : null;
+    if (scope && 'editing' in scope) scope.editing = false;
+
+    var ta = form.querySelector('[name="query"]');
+    var query = ta ? ta.value.trim() : '';
+    if (!query) return;
+    document.getElementById('empty-state')?.remove();
+    document.getElementById('pending-turn')?.remove();
+    nadirBusyAdd(1);
+    var files = Array.prototype.map.call(
+      form.querySelectorAll('input[name="attached_files"]'),
+      function(input) { return input.value; }
+    ).filter(Boolean);
+    nadirAppendPendingTurn(query, files);
+  }
+
+  function nadirAfterEdit(form, evt) {
+    document.getElementById('pending-turn')?.remove();
+    form.reset();
+    nadirBusyAdd(-1);
+    nadirApplySessionId(evt && evt.detail ? evt.detail.xhr : null);
+    nadirScrollReader();
   }
 
   // Sidebar delete: removes the session server-side, then refreshes the
@@ -247,6 +307,13 @@
   .feedback-ok{ color:#234840; }
   .feedback-err{ color:#b04a3f; }
   [x-cloak]{ display:none !important; }
+  /* Hover-revealed message actions (copy / edit) — the row reserves its
+     space so the layout never jumps; on touch there is no hover, so the
+     buttons stay visible there. */
+  .nadir-msg-actions{ opacity:0; transition:opacity 150ms ease; }
+  .nadir-turn-q:hover .nadir-msg-actions,
+  .nadir-turn-a:hover .nadir-msg-actions{ opacity:1; }
+  @media (hover:none){ .nadir-msg-actions{ opacity:1; } }
   .nadir-streaming .nadir-answer::after{ content:"▍"; margin-left:1px; color:#8b8f81; animation:nadir-blink 1s steps(2,start) infinite; }
   @keyframes nadir-blink{ to{ visibility:hidden; } }
   ::-webkit-scrollbar{ width:9px; height:9px; }

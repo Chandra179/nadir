@@ -11,7 +11,7 @@ go build ./cmd/server
 # Vendor deps (NOT committed — gitignored; run after adding imports)
 go mod tidy && go mod vendor
 
-# Dev: Qdrant + sidecars + server + auto-ingest
+# Dev: Qdrant (Docker) + reranker (repo venv, host GPU) + server + auto-ingest
 ./scripts/local.sh               # addrs come from config/config.yaml (localhost)
 
 # Run standalone (config/config.yaml, .env sourced)
@@ -86,7 +86,7 @@ GET  /healthz → 200
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. The compose stack is GPU-first: the build bakes the CUDA-torch image (`RERANKER_GPU=0` switches to the CPU-torch build) and the reranker reserves the host GPU (NVIDIA container toolkit required — hosts without it must delete the `reservations` block). `RERANKER_DEVICE=cpu` runs on the same image with no rebuild.
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. The compose stack is GPU-first: the build bakes the CUDA-torch image (`RERANKER_GPU=0` switches to the CPU-torch build) and the reranker reserves the host GPU — that path needs the NVIDIA container toolkit. The dev flow (`local.sh`) doesn't: it runs the sidecar from the repo `venv/` on the host GPU (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker.
 
 ## Sample data
 

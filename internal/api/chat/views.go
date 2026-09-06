@@ -18,8 +18,11 @@ type TurnView struct {
 	Query          string
 	RewrittenQuery string
 	AttachedFiles  []string
-	TopK           int
-	Generate       bool
+	// SessionID lets the turn's edit button re-ask the question in the same
+	// conversation instead of minting a new one.
+	SessionID string
+	TopK      int
+	Generate  bool
 	Results        []RetrievalResultView
 	Count          int
 	ElapsedMS      int64
@@ -54,6 +57,7 @@ func turnViewFromResult(req chat.Request, turn chat.Turn) TurnView {
 		Query:          req.Query,
 		RewrittenQuery: turn.RewrittenQuery,
 		AttachedFiles:  req.AttachedFiles,
+		SessionID:      turn.SessionID,
 		TopK:           req.TopK,
 		Generate:       turn.Generate,
 		Results:        toRetrievalResultViews(turn.Chunks),
@@ -93,6 +97,7 @@ func HistoryTurnToView(t history.Turn) TurnView {
 		Query:          t.Query,
 		RewrittenQuery: t.RewrittenQuery,
 		AttachedFiles:  t.AttachedFiles,
+		SessionID:      t.SessionID,
 		TopK:           t.TopK,
 		Generate:       t.Generate,
 		Results:        results,

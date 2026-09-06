@@ -187,4 +187,9 @@ func TestRetrievalSearchRendersStreamURL(t *testing.T) {
 		!strings.Contains(w.Body.String(), `data-turn-id="t9"`) {
 		t.Fatalf("streaming turn fragment must expose the event stream and turn id, got:\n%s", w.Body.String())
 	}
+	// The turn's edit button re-asks in the same conversation, so the
+	// fragment must carry the session id for the inline form to submit.
+	if !strings.Contains(w.Body.String(), `name="session_id" value="s1"`) {
+		t.Fatalf("turn fragment must carry the session id for the edit form, got:\n%s", w.Body.String())
+	}
 }
