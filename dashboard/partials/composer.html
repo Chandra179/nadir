@@ -35,8 +35,10 @@
             <div class="px-2.5 pt-1.5 pb-0.5 text-[12px] text-[#8b8f81]">More formats later</div>
           </div>
         </div>
-        <button type="submit" class="ml-auto w-[29px] h-[29px] rounded-full bg-[#2f5d50] text-white flex items-center justify-center hover:bg-[#234840] transition">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button type="submit" id="composer-send" aria-label="Send message"
+          class="ml-auto w-[29px] h-[29px] rounded-full bg-[#2f5d50] text-white flex items-center justify-center hover:bg-[#234840] transition">
+          <svg id="composer-send-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg id="composer-stop-icon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
         </button>
       </div>
     </div>

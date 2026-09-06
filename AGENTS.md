@@ -34,7 +34,9 @@ Single Go binary at `cmd/server/main.go`. Wiring in `internal/server/server.go` 
 
 ```
 POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → rewrite follow-up → search.Service retrieve → buffered generate → detached persist)
+POST /retrieval/search → RetrievalSearchHandler → chat.StartTurn (session mint → rewrite follow-up → retrieve → start generation supervisor)
+GET  /retrieval/turns/:id/events → SSE adapter over the turn event log (replay via Last-Event-ID). Generation is owned by the chat service (subscribers never kill it); the turn is persisted by the supervisor at its terminal state
+POST /retrieval/turns/:id/cancel → abort generation; the partial answer is kept and persisted
 GET  /healthz → 200
 ```
 
@@ -51,7 +53,7 @@ GET  /healthz → 200
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
 - `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
 
-**`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
+**`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
 
 **`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 
@@ -84,7 +86,7 @@ GET  /healthz → 200
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt.
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`, default `auto`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. GPU needs the CUDA-torch image: `RERANKER_GPU=1 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build reranker` (NVIDIA container toolkit required).
 
 ## Sample data
 

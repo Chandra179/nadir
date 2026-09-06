@@ -1,0 +1,29 @@
+# GPU variant of the reranker sidecar. Layer it over the base file:
+#
+#   RERANKER_GPU=1 docker compose -f docker-compose.yml -f docker-compose.gpu.yml \
+#       up -d --build reranker
+#
+# Builds the CUDA torch image (Dockerfile GPU=1 arg — several GB larger than
+# the CPU image) and reserves the host GPU via the NVIDIA container toolkit.
+# The sidecar then serves fp32 torch on the GPU: both int8 routes are CPU
+# artifacts, so RERANKER_DEVICE defaults to cuda here and the backend choice
+# is irrelevant (anything non-torch degrades to fp32 torch on cuda — see
+# main.py). Revert to CPU with RERANKER_DEVICE=cpu on the same image.
+services:
+  reranker:
+    build:
+      context: services/reranker
+      args:
+        RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        GPU: "1"
+    environment:
+      - RERANKER_DEVICE=${RERANKER_DEVICE:-cuda}
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

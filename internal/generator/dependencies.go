@@ -8,28 +8,21 @@ import (
 // DependenciesConfig groups everything needed to construct the Ollama
 // answer generator.
 type DependenciesConfig struct {
-	Addr             string
-	Model            string
-	MaxContextTokens int
+	Addr  string
+	Model string
 }
 
 // dependencies streams RAG answers from an Ollama chat model.
 type dependencies struct {
-	addr             string
-	model            string
-	maxContextTokens int
-	client           *http.Client
+	addr   string
+	model  string
+	client *http.Client
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
-	maxContextTokens := cfg.MaxContextTokens
-	if maxContextTokens <= 0 {
-		maxContextTokens = 2800
-	}
 	return &dependencies{
-		addr:             cfg.Addr,
-		model:            cfg.Model,
-		maxContextTokens: maxContextTokens,
+		addr:  cfg.Addr,
+		model: cfg.Model,
 		client: &http.Client{
 			Timeout: 120 * time.Second,
 		},

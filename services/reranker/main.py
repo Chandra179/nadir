@@ -20,6 +20,13 @@ Inference backend, via RERANKER_BACKEND:
     openvino   fp32 OpenVINO (optional extra).
     torch      fp32 PyTorch — the escape hatch and last-resort fallback.
 
+Device, via RERANKER_DEVICE (auto | cpu | cuda, default auto):
+    "auto" picks cuda when torch sees a GPU. Both int8 routes are CPU
+    artifacts (AVX2 ONNX export / dynamic int8 quantization), so on cuda
+    every backend serves fp32 torch; use RERANKER_BACKEND=torch for a GPU
+    build explicitly. The CUDA build of torch comes from the GPU image
+    variant (docker-compose.gpu.yml / Dockerfile GPU=1 build arg).
+
 Install:
     pip install "sentence-transformers[onnx]" fastapi uvicorn
 
@@ -47,10 +54,28 @@ MODEL_NAME = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 # of what a swapped-in model advertises as its native context window.
 MAX_LENGTH = int(os.environ.get("RERANKER_MAX_LENGTH", "512"))
 BACKEND = os.environ.get("RERANKER_BACKEND", "onnx")
+DEVICE_SETTING = os.environ.get("RERANKER_DEVICE", "auto")
 # Directory holding the build-time int8 export (see quantize.py).
 QUANTIZED_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
 
 _model: CrossEncoder | None = None
+
+
+def resolve_device() -> str:
+    """Resolve RERANKER_DEVICE (auto|cpu|cuda) to a concrete torch device."""
+    if DEVICE_SETTING == "cpu":
+        return "cpu"
+    if DEVICE_SETTING not in ("auto", "cuda"):
+        print(f"unknown RERANKER_DEVICE {DEVICE_SETTING!r}; using auto")
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return "cuda"
+        print("no CUDA device available (CPU-only torch build or no GPU); using cpu")
+    except ImportError:
+        print("torch unavailable; using cpu")
+    return "cpu"
 
 
 class TorchInt8Reranker:
@@ -128,6 +153,15 @@ def load_model() -> CrossEncoder:
     sidecar — and with it retrieval quality — down with it, while a fp32
     fallback merely costs latency.
     """
+    device = resolve_device()
+    if device == "cuda":
+        if BACKEND != "torch":
+            print(
+                f"RERANKER_DEVICE=cuda: backend {BACKEND!r} is CPU-only "
+                "(int8 exports/quantization are CPU artifacts); serving fp32 torch on cuda"
+            )
+        return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cuda")
+
     if BACKEND == "onnx":
         fname = baked_quantized_file()
         if fname is not None:
@@ -146,7 +180,7 @@ def load_model() -> CrossEncoder:
             print(f"backend {BACKEND!r} failed to load ({e!r}); falling back to torch fp32")
     if BACKEND == "torch-int8":
         return TorchInt8Reranker(MODEL_NAME, MAX_LENGTH)
-    return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH)
+    return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cpu")
 
 
 @asynccontextmanager

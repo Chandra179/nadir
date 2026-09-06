@@ -2,7 +2,23 @@ package config
 
 import "testing"
 
-func TestApplyEnvRecordsOverrides(t *testing.T) {
+// TestLoadShippedYAML parses the real config.yaml so a value the decoder
+// rejects (e.g. a bare 0 where yaml.v3 expects a duration string like 0s)
+// breaks the build's tests instead of server startup.
+func TestLoadShippedYAML(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatalf("Load(config.yaml): %v", err)
+	}
+	if cfg.HTTP.WriteTimeout != 0 {
+		t.Fatalf("HTTP.WriteTimeout = %v, want 0 (disabled)", cfg.HTTP.WriteTimeout)
+	}
+	if cfg.Qdrant.TopK <= 0 || cfg.Embedder.Model == "" {
+		t.Fatalf("shipped config must validate into a usable state, got %+v", cfg)
+	}
+}
+
+func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("QDRANT_ADDR", "qdrant:6334")
 	t.Setenv("RERANKER_ENABLED", "false") // explicit false still counts as an env override
 	t.Setenv("SEMANTIC_CACHE_THRESHOLD", "0.95")
@@ -22,19 +38,5 @@ func TestApplyEnvRecordsOverrides(t *testing.T) {
 	}
 	if !cfg.Rewriter.Enabled {
 		t.Fatal("Rewriter.Enabled = false, want true from REWRITE_ENABLED=true")
-	}
-
-	for key, want := range map[string]string{
-		"qdrant.addr":              "QDRANT_ADDR",
-		"reranker.enabled":         "RERANKER_ENABLED",
-		"semantic_cache.threshold": "SEMANTIC_CACHE_THRESHOLD",
-		"rewriter.enabled":         "REWRITE_ENABLED",
-	} {
-		if got := cfg.Overridden[key]; got != want {
-			t.Fatalf("Overridden[%q] = %q, want %q", key, got, want)
-		}
-	}
-	if _, ok := cfg.Overridden["embedder.model"]; ok {
-		t.Fatal("Overridden[embedder.model] recorded without EMBEDDER env override")
 	}
 }

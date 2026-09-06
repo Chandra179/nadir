@@ -1,6 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.14.0+cpu
-sentence-transformers[onnx]==6.0.1
 numpy==2.5.2
 fastapi==0.115.12
 uvicorn==0.34.0

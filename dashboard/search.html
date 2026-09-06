@@ -12,6 +12,94 @@
 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 <script>
+  // Streaming answers: the turn fragment arrives with an empty answer
+  // paragraph plus a data-stream-url; a plain EventSource appends token
+  // text there (textContent keeps raw server text inert, so the SSE payload
+  // needs no escaping). Terminal events close the source, stop the cursor,
+  // restore the composer button and refresh the sidebar — persistence
+  // happens when the stream ends, not when the POST responds.
+  var nadirActiveStream = null;
+  var nadirBusyCount = 0;
+
+  function nadirScrollReader() {
+    var rd = document.getElementById('reader');
+    if (rd) rd.scrollTop = rd.scrollHeight;
+  }
+
+  // The send button doubles as the stop button while anything is in flight
+  // (retrieval or generation): the square icon shows and clicking it
+  // cancels instead of submitting.
+  function nadirBusyAdd(n) {
+    nadirBusyCount = Math.max(0, nadirBusyCount + n);
+    var send = document.getElementById('composer-send-icon');
+    var stop = document.getElementById('composer-stop-icon');
+    if (send) send.classList.toggle('hidden', nadirBusyCount > 0);
+    if (stop) stop.classList.toggle('hidden', nadirBusyCount === 0);
+  }
+
+  // Stop aborts the newest in-flight generation. The server keeps the
+  // answer generated so far, publishes the terminal event, and persists the
+  // partial turn; this stream's own handler does the cleanup.
+  function nadirStop() {
+    var elt = nadirActiveStream;
+    if (!elt || !elt.dataset.turnId) return;
+    fetch('/retrieval/turns/' + encodeURIComponent(elt.dataset.turnId) + '/cancel', { method: 'POST' })
+      .catch(function(err) { console.error(err); });
+  }
+
+  function nadirEndStream(elt, es) {
+    if (!elt.dataset.streaming) return;
+    delete elt.dataset.streaming;
+    elt.classList.remove('nadir-streaming');
+    es.close();
+    nadirBusyAdd(-1);
+    if (nadirActiveStream === elt) nadirActiveStream = null;
+    htmx.trigger(document.body, 'nadir:turn-appended');
+    nadirScrollReader();
+  }
+
+  function nadirStartStream(elt) {
+    if (elt.dataset.streaming) return;
+    elt.dataset.streaming = '1';
+    nadirActiveStream = elt;
+    nadirBusyAdd(1);
+    var answer = elt.querySelector('.nadir-answer');
+    var errSlot = elt.querySelector('.nadir-generror');
+    var es = new EventSource(elt.dataset.streamUrl);
+    es.addEventListener('token', function(e) {
+      answer.insertAdjacentText('beforeend', e.data);
+      nadirScrollReader();
+    });
+    // Both domain terminal states end the stream: generror is published as
+    // the last event before the log closes, never followed by done.
+    es.addEventListener('generror', function(e) {
+      errSlot.textContent = e.data;
+      nadirEndStream(elt, es);
+    });
+    es.addEventListener('done', function() { nadirEndStream(elt, es); });
+    // Safety net for a fatal transport error (e.g. the turn's log was
+    // evicted): keep whatever text arrived and restore the button.
+    es.onerror = function() {
+      if (es.readyState === EventSource.CLOSED) nadirEndStream(elt, es);
+    };
+  }
+
+  // Turn fragments land in the reader via the composer form's swap; each
+  // one carrying a stream URL starts its EventSource here.
+  document.addEventListener('htmx:afterSwap', function(e) {
+    var target = e.detail && e.detail.target;
+    if (!target || target.id !== 'reader-inner') return;
+    target.querySelectorAll('.nadir-streaming[data-stream-url]').forEach(nadirStartStream);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest || !e.target.closest('#composer-send')) return;
+    if (nadirBusyCount > 0) {
+      e.preventDefault();
+      nadirStop();
+    }
+  });
+
   var NADIR_DOC_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 
   function nadirAttachedNames() {
@@ -49,9 +137,9 @@
     if (names.length) evt.detail.parameters['attached_files'] = names.join(',');
   }
 
-  // Buffered search: the server answers with one complete turn, so there's
-  // no real progress to stream. This appends an optimistic placeholder turn
-  // (question + attached files + a pulsing "retrieving" row) the instant
+  // The POST returns once retrieval is done (the answer then streams over
+  // SSE from /retrieval/answer/:id). This appends an optimistic placeholder
+  // turn (question + attached files + a pulsing "retrieving" row) the instant
   // the request goes out, then removes it once the real turn fragment has
   // been swapped in.
   function nadirBeforeSearch(form) {
@@ -60,6 +148,7 @@
     var query = input ? input.value.trim() : '';
     if (!query) return;
 
+    nadirBusyAdd(1);
     var attachedNames = nadirAttachedNames();
 
     // Attachment chips only confirm an import already finished — the file
@@ -114,6 +203,11 @@
     var ta = document.getElementById('composer-input');
     if (ta) ta.style.height = 'auto';
 
+    // Release the retrieval-phase busy count. A response that started a
+    // stream has already re-claimed the button via nadirStartStream, so
+    // this decrement never drops it below the live stream's count.
+    nadirBusyAdd(-1);
+
     // The server mints a session id on the first turn (never client-side,
     // so a client can't spoof/collide another session's id) and hands it
     // back via this header; form.reset() above reverts the hidden field to
@@ -153,25 +247,16 @@
   .feedback-ok{ color:#234840; }
   .feedback-err{ color:#b04a3f; }
   [x-cloak]{ display:none !important; }
+  .nadir-streaming .nadir-answer::after{ content:"▍"; margin-left:1px; color:#8b8f81; animation:nadir-blink 1s steps(2,start) infinite; }
+  @keyframes nadir-blink{ to{ visibility:hidden; } }
   ::-webkit-scrollbar{ width:9px; height:9px; }
   ::-webkit-scrollbar-thumb{ background:#e4e1d5; border-radius:6px; border:2px solid #f7f7f4; }
 </style>
 </head>
 <body class="h-full overflow-hidden">
-  <div class="flex h-screen relative" x-data="{ sidebarOpen: false, settingsOpen: false, deleteSession: null }">
+  <div class="flex h-screen relative" x-data="{ sidebarOpen: false, deleteSession: null }">
     <div x-show="sidebarOpen" x-cloak @click="sidebarOpen = false"
          class="fixed inset-0 bg-black/30 z-30 md:hidden"></div>
-
-    <div x-show="settingsOpen" x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
-         @keydown.escape.window="settingsOpen = false">
-      <div @click.outside="settingsOpen = false"
-           class="bg-[#f7f7f4] border border-[#dcd8c9] rounded-[16px] shadow-xl w-full max-w-[520px] max-h-[80vh] overflow-y-auto">
-        <div id="settings-body">
-          <div class="px-5 py-8 text-center text-[13.5px] text-[#8b8f81]">Loading…</div>
-        </div>
-      </div>
-    </div>
 
     <div x-show="deleteSession" x-cloak
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"

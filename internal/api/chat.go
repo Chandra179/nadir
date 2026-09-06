@@ -121,28 +121,34 @@ type retrievalResultView struct {
 }
 
 // turnView is one exchange in the chat: the question, the retrieval tool
-// call (request + retrieved chunks), and the generated answer, if any.
+// call (request + retrieved chunks), the rewrite step, and the generated
+// answer — fully rendered for history replay, or as an SSE placeholder for
+// live streaming turns.
 type turnView struct {
-	Error         string
-	Query         string
-	AttachedFiles []string
-	TopK          int
-	Generate      bool
-	Results       []retrievalResultView
-	Count         int
-	ElapsedMS     int64
-	FromCache     bool
-	Answer        string
-	HasAnswer     bool
-	Prompt        string
+	Error          string
+	Query          string
+	RewrittenQuery string
+	AttachedFiles  []string
+	TopK           int
+	Generate       bool
+	Results        []retrievalResultView
+	Count          int
+	ElapsedMS      int64
+	FromCache      bool
+	Answer         string
+	HasAnswer      bool
+	TurnID         string
+	StreamURL      string
+	Prompt         string
 	// GenerateError is set when search succeeded but generation failed —
 	// distinct from Error, which only covers a search-stage failure.
 	GenerateError string
 }
 
-// RetrievalSearch runs a chat turn through the chat use-case (search,
-// optional buffered answer, best-effort persistence) and renders one
-// appended turn: the question, the retrieval tool call, and the answer.
+// RetrievalSearch starts a chat turn (search + rewrite capture; generation
+// runs under the chat service's supervisor) and renders one appended turn:
+// the question, the retrieval tool call, the Think trace, and an SSE
+// placeholder pointing at the turn's event stream.
 func (d *dependencies) RetrievalSearch(c *gin.Context) {
 	topK := d.topK
 	if topK <= 0 {
@@ -166,18 +172,17 @@ func (d *dependencies) RetrievalSearch(c *gin.Context) {
 		AttachedFiles: attachedFileNames(c.PostForm("attached_files")),
 	}
 
-	res := d.chat.Ask(c.Request.Context(), req)
+	turn := d.chat.StartTurn(c.Request.Context(), req)
 
 	// A session id is minted by the chat service on the first turn of a
 	// conversation (never client-generated, so a client can't spoof/collide
 	// another session's id) and handed back via a response header for the
 	// composer to carry on subsequent posts.
-	if res.SessionID != "" {
-		c.Header("X-Nadir-Session-Id", res.SessionID)
-		c.Header("HX-Trigger", "nadir:turn-appended")
+	if turn.SessionID != "" {
+		c.Header("X-Nadir-Session-Id", turn.SessionID)
 	}
 
-	d.renderTurn(c, d.turnViewFromResult(req, res))
+	d.renderTurn(c, d.turnViewFromResult(req, turn))
 }
 
 // attachedFileNames splits the comma-joined "attached_files" field — names
@@ -241,25 +246,32 @@ func applyRelativeScores(views []retrievalResultView) {
 	}
 }
 
-// turnViewFromResult maps the chat use-case's result onto what the turn
-// fragment renders.
-func (d *dependencies) turnViewFromResult(req chat.Request, res chat.Result) turnView {
-	views := toRetrievalResultViews(res.Chunks)
-	return turnView{
-		Error:         res.Error,
-		Query:         req.Query,
-		AttachedFiles: req.AttachedFiles,
-		TopK:          req.TopK,
-		Generate:      req.Generate,
-		Results:       views,
-		Count:         len(res.Chunks),
-		ElapsedMS:     res.ElapsedMS,
-		FromCache:     res.FromCache,
-		Answer:        res.Answer,
-		HasAnswer:     res.HasAnswer,
-		Prompt:        res.Prompt,
-		GenerateError: res.GenerateError,
+// turnViewFromResult maps a started chat turn onto what the turn fragment
+// renders. A streaming turn exposes its event-stream URL; the fragment
+// subscribes to it.
+func (d *dependencies) turnViewFromResult(req chat.Request, turn chat.Turn) turnView {
+	views := toRetrievalResultViews(turn.Chunks)
+	view := turnView{
+		Error:          turn.Error,
+		Query:          req.Query,
+		RewrittenQuery: turn.RewrittenQuery,
+		AttachedFiles:  req.AttachedFiles,
+		TopK:           req.TopK,
+		Generate:       turn.Generate,
+		Results:        views,
+		Count:          len(turn.Chunks),
+		ElapsedMS:      turn.ElapsedMS,
+		FromCache:      turn.FromCache,
+		Answer:         turn.Answer,
+		HasAnswer:      turn.HasAnswer,
+		Prompt:         turn.Prompt,
+		GenerateError:  turn.GenerateError,
 	}
+	if turn.Streaming {
+		view.TurnID = turn.ID
+		view.StreamURL = "/retrieval/turns/" + turn.ID + "/events"
+	}
+	return view
 }
 
 // historyTurnToView converts a persisted turn back into the same turnView
@@ -279,18 +291,19 @@ func historyTurnToView(t history.Turn) turnView {
 	}
 	applyRelativeScores(results)
 	return turnView{
-		Error:         t.Error,
-		Query:         t.Query,
-		AttachedFiles: t.AttachedFiles,
-		TopK:          t.TopK,
-		Generate:      t.Generate,
-		Results:       results,
-		Count:         t.Count,
-		ElapsedMS:     t.ElapsedMS,
-		FromCache:     t.FromCache,
-		Answer:        t.Answer,
-		HasAnswer:     t.HasAnswer,
-		Prompt:        t.Prompt,
-		GenerateError: t.GenerateError,
+		Error:          t.Error,
+		Query:          t.Query,
+		RewrittenQuery: t.RewrittenQuery,
+		AttachedFiles:  t.AttachedFiles,
+		TopK:           t.TopK,
+		Generate:       t.Generate,
+		Results:        results,
+		Count:          t.Count,
+		ElapsedMS:      t.ElapsedMS,
+		FromCache:      t.FromCache,
+		Answer:         t.Answer,
+		HasAnswer:      t.HasAnswer,
+		Prompt:         t.Prompt,
+		GenerateError:  t.GenerateError,
 	}
 }

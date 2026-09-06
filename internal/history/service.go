@@ -34,22 +34,23 @@ type TurnResult struct {
 
 // Turn is one question/answer exchange within a session.
 type Turn struct {
-	ID            string
-	SessionID     string
-	Sequence      int
-	CreatedAt     time.Time
-	Query         string
-	AttachedFiles []string
-	TopK          int
-	Generate      bool
-	Results       []TurnResult
-	Count         int
-	ElapsedMS     int64
-	FromCache     bool
-	Prompt        string
-	Answer        string
-	HasAnswer     bool
-	Model         string
+	ID             string
+	SessionID      string
+	Sequence       int
+	CreatedAt      time.Time
+	Query          string
+	RewrittenQuery string
+	AttachedFiles  []string
+	TopK           int
+	Generate       bool
+	Results        []TurnResult
+	Count          int
+	ElapsedMS      int64
+	FromCache      bool
+	Prompt         string
+	Answer         string
+	HasAnswer      bool
+	Model          string
 	// Error is set when the search stage itself failed.
 	Error string
 	// GenerateError is set when search succeeded but generation failed —
@@ -297,25 +298,26 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 		return nil, fmt.Errorf("history: marshal attached files: %w", err)
 	}
 	return map[string]*qdrant.Value{
-		"doc_type":       strVal(docTypeTurn),
-		"session_id":     strVal(sessionID),
-		"sequence":       intVal(int64(sequence)),
-		"created_at":     intVal(now.UnixMilli()),
-		"query":          strVal(turn.Query),
-		"attached_files": strVal(string(attachedJSON)),
-		"top_k":          intVal(int64(turn.TopK)),
-		"generate":       boolVal(turn.Generate),
-		"results_json":   strVal(string(resultsJSON)),
-		"count":          intVal(int64(turn.Count)),
-		"elapsed_ms":     intVal(turn.ElapsedMS),
-		"from_cache":     boolVal(turn.FromCache),
-		"prompt":         strVal(turn.Prompt),
-		"answer":         strVal(turn.Answer),
-		"has_answer":     boolVal(turn.HasAnswer),
-		"model":          strVal(turn.Model),
-		"error":          strVal(turn.Error),
-		"generate_error": strVal(turn.GenerateError),
-		"failed":         boolVal(turn.Failed),
+		"doc_type":        strVal(docTypeTurn),
+		"session_id":      strVal(sessionID),
+		"sequence":        intVal(int64(sequence)),
+		"created_at":      intVal(now.UnixMilli()),
+		"query":           strVal(turn.Query),
+		"rewritten_query": strVal(turn.RewrittenQuery),
+		"attached_files":  strVal(string(attachedJSON)),
+		"top_k":           intVal(int64(turn.TopK)),
+		"generate":        boolVal(turn.Generate),
+		"results_json":    strVal(string(resultsJSON)),
+		"count":           intVal(int64(turn.Count)),
+		"elapsed_ms":      intVal(turn.ElapsedMS),
+		"from_cache":      boolVal(turn.FromCache),
+		"prompt":          strVal(turn.Prompt),
+		"answer":          strVal(turn.Answer),
+		"has_answer":      boolVal(turn.HasAnswer),
+		"model":           strVal(turn.Model),
+		"error":           strVal(turn.Error),
+		"generate_error":  strVal(turn.GenerateError),
+		"failed":          boolVal(turn.Failed),
 	}, nil
 }
 
@@ -343,25 +345,26 @@ func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
 		}
 	}
 	return Turn{
-		ID:            id,
-		SessionID:     pbStr(p, "session_id"),
-		Sequence:      int(pbInt(p, "sequence")),
-		CreatedAt:     time.UnixMilli(pbInt(p, "created_at")).UTC(),
-		Query:         pbStr(p, "query"),
-		AttachedFiles: attached,
-		TopK:          int(pbInt(p, "top_k")),
-		Generate:      pbBool(p, "generate"),
-		Results:       results,
-		Count:         int(pbInt(p, "count")),
-		ElapsedMS:     pbInt(p, "elapsed_ms"),
-		FromCache:     pbBool(p, "from_cache"),
-		Prompt:        pbStr(p, "prompt"),
-		Answer:        pbStr(p, "answer"),
-		HasAnswer:     pbBool(p, "has_answer"),
-		Model:         pbStr(p, "model"),
-		Error:         pbStr(p, "error"),
-		GenerateError: pbStr(p, "generate_error"),
-		Failed:        pbBool(p, "failed"),
+		ID:             id,
+		SessionID:      pbStr(p, "session_id"),
+		Sequence:       int(pbInt(p, "sequence")),
+		CreatedAt:      time.UnixMilli(pbInt(p, "created_at")).UTC(),
+		Query:          pbStr(p, "query"),
+		RewrittenQuery: pbStr(p, "rewritten_query"),
+		AttachedFiles:  attached,
+		TopK:           int(pbInt(p, "top_k")),
+		Generate:       pbBool(p, "generate"),
+		Results:        results,
+		Count:          int(pbInt(p, "count")),
+		ElapsedMS:      pbInt(p, "elapsed_ms"),
+		FromCache:      pbBool(p, "from_cache"),
+		Prompt:         pbStr(p, "prompt"),
+		Answer:         pbStr(p, "answer"),
+		HasAnswer:      pbBool(p, "has_answer"),
+		Model:          pbStr(p, "model"),
+		Error:          pbStr(p, "error"),
+		GenerateError:  pbStr(p, "generate_error"),
+		Failed:         pbBool(p, "failed"),
 	}, nil
 }
 

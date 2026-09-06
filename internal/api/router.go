@@ -11,7 +11,8 @@ const (
 	RouteStoreReset      = "/store/reset"
 	RouteRetrieval       = "/retrieval"
 	RouteRetrievalSearch = "/retrieval/search"
-	RouteSettings        = "/settings"
+	RouteTurnEvents      = "/retrieval/turns/:id/events"
+	RouteTurnCancel      = "/retrieval/turns/:id/cancel"
 	RouteHistorySessions = "/history/sessions"
 	RouteHistorySession  = "/history/sessions/:id"
 	RouteHealth          = "/healthz"
@@ -25,7 +26,8 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.POST(RouteStoreReset, deps.DeleteAllData)
 	engine.GET(RouteRetrieval, deps.Retrieval)
 	engine.POST(RouteRetrievalSearch, deps.RetrievalSearch)
-	engine.GET(RouteSettings, deps.Settings)
+	engine.GET(RouteTurnEvents, deps.RetrievalAnswer)
+	engine.POST(RouteTurnCancel, deps.RetrievalTurnCancel)
 	engine.GET(RouteHistorySessions, deps.HistorySessions)
 	engine.GET(RouteHistorySession, deps.HistorySession)
 	engine.DELETE(RouteHistorySession, deps.HistorySessionDelete)

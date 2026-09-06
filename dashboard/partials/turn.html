@@ -47,7 +47,8 @@
             {{end}}
             <button type="button" @click="raw = !raw" class="mt-2 font-mono-ui text-[12px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect</button>
             <pre x-show="raw" x-cloak class="mt-2 font-mono-ui text-[12.5px] leading-relaxed text-[#5c6156] bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] px-3 py-2 overflow-x-auto">{
-  "query": "{{.Query}}",
+  "query": "{{.Query}}",{{if .RewrittenQuery}}
+  "rewritten": "{{.RewrittenQuery}}",{{end}}
   "top_k": {{.TopK}},
   "generate": {{.Generate}}
 }
@@ -57,7 +58,7 @@
       </div>
     </div>
 
-    {{if .HasAnswer}}
+    {{if or .HasAnswer .StreamURL .GenerateError}}
     <div class="flex gap-2.5 py-1.5">
       <span class="w-4 text-center text-[#8b8f81] flex-none">⊗</span>
       <div class="flex-1 min-w-0">
@@ -65,6 +66,17 @@
           <span class="font-semibold text-[#5c6156]">Think</span><span class="text-[#8b8f81]"> · </span>
           <span class="text-[#8b8f81]">Reordering retrieved chunks (lost-in-middle) and generating the answer.</span>
         </div>
+        {{if .RewrittenQuery}}
+        <div class="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5 font-mono-ui text-[12.5px] leading-relaxed">
+          <span class="text-[#8b8f81]">Rewrite ·</span>
+          <span class="text-[#8b8f81]">"{{.Query}}"</span>
+          <span class="text-[#8b8f81]">→</span>
+          <b class="text-[#20241f] font-medium">"{{.RewrittenQuery}}"</b>
+        </div>
+        {{end}}
+        {{if .GenerateError}}
+        <div class="ml-0.5 mt-1.5 text-[14px] text-[#b04a3f]">{{.GenerateError}}</div>
+        {{end}}
         {{if .Prompt}}
         <div class="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5" x-data="{ ctxOpen: false }">
           <button type="button" @click="ctxOpen = !ctxOpen" class="font-mono-ui text-[12px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect context sent to the LLM</button>
@@ -73,20 +85,17 @@
         {{end}}
       </div>
     </div>
-    {{else if .GenerateError}}
-    <div class="flex gap-2.5 py-1.5">
-      <span class="w-4 text-center text-[#8b8f81] flex-none">⊗</span>
-      <div class="flex-1 min-w-0 text-[14px]">
-        <span class="font-semibold text-[#5c6156]">Think</span><span class="text-[#8b8f81]"> · </span>
-        <span class="text-[#b04a3f]">{{.GenerateError}}</span>
-      </div>
-    </div>
     {{end}}
   </div>
 
   {{if .HasAnswer}}
   <div class="text-[17px] text-[#20241f] leading-[1.7]">
     <p>{{.Answer}}</p>
+  </div>
+  {{else if .StreamURL}}
+  <div class="text-[17px] text-[#20241f] leading-[1.7] nadir-streaming" data-stream-url="{{.StreamURL}}" data-turn-id="{{.TurnID}}">
+    <p class="nadir-answer"></p>
+    <p class="nadir-generror text-[14px] text-[#b04a3f] mt-2"></p>
   </div>
   {{end}}
   {{end}}

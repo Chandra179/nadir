@@ -157,9 +157,8 @@ func Server(ctx context.Context, cfg *config.Config) {
 			ollamaAddr = cfg.Embedder.OllamaAddr
 		}
 		gen = generator.NewDependencies(generator.DependenciesConfig{
-			Addr:             ollamaAddr,
-			Model:            cfg.Generator.Model,
-			MaxContextTokens: cfg.Generator.MaxContextTokens,
+			Addr:  ollamaAddr,
+			Model: cfg.Generator.Model,
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),
@@ -250,13 +249,14 @@ func Server(ctx context.Context, cfg *config.Config) {
 	}
 
 	chatService := chat.NewDependencies(chat.DependenciesConfig{
-		Searcher:     searchService,
-		Generator:    gen,
-		History:      hist,
-		Rewriter:     chatRewriter,
-		RewriteTurns: cfg.Rewriter.Turns,
-		Model:        cfg.Generator.Model,
-		Log:          log,
+		Searcher:         searchService,
+		Generator:        gen,
+		History:          hist,
+		Rewriter:         chatRewriter,
+		RewriteTurns:     cfg.Rewriter.Turns,
+		MaxContextTokens: cfg.Generator.MaxContextTokens,
+		Model:            cfg.Generator.Model,
+		Log:              log,
 	})
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
@@ -265,7 +265,6 @@ func Server(ctx context.Context, cfg *config.Config) {
 		History: hist,
 		Chat:    chatService,
 		TopK:    cfg.Qdrant.TopK,
-		Config:  cfg,
 		Log:     log,
 	})
 

@@ -3,53 +3,142 @@ package chat
 import (
 	"context"
 	"go.uber.org/zap"
-	"io"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
+	"nadir/internal/generator"
 	"nadir/internal/history"
 	"nadir/internal/rewriter"
 	"nadir/internal/store"
 )
 
-// Ask runs one full chat turn: mint session (first turn) → rewrite
-// follow-ups → retrieve → optionally generate → best-effort persist. Never
-// returns an error: failures land in Result.Error/Result.GenerateError.
-func (d *dependencies) Ask(ctx context.Context, req Request) Result {
-	res := Result{SessionID: req.SessionID}
+// StartTurn runs one chat turn: mint session (first turn) → rewrite
+// follow-ups → retrieve → start generation. Never returns an error:
+// failures land in Turn.Error/Turn.GenerateError. Generation is owned by
+// the service — it runs on its own goroutine, fans events out to any number
+// of subscribers, and persists the final turn itself; the caller only
+// renders the trace and (when Turn.Streaming) subscribes via Subscribe.
+func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
+	turn := Turn{SessionID: req.SessionID, Query: req.Query, Generate: req.Generate}
 
 	if req.Query == "" {
-		res.Error = "Enter a question to search."
-		return res
+		turn.Error = "Enter a question to search."
+		d.persist(ctx, req, turn, true)
+		return turn
 	}
 
 	start := time.Now()
 
-	if d.history != nil && req.SessionID == "" {
-		res.SessionID = d.mintSession(ctx, req.Query)
+	if d.history != nil && turn.SessionID == "" {
+		turn.SessionID = d.mintSession(ctx, req.Query)
 	}
 
 	retrievalQuery := req.Query
+	// Gated on the request's session id, not the minted one: a turn that
+	// mints a session cannot have prior turns by construction.
 	if d.rewriter != nil && d.history != nil && req.SessionID != "" {
 		retrievalQuery = d.rewriteQuery(ctx, req.SessionID, req.Query)
+		if retrievalQuery != req.Query {
+			turn.RewrittenQuery = retrievalQuery
+		}
 	}
 
 	chunks, fromCache, err := d.searcher.Query(ctx, retrievalQuery, "", req.TopK, req.Filter, req.Generate)
-	res.FromCache = fromCache
+	turn.FromCache = fromCache
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
-		res.Error = "Search failed: " + err.Error()
-		d.persist(ctx, req, res, true)
-		return res
+		turn.Error = "Search failed: " + err.Error()
+		d.persist(ctx, req, turn, true)
+		return turn
 	}
-	res.Chunks = chunks
+	turn.Chunks = chunks
+	turn.ElapsedMS = time.Since(start).Milliseconds()
 
-	if req.Generate && d.generator != nil && len(chunks) > 0 {
-		d.generateAnswer(ctx, retrievalQuery, chunks, &res)
+	// Every non-generating outcome is final here: persist and return.
+	if !req.Generate || d.generator == nil || len(chunks) == 0 {
+		d.persist(ctx, req, turn, false)
+		return turn
 	}
 
-	res.ElapsedMS = time.Since(start).Milliseconds()
-	d.persist(ctx, req, res, false)
-	return res
+	turn.Prompt = buildPrompt(retrievalQuery, chunks, d.maxContextTokens)
+
+	// The generation context is detached from this POST: the request that
+	// starts a turn must not be the one that can kill it. CancelTurn (not
+	// browser disconnects) is what stops generation. The Ollama dial is
+	// synchronous so a start failure is a deterministic GenerateError with
+	// no stream; only a live stream gets an ID and an event log.
+	genCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	events, err := d.generator.Generate(genCtx, turn.Prompt)
+	if err != nil {
+		cancel()
+		d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
+		turn.GenerateError = "Answer generation failed: " + err.Error()
+		d.persist(ctx, req, turn, false)
+		return turn
+	}
+
+	turn.ID = uuid.NewString()
+	stream := d.broker.create(turn.ID)
+	stream.cancel = cancel
+	go d.consumeGeneration(stream, req, turn, events)
+	turn.Streaming = true
+	return turn
+}
+
+// CancelTurn aborts an in-flight generation. The supervisor observes the
+// cancelled context, keeps the answer generated so far, and persists it.
+func (d *dependencies) CancelTurn(turnID string) bool {
+	stream := d.broker.get(turnID)
+	if stream == nil {
+		return false
+	}
+	stream.cancelGeneration()
+	return true
+}
+
+// consumeGeneration drains one in-flight answer: it maps the generator's
+// typed events onto the turn's event log and persists the final turn when
+// the stream ends. Runs on its own goroutine — no HTTP request owns this.
+func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, events <-chan generator.Event) {
+	defer stream.finish()
+
+	var answer strings.Builder
+	for ev := range events {
+		switch e := ev.(type) {
+		case generator.TokenEvent:
+			answer.WriteString(e.Text)
+			stream.publish(EventToken, e.Text)
+		case generator.ErrorEvent:
+			turn.GenerateError = "Answer generation failed: " + e.Err.Error()
+		case generator.DoneEvent:
+		}
+	}
+	if turn.GenerateError != "" {
+		stream.publish(EventError, turn.GenerateError)
+	} else {
+		turn.Answer = answer.String()
+		turn.HasAnswer = true
+		stream.publish(EventDone, "")
+	}
+	d.saveTurn(req, turn)
+}
+
+// Subscribe attaches to a turn's event log, replaying after since. The
+// returned cancel is also invoked when ctx ends, so a disconnecting SSE
+// client detaches its subscriber without affecting generation.
+func (d *dependencies) Subscribe(ctx context.Context, turnID string, since int64) (<-chan TurnEvent, func(), bool) {
+	stream := d.broker.get(turnID)
+	if stream == nil {
+		return nil, nil, false
+	}
+	events, cancel := stream.subscribe(since)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
+	return events, cancel, true
 }
 
 // rewriteQuery rewrites a follow-up into a standalone query against the
@@ -99,62 +188,53 @@ func (d *dependencies) mintSession(ctx context.Context, query string) string {
 	return session.ID
 }
 
-// generateAnswer buffers one LLM answer into res. Best-effort: any failure
-// lands in res.GenerateError while the retrieval results still render.
-func (d *dependencies) generateAnswer(ctx context.Context, query string, chunks []store.ScoredChunk, res *Result) {
-	prompt, stream, err := d.generator.Generate(ctx, query, chunks)
-	res.Prompt = prompt
-	if err != nil {
-		d.log.Warn("chat generate failed", zap.String("query", query), zap.Error(err))
-		res.GenerateError = "Answer generation failed: " + err.Error()
-		return
+// persistTurn writes the turn's current state to history; the 5s timeout
+// keeps an unreachable store from pinning the caller.
+func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, failed bool) error {
+	if d.history == nil || turn.SessionID == "" {
+		return nil
 	}
-
-	answer, readErr := io.ReadAll(stream)
-	stream.Close()
-	if readErr != nil {
-		d.log.Warn("chat generate stream read failed", zap.Error(readErr))
-		res.GenerateError = "Answer generation failed: " + readErr.Error()
-		return
+	ht := history.Turn{
+		Query:          req.Query,
+		RewrittenQuery: turn.RewrittenQuery,
+		AttachedFiles:  req.AttachedFiles,
+		TopK:           req.TopK,
+		Generate:       req.Generate,
+		Results:        chunkResults(turn.Chunks),
+		Count:          len(turn.Chunks),
+		ElapsedMS:      turn.ElapsedMS,
+		FromCache:      turn.FromCache,
+		Prompt:         turn.Prompt,
+		Answer:         turn.Answer,
+		HasAnswer:      turn.HasAnswer,
+		Error:          turn.Error,
+		GenerateError:  turn.GenerateError,
+		Model:          d.model,
+		Failed:         failed,
 	}
-
-	res.Answer = string(answer)
-	res.HasAnswer = true
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return d.history.AppendTurn(cctx, turn.SessionID, ht, req.Query)
 }
 
-// persist saves a turn to history in a best-effort, detached goroutine —
-// a slow or unreachable store must never delay or break the response the
-// user is already watching. Failures are logged and dropped, never retried.
-func (d *dependencies) persist(reqCtx context.Context, req Request, res Result, failed bool) {
-	if d.history == nil || res.SessionID == "" {
+// persist saves a turn in a best-effort, detached goroutine — a slow or
+// unreachable store must never delay the response the user is watching.
+func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, failed bool) {
+	if d.history == nil || turn.SessionID == "" {
 		return
 	}
-
-	turn := history.Turn{
-		Query:         req.Query,
-		AttachedFiles: req.AttachedFiles,
-		TopK:          req.TopK,
-		Generate:      req.Generate,
-		Results:       chunkResults(res.Chunks),
-		Count:         len(res.Chunks),
-		ElapsedMS:     res.ElapsedMS,
-		FromCache:     res.FromCache,
-		Prompt:        res.Prompt,
-		Answer:        res.Answer,
-		HasAnswer:     res.HasAnswer,
-		Error:         res.Error,
-		GenerateError: res.GenerateError,
-		Model:         d.model,
-		Failed:        failed,
-	}
-
 	go func() {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(reqCtx), 5*time.Second)
-		defer cancel()
-		if err := d.history.AppendTurn(ctx, res.SessionID, turn, req.Query); err != nil {
-			d.log.Warn("chat append turn failed", zap.String("session_id", res.SessionID), zap.Error(err))
+		if err := d.persistTurn(reqCtx, req, turn, failed); err != nil {
+			d.log.Warn("chat append turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
 		}
 	}()
+}
+
+// saveTurn persists a finished generation from the supervisor goroutine.
+func (d *dependencies) saveTurn(req Request, turn Turn) {
+	if err := d.persistTurn(context.Background(), req, turn, false); err != nil {
+		d.log.Warn("chat append turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
+	}
 }
 
 // chunkResults snapshots retrieved chunks for persistence — captured at

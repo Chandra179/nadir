@@ -1,6 +1,3 @@
-// Package chat implements the chat use-case: turn a user question into a
-// persisted conversation turn by orchestrating retrieval, answer
-// generation, and history. A domain package: must not import api/server/middleware.
 package chat
 
 import (
@@ -17,18 +14,41 @@ type Request struct {
 	AttachedFiles []string
 }
 
-// Result is everything the caller needs to render or store one turn.
-// SessionID is set even when the search stage failed, so the response can
-// still hand back the minted id for subsequent turns.
-type Result struct {
-	SessionID string
-	Chunks    []store.ScoredChunk
-	ElapsedMS int64
-	FromCache bool
+// Turn is the outcome of starting a chat turn: everything needed to render
+// the trace, plus — when generation was started — the ID of its event
+// stream. The answer itself is never carried here at start time; it arrives
+// as events on the stream and lands on the persisted turn when generation
+// finishes.
+type Turn struct {
+	ID             string // event-stream id; empty when nothing streams
+	SessionID      string
+	Query          string
+	RewrittenQuery string // set only when the rewriter changed the query
+	Chunks         []store.ScoredChunk
+	ElapsedMS      int64
+	FromCache      bool
+	Generate       bool
+	Prompt         string
+	Error          string // search-stage failure
+	GenerateError  string // generation failed (at start or mid-stream)
+	Answer         string // populated only once generation finishes
+	HasAnswer      bool
+	Streaming      bool // generation is running; subscribe with ID
+}
 
-	Prompt        string
-	Answer        string
-	HasAnswer     bool
-	Error         string // search-stage failure
-	GenerateError string // search succeeded but generation failed
+// EventKind discriminates a TurnEvent.
+type EventKind uint8
+
+const (
+	EventToken EventKind = iota
+	EventError
+	EventDone
+)
+
+// TurnEvent is one entry in a turn's event log. Seq is a per-turn cursor;
+// subscribers name the last event they saw and are replayed from there.
+type TurnEvent struct {
+	Seq  int64
+	Kind EventKind
+	Text string
 }

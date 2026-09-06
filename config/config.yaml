@@ -1,7 +1,7 @@
 http:
   addr: ":8100"
   read_timeout: 5s
-  write_timeout: 35s
+  write_timeout: 0s  # 0s = none: streamed answers run longer than a fixed write deadline
   idle_timeout: 120s
 
 middleware:

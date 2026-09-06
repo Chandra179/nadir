@@ -1,0 +1,7 @@
+# GPU (CUDA) build: plain PyPI torch for linux bundles the CUDA runtime via
+# its nvidia-* dependencies, so no system CUDA toolkit is needed — but the
+# image grows by several GB and the host needs the NVIDIA container toolkit.
+# Backends: use RERANKER_BACKEND=torch (fp32 on cuda); the int8 routes are
+# CPU artifacts and fall back to fp32 torch on cuda (see main.py).
+torch==2.14.0
+sentence-transformers[onnx]==6.0.1

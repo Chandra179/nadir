@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,9 +12,13 @@ import (
 // Timeout attaches a deadline to the request context so downstream Qdrant
 // and Ollama calls return instead of hanging. POST /ingest is excluded: a
 // full source.paths sweep is a legitimately long-running bulk operation.
+// Turn event streams (/retrieval/turns/) are excluded too: an SSE response
+// is legitimately longer than the query budget.
 func Timeout(d time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if d <= 0 || (c.Request.Method == http.MethodPost && c.Request.URL.Path == "/ingest") {
+		if d <= 0 ||
+			(c.Request.Method == http.MethodPost && c.Request.URL.Path == "/ingest") ||
+			strings.HasPrefix(c.Request.URL.Path, "/retrieval/turns/") {
 			c.Next()
 			return
 		}

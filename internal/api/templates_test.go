@@ -13,26 +13,31 @@ import (
 // a handler can render must parse (enforced at package init via
 // template.Must) and execute against representative data.
 func TestUITemplatesExecute(t *testing.T) {
-	cases := map[string]any{
-		"page": pageView{
+	// A template may appear multiple times with different representative
+	// data (e.g. "turn" renders both replayed and streaming turns).
+	cases := []struct {
+		name string
+		data any
+	}{
+		{"page", pageView{
 			DefaultTopK: 8,
 			SessionID:   "s1",
 			Turns:       []turnView{{Query: "q", Count: 1, HasAnswer: true, Answer: "a"}},
-		},
-		"turn":             turnView{Query: "q", AttachedFiles: []string{"<script>.md"}, TopK: 5, Generate: true},
-		"history-sessions": historySessionsView{Enabled: true, Sessions: []history.Session{{ID: "s1", Title: "t", UpdatedAt: time.Now(), TurnCount: 2}}},
-		"settings":         struct{ Groups []settingsGroup }{Groups: []settingsGroup{{Name: "HTTP", Items: []settingsItem{{Key: "k", Value: "<v>"}}}}},
-		"chips-ok":         []string{"trig-functions.md"},
-		"chips-error":      struct{ Message string }{"no files provided"},
+		}},
+		{"turn", turnView{Query: "q", AttachedFiles: []string{"<script>.md"}, TopK: 5, Generate: true, HasAnswer: true, Answer: "a"}},
+		{"turn", turnView{Query: "q", RewrittenQuery: "standalone?", TurnID: "t1", StreamURL: "/retrieval/turns/t1/events"}},
+		{"history-sessions", historySessionsView{Enabled: true, Sessions: []history.Session{{ID: "s1", Title: "t", UpdatedAt: time.Now(), TurnCount: 2}}}},
+		{"chips-ok", []string{"trig-functions.md"}},
+		{"chips-error", struct{ Message string }{"no files provided"}},
 	}
 
-	for name, data := range cases {
-		t.Run(name, func(t *testing.T) {
-			if uiTemplates.Lookup(name) == nil {
-				t.Fatalf("template %q not defined in embedded UI templates", name)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if uiTemplates.Lookup(tc.name) == nil {
+				t.Fatalf("template %q not defined in embedded UI templates", tc.name)
 			}
-			if err := uiTemplates.ExecuteTemplate(io.Discard, name, data); err != nil {
-				t.Fatalf("execute %q: %v", name, err)
+			if err := uiTemplates.ExecuteTemplate(io.Discard, tc.name, tc.data); err != nil {
+				t.Fatalf("execute %q: %v", tc.name, err)
 			}
 		})
 	}

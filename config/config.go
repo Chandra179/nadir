@@ -23,12 +23,6 @@ type Config struct {
 	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
-
-	// Overridden records which config paths applyEnv replaced from the
-	// environment at boot (config path → env var name). It is the single
-	// source of truth for "where did this value come from" and is not part
-	// of the yaml document.
-	Overridden map[string]string `yaml:"-" json:"-"`
 }
 
 type HTTPConfig struct {
@@ -171,9 +165,7 @@ func Load(path string) (*Config, error) {
 }
 
 // applyEnv overrides config fields from environment variables.
-// Env vars take precedence over config.yaml values; every applied override
-// is recorded in Overridden (keyed by config path) so consumers can tell
-// which values came from the environment rather than config.yaml.
+// Env vars take precedence over config.yaml values.
 func (c *Config) applyEnv() {
 	c.envStr(&c.Qdrant.Addr, "qdrant.addr", "QDRANT_ADDR")
 	c.envStr(&c.Qdrant.Collection, "qdrant.collection", "QDRANT_COLLECTION")
@@ -197,14 +189,12 @@ func (c *Config) applyEnv() {
 func (c *Config) envStr(dst *string, key, env string) {
 	if v := os.Getenv(env); v != "" {
 		*dst = v
-		c.record(key, env)
 	}
 }
 
 func (c *Config) envBool(dst *bool, key, env string) {
 	if v := os.Getenv(env); v != "" {
 		*dst = v == "true" || v == "1"
-		c.record(key, env)
 	}
 }
 
@@ -212,7 +202,6 @@ func (c *Config) envFloat32(dst *float32, key, env string) {
 	if v := os.Getenv(env); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil {
 			*dst = float32(f)
-			c.record(key, env)
 		}
 	}
 }
@@ -221,16 +210,8 @@ func (c *Config) envInt(dst *int, key, env string) {
 	if v := os.Getenv(env); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			*dst = n
-			c.record(key, env)
 		}
 	}
-}
-
-func (c *Config) record(key, env string) {
-	if c.Overridden == nil {
-		c.Overridden = make(map[string]string)
-	}
-	c.Overridden[key] = env
 }
 
 func (c *Config) Validate() error {

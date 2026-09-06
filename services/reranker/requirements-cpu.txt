@@ -1,0 +1,5 @@
+# CPU build: torch CPU wheel keeps the image small; the [onnx] extra pulls
+# optimum + onnxruntime for the onnx/openvino backends.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0+cpu
+sentence-transformers[onnx]==6.0.1
