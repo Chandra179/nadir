@@ -45,8 +45,10 @@ the semantic cache.
 
 **Query path** — a question is checked against the semantic cache, embedded,
 matched against the store via hybrid search (dense + sparse), optionally
-re-ranked, and optionally used to generate an answer. The turn is persisted to
-chat history.
+re-ranked, and optionally answered by streaming generation: the POST returns
+as soon as retrieval is done and the answer streams to the dashboard over
+SSE from a domain-owned event log. The turn is persisted to chat history
+when the stream reaches its terminal state (or is cancelled).
 
 **Reset** — dropping indexed data also clears the semantic cache so stale
 results can't be served.
@@ -121,7 +123,10 @@ cleared on ingest and on full reset.
 Chunks are assembled into a prompt that restricts answers to the given context
 with source citations. Best chunks are placed in the middle (LLMs attend most
 there), and the context is fit to a token budget. Grounding keeps answers
-faithful and attributable to indexed documents.
+faithful and attributable to indexed documents. Generation is owned by the
+chat use-case on a detached context: subscribers observe a replayable event
+log over SSE, and cancellation keeps the partial answer (see
+[ADR 0006](adr/0006-chat-streams-over-domain-owned-event-log.md)).
 
 ### Chat history — sessions and turns in the vector store
 

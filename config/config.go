@@ -20,9 +20,16 @@ type Config struct {
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
+	Chat          ChatConfig          `yaml:"chat"`
 	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
+}
+
+// ChatConfig tunes the chat use-case (ADR 0006): prompt assembly and the
+// streaming turn lifecycle.
+type ChatConfig struct {
+	MaxContextTokens int `yaml:"max_context_tokens"` // token budget for retrieved chunks in the prompt (default 2800)
 }
 
 type HTTPConfig struct {
@@ -94,10 +101,9 @@ type SemanticCacheConfig struct {
 }
 
 type GeneratorConfig struct {
-	Enabled          bool   `yaml:"enabled"`
-	OllamaAddr       string `yaml:"ollama_addr"`        // defaults to embedder.ollama_addr if empty
-	Model            string `yaml:"model"`              // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
-	MaxContextTokens int    `yaml:"max_context_tokens"` // token budget for retrieved chunks (default 2800)
+	Enabled    bool   `yaml:"enabled"`
+	OllamaAddr string `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
+	Model      string `yaml:"model"`       // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
 }
 
 // HistoryConfig persists chat sessions/turns to a dedicated Qdrant

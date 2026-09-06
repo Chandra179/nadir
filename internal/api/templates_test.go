@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	chatapi "nadir/internal/api/chat"
+	historyapi "nadir/internal/api/history"
+	"nadir/internal/api/internal/render"
 	"nadir/internal/history"
 )
 
@@ -22,21 +25,21 @@ func TestUITemplatesExecute(t *testing.T) {
 		{"page", pageView{
 			DefaultTopK: 8,
 			SessionID:   "s1",
-			Turns:       []turnView{{Query: "q", Count: 1, HasAnswer: true, Answer: "a"}},
+			Turns:       []chatapi.TurnView{{Query: "q", Count: 1, HasAnswer: true, Answer: "a"}},
 		}},
-		{"turn", turnView{Query: "q", AttachedFiles: []string{"<script>.md"}, TopK: 5, Generate: true, HasAnswer: true, Answer: "a"}},
-		{"turn", turnView{Query: "q", RewrittenQuery: "standalone?", TurnID: "t1", StreamURL: "/retrieval/turns/t1/events"}},
-		{"history-sessions", historySessionsView{Enabled: true, Sessions: []history.Session{{ID: "s1", Title: "t", UpdatedAt: time.Now(), TurnCount: 2}}}},
+		{"turn", chatapi.TurnView{Query: "q", AttachedFiles: []string{"<script>.md"}, TopK: 5, Generate: true, HasAnswer: true, Answer: "a"}},
+		{"turn", chatapi.TurnView{Query: "q", RewrittenQuery: "standalone?", TurnID: "t1", StreamURL: "/retrieval/turns/t1/events"}},
+		{"history-sessions", historyapi.SessionsView{Enabled: true, Sessions: []history.Session{{ID: "s1", Title: "t", UpdatedAt: time.Now(), TurnCount: 2}}}},
 		{"chips-ok", []string{"trig-functions.md"}},
 		{"chips-error", struct{ Message string }{"no files provided"}},
+		{"feedback", feedbackView{}},
+		{"feedback", feedbackView{Error: "delete failed: boom"}},
 	}
 
+	engine := render.New(nil)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if uiTemplates.Lookup(tc.name) == nil {
-				t.Fatalf("template %q not defined in embedded UI templates", tc.name)
-			}
-			if err := uiTemplates.ExecuteTemplate(io.Discard, tc.name, tc.data); err != nil {
+			if err := engine.Execute(io.Discard, tc.name, tc.data); err != nil {
 				t.Fatalf("execute %q: %v", tc.name, err)
 			}
 		})
@@ -54,7 +57,8 @@ func TestChipsEscape(t *testing.T) {
 		{"chips-error", struct{ Message string }{`<img src=x onerror=alert(1)>`}},
 	} {
 		var buf strings.Builder
-		if err := uiTemplates.ExecuteTemplate(&buf, tc.name, tc.data); err != nil {
+		engine := render.New(nil)
+		if err := engine.Execute(&buf, tc.name, tc.data); err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
 		if strings.Contains(buf.String(), "<script>") || strings.Contains(buf.String(), "<img") {

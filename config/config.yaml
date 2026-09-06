@@ -66,9 +66,12 @@ semantic_cache:
   ttl: 24h           # 0 = no expiry
 
 generator:
-  enabled: true      # set true + ensure ollama LLM is pulled; POST /search with {"generate": true}
+  enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=true
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
+
+chat:
+  # Chat use-case tuning: prompt assembly and the streaming turn lifecycle.
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
 
 rewriter:

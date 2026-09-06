@@ -66,7 +66,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 	}
 
 	if isHX {
-		d.renderHTML(c, http.StatusOK, "chips-ok", names)
+		d.render.HTML(c, http.StatusOK, "chips-ok", names)
 		return
 	}
 	c.JSON(http.StatusOK, ingestResponse{
@@ -78,7 +78,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 
 func (d *dependencies) respondIngestError(c *gin.Context, isHX bool, status int, msg string) {
 	if isHX {
-		d.renderHTML(c, status, "chips-error", struct{ Message string }{msg})
+		d.render.HTML(c, status, "chips-error", struct{ Message string }{msg})
 		return
 	}
 	c.JSON(status, ingestResponse{Error: msg})

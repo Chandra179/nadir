@@ -49,13 +49,21 @@ services:
       retries: 10
 
   reranker:
+    # GPU-first: the build bakes the CUDA-torch image and the container
+    # reserves the host GPU (NVIDIA container toolkit required). Both int8
+    # routes are CPU artifacts, so cuda serves fp32 torch (ADR 0008).
+    # CPU: RERANKER_DEVICE=cpu runs on the same image with no rebuild;
+    # RERANKER_GPU=0 only switches the build to the CPU-torch image (for
+    # image size, or hosts without the toolkit — those must also delete the
+    # reservations block below, or `up` fails on the nvidia driver).
     build:
       context: services/reranker
       args:
         RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        GPU: ${RERANKER_GPU:-1}
     environment:
       - RERANKER_MODEL=${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
-      - RERANKER_DEVICE=${RERANKER_DEVICE:-auto}
+      - RERANKER_DEVICE=${RERANKER_DEVICE:-cuda}
     ports:
       - "5002:5002"
     volumes:
@@ -64,7 +72,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3g
+          memory: 4g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
       interval: 10s

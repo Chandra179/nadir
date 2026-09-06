@@ -1,6 +1,6 @@
 # 0005 — Retrieval A/Bs always run a fresh control alongside the treatment
 
-- **Status:** Accepted
+- **Status:** Superseded by [0010](0010-remove-offline-eval-harness.md) — the evalbench harness was removed; kept as the design record for any future in-repo evaluation
 - **Date:** 2026-09-05
 - **Deciders:** Chandra, ZCode session
 

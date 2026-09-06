@@ -162,7 +162,6 @@ func Server(ctx context.Context, cfg *config.Config) {
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),
-			zap.Int("max_context_tokens", cfg.Generator.MaxContextTokens),
 		)
 	}
 
@@ -254,7 +253,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		History:          hist,
 		Rewriter:         chatRewriter,
 		RewriteTurns:     cfg.Rewriter.Turns,
-		MaxContextTokens: cfg.Generator.MaxContextTokens,
+		MaxContextTokens: cfg.Chat.MaxContextTokens,
 		Model:            cfg.Generator.Model,
 		Log:              log,
 	})

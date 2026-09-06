@@ -1,4 +1,4 @@
-package api
+package chat
 
 import (
 	"net/http"
@@ -16,13 +16,13 @@ import (
 // reconnecting browser resumes from its Last-Event-ID instead of missing
 // or duplicating events. Generation is not touched here — the chat service
 // owns it; this endpoint only observes.
-func (d *dependencies) RetrievalAnswer(c *gin.Context) {
+func (h *Handlers) RetrievalAnswer(c *gin.Context) {
 	since := int64(0)
 	if v, err := strconv.ParseInt(c.GetHeader("Last-Event-ID"), 10, 64); err == nil && v > 0 {
 		since = v
 	}
 
-	events, cancel, ok := d.chat.Subscribe(c.Request.Context(), c.Param("id"), since)
+	events, cancel, ok := h.chat.Subscribe(c.Request.Context(), c.Param("id"), since)
 	if !ok {
 		c.String(http.StatusNotFound, "no such turn event stream")
 		return
@@ -62,8 +62,8 @@ func (d *dependencies) RetrievalAnswer(c *gin.Context) {
 // RetrievalTurnCancel aborts a turn's in-flight generation. The supervisor
 // keeps the answer generated so far, emits its terminal event and persists
 // the partial answer; unknown turn ids are 404.
-func (d *dependencies) RetrievalTurnCancel(c *gin.Context) {
-	if !d.chat.CancelTurn(c.Param("id")) {
+func (h *Handlers) RetrievalTurnCancel(c *gin.Context) {
+	if !h.chat.CancelTurn(c.Param("id")) {
 		c.Status(http.StatusNotFound)
 		return
 	}

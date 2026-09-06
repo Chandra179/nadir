@@ -138,10 +138,10 @@
   }
 
   // The POST returns once retrieval is done (the answer then streams over
-  // SSE from /retrieval/answer/:id). This appends an optimistic placeholder
-  // turn (question + attached files + a pulsing "retrieving" row) the instant
-  // the request goes out, then removes it once the real turn fragment has
-  // been swapped in.
+  // SSE from the turn's event endpoint, see nadirStartStream). This appends
+  // an optimistic placeholder turn (question + attached files + a pulsing
+  // "retrieving" row) the instant the request goes out, then removes it once
+  // the real turn fragment has been swapped in.
   function nadirBeforeSearch(form) {
     document.getElementById('empty-state')?.remove();
     var input = form.querySelector('#composer-input');
@@ -160,7 +160,7 @@
     // htmx has already snapshotted the form's parameters by the time this
     // fires, so clearing the textarea here doesn't affect what gets sent —
     // it just makes the composer feel instant instead of waiting on the
-    // (buffered, potentially slow) response before clearing.
+    // retrieval response before clearing.
     input.value = '';
     input.style.height = 'auto';
 

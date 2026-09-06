@@ -1,4 +1,4 @@
-package api
+package chat
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"nadir/internal/api/internal/render"
 	"nadir/internal/chat"
 )
 
@@ -56,12 +57,14 @@ func (f *fakeChat) CancelTurn(turnID string) bool {
 	return f.cancelOK
 }
 
-func sseTestServer(t *testing.T, fc *fakeChat) *gin.Engine {
+func turnTestServer(t *testing.T, fc *fakeChat) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	deps := NewDependencies(DependenciesConfig{Chat: fc})
+	h := New(Config{Chat: fc, TopK: 8, Render: render.New(nil)})
 	engine := gin.New()
-	NewRouter(engine, deps)
+	engine.POST("/retrieval/search", h.RetrievalSearch)
+	engine.GET("/retrieval/turns/:id/events", h.RetrievalAnswer)
+	engine.POST("/retrieval/turns/:id/cancel", h.RetrievalTurnCancel)
 	return engine
 }
 
@@ -79,7 +82,7 @@ func TestRetrievalAnswerAdaptsEventsToSSE(t *testing.T) {
 			{Seq: 4, Kind: chat.EventDone, Text: "1"},
 		},
 	}
-	engine := sseTestServer(t, fc)
+	engine := turnTestServer(t, fc)
 
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/retrieval/turns/t1/events", nil))
@@ -103,7 +106,7 @@ func TestRetrievalAnswerAdaptsEventsToSSE(t *testing.T) {
 
 func TestRetrievalAnswerForwardsLastEventIDCursor(t *testing.T) {
 	fc := &fakeChat{ok: true}
-	engine := sseTestServer(t, fc)
+	engine := turnTestServer(t, fc)
 
 	req := httptest.NewRequest(http.MethodGet, "/retrieval/turns/t1/events", nil)
 	req.Header.Set("Last-Event-ID", "3")
@@ -118,7 +121,7 @@ func TestRetrievalAnswerExhaustedStreamIs204(t *testing.T) {
 	// A finished stream the client has fully consumed (a reconnect carrying
 	// Last-Event-ID at the end) must not loop the client on empty 200s.
 	fc := &fakeChat{ok: true} // Subscribe closes an empty channel
-	engine := sseTestServer(t, fc)
+	engine := turnTestServer(t, fc)
 
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/retrieval/turns/t1/events", nil))
@@ -133,7 +136,7 @@ func TestRetrievalAnswerExhaustedStreamIs204(t *testing.T) {
 
 func TestRetrievalAnswerUnknownTurnIs404(t *testing.T) {
 	fc := &fakeChat{ok: false}
-	engine := sseTestServer(t, fc)
+	engine := turnTestServer(t, fc)
 
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/retrieval/turns/nope/events", nil))
@@ -145,7 +148,7 @@ func TestRetrievalAnswerUnknownTurnIs404(t *testing.T) {
 
 func TestRetrievalTurnCancel(t *testing.T) {
 	fc := &fakeChat{cancelOK: true}
-	engine := sseTestServer(t, fc)
+	engine := turnTestServer(t, fc)
 
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/retrieval/turns/t1/cancel", nil))
@@ -158,7 +161,7 @@ func TestRetrievalTurnCancel(t *testing.T) {
 	}
 
 	fc2 := &fakeChat{cancelOK: false}
-	engine2 := sseTestServer(t, fc2)
+	engine2 := turnTestServer(t, fc2)
 	w2 := httptest.NewRecorder()
 	engine2.ServeHTTP(w2, httptest.NewRequest(http.MethodPost, "/retrieval/turns/ghost/cancel", nil))
 
@@ -169,10 +172,7 @@ func TestRetrievalTurnCancel(t *testing.T) {
 
 func TestRetrievalSearchRendersStreamURL(t *testing.T) {
 	fc := &fakeChat{turn: chat.Turn{ID: "t9", SessionID: "s1", Streaming: true, Generate: true}}
-	gin.SetMode(gin.TestMode)
-	deps := NewDependencies(DependenciesConfig{Chat: fc})
-	engine := gin.New()
-	NewRouter(engine, deps)
+	engine := turnTestServer(t, fc)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/retrieval/search", nil)

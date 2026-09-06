@@ -46,14 +46,14 @@ GET  /healthz → 200
 - `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, Qdrant hybrid store (dense + BM25 sparse + RRF)
 - `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; consumes `enrichment.Enricher`
 - `search/` — multi-fragment hybrid search → rerank → semantic cache
-- `chat/` — chat use-case (`Ask`: session mint → rewrite follow-up → retrieve → buffered generate → detached persist); handlers only map request/result
-- `generator/` — `Generator` interface, Ollama chat client, `buildPrompt`, `lostInMiddleOrder`
+- `chat/` — chat use-case (`StartTurn`: session mint → rewrite follow-up → retrieve → start generation supervisor; owns the turn event log, persistence at terminal state, and `CancelTurn`); handlers only map request/result
+- `generator/` — `Generator` interface (`Generate(ctx, prompt) <-chan Event` with typed `TokenEvent`/`ErrorEvent`/`DoneEvent`), Ollama streaming client; prompt building lives in `internal/chat/prompt.go`
 - `rewriter/` — `Rewriter` interface, Ollama client rewriting conversational follow-ups into standalone search queries (feature-flagged)
 - `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
 - `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
 
-**`internal/api/`** — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `Retrieval`, `RetrievalSearch`, `HistorySessions`/`HistorySession`) and `NewRouter`. UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup (`render.go`) and rendered through the shared `renderHTML` helper — no markup in Go source.
+**`internal/api/`** — HTTP transport, grouped by feature. Root package: `NewRouter` (route consts + registration), `NewDependencies` (DI; resolves the default top_k once), the page shell (`Retrieval`, `HistorySession`), and the `Ingest`/`DeleteAllData` handlers. Sub-packages: `chat/` (turn lifecycle — start, SSE event stream, cancel — plus the turn views), `history/` (sidebar session list + session delete), `internal/render/` (template engine). UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup and rendered through the shared render engine — no markup in Go source.
 
 **`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 
@@ -86,7 +86,7 @@ GET  /healthz → 200
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`, default `auto`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. GPU needs the CUDA-torch image: `RERANKER_GPU=1 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build reranker` (NVIDIA container toolkit required).
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. The compose stack is GPU-first: the build bakes the CUDA-torch image (`RERANKER_GPU=0` switches to the CPU-torch build) and the reranker reserves the host GPU (NVIDIA container toolkit required — hosts without it must delete the `reservations` block). `RERANKER_DEVICE=cpu` runs on the same image with no rebuild.
 
 ## Sample data
 

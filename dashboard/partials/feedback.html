@@ -1,0 +1,3 @@
+{{define "feedback"}}
+<div class="feedback {{if .Error}}feedback-err{{else}}feedback-ok{{end}}">{{if .Error}}{{.Error}}{{else}}All indexed data deleted.{{end}}</div>
+{{end}}
