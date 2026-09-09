@@ -49,9 +49,9 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 **Domain packages (under `internal/`):**
 - `chunker/` — `Chunker` interface, `Chunk` value type, `RecursiveChunker`, `SentenceWindowChunker`, `ContextualText`
 - `embedder/` — `Embedder`, `BatchEmbedder` interfaces, `OllamaEmbedder`
-- `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, `QdrantStore`
-- `ingest/` — source discovery, SHA dedup, bounded chunk→embed→upsert pipeline
-- `search/` — bounded multi-fragment hybrid search → rerank → semantic cache
+- `store/` — document-corpus `Store` interface and Qdrant hybrid Adapter; retrieval-facing chunk/filter types live in `search`
+- `ingest/` — document intake (`.md`, optional `.pdf` through Docling), SHA dedup, bounded indexing pass
+- `search/` — Retrieval-owned request/result types; bounded multi-fragment hybrid search → rerank → semantic cache
 - `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
 - `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
@@ -63,11 +63,15 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 
 `internal/middleware/` — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls; source sweeps and SSE turn streams are exempt.
 
-`services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
+`services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `docling/` (:5003, PDF→Markdown HTTP intake).
+
+`internal/qdrantutil/` — shared Qdrant clients, dense collection setup, payload
+codecs, and point-ID decoding; document, history, and semantic-cache
+lifecycle rules remain separate.
 
 ### Request pipeline details
 
-1. **Ingest & chunk** — sentence-based chunking for precise citations; configurable chunk size/overlap/strategy.
+1. **Document intake & chunk** — Markdown is already normalized; optional PDFs are converted by Docling before sentence-based chunking for precise citations; chunk size/overlap/strategy are configurable.
 2. **Embed** — each chunk is prefixed with its file path + heading before embedding, anchoring the vector in document structure without altering the stored text.
 3. **Semantic cache** — query embedding is checked against a dedicated Qdrant collection by cosine similarity before search; filtered searches bypass it, and cache entries are versioned by the embedding configuration.
 4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25-style term vectors, IDF-weighted server-side by Qdrant) legs run as native Qdrant prefetches and fuse via Reciprocal Rank Fusion (RRF) in a single query. Long queries are split into sentence fragments, embedded in one batch call, searched in parallel, then deduped/re-sorted with a per-file cap for diversity. The search use-case accepts an optional filter (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
@@ -79,12 +83,13 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`
-- Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
+- External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests
 
 ## Addresses: local vs Docker
 
-`config/config.yaml` already defaults to `localhost` addresses for the host-side server (`./scripts/local.sh` runs it as-is, no env overrides needed). Inside Docker, `docker-compose.yml` overrides the containerized `app` service via env vars to docker-internal hostnames: Qdrant `qdrant:6334` (gRPC — not the REST port 6333), reranker `reranker:5002`, Ollama `host.docker.internal:11434`.
+`config/config.yaml` defaults to `localhost` addresses for the host-side server (`./scripts/local.sh` runs it as-is). The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; it uses Qdrant `qdrant:6334`, reranker `reranker:5002`, and Ollama `host.docker.internal:11434`. Layer `docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
 
 ## Features gated by config
 
@@ -94,6 +99,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |
+| PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
 `ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
 

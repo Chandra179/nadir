@@ -3,6 +3,8 @@ package store
 import (
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
+
+	"nadir/internal/qdrantutil"
 )
 
 const defaultPrefetchMul = 5
@@ -12,6 +14,7 @@ const defaultPrefetchMul = 5
 // once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
 	Conn        *grpc.ClientConn
+	Clients     qdrantutil.Clients
 	Collection  string
 	PrefetchMul int
 }
@@ -33,9 +36,13 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		prefetchMul = defaultPrefetchMul
 	}
 
+	clients := cfg.Clients
+	if clients.Points == nil || clients.Collections == nil {
+		clients = qdrantutil.NewClients(cfg.Conn)
+	}
 	return &dependencies{
-		points:      qdrant.NewPointsClient(cfg.Conn),
-		collection:  qdrant.NewCollectionsClient(cfg.Conn),
+		points:      clients.Points,
+		collection:  clients.Collections,
 		name:        cfg.Collection,
 		prefetchMul: prefetchMul,
 	}, nil

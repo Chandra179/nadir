@@ -43,9 +43,9 @@ GET  /healthz → 200
 **Domain packages (under `internal/`):**
 - `chunker/` — `Chunker` interface, `Chunk` value type, recursive + sentence-window providers, `ContextualText`
 - `embedder/` — `Embedder`, `BatchEmbedder` interfaces, Ollama HTTP client
-- `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, Qdrant hybrid store (dense + BM25 sparse + RRF)
-- `ingest/` — upload-file ingest (`.md`, SHA dedup, concurrent workers), chunk→enrich→embed→upsert; consumes `enrichment.Enricher`
-- `search/` — multi-fragment hybrid search → rerank → semantic cache
+- `store/` — document-corpus `Store` interface and Qdrant hybrid Adapter (dense + BM25 sparse + RRF); storage chunk/filter types stay behind `search`'s caller-facing seam
+- `ingest/` — document intake (`.md`, optional `.pdf` through Docling), SHA dedup, bounded indexing pass, chunk→enrich→embed→replace; consumes `enrichment.Enricher`
+- `search/` — Retrieval-owned request/result types; multi-fragment hybrid search → rerank → semantic cache
 - `chat/` — chat use-case (`StartTurn`: session mint → rewrite follow-up → retrieve → start generation supervisor; owns the turn event log, persistence at terminal state, and `CancelTurn`); handlers only map request/result
 - `generator/` — `Generator` interface (`Generate(ctx, prompt) <-chan Event` with typed `TokenEvent`/`ErrorEvent`/`DoneEvent`), Ollama streaming client; prompt building lives in `internal/chat/prompt.go`
 - `rewriter/` — `Rewriter` interface, Ollama client rewriting conversational follow-ups into standalone search queries (feature-flagged)
@@ -59,21 +59,27 @@ GET  /healthz → 200
 
 **`internal/middleware/`** — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`.
 
-**`services/`** — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
+**`services/`** — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `docling/` (:5003, PDF→Markdown HTTP intake).
+
+**`internal/qdrantutil/`** — shared Qdrant client set, dense collection setup,
+payload primitive codecs, and point-ID decoding. It is infrastructure shared
+by the document store, history, and semantic cache; their domain lifecycles
+remain separate.
 
 ## Key rules
 
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars: `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`
-- Source dirs set via `source.paths` in config (list of paths); no env override for source dirs
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
+- External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
 - Enrichment flags (`enrichment.hype.enabled`, `enrichment.contextual.enabled`) affect ingest only; enabling after a prior ingest requires a reindex
 
 ## Addresses: local vs Docker
 
-`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly, no env overrides needed. Inside Docker, `docker-compose.yml` overrides via env vars: Qdrant `qdrant:6334` (gRPC), reranker `reranker:5002`, Ollama `host.docker.internal:11434`.
+`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly. The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
 
 ## Features gated by config
 
@@ -85,8 +91,9 @@ GET  /healthz → 200
 | Query rewriting | `rewriter.enabled` (on by default) | Ollama LLM; follow-up turns only (+1 LLM call); chat history enabled |
 | HyPE | `enrichment.hype.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
+| PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and quantized via `RERANKER_BACKEND` (`onnx` = build-time baked dynamic-int8 export, default; `torch-int8` = quantized at startup, no bake needed; `torch` = fp32) — the baked int8 export only applies to the build-time model, a swapped model degrades to fp32 onnx unless rebuilt. `RERANKER_DEVICE` (`auto`|`cpu`|`cuda`) picks the device: both int8 routes are CPU artifacts, so on `cuda` every backend serves fp32 torch. The compose stack is GPU-first: the build bakes the CUDA-torch image (`RERANKER_GPU=0` switches to the CPU-torch build) and the reranker reserves the host GPU — that path needs the NVIDIA container toolkit. The dev flow (`local.sh`) doesn't: it runs the sidecar from the repo `venv/` on the host GPU (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker.
+`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator (rewriter and enrichment fall back generator → embedder). The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and supports `RERANKER_BACKEND` (`onnx`, `torch-int8`, or `torch`). The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
 
 ## Sample data
 

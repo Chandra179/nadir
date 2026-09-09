@@ -34,6 +34,7 @@ type DependenciesConfig struct {
 	Embedder         embedder.Embedder
 	Store            store.Store
 	Retry            RetryConfig
+	Workers          int
 	MaxFileBytes     int64
 	EmbedBatchSize   int
 	MaxChunksPerFile int
@@ -59,10 +60,16 @@ type dependencies struct {
 	maxFileBytes   int64
 	embedBatchSize int
 	maxChunks      int
+	workers        int
+	converter      DocumentConverter
 	log            *zap.Logger
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
+	workers := cfg.Workers
+	if workers <= 0 {
+		workers = ingestWorkers
+	}
 	maxFileBytes := cfg.MaxFileBytes
 	if maxFileBytes <= 0 {
 		maxFileBytes = defaultMaxFileSize
@@ -88,6 +95,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		maxFileBytes:   maxFileBytes,
 		embedBatchSize: embedBatchSize,
 		maxChunks:      maxChunks,
+		workers:        workers,
 		log:            log,
 	}
 }
@@ -106,5 +114,13 @@ func (d *dependencies) WithEnrichment(e enrichment.Enricher, hypeQuestions int, 
 	d.enrich = e
 	d.hypeQuestions = hypeQuestions
 	d.contextual = contextual
+	return d
+}
+
+// WithDocumentConverter enables document intake for formats such as PDF.
+// The indexing pass still receives Markdown and keeps the original source
+// identity for citations and deterministic chunk IDs.
+func (d *dependencies) WithDocumentConverter(c DocumentConverter) *dependencies {
+	d.converter = c
 	return d
 }

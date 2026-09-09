@@ -12,11 +12,12 @@ func TestDiscoverFilesIsStableAndHonorsIgnorePatterns(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, contents := range map[string]string{
-		"z.md":           "z",
-		"nested/a.md":    "a",
-		"nested/skip.md": "skip",
-		"notes.txt":      "not markdown",
-		".hidden.md":     "hidden",
+		"z.md":             "z",
+		"nested/a.md":      "a",
+		"nested/skip.md":   "skip",
+		"nested/guide.pdf": "pdf bytes",
+		"notes.txt":        "not markdown",
+		".hidden.md":       "hidden",
 	} {
 		path := filepath.Join(root, name)
 		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
@@ -28,10 +29,10 @@ func TestDiscoverFilesIsStableAndHonorsIgnorePatterns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 2 {
-		t.Fatalf("discovered %d files, want 2", len(files))
+	if len(files) != 3 {
+		t.Fatalf("discovered %d files, want 3", len(files))
 	}
-	if filepath.Base(files[0].Name) != "a.md" || filepath.Base(files[1].Name) != "z.md" {
+	if filepath.Base(files[0].Name) != "a.md" || filepath.Base(files[1].Name) != "guide.pdf" || filepath.Base(files[2].Name) != "z.md" {
 		t.Fatalf("files are not stable and sorted: %+v", files)
 	}
 }

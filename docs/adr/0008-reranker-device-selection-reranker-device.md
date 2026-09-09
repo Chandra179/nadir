@@ -1,7 +1,7 @@
 # 0008 — Reranker device selection: `RERANKER_DEVICE=auto|cpu|cuda`
 
 - **Status:** Accepted
-- **Date:** 2026-09-06
+- **Date:** 2026-09-06; deployment packaging revised 2026-09-09
 - **Deciders:** Chandra, ZCode session
 
 ## Context
@@ -26,22 +26,20 @@ has an NVIDIA GPU (RTX 4050) already used by Ollama. Constraints discovered:
   notice that the int8 routes are CPU-only.
 
 Packaging: `services/reranker/Dockerfile` takes a `GPU` build arg choosing
-`requirements-gpu.txt` (CUDA torch) vs `requirements-cpu.txt`; the bake still
-runs in both images so `RERANKER_DEVICE=cpu` keeps the int8 artifact. The
-compose stack is GPU-first in a single `docker-compose.yml`: the CUDA build
-(`RERANKER_GPU`, default 1) and the NVIDIA device reservation are always
-declared, with `RERANKER_DEVICE=cuda` as default — the primary host has the
-toolkit, and switching to CPU is `RERANKER_GPU=0 RERANKER_DEVICE=cpu` (the
-device switch needs no rebuild). Hosts without the NVIDIA toolkit must delete
-the `reservations` block, since Compose cannot conditionalize a structural
-block on an env var; a base+overlay split was rejected to avoid duplicating
-the model build args across files.
+`requirements-gpu.txt` (CUDA torch) vs `requirements-cpu.txt`. The base
+`docker-compose.yml` is CPU-safe and has no NVIDIA reservation, so it works on
+Linux, Windows Docker Desktop, and macOS. `docker-compose.gpu.yml` is an
+explicit overlay for Linux or Windows WSL2: it selects the CUDA image and adds
+the NVIDIA device reservation. The AVX2 quantized bake is optional and only
+runs for amd64 builds; portable CPU Compose defaults to the torch backend.
 
 ## Consequences
 
-- On the laptop, the reranker runs fp32 on CUDA: no int8 speedup, but the
-  cross-encoder no longer owns the CPU during searches.
-- The baked int8 export stays relevant for CPU deployments; a swapped model
-  still degrades to fp32 (ADR 0003).
+- On a CUDA host using the overlay, the reranker runs fp32 on CUDA: no int8
+  speedup, but the cross-encoder no longer owns the CPU during searches.
+- On macOS, the reranker runs on CPU while host-side Ollama can use Apple
+  Metal acceleration; Apple Silicon avoids the x86/AVX2 quantized bake.
+- The baked int8 export remains available for explicitly configured amd64 CPU
+  deployments; a swapped model still degrades to fp32 (ADR 0003).
 - CUDA + int8 remains unimplemented until upstream `optimum[onnxruntime-gpu]`
   is usable.

@@ -8,9 +8,10 @@ import (
 // DependenciesConfig groups everything needed to construct the Ollama
 // embedder.
 type DependenciesConfig struct {
-	Addr       string
-	Model      string
-	Dimensions int
+	Addr           string
+	Model          string
+	Dimensions     int
+	RequestTimeout time.Duration
 }
 
 // dependencies embeds text via an Ollama embedding model.
@@ -22,10 +23,14 @@ type dependencies struct {
 }
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
+	timeout := cfg.RequestTimeout
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
 	return &dependencies{
 		addr:       cfg.Addr,
 		model:      cfg.Model,
 		dimensions: cfg.Dimensions,
-		client:     &http.Client{Timeout: 60 * time.Second},
+		client:     &http.Client{Timeout: timeout},
 	}
 }

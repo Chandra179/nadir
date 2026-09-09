@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"nadir/config"
 	"nadir/internal/api"
@@ -18,6 +17,7 @@ import (
 	"nadir/internal/ingest"
 	"nadir/internal/logger"
 	"nadir/internal/middleware"
+	"nadir/internal/qdrantutil"
 	"nadir/internal/reranker"
 	"nadir/internal/rewriter"
 	"nadir/internal/search"
@@ -29,17 +29,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
-	defaultRerankerCandidate = 3
-)
-
 func Server(ctx context.Context, cfg *config.Config) error {
 	log, err := logger.New(cfg.Middleware.Logger.Level)
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
 	}
 	defer log.Sync()
-	startupCtx, startupCancel := context.WithTimeout(ctx, 30*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, cfg.HTTP.StartupTimeout)
 	defer startupCancel()
 
 	deps := middleware.NewDependencies(middleware.DependenciesConfig{
@@ -55,9 +51,10 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("qdrant dial: %w", err)
 	}
 	defer qdrantConn.Close()
+	qdrantClients := qdrantutil.NewClients(qdrantConn)
 
 	s, err := store.NewDependencies(store.DependenciesConfig{
-		Conn:        qdrantConn,
+		Clients:     qdrantClients,
 		Collection:  cfg.Qdrant.Collection,
 		PrefetchMul: cfg.Qdrant.PrefetchMul,
 	})
@@ -67,9 +64,10 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 
 	e := embedder.NewDependencies(embedder.DependenciesConfig{
-		Addr:       cfg.Embedder.OllamaAddr,
-		Model:      cfg.Embedder.Model,
-		Dimensions: cfg.Embedder.Dimensions,
+		Addr:           cfg.Embedder.OllamaAddr,
+		Model:          cfg.Embedder.Model,
+		Dimensions:     cfg.Embedder.Dimensions,
+		RequestTimeout: cfg.Embedder.RequestTimeout,
 	})
 
 	if err := s.EnsureCollection(startupCtx, e.Dimensions()); err != nil {
@@ -97,39 +95,30 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			MaxInterval:     cfg.Ingest.MaxInterval,
 			Multiplier:      cfg.Ingest.Multiplier,
 		},
+		Workers:          cfg.Ingest.Workers,
 		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
 		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
 		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
 		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
 		Log:              log,
 	})
+	if cfg.Docling.Enabled {
+		ingestDeps.WithDocumentConverter(ingest.NewDoclingConverter(cfg.Docling.Addr, cfg.Docling.RequestTimeout))
+		log.Info("PDF document intake enabled", zap.String("addr", cfg.Docling.Addr))
+	}
 
 	// Index-time LLM enrichment (HyPE questions, contextual intros): both
 	// are one-time costs per chunk at ingest, zero query-time latency.
 	// Enabling either after a collection was already ingested requires a
 	// reindex to take effect.
 	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
-		enrichAddr := cfg.Enrichment.Hype.OllamaAddr
-		enrichModel := cfg.Enrichment.Hype.Model
-		if cfg.Enrichment.Contextual.Enabled {
-			if enrichAddr == "" {
-				enrichAddr = cfg.Enrichment.Contextual.OllamaAddr
-			}
-			if enrichModel == "" {
-				enrichModel = cfg.Enrichment.Contextual.Model
-			}
-		}
-		if enrichAddr == "" {
-			enrichAddr = cfg.Generator.OllamaAddr
-		}
-		if enrichAddr == "" {
-			enrichAddr = cfg.Embedder.OllamaAddr
-		}
-		if enrichModel == "" {
-			enrichModel = cfg.Generator.Model
-		}
+		enrichmentEndpoint := cfg.EnrichmentEndpoint()
 		ingestDeps.WithEnrichment(
-			enrichment.NewDependencies(enrichment.DependenciesConfig{Addr: enrichAddr, Model: enrichModel}),
+			enrichment.NewDependencies(enrichment.DependenciesConfig{
+				Addr:           enrichmentEndpoint.Addr,
+				Model:          enrichmentEndpoint.Model,
+				RequestTimeout: cfg.Enrichment.RequestTimeout,
+			}),
 			cfg.Enrichment.Hype.QuestionsPerChunk,
 			cfg.Enrichment.Contextual.Enabled,
 		)
@@ -137,8 +126,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			zap.Bool("hype", cfg.Enrichment.Hype.Enabled),
 			zap.Int("questions_per_chunk", cfg.Enrichment.Hype.QuestionsPerChunk),
 			zap.Bool("contextual", cfg.Enrichment.Contextual.Enabled),
-			zap.String("model", enrichModel),
-			zap.String("addr", enrichAddr))
+			zap.String("model", enrichmentEndpoint.Model),
+			zap.String("addr", enrichmentEndpoint.Addr))
 	}
 
 	searchService := search.NewDependencies(search.DependenciesConfig{
@@ -149,30 +138,26 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		MaxFragments:           cfg.Search.MaxFragments,
 		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
 		MaxTopK:                cfg.Search.MaxTopK,
+		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
 		Log:                    log,
 	})
 
 	if cfg.Reranker.Enabled {
-		mul := cfg.Reranker.CandidateMul
-		if mul < 1 {
-			mul = defaultRerankerCandidate
-		}
 		searchService.WithReranker(reranker.NewDependencies(reranker.DependenciesConfig{
-			Addr:          cfg.Reranker.Addr,
-			MaxConcurrent: cfg.Reranker.MaxConcurrent,
-		}), mul)
+			Addr:           cfg.Reranker.Addr,
+			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
+			RequestTimeout: cfg.Reranker.RequestTimeout,
+		}), cfg.Reranker.CandidateMul)
 		log.Info("cross-encoder reranker enabled", zap.String("addr", cfg.Reranker.Addr))
 	}
 
 	var gen generator.Generator
 	if cfg.Generator.Enabled {
-		ollamaAddr := cfg.Generator.OllamaAddr
-		if ollamaAddr == "" {
-			ollamaAddr = cfg.Embedder.OllamaAddr
-		}
+		generatorEndpoint := cfg.GeneratorEndpoint()
 		gen = generator.NewDependencies(generator.DependenciesConfig{
-			Addr:  ollamaAddr,
-			Model: cfg.Generator.Model,
+			Addr:           generatorEndpoint.Addr,
+			Model:          generatorEndpoint.Model,
+			RequestTimeout: cfg.Generator.RequestTimeout,
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),
@@ -184,7 +169,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	if cfg.SemanticCache.Enabled {
 		var err error
 		semanticCache, err = cache.NewDependencies(cache.DependenciesConfig{
-			Conn:        qdrantConn,
+			Clients:     qdrantClients,
 			Collection:  cfg.SemanticCache.Collection,
 			Embedder:    e,
 			Threshold:   cfg.SemanticCache.Threshold,
@@ -212,7 +197,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	var hist history.History
 	if cfg.History.Enabled {
 		h, err := history.NewDependencies(history.DependenciesConfig{
-			Conn:       qdrantConn,
+			Clients:    qdrantClients,
 			Collection: cfg.History.Collection,
 			Embedder:   e,
 		})
@@ -241,25 +226,19 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// prior turns; rewrite failures fall back to the raw query.
 	var chatRewriter rewriter.Rewriter
 	if cfg.Rewriter.Enabled {
-		rewriteAddr := cfg.Rewriter.OllamaAddr
-		if rewriteAddr == "" {
-			rewriteAddr = cfg.Generator.OllamaAddr
-		}
-		if rewriteAddr == "" {
-			rewriteAddr = cfg.Embedder.OllamaAddr
-		}
-		rewriteModel := cfg.Rewriter.Model
-		if rewriteModel == "" {
-			rewriteModel = cfg.Generator.Model
-		}
-		if rewriteAddr == "" || rewriteModel == "" {
+		rewriteEndpoint := cfg.RewriterEndpoint()
+		if rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
 			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
-				zap.String("addr", rewriteAddr), zap.String("model", rewriteModel))
+				zap.String("addr", rewriteEndpoint.Addr), zap.String("model", rewriteEndpoint.Model))
 		} else {
-			chatRewriter = rewriter.NewDependencies(rewriter.DependenciesConfig{Addr: rewriteAddr, Model: rewriteModel})
+			chatRewriter = rewriter.NewDependencies(rewriter.DependenciesConfig{
+				Addr:           rewriteEndpoint.Addr,
+				Model:          rewriteEndpoint.Model,
+				RequestTimeout: cfg.Rewriter.RequestTimeout,
+			})
 			log.Info("conversational query rewriting enabled",
-				zap.String("model", rewriteModel),
-				zap.String("addr", rewriteAddr),
+				zap.String("model", rewriteEndpoint.Model),
+				zap.String("addr", rewriteEndpoint.Addr),
 				zap.Int("turns", cfg.Rewriter.Turns))
 		}
 	}
@@ -271,6 +250,11 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		Rewriter:         chatRewriter,
 		RewriteTurns:     cfg.Rewriter.Turns,
 		MaxContextTokens: cfg.Chat.MaxContextTokens,
+		EventBuffer:      cfg.Chat.EventBuffer,
+		MaxEventLogBytes: cfg.Chat.MaxEventLogBytes,
+		MaxRetainedTurns: cfg.Chat.MaxRetainedTurns,
+		FinishedTurnTTL:  cfg.Chat.FinishedTurnTTL,
+		PersistTimeout:   cfg.Chat.PersistTimeout,
 		Model:            cfg.Generator.Model,
 		Log:              log,
 	})
@@ -304,7 +288,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	go func() {
 		<-ctx.Done()
 		log.Info("http server shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			log.Error("http server shutdown error", zap.Error(err))

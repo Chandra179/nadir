@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
+
+	"nadir/internal/qdrantutil"
 )
 
 // Session is one persisted chat conversation.
@@ -140,8 +142,8 @@ func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Tu
 		CollectionName: d.name,
 		Wait:           &wait,
 		Payload: map[string]*qdrant.Value{
-			"updated_at": intVal(now.UnixMilli()),
-			"turn_count": intVal(int64(session.TurnCount + 1)),
+			"updated_at": qdrantutil.IntValue(now.UnixMilli()),
+			"turn_count": qdrantutil.IntValue(int64(session.TurnCount + 1)),
 		},
 		PointsSelector: qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
 	}); err != nil {
@@ -172,7 +174,7 @@ func (d *dependencies) ListSessions(ctx context.Context, limit int) ([]Session, 
 
 	out := make([]Session, len(resp.Result))
 	for i, pt := range resp.Result {
-		out[i] = sessionFromPayload(pointIDString(pt.Id), pt.Payload)
+		out[i] = sessionFromPayload(qdrantutil.PointIDString(pt.Id), pt.Payload)
 	}
 	return out, nil
 }
@@ -218,7 +220,7 @@ func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn,
 			return nil, fmt.Errorf("history: list turns: %w", err)
 		}
 		for _, pt := range resp.Result {
-			turn, err := turnFromPayload(pointIDString(pt.Id), pt.Payload)
+			turn, err := turnFromPayload(qdrantutil.PointIDString(pt.Id), pt.Payload)
 			if err != nil {
 				return nil, err
 			}
@@ -291,11 +293,11 @@ func matchKeyword(key, value string) *qdrant.Condition {
 
 func sessionPayload(title string, createdAt, updatedAt time.Time, turnCount int) map[string]*qdrant.Value {
 	return map[string]*qdrant.Value{
-		"doc_type":   strVal(docTypeSession),
-		"title":      strVal(title),
-		"created_at": intVal(createdAt.UnixMilli()),
-		"updated_at": intVal(updatedAt.UnixMilli()),
-		"turn_count": intVal(int64(turnCount)),
+		"doc_type":   qdrantutil.StringValue(docTypeSession),
+		"title":      qdrantutil.StringValue(title),
+		"created_at": qdrantutil.IntValue(createdAt.UnixMilli()),
+		"updated_at": qdrantutil.IntValue(updatedAt.UnixMilli()),
+		"turn_count": qdrantutil.IntValue(int64(turnCount)),
 	}
 }
 
@@ -309,124 +311,72 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 		return nil, fmt.Errorf("history: marshal attached files: %w", err)
 	}
 	return map[string]*qdrant.Value{
-		"doc_type":        strVal(docTypeTurn),
-		"session_id":      strVal(sessionID),
-		"sequence":        intVal(int64(sequence)),
-		"created_at":      intVal(now.UnixMilli()),
-		"query":           strVal(turn.Query),
-		"rewritten_query": strVal(turn.RewrittenQuery),
-		"attached_files":  strVal(string(attachedJSON)),
-		"top_k":           intVal(int64(turn.TopK)),
-		"generate":        boolVal(turn.Generate),
-		"results_json":    strVal(string(resultsJSON)),
-		"count":           intVal(int64(turn.Count)),
-		"elapsed_ms":      intVal(turn.ElapsedMS),
-		"from_cache":      boolVal(turn.FromCache),
-		"prompt":          strVal(turn.Prompt),
-		"answer":          strVal(turn.Answer),
-		"has_answer":      boolVal(turn.HasAnswer),
-		"model":           strVal(turn.Model),
-		"error":           strVal(turn.Error),
-		"generate_error":  strVal(turn.GenerateError),
-		"failed":          boolVal(turn.Failed),
+		"doc_type":        qdrantutil.StringValue(docTypeTurn),
+		"session_id":      qdrantutil.StringValue(sessionID),
+		"sequence":        qdrantutil.IntValue(int64(sequence)),
+		"created_at":      qdrantutil.IntValue(now.UnixMilli()),
+		"query":           qdrantutil.StringValue(turn.Query),
+		"rewritten_query": qdrantutil.StringValue(turn.RewrittenQuery),
+		"attached_files":  qdrantutil.StringValue(string(attachedJSON)),
+		"top_k":           qdrantutil.IntValue(int64(turn.TopK)),
+		"generate":        qdrantutil.BoolValue(turn.Generate),
+		"results_json":    qdrantutil.StringValue(string(resultsJSON)),
+		"count":           qdrantutil.IntValue(int64(turn.Count)),
+		"elapsed_ms":      qdrantutil.IntValue(turn.ElapsedMS),
+		"from_cache":      qdrantutil.BoolValue(turn.FromCache),
+		"prompt":          qdrantutil.StringValue(turn.Prompt),
+		"answer":          qdrantutil.StringValue(turn.Answer),
+		"has_answer":      qdrantutil.BoolValue(turn.HasAnswer),
+		"model":           qdrantutil.StringValue(turn.Model),
+		"error":           qdrantutil.StringValue(turn.Error),
+		"generate_error":  qdrantutil.StringValue(turn.GenerateError),
+		"failed":          qdrantutil.BoolValue(turn.Failed),
 	}, nil
 }
 
 func sessionFromPayload(id string, p map[string]*qdrant.Value) Session {
 	return Session{
 		ID:        id,
-		Title:     pbStr(p, "title"),
-		CreatedAt: time.UnixMilli(pbInt(p, "created_at")).UTC(),
-		UpdatedAt: time.UnixMilli(pbInt(p, "updated_at")).UTC(),
-		TurnCount: int(pbInt(p, "turn_count")),
+		Title:     qdrantutil.StringFromPayload(p, "title"),
+		CreatedAt: time.UnixMilli(qdrantutil.IntFromPayload(p, "created_at")).UTC(),
+		UpdatedAt: time.UnixMilli(qdrantutil.IntFromPayload(p, "updated_at")).UTC(),
+		TurnCount: int(qdrantutil.IntFromPayload(p, "turn_count")),
 	}
 }
 
 func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
 	var results []TurnResult
-	if raw := pbStr(p, "results_json"); raw != "" {
+	if raw := qdrantutil.StringFromPayload(p, "results_json"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &results); err != nil {
 			return Turn{}, fmt.Errorf("history: decode results: %w", err)
 		}
 	}
 	var attached []string
-	if raw := pbStr(p, "attached_files"); raw != "" {
+	if raw := qdrantutil.StringFromPayload(p, "attached_files"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &attached); err != nil {
 			return Turn{}, fmt.Errorf("history: decode attached files: %w", err)
 		}
 	}
 	return Turn{
 		ID:             id,
-		SessionID:      pbStr(p, "session_id"),
-		Sequence:       int(pbInt(p, "sequence")),
-		CreatedAt:      time.UnixMilli(pbInt(p, "created_at")).UTC(),
-		Query:          pbStr(p, "query"),
-		RewrittenQuery: pbStr(p, "rewritten_query"),
+		SessionID:      qdrantutil.StringFromPayload(p, "session_id"),
+		Sequence:       int(qdrantutil.IntFromPayload(p, "sequence")),
+		CreatedAt:      time.UnixMilli(qdrantutil.IntFromPayload(p, "created_at")).UTC(),
+		Query:          qdrantutil.StringFromPayload(p, "query"),
+		RewrittenQuery: qdrantutil.StringFromPayload(p, "rewritten_query"),
 		AttachedFiles:  attached,
-		TopK:           int(pbInt(p, "top_k")),
-		Generate:       pbBool(p, "generate"),
+		TopK:           int(qdrantutil.IntFromPayload(p, "top_k")),
+		Generate:       qdrantutil.BoolFromPayload(p, "generate"),
 		Results:        results,
-		Count:          int(pbInt(p, "count")),
-		ElapsedMS:      pbInt(p, "elapsed_ms"),
-		FromCache:      pbBool(p, "from_cache"),
-		Prompt:         pbStr(p, "prompt"),
-		Answer:         pbStr(p, "answer"),
-		HasAnswer:      pbBool(p, "has_answer"),
-		Model:          pbStr(p, "model"),
-		Error:          pbStr(p, "error"),
-		GenerateError:  pbStr(p, "generate_error"),
-		Failed:         pbBool(p, "failed"),
+		Count:          int(qdrantutil.IntFromPayload(p, "count")),
+		ElapsedMS:      qdrantutil.IntFromPayload(p, "elapsed_ms"),
+		FromCache:      qdrantutil.BoolFromPayload(p, "from_cache"),
+		Prompt:         qdrantutil.StringFromPayload(p, "prompt"),
+		Answer:         qdrantutil.StringFromPayload(p, "answer"),
+		HasAnswer:      qdrantutil.BoolFromPayload(p, "has_answer"),
+		Model:          qdrantutil.StringFromPayload(p, "model"),
+		Error:          qdrantutil.StringFromPayload(p, "error"),
+		GenerateError:  qdrantutil.StringFromPayload(p, "generate_error"),
+		Failed:         qdrantutil.BoolFromPayload(p, "failed"),
 	}, nil
-}
-
-func pointIDString(id *qdrant.PointId) string {
-	if id == nil {
-		return ""
-	}
-	if uid, ok := id.PointIdOptions.(*qdrant.PointId_Uuid); ok {
-		return uid.Uuid
-	}
-	if num, ok := id.PointIdOptions.(*qdrant.PointId_Num); ok {
-		return fmt.Sprintf("%d", num.Num)
-	}
-	return ""
-}
-
-func strVal(s string) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_StringValue{StringValue: s}}
-}
-
-func intVal(n int64) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_IntegerValue{IntegerValue: n}}
-}
-
-func boolVal(b bool) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_BoolValue{BoolValue: b}}
-}
-
-func pbStr(p map[string]*qdrant.Value, key string) string {
-	if v, ok := p[key]; ok {
-		if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
-			return s.StringValue
-		}
-	}
-	return ""
-}
-
-func pbInt(p map[string]*qdrant.Value, key string) int64 {
-	if v, ok := p[key]; ok {
-		if n, ok := v.Kind.(*qdrant.Value_IntegerValue); ok {
-			return n.IntegerValue
-		}
-	}
-	return 0
-}
-
-func pbBool(p map[string]*qdrant.Value, key string) bool {
-	if v, ok := p[key]; ok {
-		if b, ok := v.Kind.(*qdrant.Value_BoolValue); ok {
-			return b.BoolValue
-		}
-	}
-	return false
 }

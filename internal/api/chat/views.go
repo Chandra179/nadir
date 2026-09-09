@@ -5,7 +5,7 @@ import (
 
 	"nadir/internal/chat"
 	"nadir/internal/history"
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 // TurnView is one exchange in the chat: the question, the retrieval tool
@@ -113,7 +113,7 @@ func HistoryTurnToView(t history.Turn) TurnView {
 
 // toRetrievalResultViews builds the display rows for a result set, then
 // scales bar widths relative to the top score (see applyRelativeScores).
-func toRetrievalResultViews(chunks []store.ScoredChunk) []RetrievalResultView {
+func toRetrievalResultViews(chunks []search.Chunk) []RetrievalResultView {
 	views := make([]RetrievalResultView, len(chunks))
 	for i, ch := range chunks {
 		text := ch.WindowText

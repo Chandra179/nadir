@@ -43,14 +43,15 @@ flowchart TB
     GEN -->|generate| Ollama
     CACHE -->|cache collection| Qdrant
     HIST -->|history collection| Qdrant
-    DoclingSvc -.->|PDF→Markdown · standalone, not wired| INGEST
+    DoclingSvc -->|PDF→Markdown intake · optional profile| INGEST
 ```
 
 ## Data flows
 
-**Index path** — submitted documents are deduplicated, chunked, optionally
-enriched, embedded, and written to the vector store. A fresh ingest invalidates
-the semantic cache.
+**Index path** — submitted source files enter document intake; PDFs are
+optionally converted to Markdown through Docling, then documents are
+deduplicated, chunked, optionally enriched, embedded, and written to the
+vector store. A fresh ingest invalidates the semantic cache.
 
 **Query path** — one chat turn (see Chat System below): mint session, rewrite
 follow-ups, cache-checked hybrid search, optional streaming answer; the turn
@@ -151,9 +152,12 @@ Two supported topologies:
   `./scripts/local.sh`.
 - **Docker Compose** — everything in containers; env vars override the
   config: Qdrant at `qdrant:6334`, reranker at `reranker:5002`, Ollama at
-  `host.docker.internal:11434`. GPU-first: the build bakes a CUDA-torch
-  reranker image (`RERANKER_GPU=0` switches to the CPU build) and the
-  sidecar reserves the host GPU.
+  `host.docker.internal:11434`. The base file is CPU-safe and works on Linux,
+  Windows Docker Desktop, and macOS. Linux/Windows WSL2 GPU hosts can layer
+  `docker-compose.gpu.yml`, which adds the CUDA build and NVIDIA reservation.
+  macOS uses the CPU reranker while Ollama can use host-side Metal acceleration.
+  PDF intake is opt-in with `docker compose --profile pdf up`; the app then
+  uses the Docling HTTP Adapter at `docling:5003`.
 
 ### Scaling boundary
 
@@ -203,12 +207,14 @@ query rewriting — fully private and offline-capable.
 
 ### Ingest & chunking — markdown-aware recursive chunker
 
-Documents are SHA-256-deduped and split into overlapping chunks anchored to
-markdown headings (paragraph/sentence boundaries, hard character split as
-fallback). Sources are `source.paths` directories plus uploaded `.md` files,
-processed concurrently (8 workers); chunk IDs are deterministic (UUIDv5 over
+Source files are SHA-256-deduped. Markdown is already normalized; PDFs go
+through document intake when Docling is enabled. Each Document is split into
+overlapping chunks anchored to markdown headings (paragraph/sentence
+boundaries, hard character split as fallback). Sources are `source.paths`
+directories plus uploaded `.md`/`.pdf` files, processed concurrently (8
+workers); chunk IDs are deterministic (UUIDv5 over
 `filePath:lineStart:chunkIndex`, HyPE siblings append `:hype:<n>`), so
-re-ingesting upserts in place.
+re-ingesting upserts in place while retaining the original source identity.
 
 ### Embeddings — task-prefixed embeddings
 
@@ -262,22 +268,25 @@ questions, contextual writes a short situational intro — both one-time per
 chunk and off the query path, closing the gap between how documents read
 and how users ask.
 
-### Docling sidecar — PDF to Markdown
+### Document intake — PDF to Markdown
 
-A Python service converts PDFs to Markdown so they can be ingested (the
-Python ecosystem isn't vendored into the Go binary); currently a standalone
-script, not wired into the server.
+The optional Docling sidecar converts one PDF request into Markdown through
+the `internal/ingest` document-intake seam. The indexing pass remains
+format-agnostic after conversion, and the original PDF path remains the
+source identity used for citations and deterministic chunk IDs. The sidecar
+also retains its directory conversion CLI for offline workflows.
 
 ## Current tech debt and next seams
 
 The architecture is still a modular monolith and is recommended for the
-current single-node deployment. The main debt is operational rather than a
-domain-separation failure:
+current single-node deployment. The completed deepening work keeps domain
+separation intact: Retrieval owns its caller-facing result vocabulary,
+document intake feeds one indexing pass, and Qdrant client/payload primitives
+are shared without merging store, history, or semantic-cache lifecycles. The
+remaining debt is operational rather than a domain-separation failure:
 
 - Per-stage observability is missing, so production latency and capacity are
   not yet visible at the same resolution as the retrieval evaluation.
-- The Docling sidecar has no Go adapter, leaving PDF ingestion as a separate
-  workflow.
 - The production-quality reranker artifact is expensive to bake on a small
   machine; the torch-int8 route is easier to deploy but loses some measured
   ranking quality.
@@ -290,6 +299,6 @@ domain-separation failure:
   maintenance friction but does not affect runtime domain separation.
 
 The next architectural move should therefore be observability, followed by
-reranker measurement and the PDF adapter. CRAG/adaptive-RAG and a shared event
-backend should wait for evidence that retrieval quality or process scale,
-respectively, requires them.
+reranker measurement and evaluation coverage. CRAG/adaptive-RAG and a shared
+event backend should wait for evidence that retrieval quality or process
+scale, respectively, requires them.

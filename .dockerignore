@@ -1,0 +1,15 @@
+.git
+.env
+.agents
+.codex
+.zcode
+vendor
+venv
+**/__pycache__
+**/*.pyc
+*.test
+*.out
+coverage.*
+profile.cov
+eval
+server

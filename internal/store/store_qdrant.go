@@ -103,17 +103,17 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 			ingestedAt = time.Now().UTC().Format(time.RFC3339)
 		}
 		payload := map[string]*qdrant.Value{
-			"file_path":   strVal(c.FilePath),
-			"header":      strVal(c.Header),
-			"line_start":  intVal(int64(c.LineStart)),
-			"chunk_index": intVal(int64(c.ChunkIndex)),
-			"text":        strVal(c.Text),
-			"window_text": strVal(c.WindowText),
-			"source_sha":  strVal(c.SourceSHA),
-			"ingested_at": strVal(ingestedAt),
+			"file_path":   qdrantutil.StringValue(c.FilePath),
+			"header":      qdrantutil.StringValue(c.Header),
+			"line_start":  qdrantutil.IntValue(int64(c.LineStart)),
+			"chunk_index": qdrantutil.IntValue(int64(c.ChunkIndex)),
+			"text":        qdrantutil.StringValue(c.Text),
+			"window_text": qdrantutil.StringValue(c.WindowText),
+			"source_sha":  qdrantutil.StringValue(c.SourceSHA),
+			"ingested_at": qdrantutil.StringValue(ingestedAt),
 		}
 		if c.HypeQuestion != "" {
-			payload["hype_question"] = strVal(c.HypeQuestion)
+			payload["hype_question"] = qdrantutil.StringValue(c.HypeQuestion)
 		}
 		points[i] = &qdrant.PointStruct{
 			Id: qdrant.NewIDUUID(id),
@@ -295,9 +295,9 @@ func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, e
 			return nil, fmt.Errorf("scroll all file shas: %w", err)
 		}
 		for _, pt := range resp.Result {
-			fp := pbStr(pt.Payload, "file_path")
+			fp := qdrantutil.StringFromPayload(pt.Payload, "file_path")
 			if fp != "" {
-				shas[fp] = pbStr(pt.Payload, "source_sha")
+				shas[fp] = qdrantutil.StringFromPayload(pt.Payload, "source_sha")
 			}
 		}
 		if resp.NextPageOffset == nil {
@@ -354,39 +354,13 @@ func contextualSparseText(filePath, header, text string) string {
 
 func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
 	return ScoredChunk{
-		Text:       pbStr(p, "text"),
-		WindowText: pbStr(p, "window_text"),
-		FilePath:   pbStr(p, "file_path"),
-		Header:     pbStr(p, "header"),
-		LineStart:  int(pbInt(p, "line_start")),
-		ChunkIndex: int(pbInt(p, "chunk_index")),
-		SourceSHA:  pbStr(p, "source_sha"),
-		IngestedAt: pbStr(p, "ingested_at"),
+		Text:       qdrantutil.StringFromPayload(p, "text"),
+		WindowText: qdrantutil.StringFromPayload(p, "window_text"),
+		FilePath:   qdrantutil.StringFromPayload(p, "file_path"),
+		Header:     qdrantutil.StringFromPayload(p, "header"),
+		LineStart:  int(qdrantutil.IntFromPayload(p, "line_start")),
+		ChunkIndex: int(qdrantutil.IntFromPayload(p, "chunk_index")),
+		SourceSHA:  qdrantutil.StringFromPayload(p, "source_sha"),
+		IngestedAt: qdrantutil.StringFromPayload(p, "ingested_at"),
 	}
-}
-
-func strVal(s string) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_StringValue{StringValue: s}}
-}
-
-func intVal(n int64) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_IntegerValue{IntegerValue: n}}
-}
-
-func pbStr(p map[string]*qdrant.Value, key string) string {
-	if v, ok := p[key]; ok {
-		if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
-			return s.StringValue
-		}
-	}
-	return ""
-}
-
-func pbInt(p map[string]*qdrant.Value, key string) int64 {
-	if v, ok := p[key]; ok {
-		if n, ok := v.Kind.(*qdrant.Value_IntegerValue); ok {
-			return n.IntegerValue
-		}
-	}
-	return 0
 }

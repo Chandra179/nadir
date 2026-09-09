@@ -12,21 +12,21 @@ import (
 	"nadir/internal/generator"
 	"nadir/internal/history"
 	"nadir/internal/rewriter"
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 type fakeSearcher struct {
-	chunks    []store.ScoredChunk
+	chunks    []search.Chunk
 	fromCache bool
 	err       error
 	gotTopK   int
 	gotQuery  string
 }
 
-func (f *fakeSearcher) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) ([]store.ScoredChunk, bool, error) {
-	f.gotTopK = topK
-	f.gotQuery = query
-	return f.chunks, f.fromCache, f.err
+func (f *fakeSearcher) Query(ctx context.Context, request search.Request) (search.Result, error) {
+	f.gotTopK = request.TopK
+	f.gotQuery = request.Query
+	return search.Result{Chunks: f.chunks, FromCache: f.fromCache}, f.err
 }
 
 type fakeRewriter struct {
@@ -184,7 +184,7 @@ func TestStartTurnEmptyQuery(t *testing.T) {
 
 func TestStartTurnMintsSessionOnFirstTurnOnly(t *testing.T) {
 	h := &fakeHistory{}
-	d := NewDependencies(DependenciesConfig{Searcher: &fakeSearcher{chunks: []store.ScoredChunk{{FilePath: "a.md"}}}, History: h, Log: testLogger()})
+	d := NewDependencies(DependenciesConfig{Searcher: &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}}, History: h, Log: testLogger()})
 
 	turn := d.StartTurn(context.Background(), Request{Query: "q", TopK: 5})
 	if turn.SessionID != "minted-1" || h.mintCount() != 1 {
@@ -199,7 +199,7 @@ func TestStartTurnMintsSessionOnFirstTurnOnly(t *testing.T) {
 }
 
 func TestStartTurnWithoutHistory(t *testing.T) {
-	d := NewDependencies(DependenciesConfig{Searcher: &fakeSearcher{chunks: []store.ScoredChunk{{}}}, Log: testLogger()})
+	d := NewDependencies(DependenciesConfig{Searcher: &fakeSearcher{chunks: []search.Chunk{{}}}, Log: testLogger()})
 
 	turn := d.StartTurn(context.Background(), Request{Query: "q"})
 
@@ -236,7 +236,7 @@ func TestStartTurnSearchFailureStillReturnsSession(t *testing.T) {
 func TestStartTurnGenerationStreamsAndPersists(t *testing.T) {
 	h := &fakeHistory{}
 	d := NewDependencies(DependenciesConfig{
-		Searcher:  &fakeSearcher{chunks: []store.ScoredChunk{{FilePath: "a.md"}}},
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
 		Generator: &fakeGenerator{prompt: "P", tokens: []string{"answer ", "text"}},
 		History:   h,
 		Log:       testLogger(),
@@ -264,7 +264,7 @@ func TestStartTurnGenerationStreamsAndPersists(t *testing.T) {
 func TestStartTurnGenerateStartFailurePersistsError(t *testing.T) {
 	h := &fakeHistory{}
 	d := NewDependencies(DependenciesConfig{
-		Searcher:  &fakeSearcher{chunks: []store.ScoredChunk{{}}},
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{}}},
 		Generator: &fakeGenerator{err: errors.New("ollama down")},
 		History:   h,
 		Log:       testLogger(),
@@ -285,7 +285,7 @@ func TestStartTurnGenerateStartFailurePersistsError(t *testing.T) {
 
 func TestStartTurnGenerateIgnoredWithoutGenerator(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{
-		Searcher: &fakeSearcher{chunks: []store.ScoredChunk{{}}},
+		Searcher: &fakeSearcher{chunks: []search.Chunk{{}}},
 		Log:      testLogger(),
 	})
 
@@ -299,7 +299,7 @@ func TestStartTurnGenerateIgnoredWithoutGenerator(t *testing.T) {
 func TestPersistTurnCapturesShape(t *testing.T) {
 	h := &fakeHistory{}
 	d := NewDependencies(DependenciesConfig{
-		Searcher:  &fakeSearcher{chunks: []store.ScoredChunk{{FilePath: "a.md", Header: "H", LineStart: 3, Score: 0.9, Text: "t", WindowText: "w", SourceSHA: "sha"}}},
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md", Header: "H", LineStart: 3, Score: 0.9, Text: "t", WindowText: "w", SourceSHA: "sha"}}},
 		Generator: &fakeGenerator{prompt: "P", tokens: []string{"A"}},
 		History:   h,
 		Model:     "test-model",
@@ -327,7 +327,7 @@ func TestStartTurnRewritesFollowUpAgainstPriorTurns(t *testing.T) {
 		{Query: "what is the derivative of x^n?"},
 		{Query: "and of sin(x)?", Answer: "cos(x)"},
 	}}
-	searcher := &fakeSearcher{chunks: []store.ScoredChunk{{FilePath: "a.md"}}}
+	searcher := &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}}
 	gen := &fakeGenerator{prompt: "P", tokens: []string{"A"}}
 	rw := &fakeRewriter{rewritten: "what is the derivative of cos(x)?"}
 	d := NewDependencies(DependenciesConfig{
@@ -366,7 +366,7 @@ func TestStartTurnRewritesFollowUpAgainstPriorTurns(t *testing.T) {
 
 func TestStartTurnSkipsRewriteWithoutPriorTurns(t *testing.T) {
 	h := &fakeHistory{}
-	searcher := &fakeSearcher{chunks: []store.ScoredChunk{{}}}
+	searcher := &fakeSearcher{chunks: []search.Chunk{{}}}
 	rw := &fakeRewriter{rewritten: "should not be used"}
 	d := NewDependencies(DependenciesConfig{
 		Searcher: searcher, History: h, Rewriter: rw, Log: testLogger(),
@@ -384,7 +384,7 @@ func TestStartTurnSkipsRewriteWithoutPriorTurns(t *testing.T) {
 
 func TestStartTurnSkipsRewriteOnFirstTurnWithoutSession(t *testing.T) {
 	h := &fakeHistory{priorTurns: []history.Turn{{Query: "old"}}}
-	searcher := &fakeSearcher{chunks: []store.ScoredChunk{{}}}
+	searcher := &fakeSearcher{chunks: []search.Chunk{{}}}
 	rw := &fakeRewriter{rewritten: "rewritten"}
 	d := NewDependencies(DependenciesConfig{
 		Searcher: searcher, History: h, Rewriter: rw, Log: testLogger(),
@@ -402,7 +402,7 @@ func TestStartTurnSkipsRewriteOnFirstTurnWithoutSession(t *testing.T) {
 
 func TestStartTurnRewriteFailureFallsBackToRawQuery(t *testing.T) {
 	h := &fakeHistory{priorTurns: []history.Turn{{Query: "prior", Answer: "answer"}}}
-	searcher := &fakeSearcher{chunks: []store.ScoredChunk{{}}}
+	searcher := &fakeSearcher{chunks: []search.Chunk{{}}}
 	rw := &fakeRewriter{err: errors.New("ollama down")}
 	d := NewDependencies(DependenciesConfig{
 		Searcher: searcher, History: h, Rewriter: rw, Log: testLogger(),
@@ -420,7 +420,7 @@ func TestStartTurnRewriteFailureFallsBackToRawQuery(t *testing.T) {
 
 func TestStartTurnRewriteSkippedWithoutRewriter(t *testing.T) {
 	h := &fakeHistory{priorTurns: []history.Turn{{Query: "prior"}}}
-	searcher := &fakeSearcher{chunks: []store.ScoredChunk{{}}}
+	searcher := &fakeSearcher{chunks: []search.Chunk{{}}}
 	d := NewDependencies(DependenciesConfig{
 		Searcher: searcher, History: h, Log: testLogger(),
 	})
@@ -440,7 +440,7 @@ func TestStartTurnRewriteTurnsCapped(t *testing.T) {
 	h := &fakeHistory{priorTurns: prior}
 	rw := &fakeRewriter{rewritten: "rewritten"}
 	d := NewDependencies(DependenciesConfig{
-		Searcher: &fakeSearcher{chunks: []store.ScoredChunk{{}}}, History: h, Rewriter: rw, Log: testLogger(),
+		Searcher: &fakeSearcher{chunks: []search.Chunk{{}}}, History: h, Rewriter: rw, Log: testLogger(),
 	})
 
 	d.StartTurn(context.Background(), Request{Query: "follow-up?", SessionID: "s1"})
@@ -482,7 +482,7 @@ func TestCancelTurnPersistsPartialAnswer(t *testing.T) {
 	h := &fakeHistory{}
 	gen := &blockingGenerator{started: make(chan struct{})}
 	d := NewDependencies(DependenciesConfig{
-		Searcher:  &fakeSearcher{chunks: []store.ScoredChunk{{FilePath: "a.md"}}},
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
 		Generator: gen,
 		History:   h,
 		Log:       testLogger(),

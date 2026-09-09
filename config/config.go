@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -25,19 +26,27 @@ type Config struct {
 	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
+	Docling       DoclingConfig       `yaml:"docling"`
 }
 
 // ChatConfig tunes the chat use-case (ADR 0006): prompt assembly and the
 // streaming turn lifecycle.
 type ChatConfig struct {
-	MaxContextTokens int `yaml:"max_context_tokens"` // token budget for retrieved chunks in the prompt (default 2800)
+	MaxContextTokens int           `yaml:"max_context_tokens"` // token budget for retrieved chunks in the prompt (default 2800)
+	EventBuffer      int           `yaml:"event_buffer"`
+	MaxEventLogBytes int64         `yaml:"max_event_log_bytes"`
+	MaxRetainedTurns int           `yaml:"max_retained_turns"`
+	FinishedTurnTTL  time.Duration `yaml:"finished_turn_ttl"`
+	PersistTimeout   time.Duration `yaml:"persist_timeout"`
 }
 
 type HTTPConfig struct {
-	Addr         string        `yaml:"addr"`
-	ReadTimeout  time.Duration `yaml:"read_timeout"`
-	WriteTimeout time.Duration `yaml:"write_timeout"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout"`
+	Addr            string        `yaml:"addr"`
+	ReadTimeout     time.Duration `yaml:"read_timeout"`
+	WriteTimeout    time.Duration `yaml:"write_timeout"`
+	IdleTimeout     time.Duration `yaml:"idle_timeout"`
+	StartupTimeout  time.Duration `yaml:"startup_timeout"`
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 }
 
 type MiddlewareConfig struct {
@@ -55,6 +64,22 @@ type SourceConfig struct {
 	IgnorePatterns []string `yaml:"ignore_patterns"`
 }
 
+// DoclingConfig controls optional PDF document intake through the Docling
+// sidecar. The sidecar is not needed for Markdown-only deployments.
+type DoclingConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	Addr           string        `yaml:"addr"`
+	RequestTimeout time.Duration `yaml:"request_timeout"`
+}
+
+// OllamaEndpoint is the resolved address/model pair for one LLM role.
+// Resolution happens once during configuration loading so the composition
+// root does not repeat fallback rules for generator, rewriting, and intake.
+type OllamaEndpoint struct {
+	Addr  string
+	Model string
+}
+
 type QdrantConfig struct {
 	Addr        string `yaml:"addr"`
 	Collection  string `yaml:"collection"`
@@ -63,13 +88,14 @@ type QdrantConfig struct {
 }
 
 type EmbedderConfig struct {
-	Provider       string `yaml:"provider"`
-	Model          string `yaml:"model"`
-	APIKey         string `yaml:"api_key"`
-	OllamaAddr     string `yaml:"ollama_addr"`
-	Dimensions     int    `yaml:"dimensions"`
-	QueryPrefix    string `yaml:"query_prefix"`    // prepended to search queries (e.g. "search_query: " for nomic-embed-text)
-	DocumentPrefix string `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
+	Provider       string        `yaml:"provider"`
+	Model          string        `yaml:"model"`
+	APIKey         string        `yaml:"api_key"`
+	OllamaAddr     string        `yaml:"ollama_addr"`
+	Dimensions     int           `yaml:"dimensions"`
+	RequestTimeout time.Duration `yaml:"request_timeout"`
+	QueryPrefix    string        `yaml:"query_prefix"`    // prepended to search queries (e.g. "search_query: " for nomic-embed-text)
+	DocumentPrefix string        `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
 }
 
 type ChunkerConfig struct {
@@ -85,6 +111,7 @@ type IngestConfig struct {
 	InitialInterval  time.Duration `yaml:"initial_interval"`
 	MaxInterval      time.Duration `yaml:"max_interval"`
 	Multiplier       float64       `yaml:"multiplier"`
+	Workers          int           `yaml:"workers"`
 	MaxFileBytes     int64         `yaml:"max_file_bytes"`
 	MaxUploadBytes   int64         `yaml:"max_upload_bytes"`
 	EmbedBatchSize   int           `yaml:"embed_batch_size"`
@@ -99,14 +126,16 @@ type SearchConfig struct {
 	MaxFragments           int `yaml:"max_fragments"`
 	MaxConcurrentFragments int `yaml:"max_concurrent_fragments"`
 	MaxTopK                int `yaml:"max_top_k"`
+	MaxChunksPerFile       int `yaml:"max_chunks_per_file"`
 }
 
 type RerankerConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	Addr          string `yaml:"addr"`           // sidecar addr, e.g. http://localhost:5002
-	Model         string `yaml:"model"`          // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
-	CandidateMul  int    `yaml:"candidate_mul"`  // fetch topK*candidate_mul before reranking (default 3)
-	MaxConcurrent int    `yaml:"max_concurrent"` // max concurrent reranker calls (default 10)
+	Enabled        bool          `yaml:"enabled"`
+	Addr           string        `yaml:"addr"`            // sidecar addr, e.g. http://localhost:5002
+	Model          string        `yaml:"model"`           // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
+	CandidateMul   int           `yaml:"candidate_mul"`   // fetch topK*candidate_mul before reranking (default 3)
+	MaxConcurrent  int           `yaml:"max_concurrent"`  // max concurrent reranker calls (default 10)
+	RequestTimeout time.Duration `yaml:"request_timeout"` // timeout for one sidecar request
 }
 
 type SemanticCacheConfig struct {
@@ -117,9 +146,10 @@ type SemanticCacheConfig struct {
 }
 
 type GeneratorConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	OllamaAddr string `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
-	Model      string `yaml:"model"`       // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	Enabled        bool          `yaml:"enabled"`
+	OllamaAddr     string        `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
+	Model          string        `yaml:"model"`       // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	RequestTimeout time.Duration `yaml:"request_timeout"`
 }
 
 // HistoryConfig persists chat sessions/turns to a dedicated Qdrant
@@ -135,18 +165,20 @@ type HistoryConfig struct {
 // against the session's last N turns. Skipped on the first turn; failures
 // fall back to the raw query.
 type RewriterConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Turns      int    `yaml:"turns"`       // prior turns fed to the rewriter (default 4)
-	OllamaAddr string `yaml:"ollama_addr"` // defaults to generator.ollama_addr, then embedder.ollama_addr
-	Model      string `yaml:"model"`       // defaults to generator.model
+	Enabled        bool          `yaml:"enabled"`
+	Turns          int           `yaml:"turns"` // prior turns fed to the rewriter (default 4)
+	RequestTimeout time.Duration `yaml:"request_timeout"`
+	OllamaAddr     string        `yaml:"ollama_addr"` // defaults to generator.ollama_addr, then embedder.ollama_addr
+	Model          string        `yaml:"model"`       // defaults to generator.model
 }
 
 // EnrichmentConfig controls index-time LLM enrichment. Both features cost
 // one-time LLM calls per chunk during ingest and add zero query-time
 // latency; enabling either requires a reindex to take effect.
 type EnrichmentConfig struct {
-	Hype       HypeConfig       `yaml:"hype"`
-	Contextual ContextualConfig `yaml:"contextual"`
+	RequestTimeout time.Duration    `yaml:"request_timeout"`
+	Hype           HypeConfig       `yaml:"hype"`
+	Contextual     ContextualConfig `yaml:"contextual"`
 }
 
 // HypeConfig enables HyPE (Hypothetical Prompt Embeddings): N hypothetical
@@ -193,6 +225,8 @@ func (c *Config) applyEnv() {
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
+	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
+	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
 	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
 	c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED")
 	c.envStr(&c.Reranker.Model, "RERANKER_MODEL")
@@ -206,6 +240,54 @@ func (c *Config) applyEnv() {
 	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
 	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
 	c.envInt(&c.Rewriter.Turns, "REWRITE_TURNS")
+	c.envBool(&c.Docling.Enabled, "DOCLING_ENABLED")
+	c.envStr(&c.Docling.Addr, "DOCLING_ADDR")
+}
+
+func (c Config) GeneratorEndpoint() OllamaEndpoint {
+	addr := c.Generator.OllamaAddr
+	if addr == "" {
+		addr = c.Embedder.OllamaAddr
+	}
+	return OllamaEndpoint{Addr: addr, Model: c.Generator.Model}
+}
+
+func (c Config) RewriterEndpoint() OllamaEndpoint {
+	addr := c.Rewriter.OllamaAddr
+	if addr == "" {
+		addr = c.GeneratorEndpoint().Addr
+	}
+	if addr == "" {
+		addr = c.Embedder.OllamaAddr
+	}
+	model := c.Rewriter.Model
+	if model == "" {
+		model = c.Generator.Model
+	}
+	return OllamaEndpoint{Addr: addr, Model: model}
+}
+
+func (c Config) EnrichmentEndpoint() OllamaEndpoint {
+	addr := c.Enrichment.Hype.OllamaAddr
+	model := c.Enrichment.Hype.Model
+	if c.Enrichment.Contextual.Enabled {
+		if addr == "" {
+			addr = c.Enrichment.Contextual.OllamaAddr
+		}
+		if model == "" {
+			model = c.Enrichment.Contextual.Model
+		}
+	}
+	if addr == "" {
+		addr = c.GeneratorEndpoint().Addr
+	}
+	if addr == "" {
+		addr = c.Embedder.OllamaAddr
+	}
+	if model == "" {
+		model = c.Generator.Model
+	}
+	return OllamaEndpoint{Addr: addr, Model: model}
 }
 
 func (c *Config) envStr(dst *string, env string) {
@@ -236,7 +318,26 @@ func (c *Config) envInt(dst *int, env string) {
 	}
 }
 
+func (c *Config) envCSV(dst *[]string, env string) {
+	if v := os.Getenv(env); v != "" {
+		parts := strings.Split(v, ",")
+		values := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if part = strings.TrimSpace(part); part != "" {
+				values = append(values, part)
+			}
+		}
+		*dst = values
+	}
+}
+
 func (c *Config) Validate() error {
+	if c.HTTP.StartupTimeout <= 0 {
+		c.HTTP.StartupTimeout = 30 * time.Second
+	}
+	if c.HTTP.ShutdownTimeout <= 0 {
+		c.HTTP.ShutdownTimeout = 10 * time.Second
+	}
 	if c.Qdrant.TopK <= 0 {
 		return fmt.Errorf("config: qdrant.top_k must be > 0")
 	}
@@ -248,6 +349,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Embedder.Dimensions <= 0 {
 		return fmt.Errorf("config: embedder.dimensions must be > 0")
+	}
+	if c.Embedder.RequestTimeout <= 0 {
+		c.Embedder.RequestTimeout = 60 * time.Second
 	}
 	if c.Qdrant.Addr == "" {
 		return fmt.Errorf("config: qdrant.addr must not be empty")
@@ -267,6 +371,9 @@ func (c *Config) Validate() error {
 	if c.Ingest.MaxUploadBytes <= 0 {
 		c.Ingest.MaxUploadBytes = 64 << 20
 	}
+	if c.Ingest.Workers <= 0 {
+		c.Ingest.Workers = 8
+	}
 	if c.Ingest.EmbedBatchSize <= 0 {
 		c.Ingest.EmbedBatchSize = 64
 	}
@@ -285,8 +392,53 @@ func (c *Config) Validate() error {
 	if c.Search.MaxTopK <= 0 {
 		c.Search.MaxTopK = 50
 	}
+	if c.Search.MaxChunksPerFile <= 0 {
+		c.Search.MaxChunksPerFile = 3
+	}
 	if c.Reranker.Model == "" {
 		c.Reranker.Model = "BAAI/bge-reranker-v2-m3"
+	}
+	if c.Reranker.CandidateMul <= 0 {
+		c.Reranker.CandidateMul = 3
+	}
+	if c.Reranker.MaxConcurrent <= 0 {
+		c.Reranker.MaxConcurrent = 10
+	}
+	if c.Reranker.RequestTimeout <= 0 {
+		c.Reranker.RequestTimeout = 30 * time.Second
+	}
+	if c.Chat.MaxContextTokens <= 0 {
+		c.Chat.MaxContextTokens = 2800
+	}
+	if c.Chat.EventBuffer <= 0 {
+		c.Chat.EventBuffer = 4096
+	}
+	if c.Chat.MaxEventLogBytes <= 0 {
+		c.Chat.MaxEventLogBytes = 1 << 20
+	}
+	if c.Chat.MaxRetainedTurns <= 0 {
+		c.Chat.MaxRetainedTurns = 64
+	}
+	if c.Chat.FinishedTurnTTL <= 0 {
+		c.Chat.FinishedTurnTTL = 10 * time.Minute
+	}
+	if c.Chat.PersistTimeout <= 0 {
+		c.Chat.PersistTimeout = 5 * time.Second
+	}
+	if c.Chat.EventBuffer > 16384 {
+		return fmt.Errorf("config: chat.event_buffer must be <= 16384")
+	}
+	if c.Chat.MaxEventLogBytes > 16<<20 {
+		return fmt.Errorf("config: chat.max_event_log_bytes must be <= 16777216")
+	}
+	if c.Chat.MaxRetainedTurns > 1024 {
+		return fmt.Errorf("config: chat.max_retained_turns must be <= 1024")
+	}
+	if c.Enrichment.RequestTimeout <= 0 {
+		c.Enrichment.RequestTimeout = 120 * time.Second
+	}
+	if c.Generator.RequestTimeout <= 0 {
+		c.Generator.RequestTimeout = 120 * time.Second
 	}
 	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
 		c.Enrichment.Hype.QuestionsPerChunk = 3
@@ -296,6 +448,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
 		c.Rewriter.Turns = 4
+	}
+	if c.Rewriter.RequestTimeout <= 0 {
+		c.Rewriter.RequestTimeout = 8 * time.Second
+	}
+	if c.Docling.RequestTimeout <= 0 {
+		c.Docling.RequestTimeout = 120 * time.Second
+	}
+	if c.Docling.Enabled && strings.TrimSpace(c.Docling.Addr) == "" {
+		return fmt.Errorf("config: docling.addr must not be empty when docling.enabled is true")
 	}
 	return nil
 }

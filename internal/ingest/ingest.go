@@ -17,8 +17,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// Run ingests uploaded files: SHA dedup, then chunk → enrich → embed →
-// upsert per file on concurrent workers.
+// Run performs one indexing pass: deduplication and document intake happen
+// before each source file enters the ordered chunk → enrich → embed → replace
+// pipeline on a bounded worker set.
 func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, error) {
 	return d.run(ctx, files)
 }
@@ -30,7 +31,7 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 	}
 
 	var processed, skipped, failed atomic.Int64
-	sem := make(chan struct{}, ingestWorkers)
+	sem := make(chan struct{}, d.workers)
 	var wg sync.WaitGroup
 	seenNames := make(map[string]struct{}, len(files))
 
@@ -58,13 +59,34 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if strings.ToLower(filepath.Ext(f.Name)) != ".md" {
-				err := fmt.Errorf("only .md files can be ingested: %s", f.Name)
+			if !isSupportedSource(f.Name) {
+				err := fmt.Errorf("only .md and .pdf files can be ingested: %s", f.Name)
 				failed.Add(1)
-				d.log.Warn("skipping non-markdown upload", zap.String("path", f.Name), zap.Error(err))
+				d.log.Warn("skipping unsupported source file", zap.String("path", f.Name), zap.Error(err))
 				return
 			}
-			if err := d.ingestFile(ctx, f.Name, string(f.Data), sha); err != nil {
+			if strings.EqualFold(filepath.Ext(f.Name), ".pdf") {
+				if d.converter == nil {
+					err := fmt.Errorf("PDF intake is disabled; configure docling to ingest %s", f.Name)
+					failed.Add(1)
+					d.log.Warn("skipping PDF without document converter", zap.String("path", f.Name), zap.Error(err))
+					return
+				}
+				markdown, err := d.converter.Convert(ctx, f.Name, f.Data)
+				if err != nil {
+					failed.Add(1)
+					d.log.Error("document intake failed", zap.String("path", f.Name), zap.Error(err))
+					return
+				}
+				if d.maxFileBytes > 0 && int64(len(markdown)) > d.maxFileBytes {
+					err := fmt.Errorf("converted document exceeds max file size of %d bytes", d.maxFileBytes)
+					failed.Add(1)
+					d.log.Warn("skipping oversized converted document", zap.String("path", f.Name), zap.Error(err))
+					return
+				}
+				f.Data = markdown
+			}
+			if err := d.indexFile(ctx, f.Name, string(f.Data), sha); err != nil {
 				d.log.Error("ingest failed", zap.String("path", f.Name), zap.Error(err))
 				failed.Add(1)
 				return
@@ -82,23 +104,44 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 	}, nil
 }
 
+func isSupportedSource(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return ext == ".md" || ext == ".pdf"
+}
+
 func contentSHA(data []byte) string {
 	h := sha256.Sum256(data)
 	return fmt.Sprintf("%x", h)
 }
 
-// ingestFile chunks, enriches, embeds, and upserts one file. Dense
+// indexPlan contains the planned replacement points for one Document. Dense
 // embeddings cover "<document prefix><contextual text>"; the BM25 leg
 // indexes the same contextual text without the prefix. With HyPE enabled,
 // each chunk additionally gets sibling points from embedded hypothetical
 // questions.
-func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA string) error {
+type indexPlan struct {
+	filePath string
+	chunks   []store.ScoredChunk
+}
+
+// indexFile is the indexing pass seam for one Document. Planning contains
+// every expensive transformation; committing is the only operation allowed
+// to replace the source's stored points.
+func (d *dependencies) indexFile(ctx context.Context, filePath, text, sourceSHA string) error {
+	plan, err := d.planFile(ctx, filePath, text, sourceSHA)
+	if err != nil {
+		return err
+	}
+	return d.commitPlan(ctx, plan)
+}
+
+func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA string) (indexPlan, error) {
 	chunks, err := d.chunker.Chunk(text, filePath)
 	if err != nil {
-		return fmt.Errorf("chunk %s: %w", filePath, err)
+		return indexPlan{}, fmt.Errorf("chunk %s: %w", filePath, err)
 	}
 	if d.maxChunks > 0 && len(chunks) > d.maxChunks {
-		return fmt.Errorf("file %s produces %d chunks, exceeding limit %d", filePath, len(chunks), d.maxChunks)
+		return indexPlan{}, fmt.Errorf("file %s produces %d chunks, exceeding limit %d", filePath, len(chunks), d.maxChunks)
 	}
 
 	// Contextual text per chunk: static path/header prefix, optionally
@@ -114,7 +157,7 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	}
 	vecs, err := d.embedWithRetry(ctx, embedInputs)
 	if err != nil {
-		return fmt.Errorf("embed %s: %w", filePath, err)
+		return indexPlan{}, fmt.Errorf("embed %s: %w", filePath, err)
 	}
 
 	scored := make([]store.ScoredChunk, 0, len(chunks))
@@ -134,16 +177,20 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 
 	scored = d.appendHypeSiblings(ctx, scored, filePath, chunks, sourceSHA)
 
+	return indexPlan{filePath: filePath, chunks: scored}, nil
+}
+
+func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
 	// Chunk IDs derive from filePath:lineStart:chunkIndex, so content that
-	// shifts line boundaries changes IDs and stale old points must be
-	// deleted first (also removes prior HyPE siblings). Delete and upsert
-	// share one retry so a partial failure can't leave the file unindexed.
+	// shifts line boundaries changes IDs and stale old points must be deleted
+	// first. Delete and upsert share one retry so a partial failure can't leave
+	// the file unindexed.
 	op := func() error {
-		if err := d.store.DeleteByFile(ctx, filePath); err != nil {
-			return fmt.Errorf("delete stale chunks for %s: %w", filePath, err)
+		if err := d.store.DeleteByFile(ctx, plan.filePath); err != nil {
+			return fmt.Errorf("delete stale chunks for %s: %w", plan.filePath, err)
 		}
-		if err := d.store.Upsert(ctx, scored); err != nil {
-			return fmt.Errorf("upsert %s: %w", filePath, err)
+		if err := d.store.Upsert(ctx, plan.chunks); err != nil {
+			return fmt.Errorf("upsert %s: %w", plan.filePath, err)
 		}
 		return nil
 	}

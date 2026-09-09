@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// DiscoverFiles reads markdown files from configured source paths. Ignore
+// DiscoverFiles reads supported source files from configured source paths. Ignore
 // patterns match either the path relative to a configured directory or the
 // file's base name. The returned order is stable so repeated source sweeps
 // are deterministic and easier to observe.
@@ -40,7 +40,7 @@ func DiscoverFiles(paths []string, ignorePatterns []string, maxFileBytes int64) 
 				}
 				return nil
 			}
-			if strings.ToLower(filepath.Ext(entry.Name())) != ".md" {
+			if !isSupportedSource(entry.Name()) {
 				return nil
 			}
 			rel, err := filepath.Rel(root, filePath)

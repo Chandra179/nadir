@@ -11,7 +11,7 @@ import (
 	"nadir/internal/generator"
 	"nadir/internal/history"
 	"nadir/internal/rewriter"
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 // StartTurn runs one chat turn: mint session (first turn) → rewrite
@@ -45,24 +45,28 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		}
 	}
 
-	chunks, fromCache, err := d.searcher.Query(ctx, retrievalQuery, "", req.TopK, req.Filter, false)
-	turn.FromCache = fromCache
+	searchResult, err := d.searcher.Query(ctx, search.Request{
+		Query:  retrievalQuery,
+		TopK:   req.TopK,
+		Filter: req.Filter,
+	})
+	turn.FromCache = searchResult.FromCache
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
 		turn.Error = "Search failed: " + err.Error()
 		d.persist(ctx, req, turn, true)
 		return turn
 	}
-	turn.Chunks = chunks
+	turn.Chunks = searchResult.Chunks
 	turn.ElapsedMS = time.Since(start).Milliseconds()
 
 	// Every non-generating outcome is final here: persist and return.
-	if !req.Generate || d.generator == nil || len(chunks) == 0 {
+	if !req.Generate || d.generator == nil || len(turn.Chunks) == 0 {
 		d.persist(ctx, req, turn, false)
 		return turn
 	}
 
-	turn.Prompt = buildPrompt(retrievalQuery, chunks, d.maxContextTokens)
+	turn.Prompt = buildPrompt(retrievalQuery, turn.Chunks, d.maxContextTokens)
 
 	// The generation context is detached from this POST: the request that
 	// starts a turn must not be the one that can kill it. CancelTurn (not
@@ -217,7 +221,7 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 		Model:          d.model,
 		Failed:         failed,
 	}
-	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.persistTimeout)
 	defer cancel()
 	return d.history.AppendTurn(cctx, turn.SessionID, ht, req.Query)
 }
@@ -246,7 +250,7 @@ func (d *dependencies) saveTurn(req Request, turn Turn) {
 // write time rather than referenced by pointer, since source documents can
 // be re-ingested or deleted after the fact. WindowText is preferred when
 // present, matching what was displayed live.
-func chunkResults(chunks []store.ScoredChunk) []history.TurnResult {
+func chunkResults(chunks []search.Chunk) []history.TurnResult {
 	if len(chunks) == 0 {
 		return nil
 	}

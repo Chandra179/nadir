@@ -8,8 +8,9 @@ import (
 // DependenciesConfig groups everything needed to construct the HTTP
 // cross-encoder reranker client.
 type DependenciesConfig struct {
-	Addr          string
-	MaxConcurrent int
+	Addr           string
+	MaxConcurrent  int
+	RequestTimeout time.Duration
 }
 
 type dependencies struct {
@@ -23,9 +24,13 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 10
 	}
+	timeout := cfg.RequestTimeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 	return &dependencies{
 		addr:   cfg.Addr,
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{Timeout: timeout},
 		sem:    make(chan struct{}, maxConcurrent),
 	}
 }

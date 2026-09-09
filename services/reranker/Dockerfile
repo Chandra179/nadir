@@ -13,6 +13,8 @@ ENV RERANKER_MODEL=${RERANKER_MODEL}
 # requirements-gpu.txt); pair with the docker-compose.gpu.yml override, which
 # sets this from RERANKER_GPU=1 and reserves the host GPU.
 ARG GPU=0
+ARG BAKE_QUANTIZED=1
+ARG TARGETARCH
 
 COPY requirements.txt requirements-cpu.txt requirements-gpu.txt ./
 RUN if [ "$GPU" = "1" ]; then \
@@ -21,13 +23,16 @@ RUN if [ "$GPU" = "1" ]; then \
         pip install --no-cache-dir -r requirements.txt -r requirements-cpu.txt; \
     fi
 
-# Pre-download the model and bake its dynamic-int8 ONNX export at build time
-# so container start doesn't hit HuggingFace or pay the export cost per boot.
-# The bake runs on CPU even in GPU images: the int8 artifact stays available
-# for RERANKER_DEVICE=cpu on that image.
+# Pre-download the model so container start doesn't hit HuggingFace. An AVX2
+# dynamic-int8 ONNX bake is optional and only runs for amd64 builds; portable
+# CPU images use the torch backend by default.
 COPY quantize.py .
 RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('$RERANKER_MODEL')" \
- && python quantize.py
+ && if [ "$BAKE_QUANTIZED" = "1" ] && [ "$TARGETARCH" = "amd64" ]; then \
+        python quantize.py; \
+    else \
+        echo "Skipping AVX2 quantized bake (BAKE_QUANTIZED=$BAKE_QUANTIZED TARGETARCH=$TARGETARCH)"; \
+    fi
 
 COPY main.py .
 

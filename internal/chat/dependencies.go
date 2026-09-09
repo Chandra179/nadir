@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"nadir/internal/rewriter"
@@ -31,6 +33,14 @@ type DependenciesConfig struct {
 	// MaxContextTokens budgets the retrieved context inside the prompt
 	// (<= 0 → defaultMaxContextToken).
 	MaxContextTokens int
+	// EventBuffer, MaxEventLogBytes, MaxRetainedTurns, and FinishedTurnTTL
+	// bound the in-process replay broker.
+	EventBuffer      int
+	MaxEventLogBytes int64
+	MaxRetainedTurns int
+	FinishedTurnTTL  time.Duration
+	// PersistTimeout bounds a best-effort history write.
+	PersistTimeout time.Duration
 	// Model is stamped onto persisted turns for display in history replay.
 	Model string
 	Log   *zap.Logger
@@ -43,6 +53,7 @@ type dependencies struct {
 	rewriter         rewriter.Rewriter
 	rewriteTurns     int
 	maxContextTokens int
+	persistTimeout   time.Duration
 	broker           *broker
 	model            string
 	log              *zap.Logger
@@ -59,6 +70,10 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if maxContextTokens <= 0 {
 		maxContextTokens = defaultMaxContextToken
 	}
+	persistTimeout := cfg.PersistTimeout
+	if persistTimeout <= 0 {
+		persistTimeout = 5 * time.Second
+	}
 	log := cfg.Log
 	if log == nil {
 		log = zap.NewNop()
@@ -70,8 +85,14 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		rewriter:         cfg.Rewriter,
 		rewriteTurns:     rewriteTurns,
 		maxContextTokens: maxContextTokens,
-		broker:           newBroker(),
-		model:            cfg.Model,
-		log:              log,
+		persistTimeout:   persistTimeout,
+		broker: newBroker(brokerConfig{
+			EventBuffer:      cfg.EventBuffer,
+			MaxEventLogBytes: cfg.MaxEventLogBytes,
+			MaxRetainedTurns: cfg.MaxRetainedTurns,
+			FinishedTurnTTL:  cfg.FinishedTurnTTL,
+		}),
+		model: cfg.Model,
+		log:   log,
 	}
 }

@@ -7,8 +7,9 @@ import (
 
 // DependenciesConfig groups everything needed to construct the rewriter.
 type DependenciesConfig struct {
-	Addr  string // Ollama base addr, e.g. http://localhost:11434
-	Model string // instruct LLM used for rewriting
+	Addr           string        // Ollama base addr, e.g. http://localhost:11434
+	Model          string        // instruct LLM used for rewriting
+	RequestTimeout time.Duration // timeout for one rewrite request
 }
 
 // dependencies rewrites conversational follow-ups over Ollama.
@@ -21,9 +22,13 @@ type dependencies struct {
 var _ Rewriter = (*dependencies)(nil)
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
+	timeout := cfg.RequestTimeout
+	if timeout <= 0 {
+		timeout = 8 * time.Second
+	}
 	return &dependencies{
 		addr:   cfg.Addr,
 		model:  cfg.Model,
-		client: &http.Client{Timeout: 8 * time.Second},
+		client: &http.Client{Timeout: timeout},
 	}
 }

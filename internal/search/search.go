@@ -14,11 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// maxChunksPerFile caps how many chunks from the same source file can
-// appear in a result set, so one large or heavily-overlapping document
-// can't crowd out relevant context from other files.
-const maxChunksPerFile = 3
-
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
 func (s *dependencies) search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
@@ -36,37 +31,39 @@ func (s *dependencies) search(ctx context.Context, query string, topK int, filte
 	return s.rerankTopK(ctx, query, chunks, topK), nil
 }
 
-// Query is the top-level search entry point: dispatches to keyword or
-// semantic search, consulting the semantic cache first when wired
-// (skipCache bypasses it). fromCache reports a cache hit.
-func (s *dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
+// Query is the top-level Retrieval entry point. It normalizes the request,
+// dispatches to keyword or semantic search, consults the semantic cache, and
+// returns storage-independent chunks to the caller.
+func (s *dependencies) Query(ctx context.Context, request Request) (Result, error) {
+	query, keyword, topK := request.Query, request.Keyword, request.TopK
+	filter := toStoreFilter(request.Filter)
 	if keyword == "" {
 		if err := s.validateQuery(query, topK); err != nil {
-			return nil, false, err
+			return Result{}, err
 		}
 	} else {
 		if len([]rune(strings.TrimSpace(keyword))) > s.maxQueryChars {
-			return nil, false, errQueryTooLong
+			return Result{}, errQueryTooLong
 		}
 		if topK <= 0 {
-			return nil, false, fmt.Errorf("search top_k must be greater than zero")
+			return Result{}, fmt.Errorf("search top_k must be greater than zero")
 		}
 	}
 	if topK > s.maxTopK {
 		topK = s.maxTopK
 	}
 	if keyword != "" {
-		chunks, err = s.keywordSearch(ctx, keyword, topK, filter)
-		return chunks, false, err
+		chunks, err := s.keywordSearch(ctx, keyword, topK, filter)
+		return Result{Chunks: fromStoreChunks(chunks)}, err
 	}
 
-	if cached, ok := s.getCached(ctx, query, topK, filter, skipCache); ok {
-		return cached, true, nil
+	if cached, ok := s.getCached(ctx, query, topK, filter, request.SkipCache); ok {
+		return Result{Chunks: fromStoreChunks(cached), FromCache: true}, nil
 	}
 
-	chunks, err = s.search(ctx, query, topK, filter)
+	chunks, err := s.search(ctx, query, topK, filter)
 	if err != nil {
-		return nil, false, err
+		return Result{}, err
 	}
 
 	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
@@ -75,7 +72,34 @@ func (s *dependencies) Query(ctx context.Context, query, keyword string, topK in
 		}()
 	}
 
-	return chunks, false, nil
+	return Result{Chunks: fromStoreChunks(chunks)}, nil
+}
+
+func toStoreFilter(filter *Filter) *store.SearchFilter {
+	if filter == nil {
+		return nil
+	}
+	return &store.SearchFilter{FilePath: filter.FilePath, Header: filter.Header, SourceSHA: filter.SourceSHA}
+}
+
+func fromStoreChunks(chunks []store.ScoredChunk) []Chunk {
+	if len(chunks) == 0 {
+		return nil
+	}
+	out := make([]Chunk, len(chunks))
+	for i, chunk := range chunks {
+		out[i] = Chunk{
+			Text:       chunk.Text,
+			WindowText: chunk.WindowText,
+			FilePath:   chunk.FilePath,
+			Header:     chunk.Header,
+			LineStart:  chunk.LineStart,
+			ChunkIndex: chunk.ChunkIndex,
+			SourceSHA:  chunk.SourceSHA,
+			Score:      chunk.Score,
+		}
+	}
+	return out
 }
 
 // getCached consults the semantic cache unless the caller asked to skip it.
@@ -185,7 +209,7 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 		merged = append(merged, c)
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i].Score > merged[j].Score })
-	merged = capPerFile(merged, maxChunksPerFile)
+	merged = capPerFile(merged, s.maxChunksPerFile)
 	if len(merged) > topK {
 		merged = merged[:topK]
 	}

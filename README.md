@@ -20,7 +20,7 @@ ollama pull gemma3:1b   # for answer generation
 
 ### 1. Configure your data source
 
-Edit `config/config.yaml` → `source.paths` to point at your markdown files:
+Edit `config/config.yaml` → `source.paths` to point at your source documents:
 
 ```yaml
 source:
@@ -57,7 +57,9 @@ curl -X POST localhost:8100/retrieval/search \
 
 ## Source data
 
-The server reads markdown files from directories listed in `config.yaml` → `source.paths`. Each source path is walked recursively; files matching `source.ignore_patterns` are skipped.
+The server reads Markdown and, when Docling is enabled, PDF source files from
+directories listed in `config.yaml` → `source.paths`. Each source path is
+walked recursively; files matching `source.ignore_patterns` are skipped.
 
 A sample set is included at `samples/` (4 math files). To use your own data:
 
@@ -83,6 +85,31 @@ go run ./cmd/server
 # 3. Ingest documents
 curl -X POST localhost:8100/ingest
 ```
+
+## Docker Desktop (Linux, Windows, and macOS)
+
+The default Compose stack is CPU-safe and does not require NVIDIA. It works
+with Docker Desktop on Windows and macOS; Ollama runs on the host and the
+container reaches it through `host.docker.internal`.
+
+```bash
+docker compose up -d --build
+curl -X POST localhost:8100/ingest
+```
+
+The default source mount is `./samples`. Set `SOURCE_DIR` in `.env` to a
+different host directory. On Apple Silicon, keep the default CPU reranker
+backend (`RERANKER_BACKEND=torch`); the AVX2 quantized artifact is skipped for
+portable builds. Ollama can still use Apple Metal acceleration on the host.
+
+On Linux or Windows with Docker Desktop + WSL2 and the NVIDIA Container
+Toolkit, opt into the GPU override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+```
+
+The GPU override is optional. Do not use it on macOS.
 
 ## Config
 
@@ -111,8 +138,18 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 | `RERANKER_ENABLED` | — | `true`/`1` to force-enable the reranker |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 | `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
+| `SOURCE_PATHS` | — | Comma-separated source paths; Compose normally sets this to `/app/source` |
+| `SOURCE_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
+| `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
+| `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
+| `RERANKER_GPU` | `0` in CPU Compose | Set to `1` only with the GPU Compose override |
+| `DOCLING_ENABLED` | `false` | Enable PDF document intake |
+| `DOCLING_ADDR` | `http://host.docker.internal:5003` in Compose | Docling sidecar address |
 
-> `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. `docker-compose.yml` sets these env vars on the containerized `app` service to reach the other Docker services.
+Role-specific request timeouts are configured in `config/config.yaml` under
+`embedder`, `generator`, `rewriter`, `enrichment`, `reranker`, and `docling`.
+
+> `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Docker-internal service names and a portable CPU reranker by default.
 
 ## Routes
 
@@ -129,10 +166,10 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 ## Architecture
 
 ```
-POST /ingest → ingest.Service (SHA dedup) → Pipeline
-                                 ├── Chunker (recursive / sentence-window)
-                                 ├── Embedder (Ollama)
-                                 └── Store.Upsert (Qdrant)
+POST /ingest → document intake (.md or optional .pdf→.md) → indexing pass
+                                      ├── Chunker (recursive / sentence-window)
+                                      ├── Embedder (Ollama)
+                                      └── Store.Upsert (Qdrant)
 
 POST /retrieval/search → chat.Service.StartTurn
                  ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
@@ -156,13 +193,29 @@ go test -count=1 ./...          # all tests (requires Qdrant)
 
 ## PDF ingestion
 
-Docling converts PDFs to markdown for ingestion (`services/docling/main.py`).
+PDFs can be ingested directly when the Docling sidecar is enabled. The Go
+indexing pass keeps the original PDF path as the source identity after
+conversion.
+
+With Docker Compose:
+
+```bash
+DOCLING_ENABLED=true DOCKER_DOCLING_ADDR=http://docling:5003 \
+  docker compose --profile pdf up -d --build
+curl -X POST localhost:8100/ingest
+```
+
+For host-side development, start the sidecar and enable it in
+`config/config.yaml`:
 
 ```bash
 pip install -r services/docling/requirements.txt   # one-time: install Python deps
-python services/docling/main.py --input pdfs/raw --output pdfs/converted   # convert PDFs → markdown
-curl -X POST localhost:8100/ingest                  # ingest converted markdown
+python services/docling/main.py                    # HTTP sidecar on :5003
+curl -X POST localhost:8100/ingest                 # ingests .md and .pdf sources
 ```
+
+The directory CLI remains available when a separate offline conversion step
+is preferred.
 
 ## Troubleshooting
 

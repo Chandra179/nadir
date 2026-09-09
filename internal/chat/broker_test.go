@@ -17,7 +17,7 @@ func TestBrokerRetainsOrderedFinishedStreamsBeforeRejectingActiveOnes(t *testing
 	}
 	second.finish()
 
-	for i := 2; i < maxRetainedTurns; i++ {
+	for i := 2; i < defaultMaxRetainedTurns; i++ {
 		if _, ok := b.create(fmt.Sprintf("turn-%d", i)); !ok {
 			t.Fatalf("create stream %d failed", i)
 		}
@@ -35,15 +35,15 @@ func TestBrokerRetainsOrderedFinishedStreamsBeforeRejectingActiveOnes(t *testing
 
 func TestTurnStreamReplayLogIsBoundedAndSignalsGap(t *testing.T) {
 	s := newTurnStream()
-	for i := 0; i < eventBuffer+2; i++ {
+	for i := 0; i < defaultEventBuffer+2; i++ {
 		s.publish(EventToken, "token")
 	}
 
 	s.mu.Lock()
 	logLen := len(s.log)
 	s.mu.Unlock()
-	if logLen > eventBuffer {
-		t.Fatalf("log length = %d, want <= %d", logLen, eventBuffer)
+	if logLen > defaultEventBuffer {
+		t.Fatalf("log length = %d, want <= %d", logLen, defaultEventBuffer)
 	}
 
 	events, cancel := s.subscribe(1)

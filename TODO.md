@@ -82,6 +82,26 @@ after a prior ingest requires a reindex.
 - [x] Cleanup and documentation: removed tracked build artifacts, aligned
       source discovery and local-run documentation, and recorded the retention
       decision in ADR-0013.
+- [x] Portable Compose deployment: the base stack is CPU-safe with a source
+      bind mount, container healthcheck, `.dockerignore`, and an explicit
+      NVIDIA GPU override for Linux/Windows WSL2; Apple Silicon skips the AVX2
+      quantized bake.
+
+## Phase 2.6 — Architecture deepening ✅
+
+- [x] Centralized LLM endpoint fallback and optional Docling configuration in
+      the validated config module; the composition root no longer repeats
+      role-resolution rules.
+- [x] Retrieval-owned request/result types keep chat and the HTTP transport
+      independent from storage-specific chunk and filter types.
+- [x] Split the indexing pass into per-file planning and replacement commit
+      stages while preserving bounded workers, retries, and cache invalidation.
+- [x] Shared Qdrant clients, collection provisioning, payload codecs, and
+      point-ID decoding live in `internal/qdrantutil`; document, history, and
+      semantic-cache lifecycles remain separate.
+- [x] Wired optional PDF document intake through the Docling HTTP Adapter for
+      uploads and configured source paths; the original PDF path remains the
+      source identity.
 
 ## Next plan
 
@@ -96,9 +116,7 @@ Prioritize the remaining work in this order:
 3. Add adaptive retrieval fallback only after confidence and filter-miss
    telemetry exists; measure whether wider retrieval improves answer coverage
    without increasing unsupported answers.
-4. Wire the Docling sidecar into ingest behind an explicit PDF-to-Markdown
-   adapter, with size/time limits and a clear source identity rule.
-5. Expand the golden set from 34 to 100+ real queries, including distractor
+4. Expand the golden set from 34 to 100+ real queries, including distractor
    pairs and multi-hop cases, before attempting CRAG or adaptive-RAG work.
 
 ## Current tech debt
@@ -109,9 +127,9 @@ Prioritize the remaining work in this order:
 - **Observability gap:** there is no durable per-stage latency/error metric
   stream yet, so capacity planning and regression detection still depend on
   manual evaluation runs.
-- **PDF ingestion seam:** Docling exists as a standalone sidecar and is not
-  part of the Go ingest path; PDF ingestion remains an operational two-step
-  workflow.
+- **PDF intake runtime:** the Go Adapter is wired, but production still needs
+  measured Docling conversion latency, memory, and failure behavior on real
+  documents.
 - **Reranker artifact lifecycle:** the best model's ONNX bake is memory-heavy
   on the development machine, and the measured torch-int8 fallback trades
   ranking quality for easier deployment.
@@ -169,11 +187,10 @@ Prioritize the remaining work in this order:
       practice: +1 LLM call per follow-up ≈ 0.6–0.8s warm on gemma3:1b;
       drift is possible but temperature-0 + "return it unchanged if already
       standalone" keeps pass-through queries intact.
-- [ ] Wire docling sidecar into ingest (currently `.md` uploads only; the
-      sidecar is a standalone PDF→MD batch CLI with zero Go references). Make
-      it an HTTP endpoint or a pre-ingest hook. Tradeoff: docling latency at
-      ingest, and PDF structure doesn't map 1:1 onto the markdown
-      `path > header` identity prefix — needs its own contextual-text rule.
+- [x] Wire Docling sidecar into ingest through an HTTP document-intake Adapter.
+      Both `.md` and `.pdf` uploads/source files use the same indexing pass;
+      the original PDF path is retained as the source identity. Remaining
+      work is operational measurement of conversion latency and memory.
 - [ ] Per-stage observability (rfc.md open question; the empty `Metrics()`
       stub was removed). Record embed / search / rerank / generate
       durations + cache-hit rate so prod latency matches the golden-set numbers;

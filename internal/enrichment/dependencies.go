@@ -8,8 +8,9 @@ import (
 // DependenciesConfig groups everything needed to construct the enrichment
 // client.
 type DependenciesConfig struct {
-	Addr  string // Ollama base addr, e.g. http://localhost:11434
-	Model string // instruct LLM used for generation
+	Addr           string        // Ollama base addr, e.g. http://localhost:11434
+	Model          string        // instruct LLM used for generation
+	RequestTimeout time.Duration // timeout for one enrichment request
 }
 
 // dependencies performs index-time LLM enrichment over Ollama.
@@ -22,9 +23,13 @@ type dependencies struct {
 var _ Enricher = (*dependencies)(nil)
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
+	timeout := cfg.RequestTimeout
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
 	return &dependencies{
 		addr:   cfg.Addr,
 		model:  cfg.Model,
-		client: &http.Client{Timeout: 120 * time.Second},
+		client: &http.Client{Timeout: timeout},
 	}
 }

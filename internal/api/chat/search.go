@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"nadir/internal/chat"
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 // RetrievalSearch starts a chat turn (search + rewrite capture; generation
@@ -24,9 +24,9 @@ func (h *Handlers) RetrievalSearch(c *gin.Context) {
 		topK = h.maxTopK
 	}
 
-	var filter *store.SearchFilter
+	var filter *search.Filter
 	if filePath, header, sha := c.PostForm("file_path"), c.PostForm("header"), c.PostForm("source_sha"); filePath != "" || header != "" || sha != "" {
-		filter = &store.SearchFilter{FilePath: filePath, Header: header, SourceSHA: sha}
+		filter = &search.Filter{FilePath: filePath, Header: header, SourceSHA: sha}
 	}
 
 	req := chat.Request{

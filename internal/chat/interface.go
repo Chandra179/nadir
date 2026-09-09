@@ -5,12 +5,12 @@ import (
 
 	"nadir/internal/generator"
 	"nadir/internal/history"
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 // Searcher is the retrieval entry point (satisfied by *search.Dependencies).
 type Searcher interface {
-	Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error)
+	Query(ctx context.Context, request search.Request) (search.Result, error)
 }
 
 // Generator turns a fully-built prompt into a typed event stream

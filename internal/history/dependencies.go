@@ -2,13 +2,10 @@ package history
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"nadir/internal/embedder"
 	"nadir/internal/qdrantutil"
@@ -25,6 +22,7 @@ const (
 
 type DependenciesConfig struct {
 	Conn       *grpc.ClientConn
+	Clients    qdrantutil.Clients
 	Collection string
 	Embedder   embedder.Embedder
 }
@@ -45,63 +43,31 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	if collection == "" {
 		collection = defaultCollection
 	}
+	clients := cfg.Clients
+	if clients.Points == nil || clients.Collections == nil {
+		clients = qdrantutil.NewClients(cfg.Conn)
+	}
 	return &dependencies{
-		points:     qdrant.NewPointsClient(cfg.Conn),
-		collection: qdrant.NewCollectionsClient(cfg.Conn),
+		points:     clients.Points,
+		collection: clients.Collections,
 		name:       collection,
 		embedder:   cfg.Embedder,
 		dimensions: cfg.Embedder.Dimensions(),
 	}, nil
 }
 
-// EnsureCollection creates the chat-history collection and its payload
-// field indexes if missing, mirroring store.EnsureCollection /
-// cache.EnsureCollection.
+// EnsureCollection creates or validates the chat-history collection through
+// the shared Qdrant infrastructure while keeping history's index schema local.
 func (d *dependencies) EnsureCollection(ctx context.Context) error {
-	info, err := d.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: d.name})
-	if err == nil {
-		return qdrantutil.ValidateDenseCollection(d.name, info.GetResult(), d.dimensions)
-	}
-	if status.Code(err) != codes.NotFound {
-		return fmt.Errorf("history: get collection: %w", err)
-	}
-
-	_, err = d.collection.Create(ctx, &qdrant.CreateCollection{
-		CollectionName: d.name,
-		VectorsConfig: &qdrant.VectorsConfig{
-			Config: &qdrant.VectorsConfig_Params{
-				Params: &qdrant.VectorParams{
-					Size:     uint64(d.dimensions),
-					Distance: qdrant.Distance_Cosine,
-				},
-			},
-		},
+	return qdrantutil.EnsureDenseCollection(ctx, qdrantutil.Clients{
+		Points:      d.points,
+		Collections: d.collection,
+	}, d.name, d.dimensions, []qdrantutil.FieldIndex{
+		{Name: "doc_type", Type: qdrant.FieldType_FieldTypeKeyword},
+		{Name: "session_id", Type: qdrant.FieldType_FieldTypeKeyword},
+		{Name: "updated_at", Type: qdrant.FieldType_FieldTypeInteger},
+		{Name: "sequence", Type: qdrant.FieldType_FieldTypeInteger},
 	})
-	if err != nil {
-		return fmt.Errorf("history: create collection: %w", err)
-	}
-
-	kw := qdrant.FieldType_FieldTypeKeyword
-	for _, field := range []string{"doc_type", "session_id"} {
-		if _, err := d.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-			CollectionName: d.name,
-			FieldName:      field,
-			FieldType:      &kw,
-		}); err != nil {
-			return fmt.Errorf("history: create %s index: %w", field, err)
-		}
-	}
-	integer := qdrant.FieldType_FieldTypeInteger
-	for _, field := range []string{"updated_at", "sequence"} {
-		if _, err := d.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-			CollectionName: d.name,
-			FieldName:      field,
-			FieldType:      &integer,
-		}); err != nil {
-			return fmt.Errorf("history: create %s index: %w", field, err)
-		}
-	}
-	return nil
 }
 
 func (d *dependencies) lockWrites() func() {

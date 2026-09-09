@@ -6,8 +6,10 @@ COPY . .
 RUN go build -o /nadir ./cmd/server
 
 FROM alpine:3.20
+RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=builder /nadir /app/nadir
 COPY config/config.yaml /app/config/config.yaml
+COPY samples /app/samples
 EXPOSE 8100
 ENTRYPOINT ["/app/nadir"]

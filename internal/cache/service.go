@@ -11,8 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (c *dependencies) Clear(ctx context.Context) error {
@@ -28,28 +26,10 @@ func (c *dependencies) Clear(ctx context.Context) error {
 }
 
 func (c *dependencies) EnsureCollection(ctx context.Context) error {
-	info, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
-	if err == nil {
-		return qdrantutil.ValidateDenseCollection(c.name, info.GetResult(), c.dimensions)
-	}
-	if status.Code(err) != codes.NotFound {
-		return fmt.Errorf("semantic cache get collection: %w", err)
-	}
-	_, err = c.collection.Create(ctx, &qdrant.CreateCollection{
-		CollectionName: c.name,
-		VectorsConfig: &qdrant.VectorsConfig{
-			Config: &qdrant.VectorsConfig_Params{
-				Params: &qdrant.VectorParams{
-					Size:     uint64(c.dimensions),
-					Distance: qdrant.Distance_Cosine,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("semantic cache create collection: %w", err)
-	}
-	return nil
+	return qdrantutil.EnsureDenseCollection(ctx, qdrantutil.Clients{
+		Points:      c.points,
+		Collections: c.collection,
+	}, c.name, c.dimensions, nil)
 }
 
 func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
@@ -74,21 +54,19 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChu
 	}
 
 	hit := resp.Result[0]
-	if c.version != "" && pbStr(hit.Payload, "cache_version") != c.version {
+	if c.version != "" && qdrantutil.StringFromPayload(hit.Payload, "cache_version") != c.version {
 		return nil, false, nil
 	}
 	if c.ttl > 0 {
-		if tsRaw, ok := hit.Payload["cached_at"]; ok {
-			if ts, ok := tsRaw.Kind.(*qdrant.Value_StringValue); ok {
-				t, err := time.Parse(time.RFC3339, ts.StringValue)
-				if err == nil && time.Since(t) > c.ttl {
-					return nil, false, nil
-				}
+		if ts := qdrantutil.StringFromPayload(hit.Payload, "cached_at"); ts != "" {
+			t, err := time.Parse(time.RFC3339, ts)
+			if err == nil && time.Since(t) > c.ttl {
+				return nil, false, nil
 			}
 		}
 	}
 
-	rawJSON := pbStr(hit.Payload, "results_json")
+	rawJSON := qdrantutil.StringFromPayload(hit.Payload, "results_json")
 	if rawJSON == "" {
 		return nil, false, nil
 	}
@@ -115,12 +93,12 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 	id := uuid.NewSHA1(ns, []byte(query)).String()
 
 	payload := map[string]*qdrant.Value{
-		"query":        storeStrVal(query),
-		"results_json": storeStrVal(string(raw)),
-		"cached_at":    storeStrVal(time.Now().UTC().Format(time.RFC3339)),
+		"query":        qdrantutil.StringValue(query),
+		"results_json": qdrantutil.StringValue(string(raw)),
+		"cached_at":    qdrantutil.StringValue(time.Now().UTC().Format(time.RFC3339)),
 	}
 	if c.version != "" {
-		payload["cache_version"] = storeStrVal(c.version)
+		payload["cache_version"] = qdrantutil.StringValue(c.version)
 	}
 
 	_, err = c.points.Upsert(ctx, &qdrant.UpsertPoints{
@@ -138,17 +116,4 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 
 func (c *dependencies) embedQuery(query string) string {
 	return c.queryPrefix + query
-}
-
-func pbStr(p map[string]*qdrant.Value, key string) string {
-	if v, ok := p[key]; ok {
-		if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
-			return s.StringValue
-		}
-	}
-	return ""
-}
-
-func storeStrVal(s string) *qdrant.Value {
-	return &qdrant.Value{Kind: &qdrant.Value_StringValue{StringValue: s}}
 }

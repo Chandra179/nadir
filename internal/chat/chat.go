@@ -1,14 +1,12 @@
 package chat
 
-import (
-	"nadir/internal/store"
-)
+import "nadir/internal/search"
 
 // Request is one chat turn as submitted.
 type Request struct {
 	Query         string
 	TopK          int
-	Filter        *store.SearchFilter
+	Filter        *search.Filter
 	Generate      bool
 	SessionID     string // empty → mint a new session (when History is set)
 	AttachedFiles []string
@@ -24,7 +22,7 @@ type Turn struct {
 	SessionID      string
 	Query          string
 	RewrittenQuery string // set only when the rewriter changed the query
-	Chunks         []store.ScoredChunk
+	Chunks         []search.Chunk
 	ElapsedMS      int64
 	FromCache      bool
 	Generate       bool

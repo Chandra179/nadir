@@ -3,6 +3,8 @@ http:
   read_timeout: 5s
   write_timeout: 0s  # 0s = none: streamed answers run longer than a fixed write deadline
   idle_timeout: 120s
+  startup_timeout: 30s
+  shutdown_timeout: 10s
 
 middleware:
   timeout: 30s
@@ -19,6 +21,7 @@ ingest:
   initial_interval: 500ms
   max_interval: 10s
   multiplier: 2.0
+  workers: 8
   max_file_bytes: 16777216       # 16 MiB per document upload/source file
   max_upload_bytes: 67108864    # 64 MiB per multipart request
   embed_batch_size: 64           # bound each Ollama embedding request
@@ -35,6 +38,7 @@ embedder:
   model: "nomic-embed-text"
   ollama_addr: "http://localhost:11434"
   dimensions: 768
+  request_timeout: 60s
   query_prefix: "search_query: "      # prepended to queries at search time (nomic-embed-text task instruction; empty = off)
   document_prefix: "search_document: " # prepended to chunks at ingest time; requires reindex when changed
 
@@ -49,6 +53,7 @@ search:
   max_fragments: 16
   max_concurrent_fragments: 8
   max_top_k: 50
+  max_chunks_per_file: 3
 
 reranker:
   enabled: true    
@@ -56,10 +61,12 @@ reranker:
   model: "BAAI/bge-reranker-v2-m3" # swappable sidecar cross-encoder (env RERANKER_MODEL overrides); revert to cross-encoder/ms-marco-MiniLM-L-6-v2 for the tiny/fast baseline
   candidate_mul: 4     # fetch topK*4 candidates before reranking (more headroom for the reranker to reorder)
   max_concurrent: 10   # max concurrent reranker calls to sidecar
+  request_timeout: 30s
 
 enrichment:
   # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero
   # query-time latency). Changing these requires a reindex to take effect.
+  request_timeout: 120s
   hype:
     enabled: false          
     questions_per_chunk: 3
@@ -80,10 +87,16 @@ generator:
   enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=on
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
+  request_timeout: 120s
 
 chat:
   # Chat use-case tuning: prompt assembly and the streaming turn lifecycle.
   max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)
+  event_buffer: 4096
+  max_event_log_bytes: 1048576   # 1 MiB replay log per turn
+  max_retained_turns: 64
+  finished_turn_ttl: 10m
+  persist_timeout: 5s
 
 rewriter:
   # Conversational query rewriting (Rewrite-Retrieve-Read): follow-up turns
@@ -94,9 +107,15 @@ rewriter:
   # follow-up turn.
   enabled: true
   turns: 4           # prior turns fed to the rewriter
+  request_timeout: 8s
   ollama_addr: ""    # defaults to generator.ollama_addr, then embedder.ollama_addr
   model: ""          # defaults to generator.model
 
 history:
   enabled: true              # persists chat sessions/turns to Qdrant, no extra infra
   collection: "chat_history"
+
+docling:
+  enabled: false             # enable PDF intake when the Docling sidecar is available
+  addr: "http://localhost:5003"
+  request_timeout: 120s

@@ -6,16 +6,47 @@ import (
 	"time"
 )
 
-// eventBuffer bounds each subscriber queue and maxEventLogBytes bounds the
-// retained replay log. Both limits are independent: a client may disconnect
-// for a long time without allowing a turn to grow without bound.
-const eventBuffer = 4096
-const maxEventLogBytes = 1 << 20
-
 const (
-	maxRetainedTurns = 64
-	finishedTurnTTL  = 10 * time.Minute
+	defaultEventBuffer      = 4096
+	maxEventBuffer          = 16384
+	defaultMaxEventLogBytes = 1 << 20
+	maxMaxEventLogBytes     = 16 << 20
+	defaultMaxRetainedTurns = 64
+	maxMaxRetainedTurns     = 1024
+	defaultFinishedTurnTTL  = 10 * time.Minute
 )
+
+type brokerConfig struct {
+	EventBuffer      int
+	MaxEventLogBytes int64
+	MaxRetainedTurns int
+	FinishedTurnTTL  time.Duration
+}
+
+func normalizeBrokerConfig(cfg brokerConfig) brokerConfig {
+	if cfg.EventBuffer <= 0 {
+		cfg.EventBuffer = defaultEventBuffer
+	}
+	if cfg.EventBuffer > maxEventBuffer {
+		cfg.EventBuffer = maxEventBuffer
+	}
+	if cfg.MaxEventLogBytes <= 0 {
+		cfg.MaxEventLogBytes = defaultMaxEventLogBytes
+	}
+	if cfg.MaxEventLogBytes > maxMaxEventLogBytes {
+		cfg.MaxEventLogBytes = maxMaxEventLogBytes
+	}
+	if cfg.MaxRetainedTurns <= 0 {
+		cfg.MaxRetainedTurns = defaultMaxRetainedTurns
+	}
+	if cfg.MaxRetainedTurns > maxMaxRetainedTurns {
+		cfg.MaxRetainedTurns = maxMaxRetainedTurns
+	}
+	if cfg.FinishedTurnTTL <= 0 {
+		cfg.FinishedTurnTTL = defaultFinishedTurnTTL
+	}
+	return cfg
+}
 
 type subscriber struct {
 	ch chan TurnEvent
@@ -26,18 +57,29 @@ type subscriber struct {
 // replayed from their cursor. Safe for concurrent use; exactly one
 // goroutine (the generation supervisor) publishes.
 type turnStream struct {
-	mu         sync.Mutex
-	seq        int64
-	log        []TurnEvent
-	logBytes   int
-	subs       map[*subscriber]struct{}
-	finished   bool
-	finishedAt time.Time
-	cancel     context.CancelFunc
+	mu               sync.Mutex
+	seq              int64
+	log              []TurnEvent
+	logBytes         int64
+	subs             map[*subscriber]struct{}
+	finished         bool
+	finishedAt       time.Time
+	cancel           context.CancelFunc
+	eventBuffer      int
+	maxEventLogBytes int64
 }
 
-func newTurnStream() *turnStream {
-	return &turnStream{subs: make(map[*subscriber]struct{})}
+func newTurnStream(configs ...brokerConfig) *turnStream {
+	var cfg brokerConfig
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	cfg = normalizeBrokerConfig(cfg)
+	return &turnStream{
+		subs:             make(map[*subscriber]struct{}),
+		eventBuffer:      cfg.EventBuffer,
+		maxEventLogBytes: cfg.MaxEventLogBytes,
+	}
 }
 
 // cancelGeneration aborts the owning generation (if any). The supervisor
@@ -67,9 +109,11 @@ func (s *turnStream) publish(kind EventKind, text string) {
 	s.seq++
 	ev := TurnEvent{Seq: s.seq, Kind: kind, Text: text}
 	s.log = append(s.log, ev)
-	s.logBytes += len(text) + 32
-	for len(s.log) > eventBuffer || s.logBytes > maxEventLogBytes {
-		s.logBytes -= len(s.log[0].Text) + 32
+	s.logBytes += int64(len(text) + 32)
+	// Keep the newest event even if one unusually large event exceeds the
+	// configured byte budget; never index an empty log while trimming.
+	for len(s.log) > 1 && (len(s.log) > s.eventBuffer || s.logBytes > s.maxEventLogBytes) {
+		s.logBytes -= int64(len(s.log[0].Text) + 32)
 		s.log = s.log[1:]
 	}
 	for sub := range s.subs {
@@ -109,7 +153,7 @@ func (s *turnStream) subscribe(since int64) (<-chan TurnEvent, func()) {
 
 	// One extra slot is reserved for EventReplayGap when the cursor is older
 	// than the retained window.
-	sub := &subscriber{ch: make(chan TurnEvent, eventBuffer+1)}
+	sub := &subscriber{ch: make(chan TurnEvent, s.eventBuffer+1)}
 	if len(s.log) > 0 && since > 0 && since < s.log[0].Seq-1 {
 		sub.ch <- TurnEvent{
 			Seq:  s.log[0].Seq,
@@ -146,23 +190,36 @@ func (s *turnStream) subscribe(since int64) (<-chan TurnEvent, func()) {
 // transports can subscribe by turn id — including reconnects, which replay
 // from their Last-Event-ID cursor instead of failing.
 type broker struct {
-	mu      sync.Mutex
-	turns   map[string]*turnStream
-	ordered []string
+	mu               sync.Mutex
+	turns            map[string]*turnStream
+	ordered          []string
+	maxRetainedTurns int
+	finishedTurnTTL  time.Duration
+	config           brokerConfig
 }
 
-func newBroker() *broker {
-	return &broker{turns: make(map[string]*turnStream)}
+func newBroker(configs ...brokerConfig) *broker {
+	var cfg brokerConfig
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	cfg = normalizeBrokerConfig(cfg)
+	return &broker{
+		turns:            make(map[string]*turnStream),
+		maxRetainedTurns: cfg.MaxRetainedTurns,
+		finishedTurnTTL:  cfg.FinishedTurnTTL,
+		config:           cfg,
+	}
 }
 
 func (b *broker) create(id string) (*turnStream, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.pruneLocked()
-	if len(b.turns) >= maxRetainedTurns {
+	if len(b.turns) >= b.maxRetainedTurns {
 		return nil, false
 	}
-	stream := newTurnStream()
+	stream := newTurnStream(b.config)
 	b.turns[id] = stream
 	b.ordered = append(b.ordered, id)
 	return stream, true
@@ -187,7 +244,7 @@ func (b *broker) pruneLocked() {
 		finished := stream.finished
 		finishedAt := stream.finishedAt
 		stream.mu.Unlock()
-		if finished && now.Sub(finishedAt) >= finishedTurnTTL {
+		if finished && now.Sub(finishedAt) >= b.finishedTurnTTL {
 			delete(b.turns, id)
 			continue
 		}
@@ -195,7 +252,7 @@ func (b *broker) pruneLocked() {
 	}
 	b.ordered = kept
 
-	for len(b.turns) >= maxRetainedTurns {
+	for len(b.turns) >= b.maxRetainedTurns {
 		removed := false
 		for i, id := range b.ordered {
 			stream := b.turns[id]

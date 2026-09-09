@@ -79,7 +79,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 			return
 		}
 		if len(files) == 0 {
-			d.respondIngestError(c, isHX, http.StatusBadRequest, "no markdown files found in configured sources")
+			d.respondIngestError(c, isHX, http.StatusBadRequest, "no supported documents found in configured sources")
 			return
 		}
 		names = make([]string, len(files))

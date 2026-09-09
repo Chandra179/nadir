@@ -25,6 +25,7 @@ type DependenciesConfig struct {
 	MaxFragments           int
 	MaxConcurrentFragments int
 	MaxTopK                int
+	MaxChunksPerFile       int
 }
 
 type dependencies struct {
@@ -38,6 +39,7 @@ type dependencies struct {
 	maxFragments           int
 	maxConcurrentFragments int
 	maxTopK                int
+	maxChunksPerFile       int
 	log                    *zap.Logger
 }
 
@@ -58,6 +60,10 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if maxTopK <= 0 {
 		maxTopK = 50
 	}
+	maxChunksPerFile := cfg.MaxChunksPerFile
+	if maxChunksPerFile <= 0 {
+		maxChunksPerFile = 3
+	}
 	log := cfg.Log
 	if log == nil {
 		log = zap.NewNop()
@@ -70,6 +76,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		maxFragments:           maxFragments,
 		maxConcurrentFragments: maxConcurrentFragments,
 		maxTopK:                maxTopK,
+		maxChunksPerFile:       maxChunksPerFile,
 		log:                    log,
 	}
 }
@@ -82,10 +89,6 @@ func (s *dependencies) WithReranker(r reranker.Reranker, candidateMul int) *depe
 	s.candidateMul = candidateMul
 	return s
 }
-
-// RerankerEnabled reports whether a reranker is wired in; used by eval
-// tooling to label reports.
-func (s *dependencies) RerankerEnabled() bool { return s.reranker != nil }
 
 // WithSemanticCache enables the semantic cache lookup/writeback performed by
 // Query.

@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"nadir/internal/store"
+	"nadir/internal/search"
 )
 
 // buildPrompt assembles the answer-generation prompt: grounded-answer
 // instructions plus the numbered, token-budgeted context. Use-case logic on
 // purpose — the generator is a dumb transport and must not know how RAG
 // prompts are shaped.
-func buildPrompt(query string, chunks []store.ScoredChunk, maxTokens int) string {
+func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
 	ordered := lostInMiddleOrder(chunks)
 	context := buildContext(ordered, maxTokens)
 
@@ -29,11 +29,11 @@ func buildPrompt(query string, chunks []store.ScoredChunk, maxTokens int) string
 
 // lostInMiddleOrder interleaves chunks front/back so the highest-ranked
 // ones land at the prompt's edges, where attention is strongest.
-func lostInMiddleOrder(chunks []store.ScoredChunk) []store.ScoredChunk {
+func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
 	if len(chunks) <= 2 {
 		return chunks
 	}
-	result := make([]store.ScoredChunk, len(chunks))
+	result := make([]search.Chunk, len(chunks))
 	front, back := 0, len(chunks)-1
 	for i, c := range chunks {
 		if i%2 == 0 {
@@ -47,7 +47,7 @@ func lostInMiddleOrder(chunks []store.ScoredChunk) []store.ScoredChunk {
 	return result
 }
 
-func buildContext(chunks []store.ScoredChunk, maxTokens int) string {
+func buildContext(chunks []search.Chunk, maxTokens int) string {
 	var sb strings.Builder
 	used := 0
 	for i, c := range chunks {

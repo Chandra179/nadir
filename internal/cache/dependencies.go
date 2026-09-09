@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	"nadir/internal/embedder"
+	"nadir/internal/qdrantutil"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 // once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
 	Conn        *grpc.ClientConn
+	Clients     qdrantutil.Clients
 	Collection  string
 	Embedder    embedder.Embedder
 	Threshold   float32
@@ -52,9 +54,13 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		threshold = defaultThreshold
 	}
 
+	clients := cfg.Clients
+	if clients.Points == nil || clients.Collections == nil {
+		clients = qdrantutil.NewClients(cfg.Conn)
+	}
 	return &dependencies{
-		points:      qdrant.NewPointsClient(cfg.Conn),
-		collection:  qdrant.NewCollectionsClient(cfg.Conn),
+		points:      clients.Points,
+		collection:  clients.Collections,
 		name:        collection,
 		embedder:    cfg.Embedder,
 		threshold:   threshold,
