@@ -1,6 +1,8 @@
 # Modules
 
-Each module is a Go package under `modules/<name>/`. Module owns its domain logic, transport, and DI.
+Each domain is a Go package under `internal/<name>/`. Domain packages own their
+interfaces and use-case logic; HTTP transport stays under `internal/api/` and
+wiring stays under `internal/server/`.
 
 ## Required files
 

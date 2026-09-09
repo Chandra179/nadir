@@ -15,18 +15,25 @@ type Config struct {
 	Chat chat.Chat
 	// TopK is the resolved default result count for requests that omit one.
 	TopK int
+	// MaxTopK bounds client-provided result counts before they reach the use case.
+	MaxTopK int
 	// Render renders the UI templates.
 	Render *render.Engine
 }
 
 // Handlers serves the turn lifecycle endpoints.
 type Handlers struct {
-	chat   chat.Chat
-	topK   int
-	render *render.Engine
+	chat    chat.Chat
+	topK    int
+	maxTopK int
+	render  *render.Engine
 }
 
 // New builds the turn handlers.
 func New(cfg Config) *Handlers {
-	return &Handlers{chat: cfg.Chat, topK: cfg.TopK, render: cfg.Render}
+	maxTopK := cfg.MaxTopK
+	if maxTopK <= 0 {
+		maxTopK = 50
+	}
+	return &Handlers{chat: cfg.Chat, topK: cfg.TopK, maxTopK: maxTopK, render: cfg.Render}
 }

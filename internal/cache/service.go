@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"nadir/internal/qdrantutil"
 	"nadir/internal/store"
 
 	"github.com/google/uuid"
@@ -27,9 +28,9 @@ func (c *dependencies) Clear(ctx context.Context) error {
 }
 
 func (c *dependencies) EnsureCollection(ctx context.Context) error {
-	_, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
+	info, err := c.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: c.name})
 	if err == nil {
-		return nil
+		return qdrantutil.ValidateDenseCollection(c.name, info.GetResult(), c.dimensions)
 	}
 	if status.Code(err) != codes.NotFound {
 		return fmt.Errorf("semantic cache get collection: %w", err)
@@ -52,7 +53,7 @@ func (c *dependencies) EnsureCollection(ctx context.Context) error {
 }
 
 func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
-	vec, err := c.embedder.Embed(ctx, query)
+	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
 	if err != nil {
 		return nil, false, fmt.Errorf("semantic cache embed: %w", err)
 	}
@@ -73,6 +74,9 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChu
 	}
 
 	hit := resp.Result[0]
+	if c.version != "" && pbStr(hit.Payload, "cache_version") != c.version {
+		return nil, false, nil
+	}
 	if c.ttl > 0 {
 		if tsRaw, ok := hit.Payload["cached_at"]; ok {
 			if ts, ok := tsRaw.Kind.(*qdrant.Value_StringValue); ok {
@@ -97,7 +101,7 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChu
 }
 
 func (c *dependencies) Set(ctx context.Context, query string, chunks []store.ScoredChunk) error {
-	vec, err := c.embedder.Embed(ctx, query)
+	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
 	if err != nil {
 		return fmt.Errorf("semantic cache embed for set: %w", err)
 	}
@@ -115,6 +119,9 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 		"results_json": storeStrVal(string(raw)),
 		"cached_at":    storeStrVal(time.Now().UTC().Format(time.RFC3339)),
 	}
+	if c.version != "" {
+		payload["cache_version"] = storeStrVal(c.version)
+	}
 
 	_, err = c.points.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: c.name,
@@ -127,6 +134,10 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 		},
 	})
 	return err
+}
+
+func (c *dependencies) embedQuery(query string) string {
+	return c.queryPrefix + query
 }
 
 func pbStr(p map[string]*qdrant.Value, key string) string {

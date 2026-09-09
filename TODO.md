@@ -61,6 +61,66 @@ after a prior ingest requires a reindex.
       until a real corpus exists; re-eval there — paper gains (+20pp precision)
       show on fragmented/larger corpora.
 
+## Phase 2.5 — Production hardening ✅
+
+- [x] Bounded, insertion-ordered turn retention: the in-process broker keeps a
+      bounded number of turn streams and replay bytes, evicts finished streams
+      deterministically, and emits an explicit resync event when a cursor is
+      older than the retained window. If all retained streams are active, a new
+      generation is rejected instead of growing memory without bound.
+- [x] Request and ingest budgets: bound upload bodies, source-file reads,
+      query length, sentence fragments, concurrent fragment searches, embedding
+      batches, chunks per file, and `top_k`.
+- [x] Semantic-cache correctness: filtered searches bypass the unfiltered
+      query cache, cache entries carry an embedding/configuration version, and
+      cache hits are bounded to the requested result count.
+- [x] Startup and schema safety: Qdrant vector schemas are validated rather
+      than silently reused, startup failures are returned to `main`, and
+      collection setup has a timeout.
+- [x] History concurrency and pagination: turn writes/deletes are serialized
+      through one bounded seam and history reads use paged Qdrant scans.
+- [x] Cleanup and documentation: removed tracked build artifacts, aligned
+      source discovery and local-run documentation, and recorded the retention
+      decision in ADR-0013.
+
+## Next plan
+
+Prioritize the remaining work in this order:
+
+1. Add per-stage observability (embed, search, rerank, generation, cache hit,
+   queue/replay gap, and ingest counters). This is the prerequisite for making
+   the latency and capacity decisions below from production evidence.
+2. Finish the reranker benchmark on a machine with enough memory to bake the
+   bge-reranker-v2-m3 ONNX artifact, then compare quality, p50/p95 latency, and
+   memory against the current torch-int8 fallback.
+3. Add adaptive retrieval fallback only after confidence and filter-miss
+   telemetry exists; measure whether wider retrieval improves answer coverage
+   without increasing unsupported answers.
+4. Wire the Docling sidecar into ingest behind an explicit PDF-to-Markdown
+   adapter, with size/time limits and a clear source identity rule.
+5. Expand the golden set from 34 to 100+ real queries, including distractor
+   pairs and multi-hop cases, before attempting CRAG or adaptive-RAG work.
+
+## Current tech debt
+
+- **Single-node event retention:** the broker is intentionally process-local.
+  Horizontal scaling needs a shared event-log adapter (for example Redis
+  Streams), subscriber routing, and a deployment decision for SSE affinity.
+- **Observability gap:** there is no durable per-stage latency/error metric
+  stream yet, so capacity planning and regression detection still depend on
+  manual evaluation runs.
+- **PDF ingestion seam:** Docling exists as a standalone sidecar and is not
+  part of the Go ingest path; PDF ingestion remains an operational two-step
+  workflow.
+- **Reranker artifact lifecycle:** the best model's ONNX bake is memory-heavy
+  on the development machine, and the measured torch-int8 fallback trades
+  ranking quality for easier deployment.
+- **Evaluation coverage:** the current golden set is intentionally small and
+  mostly retrieval-focused; generation faithfulness and answer relevancy are
+  not yet measured.
+- **Build ergonomics:** the Makefile has only the local-run target, so common
+  test/build/check commands are duplicated in documentation and scripts.
+
 ## Phase 3 — Measured gaps (next up)
 
 - [~] Rerank latency: quantize the existing sidecar before swapping models.

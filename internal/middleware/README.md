@@ -3,18 +3,17 @@
 Gin middleware used by the HTTP server. Registered in order via `engine.Use(...)` in `internal/server/server.go`:
 
 ```
-gin.Recovery → RequestID → Timeout → RequestLog → Metrics → handler
+gin.Recovery → RequestID → Timeout → RequestLog → handler
 ```
 
 ## Files
 
 | File | Kind | Description |
 |------|------|-------------|
-| `dependencies.go` | infra | Holds `*zap.Logger` and a `*prometheus.Registry` (+ the metric vectors registered on it) for stateful middleware |
+| `dependencies.go` | infra | Holds the structured logger used by request logging |
 | `request_id.go` | middleware | Reads/reuses `X-Request-ID` header, otherwise generates a random one. Stores the ID in context, echoes it in the response. |
-| `timeout.go` | middleware | Attaches a `context.WithTimeout` deadline (from `middleware.timeout` in config) to the request context, so downstream Qdrant/Ollama calls return instead of hanging indefinitely. `POST /ingest` is exempt — a full source sweep is a legitimately long-running bulk operation. |
+| `timeout.go` | middleware | Attaches a `context.WithTimeout` deadline (from `middleware.timeout` in config) to the request context, so downstream Qdrant/Ollama calls return instead of hanging indefinitely. Source sweeps and turn SSE streams are exempt. |
 | `request_log.go` | middleware | Logs one canonical line per request: method, path, status, duration, request ID, query params. Level tracks response status (Info for 2xx/3xx, Warn for 4xx, Error for 5xx); the last error attached via `c.Error(err)` is included for 4xx/5xx. Skips configured paths. Neither request nor response bodies are logged (see comment in file). |
-| `metrics.go` | middleware | Records an `http_request_duration_seconds` histogram and `http_requests_total` counter, labeled by method, route (`c.FullPath()`), and status. Registered on the `*prometheus.Registry` passed into `NewDependencies`. |
 
 ## Why no body logging?
 

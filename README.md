@@ -44,20 +44,20 @@ curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant form
 ```
 
 Returns an HTML fragment (the chat UI's turn card) plus an `X-Nadir-Session-Id`
-header for follow-up turns. Add `-F generate=true` to include an LLM answer.
+header for follow-up turns. Add `-F generate=on` to include an LLM answer.
 
 ### 4. Include LLM answer generation
 
-Pass `generate=true` to run answer generation over the retrieved chunks:
+Pass `generate=on` to run answer generation over the retrieved chunks:
 
 ```bash
 curl -X POST localhost:8100/retrieval/search \
-  --data-urlencode "query=secant formula" -F generate=true
+  --data-urlencode "query=secant formula" -F generate=on
 ```
 
 ## Source data
 
-The server reads markdown files from directories listed in `config.yaml` → `source.paths`. Each source path is walked recursively; files matching `ingest.ignore_patterns` are skipped.
+The server reads markdown files from directories listed in `config.yaml` → `source.paths`. Each source path is walked recursively; files matching `source.ignore_patterns` are skipped.
 
 A sample set is included at `samples/` (4 math files). To use your own data:
 
@@ -124,7 +124,6 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 | POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
 | GET | `/history/sessions` | Recent chat sessions (sidebar) |
 | GET | `/history/sessions/:id` | Replay a past session |
-| GET | `/settings` | Effective runtime configuration panel |
 | GET | `/healthz` | Health check |
 
 ## Architecture
@@ -135,10 +134,16 @@ POST /ingest → ingest.Service (SHA dedup) → Pipeline
                                  ├── Embedder (Ollama)
                                  └── Store.Upsert (Qdrant)
 
-POST /retrieval/search → chat.Service.Ask
+POST /retrieval/search → chat.Service.StartTurn
                  ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
-                 ├── [Generator] buffered answer over retrieved chunks
-                 └── History persist (detached)
+                 ├── [Generator] supervised streaming answer over retrieved chunks
+                 └── History persist at terminal state
+```
+
+The in-process event broker keeps a bounded, ordered replay window for one
+server instance. If horizontal scaling is required, put the turn event log
+behind a shared backend such as Redis Streams and route or broadcast SSE
+subscribers through that shared log.
 
 ## Run tests
 
@@ -169,7 +174,7 @@ Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100.
 curl -X DELETE localhost:6333/collections/documents_chunks
 ```
 
-(or use the "Delete all" button in the ingestion dashboard at `/dashboard`, which does the same drop-and-recreate.)
+Use `POST /store/reset` to drop and recreate the Qdrant collection.
 
 ### Ollama connection refused
 

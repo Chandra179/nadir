@@ -51,6 +51,8 @@ func (h *Handlers) RetrievalAnswer(c *gin.Context) {
 			_ = writeSSEEvent(w, "generror", ev.Text, ev.Seq)
 		case chat.EventDone:
 			_ = writeSSEEvent(w, "done", "1", ev.Seq)
+		case chat.EventReplayGap:
+			_ = writeSSEEvent(w, "resync", ev.Text, ev.Seq)
 		}
 		w.Flush()
 	}

@@ -23,15 +23,15 @@ type TurnView struct {
 	SessionID string
 	TopK      int
 	Generate  bool
-	Results        []RetrievalResultView
-	Count          int
-	ElapsedMS      int64
-	FromCache      bool
-	Answer         string
-	HasAnswer      bool
-	TurnID         string
-	StreamURL      string
-	Prompt         string
+	Results   []RetrievalResultView
+	Count     int
+	ElapsedMS int64
+	FromCache bool
+	Answer    string
+	HasAnswer bool
+	TurnID    string
+	StreamURL string
+	Prompt    string
 	// GenerateError is set when search succeeded but generation failed —
 	// distinct from Error, which only covers a search-stage failure.
 	GenerateError string

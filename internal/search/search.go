@@ -40,12 +40,27 @@ func (s *dependencies) search(ctx context.Context, query string, topK int, filte
 // semantic search, consulting the semantic cache first when wired
 // (skipCache bypasses it). fromCache reports a cache hit.
 func (s *dependencies) Query(ctx context.Context, query, keyword string, topK int, filter *store.SearchFilter, skipCache bool) (chunks []store.ScoredChunk, fromCache bool, err error) {
+	if keyword == "" {
+		if err := s.validateQuery(query, topK); err != nil {
+			return nil, false, err
+		}
+	} else {
+		if len([]rune(strings.TrimSpace(keyword))) > s.maxQueryChars {
+			return nil, false, errQueryTooLong
+		}
+		if topK <= 0 {
+			return nil, false, fmt.Errorf("search top_k must be greater than zero")
+		}
+	}
+	if topK > s.maxTopK {
+		topK = s.maxTopK
+	}
 	if keyword != "" {
 		chunks, err = s.keywordSearch(ctx, keyword, topK, filter)
 		return chunks, false, err
 	}
 
-	if cached, ok := s.getCached(ctx, query, topK, skipCache); ok {
+	if cached, ok := s.getCached(ctx, query, topK, filter, skipCache); ok {
 		return cached, true, nil
 	}
 
@@ -54,7 +69,7 @@ func (s *dependencies) Query(ctx context.Context, query, keyword string, topK in
 		return nil, false, err
 	}
 
-	if s.cache != nil && query != "" && len(chunks) > 0 {
+	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
 		go func() {
 			_ = s.cache.Set(context.Background(), query, chunks)
 		}()
@@ -66,8 +81,8 @@ func (s *dependencies) Query(ctx context.Context, query, keyword string, topK in
 // getCached consults the semantic cache unless the caller asked to skip it.
 // Returns false on miss or cache error so lookups stay best-effort; hits
 // are truncated to topK to match a fresh search's result size.
-func (s *dependencies) getCached(ctx context.Context, query string, topK int, skip bool) ([]store.ScoredChunk, bool) {
-	if s.cache == nil || skip || query == "" {
+func (s *dependencies) getCached(ctx context.Context, query string, topK int, filter *store.SearchFilter, skip bool) ([]store.ScoredChunk, bool) {
+	if s.cache == nil || skip || query == "" || !isEmptyFilter(filter) {
 		return nil, false
 	}
 	cached, hit, err := s.cache.Get(ctx, query)
@@ -78,6 +93,10 @@ func (s *dependencies) getCached(ctx context.Context, query string, topK int, sk
 		cached = cached[:topK]
 	}
 	return cached, true
+}
+
+func isEmptyFilter(filter *store.SearchFilter) bool {
+	return filter == nil || (filter.FilePath == "" && filter.Header == "" && filter.SourceSHA == "")
 }
 
 func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
@@ -96,7 +115,7 @@ func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK i
 
 // rerankTopK re-scores candidates with the cross-encoder when configured,
 // keeping the best topK. Best-effort: on reranker failure the original
-// (un-truncated) candidates are returned so retrieval still yields results.
+// score ordering is retained, but the result count remains bounded.
 func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) []store.ScoredChunk {
 	if s.reranker == nil || len(chunks) == 0 {
 		return chunks
@@ -104,6 +123,9 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []st
 	reranked, err := s.reranker.Rerank(ctx, query, chunks)
 	if err != nil {
 		s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
+		if len(chunks) > topK {
+			return chunks[:topK]
+		}
 		return chunks
 	}
 	if len(reranked) > topK {
@@ -113,11 +135,14 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []st
 }
 
 func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
-	fragments := splitFragments(query)
+	fragments := splitFragments(query, s.maxFragments)
 
 	vecs, err := s.embedFragments(ctx, fragments)
 	if err != nil {
 		return nil, fmt.Errorf("embed: %w", err)
+	}
+	if len(vecs) != len(fragments) {
+		return nil, fmt.Errorf("embed returned %d vectors for %d fragments", len(vecs), len(fragments))
 	}
 
 	var (
@@ -126,16 +151,19 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 		seen     = make(map[string]store.ScoredChunk)
 		firstErr error
 	)
+	sem := make(chan struct{}, s.maxConcurrentFragments)
 	for i, frag := range fragments {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(frag string, vec []float32) {
 			defer wg.Done()
+			defer func() { <-sem }()
 			results, err := s.store.HybridSearch(ctx, vec, frag, topK, filter)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
 				if firstErr == nil {
-					firstErr = fmt.Errorf("search failed")
+					firstErr = fmt.Errorf("search failed for fragment %q: %w", frag, err)
 				}
 				return
 			}
@@ -203,7 +231,7 @@ func capPerFile(chunks []store.ScoredChunk, maxPerFile int) []store.ScoredChunk 
 	return out
 }
 
-func splitFragments(query string) []string {
+func splitFragments(query string, maxFragments int) []string {
 	parts := sentenceSplit.Split(strings.TrimSpace(query), -1)
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -213,6 +241,9 @@ func splitFragments(query string) []string {
 	}
 	if len(out) == 0 {
 		return []string{query}
+	}
+	if maxFragments > 0 && len(out) > maxFragments {
+		out = out[:maxFragments]
 	}
 	return out
 }

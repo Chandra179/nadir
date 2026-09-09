@@ -44,8 +44,8 @@ SERVER_PID=$!
 echo "==> Waiting for server on :8100..."
 until curl -sf http://localhost:8100/healthz > /dev/null 2>&1; do sleep 1; done
 
-echo "==> Ingesting sample documents..."
-curl -sf -X POST localhost:8100/ingest $(for f in samples/*.md; do echo -F "files=@$f"; done)
+echo "==> Ingesting configured source documents..."
+curl -sf -X POST localhost:8100/ingest
 
 echo ""
 echo "Local stack running. Server PID=$SERVER_PID, Reranker PID=$RERANKER_PID"

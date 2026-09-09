@@ -43,6 +43,7 @@ const (
 	EventToken EventKind = iota
 	EventError
 	EventDone
+	EventReplayGap
 )
 
 // TurnEvent is one entry in a turn's event log. Seq is a per-turn cursor;

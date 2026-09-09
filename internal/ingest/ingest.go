@@ -32,10 +32,23 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 	var processed, skipped, failed atomic.Int64
 	sem := make(chan struct{}, ingestWorkers)
 	var wg sync.WaitGroup
+	seenNames := make(map[string]struct{}, len(files))
 
 	for _, f := range files {
+		if _, seen := seenNames[f.Name]; seen {
+			skipped.Add(1)
+			continue
+		}
+		seenNames[f.Name] = struct{}{}
+		if d.maxFileBytes > 0 && int64(len(f.Data)) > d.maxFileBytes {
+			failed.Add(1)
+			d.log.Warn("skipping oversized file",
+				zap.String("path", f.Name), zap.Int64("bytes", int64(len(f.Data))),
+				zap.Int64("max_bytes", d.maxFileBytes))
+			continue
+		}
 		sha := contentSHA(f.Data)
-		if sha != "" && storedSHAs[f.Name] == sha {
+		if storedSHAs[f.Name] == sha {
 			skipped.Add(1)
 			continue
 		}
@@ -83,6 +96,9 @@ func (d *dependencies) ingestFile(ctx context.Context, filePath, text, sourceSHA
 	chunks, err := d.chunker.Chunk(text, filePath)
 	if err != nil {
 		return fmt.Errorf("chunk %s: %w", filePath, err)
+	}
+	if d.maxChunks > 0 && len(chunks) > d.maxChunks {
+		return fmt.Errorf("file %s produces %d chunks, exceeding limit %d", filePath, len(chunks), d.maxChunks)
 	}
 
 	// Contextual text per chunk: static path/header prefix, optionally
@@ -246,14 +262,23 @@ func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks
 // standard ingest backoff applied.
 func (d *dependencies) embedWithRetry(ctx context.Context, inputs []string) ([][]float32, error) {
 	if be, ok := d.embedder.(embedder.BatchEmbedder); ok {
-		var vecs [][]float32
-		op := func() error {
-			var e error
-			vecs, e = be.EmbedBatch(ctx, inputs)
-			return e
-		}
-		if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
-			return nil, err
+		vecs := make([][]float32, 0, len(inputs))
+		for start := 0; start < len(inputs); start += d.embedBatchSize {
+			end := min(start+d.embedBatchSize, len(inputs))
+			batch := inputs[start:end]
+			var batchVecs [][]float32
+			op := func() error {
+				var e error
+				batchVecs, e = be.EmbedBatch(ctx, batch)
+				return e
+			}
+			if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+				return nil, err
+			}
+			if len(batchVecs) != len(batch) {
+				return nil, fmt.Errorf("batch %d returned %d vectors for %d inputs", start/d.embedBatchSize, len(batchVecs), len(batch))
+			}
+			vecs = append(vecs, batchVecs...)
 		}
 		return vecs, nil
 	}

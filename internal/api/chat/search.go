@@ -20,6 +20,9 @@ func (h *Handlers) RetrievalSearch(c *gin.Context) {
 	if v, err := strconv.Atoi(c.PostForm("top_k")); err == nil && v > 0 {
 		topK = v
 	}
+	if topK > h.maxTopK {
+		topK = h.maxTopK
+	}
 
 	var filter *store.SearchFilter
 	if filePath, header, sha := c.PostForm("file_path"), c.PostForm("header"), c.PostForm("source_sha"); filePath != "" || header != "" || sha != "" {

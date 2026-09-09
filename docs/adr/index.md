@@ -18,3 +18,4 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0010](0010-remove-offline-eval-harness.md) | The offline eval harness (`cmd/evalbench`, `internal/eval`, `config/golden`) is removed | Accepted |
 | [0011](0011-semantic-cache-naming-and-package.md) | The query-level vector cache is `cache.SemanticCache` in its own package, separate from `internal/store` | Accepted |
 | [0012](0012-turn-copy-and-edit-append-only-re-ask.md) | Hover copy/edit actions on turns: edit re-asks via `POST /retrieval/search` with the turn's original parameters as a new appended turn; history stays append-only | Accepted |
+| [0013](0013-bounded-ordered-turn-retention.md) | Bound and order in-process turn-event retention; use a shared event backend only when scaling horizontally | Accepted |

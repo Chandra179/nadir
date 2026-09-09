@@ -32,5 +32,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	server.Server(ctx, cfg)
+	if err := server.Server(ctx, cfg); err != nil {
+		log.Fatalf("server: %v", err)
+	}
 }

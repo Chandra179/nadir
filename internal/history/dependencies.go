@@ -3,6 +3,7 @@ package history
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"nadir/internal/embedder"
+	"nadir/internal/qdrantutil"
 )
 
 const (
@@ -33,6 +35,7 @@ type dependencies struct {
 	name       string
 	embedder   embedder.Embedder
 	dimensions int
+	writeMu    sync.Mutex
 }
 
 var _ History = (*dependencies)(nil)
@@ -55,9 +58,9 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 // field indexes if missing, mirroring store.EnsureCollection /
 // cache.EnsureCollection.
 func (d *dependencies) EnsureCollection(ctx context.Context) error {
-	_, err := d.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: d.name})
+	info, err := d.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: d.name})
 	if err == nil {
-		return nil
+		return qdrantutil.ValidateDenseCollection(d.name, info.GetResult(), d.dimensions)
 	}
 	if status.Code(err) != codes.NotFound {
 		return fmt.Errorf("history: get collection: %w", err)
@@ -99,4 +102,13 @@ func (d *dependencies) EnsureCollection(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (d *dependencies) lockWrites() func() {
+	// Qdrant has no compare-and-swap update for the session turn counter in
+	// this flow. Serialize history writes so sequence numbers and turn_count
+	// remain consistent. A single mutex is intentionally bounded and safe;
+	// history writes are low-volume compared with retrieval.
+	d.writeMu.Lock()
+	return d.writeMu.Unlock
 }

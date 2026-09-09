@@ -97,6 +97,10 @@
       errSlot.textContent = e.data;
       nadirEndStream(elt, es);
     });
+    es.addEventListener('resync', function(e) {
+      errSlot.textContent = e.data;
+      nadirEndStream(elt, es);
+    });
     es.addEventListener('done', function() { nadirEndStream(elt, es); });
     // Safety net for a fatal transport error (e.g. the turn's log was
     // evicted): keep whatever text arrived and restore the button.

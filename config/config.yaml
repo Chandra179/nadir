@@ -12,12 +12,17 @@ middleware:
 source:
   paths:
     - "samples"
+  ignore_patterns: []
 
 ingest:
   max_attempts: 3
   initial_interval: 500ms
   max_interval: 10s
   multiplier: 2.0
+  max_file_bytes: 16777216       # 16 MiB per document upload/source file
+  max_upload_bytes: 67108864    # 64 MiB per multipart request
+  embed_batch_size: 64           # bound each Ollama embedding request
+  max_chunks_per_file: 10000     # reject pathological documents before indexing
 
 qdrant:
   addr: "localhost:6334"
@@ -38,6 +43,12 @@ chunker:
   chunk_size: 512
   chunk_overlap: 64
   window_size: 3          # sentences before+after each sentence (sentence-window only)
+
+search:
+  max_query_chars: 8192
+  max_fragments: 16
+  max_concurrent_fragments: 8
+  max_top_k: 50
 
 reranker:
   enabled: true    
@@ -66,7 +77,7 @@ semantic_cache:
   ttl: 24h           # 0 = no expiry
 
 generator:
-  enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=true
+  enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=on
   ollama_addr: ""     # defaults to embedder.ollama_addr
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
 

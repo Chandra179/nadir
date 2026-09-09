@@ -23,7 +23,7 @@ import (
 func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	turn := Turn{SessionID: req.SessionID, Query: req.Query, Generate: req.Generate}
 
-	if req.Query == "" {
+	if strings.TrimSpace(req.Query) == "" {
 		turn.Error = "Enter a question to search."
 		d.persist(ctx, req, turn, true)
 		return turn
@@ -45,7 +45,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		}
 	}
 
-	chunks, fromCache, err := d.searcher.Query(ctx, retrievalQuery, "", req.TopK, req.Filter, req.Generate)
+	chunks, fromCache, err := d.searcher.Query(ctx, retrievalQuery, "", req.TopK, req.Filter, false)
 	turn.FromCache = fromCache
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
@@ -80,8 +80,14 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 
 	turn.ID = uuid.NewString()
-	stream := d.broker.create(turn.ID)
-	stream.cancel = cancel
+	stream, ok := d.broker.create(turn.ID)
+	if !ok {
+		cancel()
+		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
+		d.persist(ctx, req, turn, false)
+		return turn
+	}
+	stream.setCancel(cancel)
 	go d.consumeGeneration(stream, req, turn, events)
 	turn.Streaming = true
 	return turn
@@ -94,8 +100,7 @@ func (d *dependencies) CancelTurn(turnID string) bool {
 	if stream == nil {
 		return false
 	}
-	stream.cancelGeneration()
-	return true
+	return stream.cancelGeneration()
 }
 
 // consumeGeneration drains one in-flight answer: it maps the generator's

@@ -47,6 +47,8 @@ venv/
 
 # compiled binaries
 /nadir
+/eval
+/server
 /gen-qrelsresults/
 
 # Python sidecars (services/)

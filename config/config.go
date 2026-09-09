@@ -17,6 +17,7 @@ type Config struct {
 	Qdrant        QdrantConfig        `yaml:"qdrant"`
 	Embedder      EmbedderConfig      `yaml:"embedder"`
 	Chunker       ChunkerConfig       `yaml:"chunker"`
+	Search        SearchConfig        `yaml:"search"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
@@ -50,7 +51,8 @@ type LoggerConfig struct {
 
 // SourceConfig points to one or more local directories of text files.
 type SourceConfig struct {
-	Paths []string `yaml:"paths"`
+	Paths          []string `yaml:"paths"`
+	IgnorePatterns []string `yaml:"ignore_patterns"`
 }
 
 type QdrantConfig struct {
@@ -79,10 +81,24 @@ type ChunkerConfig struct {
 
 // IngestConfig also controls the backoff used for retrying embed calls during ingest.
 type IngestConfig struct {
-	MaxAttempts     uint64        `yaml:"max_attempts"`
-	InitialInterval time.Duration `yaml:"initial_interval"`
-	MaxInterval     time.Duration `yaml:"max_interval"`
-	Multiplier      float64       `yaml:"multiplier"`
+	MaxAttempts      uint64        `yaml:"max_attempts"`
+	InitialInterval  time.Duration `yaml:"initial_interval"`
+	MaxInterval      time.Duration `yaml:"max_interval"`
+	Multiplier       float64       `yaml:"multiplier"`
+	MaxFileBytes     int64         `yaml:"max_file_bytes"`
+	MaxUploadBytes   int64         `yaml:"max_upload_bytes"`
+	EmbedBatchSize   int           `yaml:"embed_batch_size"`
+	MaxChunksPerFile int           `yaml:"max_chunks_per_file"`
+}
+
+// SearchConfig bounds work derived from user-controlled queries. These are
+// operational limits, not retrieval-quality knobs: they prevent one request
+// from creating an unbounded number of embeddings or Qdrant calls.
+type SearchConfig struct {
+	MaxQueryChars          int `yaml:"max_query_chars"`
+	MaxFragments           int `yaml:"max_fragments"`
+	MaxConcurrentFragments int `yaml:"max_concurrent_fragments"`
+	MaxTopK                int `yaml:"max_top_k"`
 }
 
 type RerankerConfig struct {
@@ -173,38 +189,38 @@ func Load(path string) (*Config, error) {
 // applyEnv overrides config fields from environment variables.
 // Env vars take precedence over config.yaml values.
 func (c *Config) applyEnv() {
-	c.envStr(&c.Qdrant.Addr, "qdrant.addr", "QDRANT_ADDR")
-	c.envStr(&c.Qdrant.Collection, "qdrant.collection", "QDRANT_COLLECTION")
-	c.envStr(&c.Embedder.OllamaAddr, "embedder.ollama_addr", "OLLAMA_ADDR")
-	c.envStr(&c.Embedder.APIKey, "embedder.api_key", "EMBEDDER_API_KEY")
-	c.envStr(&c.Reranker.Addr, "reranker.addr", "RERANKER_ADDR")
-	c.envBool(&c.Reranker.Enabled, "reranker.enabled", "RERANKER_ENABLED")
-	c.envStr(&c.Reranker.Model, "reranker.model", "RERANKER_MODEL")
-	c.envStr(&c.Middleware.Logger.Level, "middleware.logger.level", "LOGGER_LEVEL")
-	c.envFloat32(&c.SemanticCache.Threshold, "semantic_cache.threshold", "SEMANTIC_CACHE_THRESHOLD")
-	c.envBool(&c.History.Enabled, "history.enabled", "HISTORY_ENABLED")
-	c.envStr(&c.History.Collection, "history.collection", "HISTORY_COLLECTION")
-	c.envBool(&c.Enrichment.Hype.Enabled, "enrichment.hype.enabled", "HYPE_ENABLED")
-	c.envBool(&c.Enrichment.Contextual.Enabled, "enrichment.contextual.enabled", "CONTEXTUAL_ENABLED")
-	c.envBool(&c.Rewriter.Enabled, "rewriter.enabled", "REWRITE_ENABLED")
-	c.envStr(&c.Rewriter.OllamaAddr, "rewriter.ollama_addr", "REWRITE_ADDR")
-	c.envStr(&c.Rewriter.Model, "rewriter.model", "REWRITE_MODEL")
-	c.envInt(&c.Rewriter.Turns, "rewriter.turns", "REWRITE_TURNS")
+	c.envStr(&c.Qdrant.Addr, "QDRANT_ADDR")
+	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
+	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
+	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
+	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
+	c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED")
+	c.envStr(&c.Reranker.Model, "RERANKER_MODEL")
+	c.envStr(&c.Middleware.Logger.Level, "LOGGER_LEVEL")
+	c.envFloat32(&c.SemanticCache.Threshold, "SEMANTIC_CACHE_THRESHOLD")
+	c.envBool(&c.History.Enabled, "HISTORY_ENABLED")
+	c.envStr(&c.History.Collection, "HISTORY_COLLECTION")
+	c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED")
+	c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED")
+	c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED")
+	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
+	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
+	c.envInt(&c.Rewriter.Turns, "REWRITE_TURNS")
 }
 
-func (c *Config) envStr(dst *string, key, env string) {
+func (c *Config) envStr(dst *string, env string) {
 	if v := os.Getenv(env); v != "" {
 		*dst = v
 	}
 }
 
-func (c *Config) envBool(dst *bool, key, env string) {
+func (c *Config) envBool(dst *bool, env string) {
 	if v := os.Getenv(env); v != "" {
 		*dst = v == "true" || v == "1"
 	}
 }
 
-func (c *Config) envFloat32(dst *float32, key, env string) {
+func (c *Config) envFloat32(dst *float32, env string) {
 	if v := os.Getenv(env); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil {
 			*dst = float32(f)
@@ -212,7 +228,7 @@ func (c *Config) envFloat32(dst *float32, key, env string) {
 	}
 }
 
-func (c *Config) envInt(dst *int, key, env string) {
+func (c *Config) envInt(dst *int, env string) {
 	if v := os.Getenv(env); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			*dst = n
@@ -238,6 +254,36 @@ func (c *Config) Validate() error {
 	}
 	if c.Qdrant.Collection == "" {
 		return fmt.Errorf("config: qdrant.collection must not be empty")
+	}
+	if c.Chunker.ChunkSize <= 0 {
+		return fmt.Errorf("config: chunker.chunk_size must be > 0")
+	}
+	if c.Chunker.ChunkOverlap < 0 || c.Chunker.ChunkOverlap >= c.Chunker.ChunkSize {
+		return fmt.Errorf("config: chunker.chunk_overlap must be >= 0 and < chunker.chunk_size")
+	}
+	if c.Ingest.MaxFileBytes <= 0 {
+		c.Ingest.MaxFileBytes = 16 << 20
+	}
+	if c.Ingest.MaxUploadBytes <= 0 {
+		c.Ingest.MaxUploadBytes = 64 << 20
+	}
+	if c.Ingest.EmbedBatchSize <= 0 {
+		c.Ingest.EmbedBatchSize = 64
+	}
+	if c.Ingest.MaxChunksPerFile <= 0 {
+		c.Ingest.MaxChunksPerFile = 10000
+	}
+	if c.Search.MaxQueryChars <= 0 {
+		c.Search.MaxQueryChars = 8192
+	}
+	if c.Search.MaxFragments <= 0 {
+		c.Search.MaxFragments = 16
+	}
+	if c.Search.MaxConcurrentFragments <= 0 {
+		c.Search.MaxConcurrentFragments = 8
+	}
+	if c.Search.MaxTopK <= 0 {
+		c.Search.MaxTopK = 50
 	}
 	if c.Reranker.Model == "" {
 		c.Reranker.Model = "BAAI/bge-reranker-v2-m3"

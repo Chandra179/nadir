@@ -33,12 +33,14 @@ const (
 	defaultRerankerCandidate = 3
 )
 
-func Server(ctx context.Context, cfg *config.Config) {
+func Server(ctx context.Context, cfg *config.Config) error {
 	log, err := logger.New(cfg.Middleware.Logger.Level)
 	if err != nil {
-		return
+		return fmt.Errorf("create logger: %w", err)
 	}
 	defer log.Sync()
+	startupCtx, startupCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer startupCancel()
 
 	deps := middleware.NewDependencies(middleware.DependenciesConfig{
 		Logger: log,
@@ -50,7 +52,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	qdrantConn, err := grpc.NewClient(cfg.Qdrant.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Error("qdrant dial failed", zap.Error(err))
-		return
+		return fmt.Errorf("qdrant dial: %w", err)
 	}
 	defer qdrantConn.Close()
 
@@ -61,7 +63,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 	})
 	if err != nil {
 		log.Error("qdrant init failed", zap.Error(err))
-		return
+		return fmt.Errorf("qdrant init: %w", err)
 	}
 
 	e := embedder.NewDependencies(embedder.DependenciesConfig{
@@ -70,9 +72,9 @@ func Server(ctx context.Context, cfg *config.Config) {
 		Dimensions: cfg.Embedder.Dimensions,
 	})
 
-	if err := s.EnsureCollection(context.Background(), e.Dimensions()); err != nil {
+	if err := s.EnsureCollection(startupCtx, e.Dimensions()); err != nil {
 		log.Error("qdrant ensure collection failed", zap.Error(err))
-		return
+		return fmt.Errorf("qdrant ensure collection: %w", err)
 	}
 
 	chunkr := chunker.NewDependencies(chunker.DependenciesConfig{
@@ -95,8 +97,11 @@ func Server(ctx context.Context, cfg *config.Config) {
 			MaxInterval:     cfg.Ingest.MaxInterval,
 			Multiplier:      cfg.Ingest.Multiplier,
 		},
-		DocumentPrefix: cfg.Embedder.DocumentPrefix,
-		Log:            log,
+		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
+		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
+		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
+		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
+		Log:              log,
 	})
 
 	// Index-time LLM enrichment (HyPE questions, contextual intros): both
@@ -136,7 +141,16 @@ func Server(ctx context.Context, cfg *config.Config) {
 			zap.String("addr", enrichAddr))
 	}
 
-	searchService := search.NewDependencies(search.DependenciesConfig{Embedder: e, Store: s, QueryPrefix: cfg.Embedder.QueryPrefix, Log: log})
+	searchService := search.NewDependencies(search.DependenciesConfig{
+		Embedder:               e,
+		Store:                  s,
+		QueryPrefix:            cfg.Embedder.QueryPrefix,
+		MaxQueryChars:          cfg.Search.MaxQueryChars,
+		MaxFragments:           cfg.Search.MaxFragments,
+		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
+		MaxTopK:                cfg.Search.MaxTopK,
+		Log:                    log,
+	})
 
 	if cfg.Reranker.Enabled {
 		mul := cfg.Reranker.CandidateMul
@@ -170,16 +184,19 @@ func Server(ctx context.Context, cfg *config.Config) {
 	if cfg.SemanticCache.Enabled {
 		var err error
 		semanticCache, err = cache.NewDependencies(cache.DependenciesConfig{
-			Conn:       qdrantConn,
-			Collection: cfg.SemanticCache.Collection,
-			Embedder:   e,
-			Threshold:  cfg.SemanticCache.Threshold,
-			TTL:        cfg.SemanticCache.TTL,
+			Conn:        qdrantConn,
+			Collection:  cfg.SemanticCache.Collection,
+			Embedder:    e,
+			Threshold:   cfg.SemanticCache.Threshold,
+			TTL:         cfg.SemanticCache.TTL,
+			QueryPrefix: cfg.Embedder.QueryPrefix,
+			Version: "v1:" + cfg.Embedder.Model + ":" + fmt.Sprint(cfg.Embedder.Dimensions) +
+				":" + cfg.Embedder.QueryPrefix + ":" + cfg.Embedder.DocumentPrefix,
 		})
 		if err != nil {
 			log.Error("semantic cache init failed", zap.Error(err))
 		} else {
-			if err := semanticCache.EnsureCollection(context.Background()); err != nil {
+			if err := semanticCache.EnsureCollection(startupCtx); err != nil {
 				log.Error("semantic cache ensure collection failed", zap.Error(err))
 			} else {
 				searchService.WithSemanticCache(semanticCache)
@@ -201,7 +218,7 @@ func Server(ctx context.Context, cfg *config.Config) {
 		})
 		if err != nil {
 			log.Error("history init failed", zap.Error(err))
-		} else if err := h.EnsureCollection(context.Background()); err != nil {
+		} else if err := h.EnsureCollection(startupCtx); err != nil {
 			log.Error("history ensure collection failed", zap.Error(err))
 		} else {
 			hist = h
@@ -259,12 +276,17 @@ func Server(ctx context.Context, cfg *config.Config) {
 	})
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
-		Ingest:  ingestDeps,
-		Store:   storeSvc,
-		History: hist,
-		Chat:    chatService,
-		TopK:    cfg.Qdrant.TopK,
-		Log:     log,
+		Ingest:               ingestDeps,
+		Store:                storeSvc,
+		History:              hist,
+		Chat:                 chatService,
+		TopK:                 cfg.Qdrant.TopK,
+		MaxTopK:              cfg.Search.MaxTopK,
+		SourcePaths:          cfg.Source.Paths,
+		SourceIgnorePatterns: cfg.Source.IgnorePatterns,
+		MaxSourceFileBytes:   cfg.Ingest.MaxFileBytes,
+		MaxUploadBytes:       cfg.Ingest.MaxUploadBytes,
+		Log:                  log,
 	})
 
 	engine := gin.New()
@@ -292,7 +314,9 @@ func Server(ctx context.Context, cfg *config.Config) {
 	log.Info("http server starting", zap.String("addr", srv.Addr))
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Error("http server error", zap.Error(err))
+		return fmt.Errorf("http server: %w", err)
 	}
+	return nil
 }
 
 // cacheInvalidatingStore decorates Store.DeleteAll so a full data reset

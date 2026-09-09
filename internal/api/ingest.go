@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,37 +26,66 @@ type ingestResponse struct {
 func (d *dependencies) Ingest(c *gin.Context) {
 	ctx := c.Request.Context()
 	isHX := c.GetHeader("HX-Request") == "true"
+	if d.maxUploadBytes > 0 {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, d.maxUploadBytes)
+	}
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		d.respondIngestError(c, isHX, http.StatusBadRequest, "expected multipart/form-data with a \"files\" field")
-		return
-	}
-	headers := form.File["files"]
-	if len(headers) == 0 {
-		d.respondIngestError(c, isHX, http.StatusBadRequest, "no files provided")
-		return
-	}
-
-	names := make([]string, 0, len(headers))
-	for _, fh := range headers {
-		names = append(names, fh.Filename)
-	}
-
-	files := make([]ingest.UploadFile, 0, len(headers))
-	for _, fh := range headers {
-		f, err := fh.Open()
-		if err != nil {
-			d.respondIngestError(c, isHX, http.StatusBadRequest, fmt.Sprintf("open %s: %v", fh.Filename, err))
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			d.respondIngestError(c, isHX, http.StatusRequestEntityTooLarge, "upload exceeds the configured size limit")
 			return
 		}
-		data, err := io.ReadAll(f)
-		f.Close()
-		if err != nil {
-			d.respondIngestError(c, isHX, http.StatusBadRequest, fmt.Sprintf("read %s: %v", fh.Filename, err))
+		if len(d.sourcePaths) == 0 {
+			d.respondIngestError(c, isHX, http.StatusBadRequest, "expected multipart/form-data with a \"files\" field")
 			return
 		}
-		files = append(files, ingest.UploadFile{Name: fh.Filename, Data: data})
+	}
+
+	var files []ingest.UploadFile
+	var names []string
+	if form != nil {
+		headers := form.File["files"]
+		if len(headers) > 0 {
+			names = make([]string, 0, len(headers))
+			files = make([]ingest.UploadFile, 0, len(headers))
+			for _, fh := range headers {
+				names = append(names, fh.Filename)
+				f, err := fh.Open()
+				if err != nil {
+					d.respondIngestError(c, isHX, http.StatusBadRequest, fmt.Sprintf("open %s: %v", fh.Filename, err))
+					return
+				}
+				data, err := io.ReadAll(f)
+				f.Close()
+				if err != nil {
+					d.respondIngestError(c, isHX, http.StatusBadRequest, fmt.Sprintf("read %s: %v", fh.Filename, err))
+					return
+				}
+				files = append(files, ingest.UploadFile{Name: fh.Filename, Data: data})
+			}
+		}
+	}
+	if len(files) == 0 {
+		if len(d.sourcePaths) == 0 {
+			d.respondIngestError(c, isHX, http.StatusBadRequest, "no files provided")
+			return
+		}
+		var err error
+		files, err = ingest.DiscoverFiles(d.sourcePaths, d.sourceIgnorePatterns, d.maxSourceFileBytes)
+		if err != nil {
+			d.respondIngestError(c, isHX, http.StatusBadRequest, err.Error())
+			return
+		}
+		if len(files) == 0 {
+			d.respondIngestError(c, isHX, http.StatusBadRequest, "no markdown files found in configured sources")
+			return
+		}
+		names = make([]string, len(files))
+		for i := range files {
+			names[i] = files[i].Name
+		}
 	}
 
 	result, err := d.ingest.Run(ctx, files)

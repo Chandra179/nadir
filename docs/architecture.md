@@ -59,6 +59,10 @@ is persisted at its terminal state.
 **Reset** — dropping indexed data also clears the semantic cache so stale
 results can't be served.
 
+**Operational limits** — request bodies, source files, queries, fragments,
+embedding batches, chunks per file, and `top_k` are bounded by configuration.
+These limits are part of the runtime contract, not only deployment advice.
+
 ---
 
 ## Chat System
@@ -124,8 +128,12 @@ rerank — no chunks, no generation.
 
 The turn request returns once retrieval is done; the answer streams from a
 domain-owned event log over SSE — late subscribers replay from their cursor,
-disconnects don't kill generation, cancellation keeps the partial answer,
-and terminal states are persisted.
+disconnects don't kill generation, cancellation keeps the partial answer, and
+terminal states are persisted. The current in-process broker retains at most 64
+turn streams, expires completed streams after ten minutes, and bounds each
+replay log to 4096 events / 1 MiB. A slow subscriber is closed so it can
+reconnect with its cursor; if that cursor is no longer retained, the stream
+returns an explicit `resync` event instead of silently dropping tokens.
 
 ### Persistence
 
@@ -146,6 +154,16 @@ Two supported topologies:
   `host.docker.internal:11434`. GPU-first: the build bakes a CUDA-torch
   reranker image (`RERANKER_GPU=0` switches to the CPU build) and the
   sidecar reserves the host GPU.
+
+### Scaling boundary
+
+The supported default is one Nadir process with the in-process bounded broker.
+This keeps local development and the single-node deployment free of a second
+coordination dependency. Horizontal scaling is a deliberate future seam:
+replace the broker's event-log implementation with a shared backend such as
+Redis Streams, then add subscriber routing and SSE affinity (or a gateway that
+broadcasts events). Qdrant remains the durable store for indexed documents and
+history; it is not used as the low-latency token event bus.
 
 ---
 
@@ -168,7 +186,9 @@ Retries live in the ingest pipeline (embed calls, with backoff); the
 embedder and store never retry. Query-time dependencies are best-effort — a
 reranker, rewriter, cache, or history failure degrades the result or skips
 persistence, never failing the turn; generation errors surface as typed
-stream events.
+stream events. Startup is different: logger, Qdrant connection, collection
+schema validation, and listener failures are returned to `main` so a process
+does not appear healthy after incomplete initialization.
 
 ### Vector store — Qdrant
 
@@ -212,7 +232,10 @@ reranked, so latency stays low.
 ### Semantic cache — query-level cache in the vector store
 
 Near-repeat questions hit a similarity-thresholded cache collection in the
-vector store, skipping re-retrieval; it is cleared on ingest and full reset.
+vector store, skipping re-retrieval; filtered searches bypass the cache, cache
+entries are versioned against embedding/configuration changes, and results are
+bounded to the requested `top_k`. The cache is cleared on ingest and full
+reset.
 
 ### Query rewriting — conversational follow-ups to standalone queries
 
@@ -244,3 +267,29 @@ and how users ask.
 A Python service converts PDFs to Markdown so they can be ingested (the
 Python ecosystem isn't vendored into the Go binary); currently a standalone
 script, not wired into the server.
+
+## Current tech debt and next seams
+
+The architecture is still a modular monolith and is recommended for the
+current single-node deployment. The main debt is operational rather than a
+domain-separation failure:
+
+- Per-stage observability is missing, so production latency and capacity are
+  not yet visible at the same resolution as the retrieval evaluation.
+- The Docling sidecar has no Go adapter, leaving PDF ingestion as a separate
+  workflow.
+- The production-quality reranker artifact is expensive to bake on a small
+  machine; the torch-int8 route is easier to deploy but loses some measured
+  ranking quality.
+- The golden set is small and does not yet measure generated-answer
+  faithfulness or relevancy.
+- The in-process broker is not a multi-node event system. Redis Streams (or a
+  comparable shared event backend) should be introduced only when horizontal
+  scale is a real requirement, behind the existing chat event-log seam.
+- Build/test commands are not consolidated in the Makefile, which adds
+  maintenance friction but does not affect runtime domain separation.
+
+The next architectural move should therefore be observability, followed by
+reranker measurement and the PDF adapter. CRAG/adaptive-RAG and a shared event
+backend should wait for evidence that retrieval quality or process scale,
+respectively, requires them.

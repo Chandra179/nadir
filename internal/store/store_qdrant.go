@@ -11,6 +11,8 @@ import (
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"nadir/internal/qdrantutil"
 )
 
 // sparseVectorName is the named sparse vector next to the unnamed dense
@@ -20,12 +22,18 @@ const sparseVectorName = "bm25"
 
 func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
 	s.dimensions = dimensions
-	_, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
+	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
 	if err != nil {
 		if status.Code(err) != codes.NotFound {
 			return fmt.Errorf("qdrant get collection: %w", err)
 		}
 		return s.createCollection(ctx, dimensions)
+	}
+	if err := qdrantutil.ValidateDenseCollection(s.name, info.GetResult(), dimensions); err != nil {
+		return err
+	}
+	if !qdrantutil.HasSparseVector(info.GetResult(), sparseVectorName) {
+		return fmt.Errorf("qdrant collection %q is missing sparse vector %q; reset/recreate it", s.name, sparseVectorName)
 	}
 	return nil
 }

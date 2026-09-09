@@ -89,6 +89,8 @@ func (d *dependencies) CreateSession(ctx context.Context, title string) (Session
 // exist yet. Session turn_count/updated_at are updated via SetPayload so the
 // session's vector never needs re-supplying.
 func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Turn, firstTurnTitle string) error {
+	unlock := d.lockWrites()
+	defer unlock()
 	now := time.Now().UTC()
 
 	session, err := d.GetSession(ctx, sessionID)
@@ -191,34 +193,41 @@ func (d *dependencies) GetSession(ctx context.Context, sessionID string) (Sessio
 }
 
 func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn, error) {
-	l := uint32(10000)
-	resp, err := d.points.Scroll(ctx, &qdrant.ScrollPoints{
-		CollectionName: d.name,
-		Filter: &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				matchKeyword("doc_type", docTypeTurn),
-				matchKeyword("session_id", sessionID),
+	const pageSize = uint32(500)
+	var offset *qdrant.PointId
+	var out []Turn
+	for {
+		resp, err := d.points.Scroll(ctx, &qdrant.ScrollPoints{
+			CollectionName: d.name,
+			Filter: &qdrant.Filter{
+				Must: []*qdrant.Condition{
+					matchKeyword("doc_type", docTypeTurn),
+					matchKeyword("session_id", sessionID),
+				},
 			},
-		},
-		Limit:       &l,
-		WithPayload: qdrant.NewWithPayload(true),
-		WithVectors: qdrant.NewWithVectors(false),
-		OrderBy: &qdrant.OrderBy{
-			Key:       "sequence",
-			Direction: qdrant.Direction_Asc.Enum(),
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("history: list turns: %w", err)
-	}
-
-	out := make([]Turn, len(resp.Result))
-	for i, pt := range resp.Result {
-		turn, err := turnFromPayload(pointIDString(pt.Id), pt.Payload)
+			Limit:       new(uint32(pageSize)),
+			Offset:      offset,
+			WithPayload: qdrant.NewWithPayload(true),
+			WithVectors: qdrant.NewWithVectors(false),
+			OrderBy: &qdrant.OrderBy{
+				Key:       "sequence",
+				Direction: qdrant.Direction_Asc.Enum(),
+			},
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("history: list turns: %w", err)
 		}
-		out[i] = turn
+		for _, pt := range resp.Result {
+			turn, err := turnFromPayload(pointIDString(pt.Id), pt.Payload)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, turn)
+		}
+		if resp.NextPageOffset == nil {
+			break
+		}
+		offset = resp.NextPageOffset
 	}
 	return out, nil
 }
@@ -228,6 +237,8 @@ func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn,
 // turn side is a filtered delete (session_id index) rather than fetching
 // IDs up front.
 func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) error {
+	unlock := d.lockWrites()
+	defer unlock()
 	wait := true
 	if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: d.name,

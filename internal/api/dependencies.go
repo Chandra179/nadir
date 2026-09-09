@@ -29,19 +29,28 @@ type DependenciesConfig struct {
 	// TopK is the configured default result count; requests and the
 	// composer fall back to it (then to defaultTopK). Resolved once here so
 	// handlers never re-apply the fallback.
-	TopK int
-	Log  *zap.Logger
+	TopK                 int
+	MaxTopK              int
+	SourcePaths          []string
+	SourceIgnorePatterns []string
+	MaxSourceFileBytes   int64
+	MaxUploadBytes       int64
+	Log                  *zap.Logger
 }
 
 type dependencies struct {
-	ingest  ingest.Ingest
-	store   store.Store
-	history history.History
-	topK    int
-	render  *render.Engine
-	turns   *chatapi.Handlers
-	hist    *historyapi.Handlers
-	log     *zap.Logger
+	ingest               ingest.Ingest
+	store                store.Store
+	history              history.History
+	topK                 int
+	sourcePaths          []string
+	sourceIgnorePatterns []string
+	maxSourceFileBytes   int64
+	maxUploadBytes       int64
+	render               *render.Engine
+	turns                *chatapi.Handlers
+	hist                 *historyapi.Handlers
+	log                  *zap.Logger
 }
 
 // NewDependencies builds the transport: the page shell's own handlers plus
@@ -55,16 +64,24 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if topK <= 0 {
 		topK = defaultTopK
 	}
+	maxTopK := cfg.MaxTopK
+	if maxTopK <= 0 {
+		maxTopK = 50
+	}
 	engine := render.New(log)
 
 	return &dependencies{
-		ingest:  cfg.Ingest,
-		store:   cfg.Store,
-		history: cfg.History,
-		topK:    topK,
-		render:  engine,
-		turns:   chatapi.New(chatapi.Config{Chat: cfg.Chat, TopK: topK, Render: engine}),
-		hist:    historyapi.New(historyapi.Config{History: cfg.History, Render: engine, Log: log}),
-		log:     log,
+		ingest:               cfg.Ingest,
+		store:                cfg.Store,
+		history:              cfg.History,
+		topK:                 topK,
+		sourcePaths:          cfg.SourcePaths,
+		sourceIgnorePatterns: cfg.SourceIgnorePatterns,
+		maxSourceFileBytes:   cfg.MaxSourceFileBytes,
+		maxUploadBytes:       cfg.MaxUploadBytes,
+		render:               engine,
+		turns:                chatapi.New(chatapi.Config{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK, Render: engine}),
+		hist:                 historyapi.New(historyapi.Config{History: cfg.History, Render: engine, Log: log}),
+		log:                  log,
 	}
 }

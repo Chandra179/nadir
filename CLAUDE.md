@@ -32,13 +32,15 @@ curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant form
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 
-> **Note:** `Makefile` currently only defines a `run` target (`./scripts/local.sh`) — the `dev`/`test`/`ingest`/`search`/`generate`/`reset`/`vendor`/`docling*`/`reranker*`/`check` targets referenced in `AGENTS.md`/`README.md` were lost in a past commit that truncated the file. Use the raw commands above until the Makefile is restored. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists in this codebase; `internal/golden/` still holds leftover golden-set YAML from that era but nothing imports it.
+> **Note:** `Makefile` currently only defines a `run` target (`./scripts/local.sh`) — the `dev`/`test`/`ingest`/`search`/`generate`/`reset`/`vendor`/`docling*`/`reranker*`/`check` targets referenced in `AGENTS.md`/`README.md` were lost in a past commit that truncated the file. Use the raw commands above until the Makefile is restored. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists; `tests/eval/` contains only committed evaluation data and reports.
 
 ## Architecture
 
 ```
 POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /retrieval/search → RetrievalSearchHandler → chat.Service.Ask (session mint → search.Service retrieve → buffered generate → detached persist)
+POST /retrieval/search → RetrievalSearchHandler → chat.Service.StartTurn (session mint → retrieve → supervised generation)
+GET  /retrieval/turns/:id/events → bounded replayable SSE event log
+POST /retrieval/turns/:id/cancel → cancel generation and persist the partial answer
 GET  /healthz → 200
 ```
 
@@ -48,18 +50,18 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 - `chunker/` — `Chunker` interface, `Chunk` value type, `RecursiveChunker`, `SentenceWindowChunker`, `ContextualText`
 - `embedder/` — `Embedder`, `BatchEmbedder` interfaces, `OllamaEmbedder`
 - `store/` — `Store` interface, `ScoredChunk` (flat value type), `SearchFilter`, `QdrantStore`
-- `ingest/` — `Processor` interface, `Pipeline` (chunk→embed→upsert), `Service` (dir walk + SHA dedup + concurrent processing)
-- `search/` — `Service` (multi-fragment hybrid search → rerank)
+- `ingest/` — source discovery, SHA dedup, bounded chunk→embed→upsert pipeline
+- `search/` — bounded multi-fragment hybrid search → rerank → semantic cache
 - `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
 - `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
-- `history/` — `History` interface, `Session`/`Turn` value types, chat persistence backed by a dedicated Qdrant collection (see `history.enabled`)
+- `history/` — `History` interface, `Session`/`Turn` value types, serialized chat persistence backed by a dedicated Qdrant collection (see `history.enabled`)
 
-`internal/api/` — HTTP handlers (`Search`, `Ingest`, `DeleteAllData`, `IngestStatus`, `IngestHistory`, `Stats`, `Dashboard`, `Retrieval`, `RetrievalSearch`, `Settings`, `HistorySessions`, `HistorySession`) and `NewRouter`, which registers them all on the gin engine.
+`internal/api/` — HTTP transport grouped by ingest, retrieval/chat, history, and reset features; `NewRouter` registers the current routes on the gin engine.
 
 `internal/server/` — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 
-`internal/middleware/` — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog→Metrics`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls via request context deadline; `POST /ingest` is exempt since a full sweep can legitimately run long.
+`internal/middleware/` — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls; source sweeps and SSE turn streams are exempt.
 
 `services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), `docling/` (PDF→MD).
 
@@ -67,10 +69,10 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 
 1. **Ingest & chunk** — sentence-based chunking for precise citations; configurable chunk size/overlap/strategy.
 2. **Embed** — each chunk is prefixed with its file path + heading before embedding, anchoring the vector in document structure without altering the stored text.
-3. **Semantic cache** — query embedding is checked against a dedicated Qdrant collection by cosine similarity before search; above threshold, returns cached results immediately, otherwise writes back asynchronously on miss. Only active when the client is not requesting generation.
+3. **Semantic cache** — query embedding is checked against a dedicated Qdrant collection by cosine similarity before search; filtered searches bypass it, and cache entries are versioned by the embedding configuration.
 4. **Search** — dense (cosine nearest-neighbor) and sparse (BM25-style term vectors, IDF-weighted server-side by Qdrant) legs run as native Qdrant prefetches and fuse via Reciprocal Rank Fusion (RRF) in a single query. Long queries are split into sentence fragments, embedded in one batch call, searched in parallel, then deduped/re-sorted with a per-file cap for diversity. The search use-case accepts an optional filter (`file_path`, `header`, `source_sha`) for exact-match keyword scoping.
 5. **Re-rank** — top-N candidates re-scored by the cross-encoder reranker sidecar, if enabled/available.
-6. **Generate** — chunks reordered by the "lost in the middle" heuristic (most relevant at both ends of context, least relevant in the middle) before being placed in the system prompt; Ollama streams the answer token by token.
+6. **Generate** — chunks reordered by the "lost in the middle" heuristic (most relevant at both ends of context, least relevant in the middle) before being placed in the system prompt; Ollama streams the answer token by token through the bounded broker.
 
 ## Key rules
 
@@ -88,7 +90,7 @@ Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=true` |
+| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=on` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |
