@@ -72,9 +72,7 @@ type DoclingConfig struct {
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 }
 
-// OllamaEndpoint is the resolved address/model pair for one LLM role.
-// Resolution happens once during configuration loading so the composition
-// root does not repeat fallback rules for generator, rewriting, and intake.
+// OllamaEndpoint is the configured address/model pair for one LLM role.
 type OllamaEndpoint struct {
 	Addr  string
 	Model string
@@ -147,8 +145,8 @@ type SemanticCacheConfig struct {
 
 type GeneratorConfig struct {
 	Enabled        bool          `yaml:"enabled"`
-	OllamaAddr     string        `yaml:"ollama_addr"` // defaults to embedder.ollama_addr if empty
-	Model          string        `yaml:"model"`       // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	OllamaAddr     string        `yaml:"ollama_addr"`
+	Model          string        `yaml:"model"` // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 }
 
@@ -168,8 +166,8 @@ type RewriterConfig struct {
 	Enabled        bool          `yaml:"enabled"`
 	Turns          int           `yaml:"turns"` // prior turns fed to the rewriter (default 4)
 	RequestTimeout time.Duration `yaml:"request_timeout"`
-	OllamaAddr     string        `yaml:"ollama_addr"` // defaults to generator.ollama_addr, then embedder.ollama_addr
-	Model          string        `yaml:"model"`       // defaults to generator.model
+	OllamaAddr     string        `yaml:"ollama_addr"`
+	Model          string        `yaml:"model"`
 }
 
 // EnrichmentConfig controls index-time LLM enrichment. Both features cost
@@ -187,8 +185,8 @@ type EnrichmentConfig struct {
 type HypeConfig struct {
 	Enabled           bool   `yaml:"enabled"`
 	QuestionsPerChunk int    `yaml:"questions_per_chunk"` // default 3 when enabled
-	OllamaAddr        string `yaml:"ollama_addr"`         // defaults to generator, then embedder addr
-	Model             string `yaml:"model"`               // defaults to generator.model
+	OllamaAddr        string `yaml:"ollama_addr"`
+	Model             string `yaml:"model"`
 }
 
 // ContextualConfig enables Anthropic-style contextual retrieval: a short
@@ -225,6 +223,8 @@ func (c *Config) applyEnv() {
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
+	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
+	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
 	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
 	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
@@ -235,7 +235,11 @@ func (c *Config) applyEnv() {
 	c.envBool(&c.History.Enabled, "HISTORY_ENABLED")
 	c.envStr(&c.History.Collection, "HISTORY_COLLECTION")
 	c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED")
+	c.envStr(&c.Enrichment.Hype.OllamaAddr, "HYPE_ADDR")
+	c.envStr(&c.Enrichment.Hype.Model, "HYPE_MODEL")
 	c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED")
+	c.envStr(&c.Enrichment.Contextual.OllamaAddr, "CONTEXTUAL_ADDR")
+	c.envStr(&c.Enrichment.Contextual.Model, "CONTEXTUAL_MODEL")
 	c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED")
 	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
 	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
@@ -245,49 +249,19 @@ func (c *Config) applyEnv() {
 }
 
 func (c Config) GeneratorEndpoint() OllamaEndpoint {
-	addr := c.Generator.OllamaAddr
-	if addr == "" {
-		addr = c.Embedder.OllamaAddr
-	}
-	return OllamaEndpoint{Addr: addr, Model: c.Generator.Model}
+	return OllamaEndpoint{Addr: c.Generator.OllamaAddr, Model: c.Generator.Model}
 }
 
 func (c Config) RewriterEndpoint() OllamaEndpoint {
-	addr := c.Rewriter.OllamaAddr
-	if addr == "" {
-		addr = c.GeneratorEndpoint().Addr
-	}
-	if addr == "" {
-		addr = c.Embedder.OllamaAddr
-	}
-	model := c.Rewriter.Model
-	if model == "" {
-		model = c.Generator.Model
-	}
-	return OllamaEndpoint{Addr: addr, Model: model}
+	return OllamaEndpoint{Addr: c.Rewriter.OllamaAddr, Model: c.Rewriter.Model}
 }
 
-func (c Config) EnrichmentEndpoint() OllamaEndpoint {
-	addr := c.Enrichment.Hype.OllamaAddr
-	model := c.Enrichment.Hype.Model
-	if c.Enrichment.Contextual.Enabled {
-		if addr == "" {
-			addr = c.Enrichment.Contextual.OllamaAddr
-		}
-		if model == "" {
-			model = c.Enrichment.Contextual.Model
-		}
-	}
-	if addr == "" {
-		addr = c.GeneratorEndpoint().Addr
-	}
-	if addr == "" {
-		addr = c.Embedder.OllamaAddr
-	}
-	if model == "" {
-		model = c.Generator.Model
-	}
-	return OllamaEndpoint{Addr: addr, Model: model}
+func (c Config) HypeEndpoint() OllamaEndpoint {
+	return OllamaEndpoint{Addr: c.Enrichment.Hype.OllamaAddr, Model: c.Enrichment.Hype.Model}
+}
+
+func (c Config) ContextualEndpoint() OllamaEndpoint {
+	return OllamaEndpoint{Addr: c.Enrichment.Contextual.OllamaAddr, Model: c.Enrichment.Contextual.Model}
 }
 
 func (c *Config) envStr(dst *string, env string) {
@@ -347,6 +321,9 @@ func (c *Config) Validate() error {
 	if c.Embedder.Model == "" {
 		return fmt.Errorf("config: embedder.model must not be empty")
 	}
+	if strings.EqualFold(c.Embedder.Provider, "ollama") && strings.TrimSpace(c.Embedder.OllamaAddr) == "" {
+		return fmt.Errorf("config: embedder.ollama_addr must not be empty for the ollama provider")
+	}
 	if c.Embedder.Dimensions <= 0 {
 		return fmt.Errorf("config: embedder.dimensions must be > 0")
 	}
@@ -395,8 +372,11 @@ func (c *Config) Validate() error {
 	if c.Search.MaxChunksPerFile <= 0 {
 		c.Search.MaxChunksPerFile = 3
 	}
-	if c.Reranker.Model == "" {
-		c.Reranker.Model = "BAAI/bge-reranker-v2-m3"
+	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Addr) == "" {
+		return fmt.Errorf("config: reranker.addr must not be empty when reranker.enabled is true")
+	}
+	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Model) == "" {
+		return fmt.Errorf("config: reranker.model must not be empty when reranker.enabled is true")
 	}
 	if c.Reranker.CandidateMul <= 0 {
 		c.Reranker.CandidateMul = 3
@@ -434,23 +414,50 @@ func (c *Config) Validate() error {
 	if c.Chat.MaxRetainedTurns > 1024 {
 		return fmt.Errorf("config: chat.max_retained_turns must be <= 1024")
 	}
+	if c.SemanticCache.Enabled && strings.TrimSpace(c.SemanticCache.Collection) == "" {
+		return fmt.Errorf("config: semantic_cache.collection must not be empty when semantic_cache.enabled is true")
+	}
 	if c.Enrichment.RequestTimeout <= 0 {
 		c.Enrichment.RequestTimeout = 120 * time.Second
 	}
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if c.Generator.Enabled && strings.TrimSpace(c.Generator.OllamaAddr) == "" {
+		return fmt.Errorf("config: generator.ollama_addr must not be empty when generator.enabled is true")
+	}
+	if c.Generator.Enabled && strings.TrimSpace(c.Generator.Model) == "" {
+		return fmt.Errorf("config: generator.model must not be empty when generator.enabled is true")
+	}
 	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
 		c.Enrichment.Hype.QuestionsPerChunk = 3
 	}
-	if c.History.Enabled && c.History.Collection == "" {
-		c.History.Collection = "chat_history"
+	if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
+		return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
 	}
 	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
 		c.Rewriter.Turns = 4
 	}
 	if c.Rewriter.RequestTimeout <= 0 {
 		c.Rewriter.RequestTimeout = 8 * time.Second
+	}
+	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.OllamaAddr) == "" {
+		return fmt.Errorf("config: rewriter.ollama_addr must not be empty when rewriter.enabled is true")
+	}
+	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.Model) == "" {
+		return fmt.Errorf("config: rewriter.model must not be empty when rewriter.enabled is true")
+	}
+	if c.Enrichment.Hype.Enabled && strings.TrimSpace(c.Enrichment.Hype.OllamaAddr) == "" {
+		return fmt.Errorf("config: enrichment.hype.ollama_addr must not be empty when enrichment.hype.enabled is true")
+	}
+	if c.Enrichment.Hype.Enabled && strings.TrimSpace(c.Enrichment.Hype.Model) == "" {
+		return fmt.Errorf("config: enrichment.hype.model must not be empty when enrichment.hype.enabled is true")
+	}
+	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.OllamaAddr) == "" {
+		return fmt.Errorf("config: enrichment.contextual.ollama_addr must not be empty when enrichment.contextual.enabled is true")
+	}
+	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.Model) == "" {
+		return fmt.Errorf("config: enrichment.contextual.model must not be empty when enrichment.contextual.enabled is true")
 	}
 	if c.Docling.RequestTimeout <= 0 {
 		c.Docling.RequestTimeout = 120 * time.Second

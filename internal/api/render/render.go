@@ -37,8 +37,8 @@ func (e *Engine) Execute(w io.Writer, name string, data any) error {
 	return uiTemplates.ExecuteTemplate(w, name, data)
 }
 
-// HTML writes a named template as an HTML response, setting the content
-// type and logging render failures.
+// HTML writes a named template as an HTML response, setting the content type
+// and logging render failures.
 func (e *Engine) HTML(c *gin.Context, status int, name string, data any) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Status(status)

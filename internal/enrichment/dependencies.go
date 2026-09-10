@@ -8,16 +8,20 @@ import (
 // DependenciesConfig groups everything needed to construct the enrichment
 // client.
 type DependenciesConfig struct {
-	Addr           string        // Ollama base addr, e.g. http://localhost:11434
-	Model          string        // instruct LLM used for generation
-	RequestTimeout time.Duration // timeout for one enrichment request
+	HypeAddr        string        // Ollama base addr for HyPE
+	HypeModel       string        // instruct LLM used for HyPE
+	ContextualAddr  string        // Ollama base addr for contextual retrieval
+	ContextualModel string        // instruct LLM used for contextual retrieval
+	RequestTimeout  time.Duration // timeout for one enrichment request
 }
 
 // dependencies performs index-time LLM enrichment over Ollama.
 type dependencies struct {
-	addr   string
-	model  string
-	client *http.Client
+	hypeAddr        string
+	hypeModel       string
+	contextualAddr  string
+	contextualModel string
+	client          *http.Client
 }
 
 var _ Enricher = (*dependencies)(nil)
@@ -28,8 +32,10 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		timeout = 120 * time.Second
 	}
 	return &dependencies{
-		addr:   cfg.Addr,
-		model:  cfg.Model,
-		client: &http.Client{Timeout: timeout},
+		hypeAddr:        cfg.HypeAddr,
+		hypeModel:       cfg.HypeModel,
+		contextualAddr:  cfg.ContextualAddr,
+		contextualModel: cfg.ContextualModel,
+		client:          &http.Client{Timeout: timeout},
 	}
 }

@@ -2,7 +2,9 @@
 
 ## Commands
 
-> `Makefile` currently only defines a `run` target (`./scripts/local.sh`) — the `dev`/`test`/`ingest`/`search`/`generate`/`reset`/`vendor`/`docling*`/`reranker*`/`check` targets referenced below (and in older docs) don't exist as `make` targets; use the raw commands.
+The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check`
+targets. It scopes Go checks to `./config`, `./cmd/...`, and `./internal/...`
+so a local Python `venv/` is not discovered as a Go package.
 
 ```bash
 # Build
@@ -18,8 +20,8 @@ go mod tidy && go mod vendor
 go run ./cmd/server
 
 # Tests
-go test -short -count=1 ./...              # unit tests only, no Docker
-go test -count=1 ./...                     # all tests, requires Qdrant
+go test -short -count=1 ./config ./cmd/... ./internal/... # unit tests only
+go test -count=1 ./config ./cmd/... ./internal/...       # all Go tests
 go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 
 # Quick ops (server must be on :8100)
@@ -71,9 +73,9 @@ remain separate.
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
-- External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests
+- External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
 - Enrichment flags (`enrichment.hype.enabled`, `enrichment.contextual.enabled`) affect ingest only; enabling after a prior ingest requires a reindex
 

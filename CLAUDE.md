@@ -22,8 +22,8 @@ go mod tidy && go mod vendor
 go run ./cmd/server
 
 # Tests
-go test -short -count=1 ./...              # unit tests only, no Docker
-go test -count=1 ./...                     # all tests, requires Qdrant
+go test -short -count=1 ./config ./cmd/... ./internal/... # unit tests, no Docker
+go test -count=1 ./config ./cmd/... ./internal/...       # all Go tests
 go test -run TestMatchPattern ./internal/ingest/   # focused package test
 
 # Quick ops (server must be on :8100)
@@ -32,7 +32,7 @@ curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant form
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
 ```
 
-> **Note:** `Makefile` currently only defines a `run` target (`./scripts/local.sh`) — the `dev`/`test`/`ingest`/`search`/`generate`/`reset`/`vendor`/`docling*`/`reranker*`/`check` targets referenced in `AGENTS.md`/`README.md` were lost in a past commit that truncated the file. Use the raw commands above until the Makefile is restored. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists; `tests/eval/` contains only committed evaluation data and reports.
+> The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check` targets. The Go checks use explicit package scopes so a local Python `venv/` is not discovered as a Go package. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists; `tests/eval/` contains only committed evaluation data and reports.
 
 ## Architecture
 
@@ -83,7 +83,7 @@ lifecycle rules remain separate.
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests
 
@@ -101,7 +101,9 @@ lifecycle rules remain separate.
 | Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
-`ollama_addr` defaults to `embedder.ollama_addr` when empty for generator.
+Enabled LLM roles must declare their own `ollama_addr` and `model`; generator,
+rewriter, HyPE, and contextual enrichment do not inherit another role's
+endpoint or model.
 
 ## Sample data
 

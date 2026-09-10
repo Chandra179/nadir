@@ -7,28 +7,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
-
-// DocumentConverter is the document-intake seam. It converts one supported
-// source file into Markdown while preserving the caller's source identity.
-type DocumentConverter interface {
-	Convert(ctx context.Context, name string, data []byte) ([]byte, error)
-}
 
 type doclingConverter struct {
 	addr   string
 	client *http.Client
-}
-
-func NewDoclingConverter(addr string, timeout time.Duration) DocumentConverter {
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
-	return &doclingConverter{
-		addr:   strings.TrimRight(addr, "/"),
-		client: &http.Client{Timeout: timeout},
-	}
 }
 
 func (d *doclingConverter) Convert(ctx context.Context, name string, data []byte) ([]byte, error) {

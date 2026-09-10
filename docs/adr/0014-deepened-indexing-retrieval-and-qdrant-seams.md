@@ -11,7 +11,8 @@ the chat use-case consumed storage-owned retrieval values, the indexing pass
 combined expensive planning with replacement writes, and the document store,
 history, and semantic cache repeated Qdrant client and payload primitives.
 PDF conversion also existed only as a standalone Docling workflow. Runtime
-endpoint fallback rules were repeated in the composition root.
+endpoint fallback rules made enabled LLM roles inherit another role's
+address or model.
 
 ## Decision
 
@@ -25,9 +26,10 @@ endpoint fallback rules were repeated in the composition root.
 - `internal/qdrantutil` owns shared Qdrant clients, dense collection setup,
   primitive payload codecs, and point-ID decoding. Store, history, and
   semantic-cache Modules keep their own payload schemas and lifecycle rules.
-- `config.Config` resolves role-specific Ollama endpoints and optional
-  Docling settings once during validation. The static YAML plus environment
-  model from ADR-0009 remains unchanged.
+- `config.Config` validates explicit role-specific Ollama endpoints and
+  optional Docling settings once during loading. The static YAML plus
+  environment override model from ADR-0009 remains unchanged; enabled LLM
+  roles do not inherit another role's address or model.
 
 ## Consequences
 

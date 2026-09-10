@@ -7,6 +7,14 @@ services:
       QDRANT_ADDR: ${DOCKER_QDRANT_ADDR:-qdrant:6334}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks}
       OLLAMA_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      GENERATOR_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      GENERATOR_MODEL: ${GENERATOR_MODEL:-gemma3:1b}
+      REWRITE_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      REWRITE_MODEL: ${REWRITE_MODEL:-gemma3:1b}
+      HYPE_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      HYPE_MODEL: ${HYPE_MODEL:-gemma3:1b}
+      CONTEXTUAL_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      CONTEXTUAL_MODEL: ${CONTEXTUAL_MODEL:-gemma3:1b}
       RERANKER_ADDR: ${DOCKER_RERANKER_ADDR:-http://reranker:5002}
       RERANKER_ENABLED: ${RERANKER_ENABLED:-true}
       LOGGER_LEVEL: ${LOGGER_LEVEL:-prod}

@@ -38,7 +38,7 @@ func TestHypotheticalQuestionsCapsAndCleans(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test"})
+	d := NewDependencies(DependenciesConfig{HypeAddr: srv.URL, HypeModel: "test"})
 	qs, err := d.HypotheticalQuestions(context.Background(), "Power Rule", "If f(x)=x^n...", 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -57,7 +57,7 @@ func TestHypotheticalQuestionsErrorWhenEmpty(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test"})
+	d := NewDependencies(DependenciesConfig{HypeAddr: srv.URL, HypeModel: "test"})
 	if _, err := d.HypotheticalQuestions(context.Background(), "h", "t", 3); err == nil {
 		t.Fatal("expected error for unparsable output")
 	}
@@ -71,7 +71,7 @@ func TestContextualIntroCleansOutput(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test"})
+	d := NewDependencies(DependenciesConfig{ContextualAddr: srv.URL, ContextualModel: "test"})
 	intro, err := d.ContextualIntro(context.Background(), "excerpt", "chunk text")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

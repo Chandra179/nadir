@@ -21,7 +21,7 @@ func (d *dependencies) HypotheticalQuestions(ctx context.Context, header, text s
 		n = 3
 	}
 	prompt := fmt.Sprintf("Write exactly %d search queries for this passage.\n\nSection: %s\n\n%s", n, header, text)
-	out, err := d.chat(ctx, hypeSystemPrompt, prompt)
+	out, err := d.chat(ctx, d.hypeAddr, d.hypeModel, hypeSystemPrompt, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ const contextualSystemPrompt = `You write document context lines. Given an excer
 
 func (d *dependencies) ContextualIntro(ctx context.Context, documentExcerpt, chunkText string) (string, error) {
 	prompt := fmt.Sprintf("Document excerpt:\n%s\n\nChunk:\n%s", documentExcerpt, chunkText)
-	out, err := d.chat(ctx, contextualSystemPrompt, prompt)
+	out, err := d.chat(ctx, d.contextualAddr, d.contextualModel, contextualSystemPrompt, prompt)
 	if err != nil {
 		return "", err
 	}
@@ -63,9 +63,9 @@ func (d *dependencies) ContextualIntro(ctx context.Context, documentExcerpt, chu
 
 // chat posts a non-streaming chat request to Ollama and returns the
 // assistant message content.
-func (d *dependencies) chat(ctx context.Context, system, user string) (string, error) {
+func (d *dependencies) chat(ctx context.Context, addr, model, system, user string) (string, error) {
 	body, err := json.Marshal(map[string]any{
-		"model": d.model,
+		"model": model,
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
 			{"role": "user", "content": user},
@@ -78,7 +78,7 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("enrichment: marshal request: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.addr+"/api/chat", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, addr+"/api/chat", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("enrichment: build request: %w", err)
 	}

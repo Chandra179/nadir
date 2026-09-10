@@ -241,7 +241,7 @@ type hypeSibling struct {
 // enabled. Best-effort: generation/embedding failures index the file
 // without hype points.
 func (d *dependencies) appendHypeSiblings(ctx context.Context, scored []store.ScoredChunk, filePath string, chunks []chunker.Chunk, sourceSHA string) []store.ScoredChunk {
-	if d.enrich == nil || d.hypeQuestions <= 0 {
+	if !d.hypeEnabled || d.enrich == nil || d.hypeQuestions <= 0 {
 		return scored
 	}
 	siblings, err := d.hypeSiblings(ctx, filePath, chunks, sourceSHA)

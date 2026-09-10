@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"net/http"
+	"strings"
 	"time"
 
 	"nadir/internal/cache"
@@ -30,15 +32,21 @@ type RetryConfig struct {
 // DependenciesConfig groups everything needed to construct the ingest
 // dependencies.
 type DependenciesConfig struct {
-	Chunker          chunker.Chunker
-	Embedder         embedder.Embedder
-	Store            store.Store
-	Retry            RetryConfig
-	Workers          int
-	MaxFileBytes     int64
-	EmbedBatchSize   int
-	MaxChunksPerFile int
-	Log              *zap.Logger
+	Chunker           chunker.Chunker
+	Embedder          embedder.Embedder
+	Store             store.Store
+	SemanticCache     cache.SemanticCache
+	Enricher          enrichment.Enricher
+	DocumentConverter DocumentConverter
+	HypeEnabled       bool
+	HypeQuestions     int
+	ContextualEnabled bool
+	Retry             RetryConfig
+	Workers           int
+	MaxFileBytes      int64
+	EmbedBatchSize    int
+	MaxChunksPerFile  int
+	Log               *zap.Logger
 	// DocumentPrefix is prepended to every embedded text at ingest time
 	// (e.g. "search_document: " for nomic-embed-text task instructions).
 	DocumentPrefix string
@@ -55,6 +63,7 @@ type dependencies struct {
 	cfg            RetryConfig
 	documentPrefix string
 	enrich         enrichment.Enricher
+	hypeEnabled    bool
 	hypeQuestions  int
 	contextual     bool
 	maxFileBytes   int64
@@ -90,6 +99,12 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		chunker:        cfg.Chunker,
 		embedder:       cfg.Embedder,
 		store:          cfg.Store,
+		cache:          cfg.SemanticCache,
+		enrich:         cfg.Enricher,
+		hypeEnabled:    cfg.HypeEnabled,
+		hypeQuestions:  cfg.HypeQuestions,
+		contextual:     cfg.ContextualEnabled,
+		converter:      cfg.DocumentConverter,
 		cfg:            cfg.Retry,
 		documentPrefix: cfg.DocumentPrefix,
 		maxFileBytes:   maxFileBytes,
@@ -100,27 +115,15 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 }
 
-// WithSemanticCache enables clearing the semantic cache after every Run
-// that actually ingested something, since new content makes cached results
-// stale.
-func (d *dependencies) WithSemanticCache(c cache.SemanticCache) *dependencies {
-	d.cache = c
-	return d
-}
-
-// WithEnrichment wires index-time LLM enrichment: hypeQuestions > 0 enables
-// HyPE question siblings, contextual enables LLM-written chunk intros.
-func (d *dependencies) WithEnrichment(e enrichment.Enricher, hypeQuestions int, contextual bool) *dependencies {
-	d.enrich = e
-	d.hypeQuestions = hypeQuestions
-	d.contextual = contextual
-	return d
-}
-
-// WithDocumentConverter enables document intake for formats such as PDF.
-// The indexing pass still receives Markdown and keeps the original source
+// NewDoclingConverter builds the optional document-intake Adapter. The
+// indexing pass still receives Markdown and keeps the original source
 // identity for citations and deterministic chunk IDs.
-func (d *dependencies) WithDocumentConverter(c DocumentConverter) *dependencies {
-	d.converter = c
-	return d
+func NewDoclingConverter(addr string, timeout time.Duration) DocumentConverter {
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	return &doclingConverter{
+		addr:   strings.TrimRight(addr, "/"),
+		client: &http.Client{Timeout: timeout},
+	}
 }

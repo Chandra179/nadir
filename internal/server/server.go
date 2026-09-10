@@ -85,25 +85,9 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		log.Info("sentence-window chunker enabled", zap.Int("window_size", cfg.Chunker.WindowSize))
 	}
 
-	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
-		Chunker:  chunkr,
-		Embedder: e,
-		Store:    s,
-		Retry: ingest.RetryConfig{
-			MaxAttempts:     cfg.Ingest.MaxAttempts,
-			InitialInterval: cfg.Ingest.InitialInterval,
-			MaxInterval:     cfg.Ingest.MaxInterval,
-			Multiplier:      cfg.Ingest.Multiplier,
-		},
-		Workers:          cfg.Ingest.Workers,
-		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
-		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
-		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
-		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
-		Log:              log,
-	})
+	var documentConverter ingest.DocumentConverter
 	if cfg.Docling.Enabled {
-		ingestDeps.WithDocumentConverter(ingest.NewDoclingConverter(cfg.Docling.Addr, cfg.Docling.RequestTimeout))
+		documentConverter = ingest.NewDoclingConverter(cfg.Docling.Addr, cfg.Docling.RequestTimeout)
 		log.Info("PDF document intake enabled", zap.String("addr", cfg.Docling.Addr))
 	}
 
@@ -111,23 +95,23 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// are one-time costs per chunk at ingest, zero query-time latency.
 	// Enabling either after a collection was already ingested requires a
 	// reindex to take effect.
+	var enricher enrichment.Enricher
 	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
-		enrichmentEndpoint := cfg.EnrichmentEndpoint()
-		ingestDeps.WithEnrichment(
-			enrichment.NewDependencies(enrichment.DependenciesConfig{
-				Addr:           enrichmentEndpoint.Addr,
-				Model:          enrichmentEndpoint.Model,
-				RequestTimeout: cfg.Enrichment.RequestTimeout,
-			}),
-			cfg.Enrichment.Hype.QuestionsPerChunk,
-			cfg.Enrichment.Contextual.Enabled,
-		)
+		enricher = enrichment.NewDependencies(enrichment.DependenciesConfig{
+			HypeAddr:        cfg.Enrichment.Hype.OllamaAddr,
+			HypeModel:       cfg.Enrichment.Hype.Model,
+			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
+			ContextualModel: cfg.Enrichment.Contextual.Model,
+			RequestTimeout:  cfg.Enrichment.RequestTimeout,
+		})
 		log.Info("index-time LLM enrichment enabled",
 			zap.Bool("hype", cfg.Enrichment.Hype.Enabled),
 			zap.Int("questions_per_chunk", cfg.Enrichment.Hype.QuestionsPerChunk),
 			zap.Bool("contextual", cfg.Enrichment.Contextual.Enabled),
-			zap.String("model", enrichmentEndpoint.Model),
-			zap.String("addr", enrichmentEndpoint.Addr))
+			zap.String("hype_model", cfg.Enrichment.Hype.Model),
+			zap.String("hype_addr", cfg.Enrichment.Hype.OllamaAddr),
+			zap.String("contextual_model", cfg.Enrichment.Contextual.Model),
+			zap.String("contextual_addr", cfg.Enrichment.Contextual.OllamaAddr))
 	}
 
 	searchService := search.NewDependencies(search.DependenciesConfig{
@@ -167,8 +151,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	var semanticCache cache.SemanticCache
 
 	if cfg.SemanticCache.Enabled {
-		var err error
-		semanticCache, err = cache.NewDependencies(cache.DependenciesConfig{
+		candidate, err := cache.NewDependencies(cache.DependenciesConfig{
 			Clients:     qdrantClients,
 			Collection:  cfg.SemanticCache.Collection,
 			Embedder:    e,
@@ -181,11 +164,11 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			log.Error("semantic cache init failed", zap.Error(err))
 		} else {
-			if err := semanticCache.EnsureCollection(startupCtx); err != nil {
+			if err := candidate.EnsureCollection(startupCtx); err != nil {
 				log.Error("semantic cache ensure collection failed", zap.Error(err))
 			} else {
+				semanticCache = candidate
 				searchService.WithSemanticCache(semanticCache)
-				ingestDeps.WithSemanticCache(semanticCache)
 				log.Info("semantic cache enabled",
 					zap.String("collection", cfg.SemanticCache.Collection),
 					zap.Float32("threshold", cfg.SemanticCache.Threshold),
@@ -193,6 +176,30 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			}
 		}
 	}
+
+	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
+		Chunker:           chunkr,
+		Embedder:          e,
+		Store:             s,
+		SemanticCache:     semanticCache,
+		Enricher:          enricher,
+		DocumentConverter: documentConverter,
+		HypeEnabled:       cfg.Enrichment.Hype.Enabled,
+		HypeQuestions:     cfg.Enrichment.Hype.QuestionsPerChunk,
+		ContextualEnabled: cfg.Enrichment.Contextual.Enabled,
+		Retry: ingest.RetryConfig{
+			MaxAttempts:     cfg.Ingest.MaxAttempts,
+			InitialInterval: cfg.Ingest.InitialInterval,
+			MaxInterval:     cfg.Ingest.MaxInterval,
+			Multiplier:      cfg.Ingest.Multiplier,
+		},
+		Workers:          cfg.Ingest.Workers,
+		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
+		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
+		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
+		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
+		Log:              log,
+	})
 
 	var hist history.History
 	if cfg.History.Enabled {

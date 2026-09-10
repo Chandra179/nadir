@@ -22,8 +22,8 @@ The repo also split every package's interfaces into per-package
 `internal/enrichment/interface.go` is the **single** definition of
 `Enricher`, co-located with its implementation. `internal/ingest` imports
 `nadir/internal/enrichment` and consumes `enrichment.Enricher` directly
-(`ingest.DependenciesConfig`, `WithEnrichment`). The duplicate interface in
-`internal/ingest/interface.go` was deleted with **no backward-compat shim** —
+through `ingest.DependenciesConfig`. The duplicate `Enricher` interface
+formerly in `internal/ingest/interface.go` was deleted with **no backward-compat shim** —
 no alias, no re-export. The method-level doc comments moved with the
 interface.
 

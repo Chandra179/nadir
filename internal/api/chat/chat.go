@@ -5,7 +5,7 @@
 package chat
 
 import (
-	"nadir/internal/api/internal/render"
+	"nadir/internal/api/render"
 	"nadir/internal/chat"
 )
 

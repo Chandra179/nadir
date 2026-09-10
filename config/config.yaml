@@ -70,12 +70,12 @@ enrichment:
   hype:
     enabled: false          
     questions_per_chunk: 3
-    ollama_addr: ""         # defaults to generator.ollama_addr, then embedder.ollama_addr
-    model: ""               # defaults to generator.model
+    ollama_addr: "http://localhost:11434"
+    model: "gemma3:1b"
   contextual:
     enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
-    ollama_addr: ""
-    model: ""
+    ollama_addr: "http://localhost:11434"
+    model: "gemma3:1b"
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
@@ -85,7 +85,7 @@ semantic_cache:
 
 generator:
   enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=on
-  ollama_addr: ""     # defaults to embedder.ollama_addr
+  ollama_addr: "http://localhost:11434"
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   request_timeout: 120s
 
@@ -108,8 +108,8 @@ rewriter:
   enabled: true
   turns: 4           # prior turns fed to the rewriter
   request_timeout: 8s
-  ollama_addr: ""    # defaults to generator.ollama_addr, then embedder.ollama_addr
-  model: ""          # defaults to generator.model
+  ollama_addr: "http://localhost:11434"
+  model: "gemma3:1b"
 
 history:
   enabled: true              # persists chat sessions/turns to Qdrant, no extra infra

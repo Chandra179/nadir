@@ -89,9 +89,9 @@ after a prior ingest requires a reindex.
 
 ## Phase 2.6 — Architecture deepening ✅
 
-- [x] Centralized LLM endpoint fallback and optional Docling configuration in
-      the validated config module; the composition root no longer repeats
-      role-resolution rules.
+- [x] Centralized explicit LLM endpoint configuration and optional Docling
+      configuration in the validated config module; enabled roles no longer
+      inherit another role's address or model.
 - [x] Retrieval-owned request/result types keep chat and the HTTP transport
       independent from storage-specific chunk and filter types.
 - [x] Split the indexing pass into per-file planning and replacement commit
@@ -103,135 +103,82 @@ after a prior ingest requires a reindex.
       uploads and configured source paths; the original PDF path remains the
       source identity.
 
-## Next plan
+## Priority backlog
 
-Prioritize the remaining work in this order:
+Work from the top down. P0 protects correctness and keeps the Go test command
+reproducible. P1 deepens the Retrieval and Adapter seams. P2 addresses
+durability and lifecycle concerns after the behaviour is covered. P3 contains
+measured performance and product experiments.
 
-1. Add per-stage observability (embed, search, rerank, generation, cache hit,
-   queue/replay gap, and ingest counters). This is the prerequisite for making
-   the latency and capacity decisions below from production evidence.
-2. Finish the reranker benchmark on a machine with enough memory to bake the
-   bge-reranker-v2-m3 ONNX artifact, then compare quality, p50/p95 latency, and
-   memory against the current torch-int8 fallback.
-3. Add adaptive retrieval fallback only after confidence and filter-miss
-   telemetry exists; measure whether wider retrieval improves answer coverage
-   without increasing unsupported answers.
-4. Expand the golden set from 34 to 100+ real queries, including distractor
-   pairs and multi-hop cases, before attempting CRAG or adaptive-RAG work.
+### P0 — Correctness and test foundation
 
-## Current tech debt
+- [x] Keep HyPE and contextual enrichment independently gated. Contextual-only
+      indexing must not make HyPE LLM calls or create HyPE sibling points.
+- [x] Add ingest regression tests for both flags disabled, HyPE only,
+      contextual only, and both enabled.
+- [x] Add Retrieval behaviour tests for fragment batching/prefixes,
+      per-file caps, semantic-cache filtering, and bounded reranker fallback.
+- [x] Add reproducible `make test`, `make race`, `make vet`, `make build`, and
+      `make check` targets scoped to Go packages, excluding a local Python
+      `venv/` from `go test ./...` discovery.
 
-- **Single-node event retention:** the broker is intentionally process-local.
-  Horizontal scaling needs a shared event-log adapter (for example Redis
-  Streams), subscriber routing, and a deployment decision for SSE affinity.
-- **Observability gap:** there is no durable per-stage latency/error metric
-  stream yet, so capacity planning and regression detection still depend on
-  manual evaluation runs.
-- **PDF intake runtime:** the Go Adapter is wired, but production still needs
-  measured Docling conversion latency, memory, and failure behavior on real
-  documents.
-- **Reranker artifact lifecycle:** the best model's ONNX bake is memory-heavy
-  on the development machine, and the measured torch-int8 fallback trades
-  ranking quality for easier deployment.
-- **Evaluation coverage:** the current golden set is intentionally small and
-  mostly retrieval-focused; generation faithfulness and answer relevancy are
-  not yet measured.
-- **Build ergonomics:** the Makefile has only the local-run target, so common
-  test/build/check commands are duplicated in documentation and scripts.
+### P1 — Architecture and operational confidence
 
-## Phase 3 — Measured gaps (next up)
+- [ ] Construct `internal/search` once from `DependenciesConfig`; move the
+      reranker, candidate multiplier, and semantic cache into that config and
+      remove post-construction `With*` mutators.
+- [ ] Add HTTP contract tests for the embedder, generator, reranker, rewriter,
+      enrichment, and document-intake Adapters: status errors, malformed JSON,
+      timeouts, cancellation, response-shape mismatches, and stream closure.
+- [ ] Add store, cache, Qdrant utility, chunker, middleware, and composition-root
+      tests. Use fake Adapters for unit tests and a clearly marked Qdrant
+      integration test suite for collection/schema and persistence behaviour.
+- [ ] Add per-stage observability: ingest, embedding, Retrieval, reranking,
+      generation, cache hits/misses, replay gaps, broker rejection, and Docling
+      conversion. Record durations, outcomes, and bounded error labels.
+- [ ] Harden configuration: reject malformed environment values, reject unknown
+      YAML fields, centralize production defaults, and keep role-specific
+      endpoints explicit. Update stale architecture/configuration documentation.
 
-- [~] Rerank latency: quantize the existing sidecar before swapping models.
-      `services/reranker` ran `sentence_transformers.CrossEncoder` fp32 on CPU
-      (p50 ≈ 3.2–4.4s > 1–2s budget; the reranker buys +7.2pp MRR over
-      no-rerank on the fresh control run). Implemented: `RERANKER_BACKEND`
-      knob with two int8 routes — `onnx` (default: dynamic-int8 export baked
-      into the image at build by `quantize.py`; runtime-swapped models
-      degrade to fp32-onnx → fp32 torch) and `torch-int8` (PyTorch-native
-      dynamic int8 at startup via `TorchInt8Reranker`, no export step, works
-      with any swappable model). Measured:
-      - ONNX int8 (ms-marco-MiniLM through production `load_model()`):
-        p50 365ms → 178ms (2.06×), top-1 agreement 5/5; runtime weights
-        ~2.3GB → ~0.6GB.
-      - torch-int8 (bge-v2-m3, golden-set A/B, 34 queries × 3 runs, reports
-        `rerank_ab_fp32_control` / `rerank_ab_torch_int8`): HitRate 0.853 →
-        0.824, MRR@10 0.793 → 0.765, nDCG@5 0.826 → 0.798, p50 4358ms →
-        3372ms (1.29×) — keeps ~60% of the reranker's MRR gain for ~1.5GB
-        less RAM; weaker than ONNX int8 (which also fuses attention) on both
-        speed and fidelity.
-      Remaining: the v2-m3 ONNX bake peaks ~8–10GB (export) / ~7GB (quantize
-      parse) — this 15GB desktop with a full 4GB swap OOM-killed every
-      attempt, so bake on a machine with headroom (`docker compose build
-      reranker`, or rerun from the saved fp32 graph in /tmp), then A/B the
-      baked artifact over the golden set; expect ≈2× with fp32-equal ranking
-      per sbert's NanoBEIR benchmarks. torch-int8 is the zero-hassle fallback
-      meanwhile.
-- [ ] Adaptive retrieval fallback for weak results (arXiv 2507.16754, "Never
-      Come Up Empty": for novel queries, lowering the similarity bar beats
-      returning nothing). Nadir adaptation: retrieval never filters by score
-      today, so "empty" only happens on filter misses — grade result
-      confidence (max fused/rerank score) and on weak results retry without
-      the filter / with wider prefetch and per-file cap before answering
-      "I don't know". Tradeoff: noise reaches the generator; the
-      answer-only-from-context prompt is the guard.
-- [x] Conversational query rewriting: `chat.Ask` used to feed the raw
-      follow-up text to retrieval, so "what about the second one?" searched
-      garbage. Done: `internal/rewriter` (`Rewriter` interface + Ollama
-      client, Rewrite-Retrieve-Read arXiv 2305.14283 / LangChain
-      condense-question pattern) rewrites follow-ups against the last
-      `rewriter.turns` (default 4) turns before search and generation; the
-      raw query is still what gets persisted and displayed. Flag
-      `rewriter.enabled` (env `REWRITE_ENABLED`), on by default; skipped
-      when a session has no prior turns; any failure (history read, rewrite,
-      8s timeout) falls back to the raw query. Tradeoff confirmed in
-      practice: +1 LLM call per follow-up ≈ 0.6–0.8s warm on gemma3:1b;
-      drift is possible but temperature-0 + "return it unchanged if already
-      standalone" keeps pass-through queries intact.
-- [x] Wire Docling sidecar into ingest through an HTTP document-intake Adapter.
-      Both `.md` and `.pdf` uploads/source files use the same indexing pass;
-      the original PDF path is retained as the source identity. Remaining
-      work is operational measurement of conversion latency and memory.
-- [ ] Per-stage observability (rfc.md open question; the empty `Metrics()`
-      stub was removed). Record embed / search / rerank / generate
-      durations + cache-hit rate so prod latency matches the golden-set numbers;
-      cheap and de-risks every item above.
+### P2 — Durability and lifecycle
 
-## Phase 4 — Research candidates (paper → proven impl → tradeoff; measure first)
+- [ ] Make Document replacement failure-safe. The current delete-then-upsert
+      sequence can temporarily remove a Document when the replacement upsert
+      fails. Define a versioned replacement/cleanup protocol and record it in an
+      ADR before changing the Store seam.
+- [ ] Make detached chat-history persistence drainable during shutdown so a
+      process stop cannot silently lose completed Chat turns.
+- [ ] Measure PDF document-intake latency, memory, timeout, and failure behaviour
+      against real documents in a production-like environment.
+- [ ] Add end-to-end HTTP tests for ingest, Retrieval, SSE replay/cancellation,
+      history listing/deletion, full reset, and error responses.
 
-- [ ] CRAG-style retrieval self-correction (arXiv 2401.15884): LLM grades each
-      candidate correct/incorrect/ambiguous; on failure rewrite + re-retrieve
-      (no web-search fallback — local-first corpus). Proven impl: LangGraph
-      `corrective-rag` template. Tradeoff: +1 judge call on the query-time
-      path, misgrading risk with a 1B judge; reuses the rewriter from Phase 3.
-- [ ] Generation-side eval with RAGAS (proven lib, LLM-as-judge): faithfulness,
-      answer relevancy, context precision/recall. The golden-set metrics
-      measure retrieval only — gemma3:1b answer quality is unmeasured. Needs a judge model bigger
-      than the one under test (Ollama-hosted); LLM-judge noise and cost are the
-      tradeoff. Retrieval metrics keep the binary ground truth.
-- [ ] Speculative RAG (arXiv 2407.08223, Google): a small drafter generates
-      answer drafts from partitioned chunk subsets; a larger verifier scores
-      and picks in one pass — better accuracy at lower latency than one big
-      generation. Needs two Ollama models (e.g. gemma3:1b draft + gemma3:4b
-      verify). Tradeoff: more query-time compute and moving parts; the gain
-      assumes the verifier is meaningfully better than the drafter.
-- [ ] Adaptive-RAG query routing (arXiv 2403.14403, NAACL 2024): a classifier
-      picks no-retrieval / single-step / iterative retrieval per query, so
-      compute scales with question complexity. Proven impl:
-      github.com/starsuzi/Adaptive-RAG, LangChain adaptive-rag template.
-      Tradeoff: misrouting, an extra model, and iterative retrieval fights the
-      "predictable one-shot" design (rfc.md). Defer until the golden set
-      actually contains multi-hop queries.
-- [ ] Qdrant quantization at scale (config-only, proven): scalar int8 ≈4×
-      memory down with <1% quality loss; binary ≈32× down and up to 40× faster
-      but requires rescoring + 2–4× oversampling (~0.98 recall). Not urgent —
-      search is sub-100ms today and the reranker owns the latency budget;
-      revisit when the corpus outgrows RAM. Tradeoff: oversampling feeds more
-      candidates to the already-slow reranker.
-- [ ] Embedder swap (bge-m3 / snowflake-arctic-embed-l class via Ollama, new
-      dims + full reindex) — only if Phase 0 numbers show recall ceiling at nomic
-- [ ] A/B sentence-window vs recursive chunker on the golden set (rfc.md open
-      question; `window_size: 3`). No retrieval-code change — run both chunker
-      configs over the golden set before any default change.
+### P3 — Measured performance and Retrieval quality
+
+- [~] Finish the reranker benchmark on a machine with enough memory to bake the
+      `bge-reranker-v2-m3` ONNX artifact. Compare quality, p50/p95 latency, and
+      memory against the current torch-int8 route. Existing measurements remain
+      in the committed evaluation reports.
+- [ ] Grow the golden set from 34 to 100+ real queries with distractor pairs,
+      multi-hop cases, and generation-faithfulness annotations.
+- [ ] Add adaptive Retrieval fallback only after confidence, filter-miss, and
+      unsupported-answer telemetry exists; measure coverage against noise.
+- [ ] Add generation-side evaluation for faithfulness, answer relevancy, and
+      context precision/recall using a judge model larger than the model under
+      test.
+- [ ] Revisit Qdrant quantization and embedder replacement only when corpus size
+      or golden-set recall demonstrates a capacity or quality ceiling.
+- [ ] Benchmark sentence-window versus recursive chunking before changing the
+      default chunker.
+
+### Deliberately deferred
+
+- [ ] Add a shared event backend such as Redis Streams only when multiple Nadir
+      instances are deployed. It then also requires subscriber routing and an
+      SSE affinity/deployment decision; the current broker remains intentionally
+      single-node under ADR-0013.
+- [ ] CRAG, speculative RAG, Adaptive-RAG routing, GraphRAG, and multi-query
+      expansion remain research candidates, not implementation priorities.
 
 ## Rejected (research says skip for this domain)
 

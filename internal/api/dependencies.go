@@ -5,7 +5,7 @@ import (
 
 	chatapi "nadir/internal/api/chat"
 	historyapi "nadir/internal/api/history"
-	"nadir/internal/api/internal/render"
+	"nadir/internal/api/render"
 	"nadir/internal/chat"
 	"nadir/internal/history"
 	"nadir/internal/ingest"

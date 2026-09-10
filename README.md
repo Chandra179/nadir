@@ -124,7 +124,9 @@ source:
     - "~/documents"
 ```
 
-Everything else has sensible defaults. For a full reference of every knob, open `config/config.yaml`.
+Disabled features and bounded operational knobs have sensible defaults. Enabled
+external roles require their address/model in the config. For a full reference
+of every knob, open `config/config.yaml`.
 
 ### Env vars
 
@@ -133,6 +135,10 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
 | `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
+| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:1b` | Explicit answer-generation endpoint and model |
+| `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
+| `HYPE_ADDR` / `HYPE_MODEL` | same host / `gemma3:1b` | Explicit HyPE enrichment endpoint and model |
+| `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `gemma3:1b` | Explicit contextual-enrichment endpoint and model |
 | `EMBEDDER_API_KEY` | — | Embedder API key, if required |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
 | `RERANKER_ENABLED` | — | `true`/`1` to force-enable the reranker |
@@ -148,6 +154,10 @@ Everything else has sensible defaults. For a full reference of every knob, open 
 
 Role-specific request timeouts are configured in `config/config.yaml` under
 `embedder`, `generator`, `rewriter`, `enrichment`, `reranker`, and `docling`.
+When an LLM role is enabled, its address and model are required explicitly:
+`generator`, `rewriter`, `enrichment.hype`, and `enrichment.contextual` do not
+inherit another role's endpoint or model. Compose supplies explicit role
+environment overrides even when roles share one Ollama server.
 
 > `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Docker-internal service names and a portable CPU reranker by default.
 
@@ -187,8 +197,9 @@ subscribers through that shared log.
 ### Unit tests (no Docker required)
 
 ```bash
-go test -short -count=1 ./...   # unit tests only; runs in seconds
-go test -count=1 ./...          # all tests (requires Qdrant)
+make test                       # unit tests only; excludes local Python venv
+make check                      # tests + vet + build
+go test -count=1 ./config ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 ```
 
 ## PDF ingestion

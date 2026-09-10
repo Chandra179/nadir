@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
+	"nadir/internal/enrichment"
 	"nadir/internal/store"
 )
 
@@ -65,17 +66,35 @@ func (f *fakeStore) Stats(context.Context) (store.Stats, error) { return store.S
 var _ embedder.Embedder = fakeEmbedder{}
 var _ store.Store = (*fakeStore)(nil)
 
+type fakeEnricher struct {
+	hypeCalls       int
+	contextualCalls int
+}
+
+func (f *fakeEnricher) HypotheticalQuestions(context.Context, string, string, int) ([]string, error) {
+	f.hypeCalls++
+	return []string{"what does this document explain?"}, nil
+}
+
+func (f *fakeEnricher) ContextualIntro(context.Context, string, string) (string, error) {
+	f.contextualCalls++
+	return "This is contextual background.", nil
+}
+
+var _ enrichment.Enricher = (*fakeEnricher)(nil)
+
 func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 	intake := &fakeIntake{}
 	chunkerFake := &fakeChunker{}
 	storeFake := &fakeStore{}
 	d := NewDependencies(DependenciesConfig{
-		Chunker:  chunkerFake,
-		Embedder: fakeEmbedder{},
-		Store:    storeFake,
-		Retry:    RetryConfig{},
-		Log:      zap.NewNop(),
-	}).WithDocumentConverter(intake)
+		Chunker:           chunkerFake,
+		Embedder:          fakeEmbedder{},
+		Store:             storeFake,
+		DocumentConverter: intake,
+		Retry:             RetryConfig{},
+		Log:               zap.NewNop(),
+	})
 
 	result, err := d.Run(context.Background(), []UploadFile{{Name: "report.pdf", Data: []byte("pdf bytes")}})
 	if err != nil {
@@ -89,5 +108,50 @@ func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 	}
 	if storeFake.deleted != "report.pdf" || len(storeFake.upserted) != 1 || storeFake.upserted[0].FilePath != "report.pdf" {
 		t.Fatalf("source identity was not preserved: deleted=%q chunks=%+v", storeFake.deleted, storeFake.upserted)
+	}
+}
+
+func TestEnrichmentFeatureFlagsAreIndependent(t *testing.T) {
+	tests := []struct {
+		name             string
+		hypeEnabled      bool
+		contextualEnable bool
+		wantHypeCalls    int
+		wantContextCalls int
+		wantChunks       int
+	}{
+		{name: "both disabled", wantChunks: 1},
+		{name: "hype only", hypeEnabled: true, wantHypeCalls: 1, wantChunks: 2},
+		{name: "contextual only", contextualEnable: true, wantContextCalls: 1, wantChunks: 1},
+		{name: "both enabled", hypeEnabled: true, contextualEnable: true, wantHypeCalls: 1, wantContextCalls: 1, wantChunks: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enricher := &fakeEnricher{}
+			d := NewDependencies(DependenciesConfig{
+				Chunker:           &fakeChunker{},
+				Embedder:          fakeEmbedder{},
+				Enricher:          enricher,
+				HypeEnabled:       tt.hypeEnabled,
+				HypeQuestions:     1,
+				ContextualEnabled: tt.contextualEnable,
+				Log:               zap.NewNop(),
+			})
+
+			plan, err := d.planFile(context.Background(), "notes.md", "body", "sha")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if enricher.hypeCalls != tt.wantHypeCalls {
+				t.Fatalf("HyPE calls = %d, want %d", enricher.hypeCalls, tt.wantHypeCalls)
+			}
+			if enricher.contextualCalls != tt.wantContextCalls {
+				t.Fatalf("contextual calls = %d, want %d", enricher.contextualCalls, tt.wantContextCalls)
+			}
+			if len(plan.chunks) != tt.wantChunks {
+				t.Fatalf("planned chunks = %d, want %d", len(plan.chunks), tt.wantChunks)
+			}
+		})
 	}
 }

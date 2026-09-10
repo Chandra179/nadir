@@ -48,11 +48,11 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 }
 
-func TestEndpointResolutionUsesRoleFallbacks(t *testing.T) {
+func TestEndpointResolutionKeepsRoleConfigurationExplicit(t *testing.T) {
 	cfg := Config{
 		Embedder:  EmbedderConfig{OllamaAddr: "http://embedder:11434"},
-		Generator: GeneratorConfig{Model: "answer-model"},
-		Rewriter:  RewriterConfig{},
+		Generator: GeneratorConfig{OllamaAddr: "http://generator:11434", Model: "answer-model"},
+		Rewriter:  RewriterConfig{OllamaAddr: "http://rewriter:11434", Model: "rewrite-model"},
 		Enrichment: EnrichmentConfig{Contextual: ContextualConfig{
 			Enabled:    true,
 			OllamaAddr: "http://contextual:11434",
@@ -60,14 +60,104 @@ func TestEndpointResolutionUsesRoleFallbacks(t *testing.T) {
 		}},
 	}
 
-	if got := cfg.GeneratorEndpoint(); got.Addr != "http://embedder:11434" || got.Model != "answer-model" {
-		t.Fatalf("GeneratorEndpoint() = %+v, want embedder addr and generator model", got)
+	if got := cfg.GeneratorEndpoint(); got.Addr != "http://generator:11434" || got.Model != "answer-model" {
+		t.Fatalf("GeneratorEndpoint() = %+v, want explicitly configured generator endpoint", got)
 	}
-	if got := cfg.RewriterEndpoint(); got.Addr != "http://embedder:11434" || got.Model != "answer-model" {
-		t.Fatalf("RewriterEndpoint() = %+v, want generator fallback model and embedder addr", got)
+	if got := cfg.RewriterEndpoint(); got.Addr != "http://rewriter:11434" || got.Model != "rewrite-model" {
+		t.Fatalf("RewriterEndpoint() = %+v, want explicitly configured rewriter endpoint", got)
 	}
-	if got := cfg.EnrichmentEndpoint(); got.Addr != "http://contextual:11434" || got.Model != "contextual-model" {
-		t.Fatalf("EnrichmentEndpoint() = %+v, want contextual override", got)
+	if got := cfg.HypeEndpoint(); got.Addr != "" || got.Model != "" {
+		t.Fatalf("HypeEndpoint() = %+v, want empty because Hype is not configured", got)
+	}
+	if got := cfg.ContextualEndpoint(); got.Addr != "http://contextual:11434" || got.Model != "contextual-model" {
+		t.Fatalf("ContextualEndpoint() = %+v, want explicitly configured contextual endpoint", got)
+	}
+}
+
+func TestRewriterRequiresExplicitEndpointWhenEnabled(t *testing.T) {
+	cfg := Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+		Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+		Rewriter: RewriterConfig{Enabled: true, Model: "rewrite-model"},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "rewriter.ollama_addr") {
+		t.Fatal("Validate() succeeded with enabled rewriter and empty address")
+	}
+
+	cfg.Rewriter.OllamaAddr = "http://rewriter:11434"
+	cfg.Rewriter.Model = ""
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "rewriter.model") {
+		t.Fatal("Validate() succeeded with enabled rewriter and empty model")
+	}
+}
+
+func TestEnabledRolesRequireExplicitConfiguration(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+		edit func(*Config)
+	}{
+		{
+			name: "generator address",
+			want: "generator.ollama_addr",
+			edit: func(c *Config) { c.Generator.Enabled = true; c.Generator.Model = "answer-model" },
+		},
+		{
+			name: "generator model",
+			want: "generator.model",
+			edit: func(c *Config) {
+				c.Generator.Enabled = true
+				c.Generator.OllamaAddr = "http://generator:11434"
+			},
+		},
+		{
+			name: "hype address",
+			want: "enrichment.hype.ollama_addr",
+			edit: func(c *Config) { c.Enrichment.Hype.Enabled = true; c.Enrichment.Hype.Model = "hype-model" },
+		},
+		{
+			name: "contextual model",
+			want: "enrichment.contextual.model",
+			edit: func(c *Config) {
+				c.Enrichment.Contextual.Enabled = true
+				c.Enrichment.Contextual.OllamaAddr = "http://contextual:11434"
+			},
+		},
+		{
+			name: "reranker address",
+			want: "reranker.addr",
+			edit: func(c *Config) { c.Reranker.Enabled = true; c.Reranker.Model = "reranker-model" },
+		},
+		{
+			name: "reranker model",
+			want: "reranker.model",
+			edit: func(c *Config) { c.Reranker.Enabled = true; c.Reranker.Addr = "http://reranker:5002" },
+		},
+		{
+			name: "history collection",
+			want: "history.collection",
+			edit: func(c *Config) { c.History.Enabled = true },
+		},
+		{
+			name: "semantic cache collection",
+			want: "semantic_cache.collection",
+			edit: func(c *Config) { c.SemanticCache.Enabled = true },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+				Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+				Chunker:  ChunkerConfig{ChunkSize: 10},
+			}
+			tt.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tt.want)
+			}
+		})
 	}
 }
 
