@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestRewriteCleansOutput(t *testing.T) {
@@ -46,6 +48,68 @@ func TestRewriteErrorOnEmptyOutput(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test"})
 	if _, err := d.Rewrite(context.Background(), nil, "q?"); err == nil {
 		t.Fatal("expected error for empty rewrite output")
+	}
+}
+
+func TestRewriteHTTPContract(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		status  int
+		body    string
+		wantErr string
+	}{
+		{name: "status error", status: http.StatusBadGateway, body: "unavailable", wantErr: "status 502"},
+		{name: "malformed json", status: http.StatusOK, body: `{`, wantErr: "decode"},
+		{name: "response shape mismatch", status: http.StatusOK, body: `{}`, wantErr: "empty rewrite"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer srv.Close()
+
+			d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test", RequestTimeout: time.Second})
+			_, err := d.Rewrite(context.Background(), nil, "follow-up?")
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Rewrite() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRewriteHonorsTimeoutAndCancellation(t *testing.T) {
+	started := make(chan struct{})
+	var once sync.Once
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		once.Do(func() { close(started) })
+		select {
+		case <-r.Context().Done():
+		case <-time.After(100 * time.Millisecond):
+		}
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "test", RequestTimeout: 10 * time.Millisecond})
+	if _, err := d.Rewrite(context.Background(), nil, "follow-up?"); err == nil {
+		t.Fatal("Rewrite() succeeded after client timeout")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := d.Rewrite(ctx, nil, "follow-up?")
+		result <- err
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("rewriter request did not start")
+	}
+	cancel()
+	if err := <-result; err == nil {
+		t.Fatal("Rewrite() succeeded with canceled request")
 	}
 }
 

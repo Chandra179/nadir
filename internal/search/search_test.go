@@ -95,6 +95,21 @@ func (r searchTestReranker) Rerank(context.Context, string, []store.ScoredChunk)
 
 var _ reranker.Reranker = searchTestReranker{}
 
+func TestNewDependenciesWiresOptionalAdaptersAtConstruction(t *testing.T) {
+	cache := &searchTestCache{}
+	ranker := searchTestReranker{}
+	d := NewDependencies(DependenciesConfig{
+		Embedder:      embTestEmbedder{},
+		Store:         &searchTestStore{},
+		Reranker:      ranker,
+		CandidateMul:  4,
+		SemanticCache: cache,
+	})
+	if d.reranker != ranker || d.cache != cache || d.candidateMul != 4 {
+		t.Fatalf("optional search adapters were not wired at construction: %+v", d)
+	}
+}
+
 func TestQueryBatchesFragmentsAndCapsResultsPerFile(t *testing.T) {
 	emb := &searchTestEmbedder{}
 	st := &searchTestStore{results: []store.ScoredChunk{
@@ -144,10 +159,10 @@ func TestQueryBypassesCacheForFilteredSearches(t *testing.T) {
 	}
 	st := &searchTestStore{results: []store.ScoredChunk{{Text: "fresh", FilePath: "fresh.md", LineStart: 1}}}
 	d := NewDependencies(DependenciesConfig{
-		Embedder: embTestEmbedder{},
-		Store:    st,
+		Embedder:      embTestEmbedder{},
+		Store:         st,
+		SemanticCache: cache,
 	})
-	d.WithSemanticCache(cache)
 
 	got, err := d.Query(context.Background(), Request{Query: "same", TopK: 1})
 	if err != nil {
@@ -193,10 +208,11 @@ func TestQueryRerankerFailureKeepsResultsBounded(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{
 		Embedder:         embTestEmbedder{},
 		Store:            st,
+		Reranker:         searchTestReranker{err: errors.New("sidecar unavailable")},
+		CandidateMul:     2,
 		MaxTopK:          10,
 		MaxChunksPerFile: 10,
 	})
-	d.WithReranker(searchTestReranker{err: errors.New("sidecar unavailable")}, 2)
 
 	got, err := d.Query(context.Background(), Request{Query: "query", TopK: 2})
 	if err != nil {

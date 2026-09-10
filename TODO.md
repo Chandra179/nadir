@@ -124,19 +124,19 @@ measured performance and product experiments.
 
 ### P1 — Architecture and operational confidence
 
-- [ ] Construct `internal/search` once from `DependenciesConfig`; move the
+- [x] Construct `internal/search` once from `DependenciesConfig`; move the
       reranker, candidate multiplier, and semantic cache into that config and
       remove post-construction `With*` mutators.
-- [ ] Add HTTP contract tests for the embedder, generator, reranker, rewriter,
+- [x] Add HTTP contract tests for the embedder, generator, reranker, rewriter,
       enrichment, and document-intake Adapters: status errors, malformed JSON,
       timeouts, cancellation, response-shape mismatches, and stream closure.
-- [ ] Add store, cache, Qdrant utility, chunker, middleware, and composition-root
+- [x] Add store, cache, Qdrant utility, chunker, middleware, and composition-root
       tests. Use fake Adapters for unit tests and a clearly marked Qdrant
       integration test suite for collection/schema and persistence behaviour.
-- [ ] Add per-stage observability: ingest, embedding, Retrieval, reranking,
+- [x] Add per-stage observability: ingest, embedding, Retrieval, reranking,
       generation, cache hits/misses, replay gaps, broker rejection, and Docling
       conversion. Record durations, outcomes, and bounded error labels.
-- [ ] Harden configuration: reject malformed environment values, reject unknown
+- [x] Harden configuration: reject malformed environment values, reject unknown
       YAML fields, centralize production defaults, and keep role-specific
       endpoints explicit. Update stale architecture/configuration documentation.
 

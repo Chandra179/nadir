@@ -91,6 +91,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 			MaxEventLogBytes: cfg.MaxEventLogBytes,
 			MaxRetainedTurns: cfg.MaxRetainedTurns,
 			FinishedTurnTTL:  cfg.FinishedTurnTTL,
+			Log:              log,
 		}),
 		model: cfg.Model,
 		log:   log,

@@ -9,7 +9,7 @@ created: 2026-09-08
 
 # Nadir Architecture
 
-Nadir RAG search engine with Chat based conversatiion
+Nadir is a single-node RAG search engine with conversational retrieval.
 
 ## Big Picture
 
@@ -66,7 +66,9 @@ Near-repeat questions hit a similarity-thresholded query-level cache in the vect
 
 Follow-up turns are rewritten into standalone search queries over Ollama
 (Rewrite-Retrieve-Read, feature-flagged, gated on chat history);
-best-effort — a rewrite failure falls back to the raw query.
+best-effort — a rewrite failure searches the raw query. The rewriter's
+endpoint and model are explicit configuration; it does not inherit another
+LLM role's settings.
 
 ## Answer generation
 
@@ -90,5 +92,64 @@ and how users ask.
 ## Docling
 
 A Python service converts PDFs to Markdown so they can be ingested (the
-Python ecosystem isn't vendored into the Go binary); currently a standalone
-script, not wired into the server.
+Python ecosystem isn't vendored into the Go binary). The Go document-intake
+Adapter calls the optional sidecar before the normal chunk → embed → replace
+indexing pass, preserving the original source path for citations.
+
+## Composition and seams
+
+`internal/server` is the composition root. It constructs each domain Module
+once, passes the resulting Adapters through `DependenciesConfig`, and then
+builds the HTTP transport. Retrieval owns the caller-facing request, filter,
+and result values; the Qdrant store and reranker keep their storage-side
+representations behind that seam. Ingest separates per-document planning from
+replacement commit, and `internal/qdrantutil` owns only shared Qdrant clients,
+dense collection setup, primitive payload codecs, and point-ID decoding.
+
+The chat use-case owns generation supervision and the bounded ordered replay
+broker. SSE subscribers are transport concerns: disconnecting a subscriber
+does not cancel generation. The broker is intentionally process-local and
+single-node; horizontal deployment requires an external ordered event backend
+and a subscriber-routing/affinity decision.
+
+## Configuration contract
+
+`config/config.yaml` is decoded with unknown-field rejection, environment
+overrides are parsed strictly, and production defaults are applied once by
+`config.Config.Validate`. Enabled LLM roles must provide their own endpoint
+and model: generator, rewriter, HyPE, and contextual enrichment never inherit
+another role's values. Role-specific request timeouts are part of the config
+contract. Changing embedding prefixes, dimensions, or enrichment flags
+requires a reindex.
+
+## Operational signals
+
+Structured stage logs record duration, outcome, and bounded error labels for
+ingest planning/commit, document and query embedding, Retrieval, reranking,
+generation, semantic-cache reads/writes, replay gaps, broker rejection, and
+Docling conversion. Request logging remains at the HTTP seam and never logs
+request or response bodies.
+
+## HTTP surface
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/ingest` | Ingest multipart uploads or configured source files |
+| POST | `/store/reset` | Drop and recreate the document collection and clear semantic cache |
+| GET | `/retrieval` | Render the dashboard |
+| POST | `/retrieval/search` | Start one Retrieval/chat turn |
+| GET | `/retrieval/turns/:id/events` | Replay/stream turn events over SSE |
+| POST | `/retrieval/turns/:id/cancel` | Cancel generation and retain the partial answer |
+| GET | `/history/sessions` | List persisted chat sessions |
+| GET | `/history/sessions/:id` | Render one persisted session |
+| DELETE | `/history/sessions/:id` | Delete one persisted session |
+| GET | `/healthz` | Liveness check |
+
+## Verification
+
+The default unit scope is `./config ./cmd/... ./internal/...`; the Makefile
+provides `test`, `race`, `vet`, `build`, and `check` targets. Adapter tests
+exercise HTTP status, malformed response, timeout, cancellation, response
+shape, and stream-closure contracts. Qdrant collection/schema and persistence
+behaviour are covered by the clearly marked `integration` test suite:
+`go test -tags integration ./internal/store`.

@@ -17,7 +17,12 @@ import (
 type DependenciesConfig struct {
 	Embedder embedder.Embedder
 	Store    store.Store
-	Log      *zap.Logger
+	Reranker reranker.Reranker
+	// CandidateMul controls how many candidates are fetched before reranking.
+	// It is ignored when Reranker is nil.
+	CandidateMul  int
+	SemanticCache cache.SemanticCache
+	Log           *zap.Logger
 	// QueryPrefix is prepended to every embedded query fragment (e.g.
 	// "search_query: " for nomic-embed-text task instructions).
 	QueryPrefix            string
@@ -71,6 +76,9 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
 		embedder:               cfg.Embedder,
 		store:                  cfg.Store,
+		reranker:               cfg.Reranker,
+		candidateMul:           normalizeCandidateMul(cfg.CandidateMul),
+		cache:                  cfg.SemanticCache,
 		queryPrefix:            cfg.QueryPrefix,
 		maxQueryChars:          maxQueryChars,
 		maxFragments:           maxFragments,
@@ -81,20 +89,11 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 }
 
-func (s *dependencies) WithReranker(r reranker.Reranker, candidateMul int) *dependencies {
-	s.reranker = r
+func normalizeCandidateMul(candidateMul int) int {
 	if candidateMul < 1 {
-		candidateMul = 3
+		return 3
 	}
-	s.candidateMul = candidateMul
-	return s
-}
-
-// WithSemanticCache enables the semantic cache lookup/writeback performed by
-// Query.
-func (s *dependencies) WithSemanticCache(c cache.SemanticCache) *dependencies {
-	s.cache = c
-	return s
+	return candidateMul
 }
 
 var errQueryTooLong = errors.New("search query exceeds the configured length limit")

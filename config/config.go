@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -206,10 +207,14 @@ func Load(path string) (*Config, error) {
 	defer f.Close()
 
 	var cfg Config
-	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+	decoder := yaml.NewDecoder(f)
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.applyEnv()
+	if err := cfg.applyEnv(); err != nil {
+		return nil, err
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -218,7 +223,7 @@ func Load(path string) (*Config, error) {
 
 // applyEnv overrides config fields from environment variables.
 // Env vars take precedence over config.yaml values.
-func (c *Config) applyEnv() {
+func (c *Config) applyEnv() error {
 	c.envStr(&c.Qdrant.Addr, "QDRANT_ADDR")
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
@@ -228,24 +233,41 @@ func (c *Config) applyEnv() {
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
 	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
 	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
-	c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED")
+	if err := c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.Reranker.Model, "RERANKER_MODEL")
 	c.envStr(&c.Middleware.Logger.Level, "LOGGER_LEVEL")
-	c.envFloat32(&c.SemanticCache.Threshold, "SEMANTIC_CACHE_THRESHOLD")
-	c.envBool(&c.History.Enabled, "HISTORY_ENABLED")
+	if err := c.envFloat32(&c.SemanticCache.Threshold, "SEMANTIC_CACHE_THRESHOLD"); err != nil {
+		return err
+	}
+	if err := c.envBool(&c.History.Enabled, "HISTORY_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.History.Collection, "HISTORY_COLLECTION")
-	c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED")
+	if err := c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.Enrichment.Hype.OllamaAddr, "HYPE_ADDR")
 	c.envStr(&c.Enrichment.Hype.Model, "HYPE_MODEL")
-	c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED")
+	if err := c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.Enrichment.Contextual.OllamaAddr, "CONTEXTUAL_ADDR")
 	c.envStr(&c.Enrichment.Contextual.Model, "CONTEXTUAL_MODEL")
-	c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED")
+	if err := c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
 	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
-	c.envInt(&c.Rewriter.Turns, "REWRITE_TURNS")
-	c.envBool(&c.Docling.Enabled, "DOCLING_ENABLED")
+	if err := c.envInt(&c.Rewriter.Turns, "REWRITE_TURNS"); err != nil {
+		return err
+	}
+	if err := c.envBool(&c.Docling.Enabled, "DOCLING_ENABLED"); err != nil {
+		return err
+	}
 	c.envStr(&c.Docling.Addr, "DOCLING_ADDR")
+	return nil
 }
 
 func (c Config) GeneratorEndpoint() OllamaEndpoint {
@@ -270,26 +292,43 @@ func (c *Config) envStr(dst *string, env string) {
 	}
 }
 
-func (c *Config) envBool(dst *bool, env string) {
+func (c *Config) envBool(dst *bool, env string) error {
 	if v := os.Getenv(env); v != "" {
-		*dst = v == "true" || v == "1"
-	}
-}
-
-func (c *Config) envFloat32(dst *float32, env string) {
-	if v := os.Getenv(env); v != "" {
-		if f, err := strconv.ParseFloat(v, 32); err == nil {
-			*dst = float32(f)
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "true", "1":
+			*dst = true
+		case "false", "0":
+			*dst = false
+		default:
+			return fmt.Errorf("config: %s must be one of true, false, 1, or 0", env)
 		}
 	}
+	return nil
 }
 
-func (c *Config) envInt(dst *int, env string) {
+func (c *Config) envFloat32(dst *float32, env string) error {
 	if v := os.Getenv(env); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			*dst = n
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 32)
+		if err != nil {
+			return fmt.Errorf("config: %s must be a number: %w", env, err)
 		}
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("config: %s must be a finite number", env)
+		}
+		*dst = float32(f)
 	}
+	return nil
+}
+
+func (c *Config) envInt(dst *int, env string) error {
+	if v := os.Getenv(env); v != "" {
+		n, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return fmt.Errorf("config: %s must be an integer: %w", env, err)
+		}
+		*dst = n
+	}
+	return nil
 }
 
 func (c *Config) envCSV(dst *[]string, env string) {
@@ -305,42 +344,21 @@ func (c *Config) envCSV(dst *[]string, env string) {
 	}
 }
 
-func (c *Config) Validate() error {
+// applyDefaults is the single production-defaults table. Package constructors
+// still retain defensive defaults for direct unit tests, but a loaded Config
+// always gets its runtime defaults here before validation and composition.
+func (c *Config) applyDefaults() {
 	if c.HTTP.StartupTimeout <= 0 {
 		c.HTTP.StartupTimeout = 30 * time.Second
 	}
 	if c.HTTP.ShutdownTimeout <= 0 {
 		c.HTTP.ShutdownTimeout = 10 * time.Second
 	}
-	if c.Qdrant.TopK <= 0 {
-		return fmt.Errorf("config: qdrant.top_k must be > 0")
-	}
 	if c.Qdrant.PrefetchMul <= 0 {
 		c.Qdrant.PrefetchMul = 5
 	}
-	if c.Embedder.Model == "" {
-		return fmt.Errorf("config: embedder.model must not be empty")
-	}
-	if strings.EqualFold(c.Embedder.Provider, "ollama") && strings.TrimSpace(c.Embedder.OllamaAddr) == "" {
-		return fmt.Errorf("config: embedder.ollama_addr must not be empty for the ollama provider")
-	}
-	if c.Embedder.Dimensions <= 0 {
-		return fmt.Errorf("config: embedder.dimensions must be > 0")
-	}
 	if c.Embedder.RequestTimeout <= 0 {
 		c.Embedder.RequestTimeout = 60 * time.Second
-	}
-	if c.Qdrant.Addr == "" {
-		return fmt.Errorf("config: qdrant.addr must not be empty")
-	}
-	if c.Qdrant.Collection == "" {
-		return fmt.Errorf("config: qdrant.collection must not be empty")
-	}
-	if c.Chunker.ChunkSize <= 0 {
-		return fmt.Errorf("config: chunker.chunk_size must be > 0")
-	}
-	if c.Chunker.ChunkOverlap < 0 || c.Chunker.ChunkOverlap >= c.Chunker.ChunkSize {
-		return fmt.Errorf("config: chunker.chunk_overlap must be >= 0 and < chunker.chunk_size")
 	}
 	if c.Ingest.MaxFileBytes <= 0 {
 		c.Ingest.MaxFileBytes = 16 << 20
@@ -372,12 +390,6 @@ func (c *Config) Validate() error {
 	if c.Search.MaxChunksPerFile <= 0 {
 		c.Search.MaxChunksPerFile = 3
 	}
-	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Addr) == "" {
-		return fmt.Errorf("config: reranker.addr must not be empty when reranker.enabled is true")
-	}
-	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Model) == "" {
-		return fmt.Errorf("config: reranker.model must not be empty when reranker.enabled is true")
-	}
 	if c.Reranker.CandidateMul <= 0 {
 		c.Reranker.CandidateMul = 3
 	}
@@ -405,6 +417,61 @@ func (c *Config) Validate() error {
 	if c.Chat.PersistTimeout <= 0 {
 		c.Chat.PersistTimeout = 5 * time.Second
 	}
+	if c.SemanticCache.Threshold == 0 {
+		c.SemanticCache.Threshold = 0.90
+	}
+	if c.Enrichment.RequestTimeout <= 0 {
+		c.Enrichment.RequestTimeout = 120 * time.Second
+	}
+	if c.Generator.RequestTimeout <= 0 {
+		c.Generator.RequestTimeout = 120 * time.Second
+	}
+	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
+		c.Enrichment.Hype.QuestionsPerChunk = 3
+	}
+	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
+		c.Rewriter.Turns = 4
+	}
+	if c.Rewriter.RequestTimeout <= 0 {
+		c.Rewriter.RequestTimeout = 8 * time.Second
+	}
+	if c.Docling.RequestTimeout <= 0 {
+		c.Docling.RequestTimeout = 120 * time.Second
+	}
+}
+
+func (c *Config) Validate() error {
+	c.applyDefaults()
+	if c.Embedder.Model == "" {
+		return fmt.Errorf("config: embedder.model must not be empty")
+	}
+	if strings.EqualFold(c.Embedder.Provider, "ollama") && strings.TrimSpace(c.Embedder.OllamaAddr) == "" {
+		return fmt.Errorf("config: embedder.ollama_addr must not be empty for the ollama provider")
+	}
+	if c.Embedder.Dimensions <= 0 {
+		return fmt.Errorf("config: embedder.dimensions must be > 0")
+	}
+	if c.Qdrant.Addr == "" {
+		return fmt.Errorf("config: qdrant.addr must not be empty")
+	}
+	if c.Qdrant.Collection == "" {
+		return fmt.Errorf("config: qdrant.collection must not be empty")
+	}
+	if c.Qdrant.TopK <= 0 {
+		return fmt.Errorf("config: qdrant.top_k must be > 0")
+	}
+	if c.Chunker.ChunkSize <= 0 {
+		return fmt.Errorf("config: chunker.chunk_size must be > 0")
+	}
+	if c.Chunker.ChunkOverlap < 0 || c.Chunker.ChunkOverlap >= c.Chunker.ChunkSize {
+		return fmt.Errorf("config: chunker.chunk_overlap must be >= 0 and < chunker.chunk_size")
+	}
+	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Addr) == "" {
+		return fmt.Errorf("config: reranker.addr must not be empty when reranker.enabled is true")
+	}
+	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Model) == "" {
+		return fmt.Errorf("config: reranker.model must not be empty when reranker.enabled is true")
+	}
 	if c.Chat.EventBuffer > 16384 {
 		return fmt.Errorf("config: chat.event_buffer must be <= 16384")
 	}
@@ -414,32 +481,17 @@ func (c *Config) Validate() error {
 	if c.Chat.MaxRetainedTurns > 1024 {
 		return fmt.Errorf("config: chat.max_retained_turns must be <= 1024")
 	}
+	if c.SemanticCache.Threshold < 0 || c.SemanticCache.Threshold > 1 {
+		return fmt.Errorf("config: semantic_cache.threshold must be > 0 and <= 1")
+	}
 	if c.SemanticCache.Enabled && strings.TrimSpace(c.SemanticCache.Collection) == "" {
 		return fmt.Errorf("config: semantic_cache.collection must not be empty when semantic_cache.enabled is true")
-	}
-	if c.Enrichment.RequestTimeout <= 0 {
-		c.Enrichment.RequestTimeout = 120 * time.Second
-	}
-	if c.Generator.RequestTimeout <= 0 {
-		c.Generator.RequestTimeout = 120 * time.Second
 	}
 	if c.Generator.Enabled && strings.TrimSpace(c.Generator.OllamaAddr) == "" {
 		return fmt.Errorf("config: generator.ollama_addr must not be empty when generator.enabled is true")
 	}
 	if c.Generator.Enabled && strings.TrimSpace(c.Generator.Model) == "" {
 		return fmt.Errorf("config: generator.model must not be empty when generator.enabled is true")
-	}
-	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
-		c.Enrichment.Hype.QuestionsPerChunk = 3
-	}
-	if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
-		return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
-	}
-	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
-		c.Rewriter.Turns = 4
-	}
-	if c.Rewriter.RequestTimeout <= 0 {
-		c.Rewriter.RequestTimeout = 8 * time.Second
 	}
 	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.OllamaAddr) == "" {
 		return fmt.Errorf("config: rewriter.ollama_addr must not be empty when rewriter.enabled is true")
@@ -459,8 +511,8 @@ func (c *Config) Validate() error {
 	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.Model) == "" {
 		return fmt.Errorf("config: enrichment.contextual.model must not be empty when enrichment.contextual.enabled is true")
 	}
-	if c.Docling.RequestTimeout <= 0 {
-		c.Docling.RequestTimeout = 120 * time.Second
+	if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
+		return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
 	}
 	if c.Docling.Enabled && strings.TrimSpace(c.Docling.Addr) == "" {
 		return fmt.Errorf("config: docling.addr must not be empty when docling.enabled is true")

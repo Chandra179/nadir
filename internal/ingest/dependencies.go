@@ -118,12 +118,17 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 // NewDoclingConverter builds the optional document-intake Adapter. The
 // indexing pass still receives Markdown and keeps the original source
 // identity for citations and deterministic chunk IDs.
-func NewDoclingConverter(addr string, timeout time.Duration) DocumentConverter {
+func NewDoclingConverter(addr string, timeout time.Duration, logs ...*zap.Logger) DocumentConverter {
 	if timeout <= 0 {
 		timeout = 120 * time.Second
+	}
+	log := zap.NewNop()
+	if len(logs) > 0 && logs[0] != nil {
+		log = logs[0]
 	}
 	return &doclingConverter{
 		addr:   strings.TrimRight(addr, "/"),
 		client: &http.Client{Timeout: timeout},
+		log:    log,
 	}
 }

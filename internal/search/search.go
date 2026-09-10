@@ -7,8 +7,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"nadir/internal/embedder"
+	"nadir/internal/observability"
 	"nadir/internal/store"
 
 	"go.uber.org/zap"
@@ -35,18 +37,26 @@ func (s *dependencies) search(ctx context.Context, query string, topK int, filte
 // dispatches to keyword or semantic search, consults the semantic cache, and
 // returns storage-independent chunks to the caller.
 func (s *dependencies) Query(ctx context.Context, request Request) (Result, error) {
+	started := time.Now()
+	finish := func(outcome string, err error, fields ...zap.Field) {
+		observability.Stage(s.log, "retrieval", outcome, started, err, fields...)
+	}
 	query, keyword, topK := request.Query, request.Keyword, request.TopK
 	filter := toStoreFilter(request.Filter)
 	if keyword == "" {
 		if err := s.validateQuery(query, topK); err != nil {
+			finish("error", err)
 			return Result{}, err
 		}
 	} else {
 		if len([]rune(strings.TrimSpace(keyword))) > s.maxQueryChars {
+			finish("error", errQueryTooLong)
 			return Result{}, errQueryTooLong
 		}
 		if topK <= 0 {
-			return Result{}, fmt.Errorf("search top_k must be greater than zero")
+			err := fmt.Errorf("search top_k must be greater than zero")
+			finish("error", err)
+			return Result{}, err
 		}
 	}
 	if topK > s.maxTopK {
@@ -54,24 +64,40 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 	}
 	if keyword != "" {
 		chunks, err := s.keywordSearch(ctx, keyword, topK, filter)
+		outcome := "success"
+		if err != nil {
+			outcome = "error"
+		}
+		finish(outcome, err,
+			zap.Bool("keyword", true), zap.Int("results", len(chunks)))
 		return Result{Chunks: fromStoreChunks(chunks)}, err
 	}
 
 	if cached, ok := s.getCached(ctx, query, topK, filter, request.SkipCache); ok {
+		finish("cache_hit", nil, zap.Bool("from_cache", true), zap.Int("results", len(cached)))
 		return Result{Chunks: fromStoreChunks(cached), FromCache: true}, nil
 	}
 
 	chunks, err := s.search(ctx, query, topK, filter)
 	if err != nil {
+		finish("error", err)
 		return Result{}, err
 	}
 
 	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
 		go func() {
-			_ = s.cache.Set(context.Background(), query, chunks)
+			cacheStarted := time.Now()
+			err := s.cache.Set(context.Background(), query, chunks)
+			outcome := "success"
+			if err != nil {
+				outcome = "error"
+			}
+			observability.Stage(s.log, "cache_write", outcome, cacheStarted, err,
+				zap.Int("results", len(chunks)))
 		}()
 	}
 
+	finish("success", nil, zap.Bool("from_cache", false), zap.Int("results", len(chunks)))
 	return Result{Chunks: fromStoreChunks(chunks)}, nil
 }
 
@@ -106,16 +132,23 @@ func fromStoreChunks(chunks []store.ScoredChunk) []Chunk {
 // Returns false on miss or cache error so lookups stay best-effort; hits
 // are truncated to topK to match a fresh search's result size.
 func (s *dependencies) getCached(ctx context.Context, query string, topK int, filter *store.SearchFilter, skip bool) ([]store.ScoredChunk, bool) {
+	started := time.Now()
 	if s.cache == nil || skip || query == "" || !isEmptyFilter(filter) {
 		return nil, false
 	}
 	cached, hit, err := s.cache.Get(ctx, query)
-	if err != nil || !hit {
+	if err != nil {
+		observability.Stage(s.log, "cache_read", "error", started, err)
+		return nil, false
+	}
+	if !hit {
+		observability.Stage(s.log, "cache_read", "miss", started, nil)
 		return nil, false
 	}
 	if len(cached) > topK {
 		cached = cached[:topK]
 	}
+	observability.Stage(s.log, "cache_read", "hit", started, nil, zap.Int("results", len(cached)))
 	return cached, true
 }
 
@@ -144,8 +177,10 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []st
 	if s.reranker == nil || len(chunks) == 0 {
 		return chunks
 	}
+	started := time.Now()
 	reranked, err := s.reranker.Rerank(ctx, query, chunks)
 	if err != nil {
+		observability.Stage(s.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
 		s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
 		if len(chunks) > topK {
 			return chunks[:topK]
@@ -155,6 +190,8 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []st
 	if len(reranked) > topK {
 		reranked = reranked[:topK]
 	}
+	observability.Stage(s.log, "reranking", "success", started, nil,
+		zap.Int("candidates", len(chunks)), zap.Int("results", len(reranked)))
 	return reranked
 }
 
@@ -220,22 +257,31 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 // embedder supports it, instead of one round trip per fragment. The query
 // task prefix (if configured) is applied to every fragment.
 func (s *dependencies) embedFragments(ctx context.Context, fragments []string) ([][]float32, error) {
+	started := time.Now()
 	if s.queryPrefix != "" {
 		for i := range fragments {
 			fragments[i] = s.queryPrefix + fragments[i]
 		}
 	}
 	if be, ok := s.embedder.(embedder.BatchEmbedder); ok {
-		return be.EmbedBatch(ctx, fragments)
+		vecs, err := be.EmbedBatch(ctx, fragments)
+		outcome := "success"
+		if err != nil {
+			outcome = "error"
+		}
+		observability.Stage(s.log, "query_embedding", outcome, started, err, zap.Int("fragments", len(fragments)))
+		return vecs, err
 	}
 	vecs := make([][]float32, len(fragments))
 	for i, frag := range fragments {
 		vec, err := s.embedder.Embed(ctx, frag)
 		if err != nil {
+			observability.Stage(s.log, "query_embedding", "error", started, err, zap.Int("fragments", len(fragments)))
 			return nil, err
 		}
 		vecs[i] = vec
 	}
+	observability.Stage(s.log, "query_embedding", "success", started, nil, zap.Int("fragments", len(fragments)))
 	return vecs, nil
 }
 

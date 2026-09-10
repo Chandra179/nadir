@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -21,6 +23,7 @@ type brokerConfig struct {
 	MaxEventLogBytes int64
 	MaxRetainedTurns int
 	FinishedTurnTTL  time.Duration
+	Log              *zap.Logger
 }
 
 func normalizeBrokerConfig(cfg brokerConfig) brokerConfig {
@@ -67,6 +70,7 @@ type turnStream struct {
 	cancel           context.CancelFunc
 	eventBuffer      int
 	maxEventLogBytes int64
+	logger           *zap.Logger
 }
 
 func newTurnStream(configs ...brokerConfig) *turnStream {
@@ -79,6 +83,7 @@ func newTurnStream(configs ...brokerConfig) *turnStream {
 		subs:             make(map[*subscriber]struct{}),
 		eventBuffer:      cfg.EventBuffer,
 		maxEventLogBytes: cfg.MaxEventLogBytes,
+		logger:           cfg.Log,
 	}
 }
 
@@ -155,6 +160,10 @@ func (s *turnStream) subscribe(since int64) (<-chan TurnEvent, func()) {
 	// than the retained window.
 	sub := &subscriber{ch: make(chan TurnEvent, s.eventBuffer+1)}
 	if len(s.log) > 0 && since > 0 && since < s.log[0].Seq-1 {
+		if s.logger != nil {
+			s.logger.Warn("replay cursor fell behind retained event log",
+				zap.Int64("since", since), zap.Int64("oldest_seq", s.log[0].Seq))
+		}
 		sub.ch <- TurnEvent{
 			Seq:  s.log[0].Seq,
 			Kind: EventReplayGap,

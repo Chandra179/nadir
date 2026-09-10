@@ -1,8 +1,11 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestLoadShippedYAML parses the real config.yaml so a value the decoder
@@ -29,7 +32,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("SOURCE_PATHS", "/app/source, /app/extra")
 
 	var cfg Config
-	cfg.applyEnv()
+	if err := cfg.applyEnv(); err != nil {
+		t.Fatal(err)
+	}
 
 	if cfg.Qdrant.Addr != "qdrant:6334" {
 		t.Fatalf("Qdrant.Addr = %q, want qdrant:6334", cfg.Qdrant.Addr)
@@ -45,6 +50,51 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if len(cfg.Source.Paths) != 2 || cfg.Source.Paths[0] != "/app/source" || cfg.Source.Paths[1] != "/app/extra" {
 		t.Fatalf("Source.Paths = %#v, want two trimmed paths", cfg.Source.Paths)
+	}
+}
+
+func TestApplyEnvRejectsMalformedValues(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		env   string
+		value string
+	}{
+		{name: "bool", env: "RERANKER_ENABLED", value: "sometimes"},
+		{name: "float", env: "SEMANTIC_CACHE_THRESHOLD", value: "high"},
+		{name: "non-finite float", env: "SEMANTIC_CACHE_THRESHOLD", value: "NaN"},
+		{name: "int", env: "REWRITE_TURNS", value: "many"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(tt.env, tt.value)
+			var cfg Config
+			if err := cfg.applyEnv(); err == nil || !strings.Contains(err.Error(), tt.env) {
+				t.Fatalf("applyEnv() error = %v, want malformed %s error", err, tt.env)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsUnknownYAMLFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("unknown_field: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "unknown_field") {
+		t.Fatalf("Load() error = %v, want unknown field error", err)
+	}
+}
+
+func TestValidateCentralizesProductionDefaults(t *testing.T) {
+	cfg := Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+		Embedder: EmbedderConfig{Provider: "ollama", OllamaAddr: "http://ollama:11434", Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HTTP.StartupTimeout != 30*time.Second || cfg.Search.MaxTopK != 50 || cfg.Reranker.CandidateMul != 3 {
+		t.Fatalf("defaults not applied centrally: %+v", cfg)
 	}
 }
 

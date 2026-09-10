@@ -8,9 +8,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
+	"nadir/internal/observability"
 	"nadir/internal/store"
 
 	"github.com/cenkalti/backoff/v4"
@@ -25,8 +27,10 @@ func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, err
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, error) {
+	started := time.Now()
 	storedSHAs, err := d.store.GetAllFileSHAs(ctx)
 	if err != nil {
+		observability.Stage(d.log, "ingest", "error", started, err, zap.Int("files", len(files)))
 		return Result{}, err
 	}
 
@@ -97,11 +101,15 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 	wg.Wait()
 	d.clearSemanticCache(ctx, processed.Load() > 0)
 
-	return Result{
+	result := Result{
 		Processed: int(processed.Load()),
 		Skipped:   int(skipped.Load()),
 		Failed:    int(failed.Load()),
-	}, nil
+	}
+	observability.Stage(d.log, "ingest", "success", started, nil,
+		zap.Int("files", len(files)), zap.Int("processed", result.Processed),
+		zap.Int("skipped", result.Skipped), zap.Int("failed", result.Failed))
+	return result, nil
 }
 
 func isSupportedSource(name string) bool {
@@ -136,12 +144,16 @@ func (d *dependencies) indexFile(ctx context.Context, filePath, text, sourceSHA 
 }
 
 func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA string) (indexPlan, error) {
+	started := time.Now()
 	chunks, err := d.chunker.Chunk(text, filePath)
 	if err != nil {
+		observability.Stage(d.log, "ingest_plan", "error", started, err, zap.String("path", filePath))
 		return indexPlan{}, fmt.Errorf("chunk %s: %w", filePath, err)
 	}
 	if d.maxChunks > 0 && len(chunks) > d.maxChunks {
-		return indexPlan{}, fmt.Errorf("file %s produces %d chunks, exceeding limit %d", filePath, len(chunks), d.maxChunks)
+		err := fmt.Errorf("file %s produces %d chunks, exceeding limit %d", filePath, len(chunks), d.maxChunks)
+		observability.Stage(d.log, "ingest_plan", "error", started, err, zap.String("path", filePath), zap.Int("chunks", len(chunks)))
+		return indexPlan{}, err
 	}
 
 	// Contextual text per chunk: static path/header prefix, optionally
@@ -157,6 +169,7 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 	}
 	vecs, err := d.embedWithRetry(ctx, embedInputs)
 	if err != nil {
+		observability.Stage(d.log, "ingest_plan", "error", started, err, zap.String("path", filePath), zap.Int("chunks", len(chunks)))
 		return indexPlan{}, fmt.Errorf("embed %s: %w", filePath, err)
 	}
 
@@ -177,10 +190,13 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 
 	scored = d.appendHypeSiblings(ctx, scored, filePath, chunks, sourceSHA)
 
+	observability.Stage(d.log, "ingest_plan", "success", started, nil,
+		zap.String("path", filePath), zap.Int("chunks", len(scored)))
 	return indexPlan{filePath: filePath, chunks: scored}, nil
 }
 
 func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
+	started := time.Now()
 	// Chunk IDs derive from filePath:lineStart:chunkIndex, so content that
 	// shifts line boundaries changes IDs and stale old points must be deleted
 	// first. Delete and upsert share one retry so a partial failure can't leave
@@ -195,8 +211,12 @@ func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
 		return nil
 	}
 	if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+		observability.Stage(d.log, "ingest_commit", "error", started, err,
+			zap.String("path", plan.filePath), zap.Int("points", len(plan.chunks)))
 		return err
 	}
+	observability.Stage(d.log, "ingest_commit", "success", started, nil,
+		zap.String("path", plan.filePath), zap.Int("points", len(plan.chunks)))
 	return nil
 }
 
@@ -308,6 +328,14 @@ func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks
 // embedWithRetry embeds all inputs, preferring one batch call, with the
 // standard ingest backoff applied.
 func (d *dependencies) embedWithRetry(ctx context.Context, inputs []string) ([][]float32, error) {
+	started := time.Now()
+	finish := func(err error) {
+		outcome := "success"
+		if err != nil {
+			outcome = "error"
+		}
+		observability.Stage(d.log, "document_embedding", outcome, started, err, zap.Int("inputs", len(inputs)))
+	}
 	if be, ok := d.embedder.(embedder.BatchEmbedder); ok {
 		vecs := make([][]float32, 0, len(inputs))
 		for start := 0; start < len(inputs); start += d.embedBatchSize {
@@ -320,13 +348,17 @@ func (d *dependencies) embedWithRetry(ctx context.Context, inputs []string) ([][
 				return e
 			}
 			if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+				finish(err)
 				return nil, err
 			}
 			if len(batchVecs) != len(batch) {
-				return nil, fmt.Errorf("batch %d returned %d vectors for %d inputs", start/d.embedBatchSize, len(batchVecs), len(batch))
+				err := fmt.Errorf("batch %d returned %d vectors for %d inputs", start/d.embedBatchSize, len(batchVecs), len(batch))
+				finish(err)
+				return nil, err
 			}
 			vecs = append(vecs, batchVecs...)
 		}
+		finish(nil)
 		return vecs, nil
 	}
 	vecs := make([][]float32, len(inputs))
@@ -337,9 +369,11 @@ func (d *dependencies) embedWithRetry(ctx context.Context, inputs []string) ([][
 			return e
 		}
 		if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+			finish(err)
 			return nil, fmt.Errorf("input %d: %w", i, err)
 		}
 	}
+	finish(nil)
 	return vecs, nil
 }
 

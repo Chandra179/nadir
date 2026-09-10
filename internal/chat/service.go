@@ -2,14 +2,16 @@ package chat
 
 import (
 	"context"
-	"go.uber.org/zap"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"nadir/internal/generator"
 	"nadir/internal/history"
+	"nadir/internal/observability"
 	"nadir/internal/rewriter"
 	"nadir/internal/search"
 )
@@ -73,10 +75,12 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	// browser disconnects) is what stops generation. The Ollama dial is
 	// synchronous so a start failure is a deterministic GenerateError with
 	// no stream; only a live stream gets an ID and an event log.
+	generationStarted := time.Now()
 	genCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	events, err := d.generator.Generate(genCtx, turn.Prompt)
 	if err != nil {
 		cancel()
+		observability.Stage(d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
 		turn.GenerateError = "Answer generation failed: " + err.Error()
 		d.persist(ctx, req, turn, false)
@@ -87,12 +91,15 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	stream, ok := d.broker.create(turn.ID)
 	if !ok {
 		cancel()
+		observability.Stage(d.log, "generation", "error", generationStarted, errors.New("broker rejected generation"))
+		d.log.Warn("chat broker rejected generation",
+			zap.String("query", req.Query), zap.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
 		d.persist(ctx, req, turn, false)
 		return turn
 	}
 	stream.setCancel(cancel)
-	go d.consumeGeneration(stream, req, turn, events)
+	go d.consumeGeneration(stream, req, turn, events, generationStarted)
 	turn.Streaming = true
 	return turn
 }
@@ -110,7 +117,7 @@ func (d *dependencies) CancelTurn(turnID string) bool {
 // consumeGeneration drains one in-flight answer: it maps the generator's
 // typed events onto the turn's event log and persists the final turn when
 // the stream ends. Runs on its own goroutine — no HTTP request owns this.
-func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, events <-chan generator.Event) {
+func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, events <-chan generator.Event, started time.Time) {
 	defer stream.finish()
 
 	var answer strings.Builder
@@ -126,10 +133,14 @@ func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn T
 	}
 	if turn.GenerateError != "" {
 		stream.publish(EventError, turn.GenerateError)
+		observability.Stage(d.log, "generation", "error", started, errors.New("generation failed"),
+			zap.Int("answer_bytes", answer.Len()))
 	} else {
 		turn.Answer = answer.String()
 		turn.HasAnswer = true
 		stream.publish(EventDone, "")
+		observability.Stage(d.log, "generation", "success", started, nil,
+			zap.Int("answer_bytes", answer.Len()))
 	}
 	d.saveTurn(req, turn)
 }

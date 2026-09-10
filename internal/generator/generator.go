@@ -118,10 +118,13 @@ func (r *ollamaTokenReader) Read(p []byte) (int, error) {
 		}
 		var chunk ollamaChatChunk
 		if err := json.Unmarshal(line, &chunk); err != nil {
-			continue
+			return 0, fmt.Errorf("generator stream decode: %w", err)
 		}
 		if chunk.Done {
 			return 0, io.EOF
+		}
+		if chunk.Message.Content == "" {
+			return 0, fmt.Errorf("generator stream response missing message.content")
 		}
 		r.buf = []byte(chunk.Message.Content)
 	}

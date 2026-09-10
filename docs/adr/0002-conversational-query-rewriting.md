@@ -45,7 +45,8 @@ Constraints and tradeoffs from the research pass (TODO.md Phase 3):
   bug on the query path and degrades gracefully; index-time LLM features
   stay default-off because they cost reindexes). Env overrides:
   `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`.
-  Addr/model fall back generator → embedder, mirroring enrichment.
+  Addr/model are explicit role configuration; the rewriter does not inherit
+  another role's endpoint or model.
 - `chat.History` gained `ListTurns` (consumer-side interface extension);
   `history.Dependencies` already implemented it.
 

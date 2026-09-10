@@ -87,7 +87,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 
 	var documentConverter ingest.DocumentConverter
 	if cfg.Docling.Enabled {
-		documentConverter = ingest.NewDoclingConverter(cfg.Docling.Addr, cfg.Docling.RequestTimeout)
+		documentConverter = ingest.NewDoclingConverter(cfg.Docling.Addr, cfg.Docling.RequestTimeout, log)
 		log.Info("PDF document intake enabled", zap.String("addr", cfg.Docling.Addr))
 	}
 
@@ -114,24 +114,14 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			zap.String("contextual_addr", cfg.Enrichment.Contextual.OllamaAddr))
 	}
 
-	searchService := search.NewDependencies(search.DependenciesConfig{
-		Embedder:               e,
-		Store:                  s,
-		QueryPrefix:            cfg.Embedder.QueryPrefix,
-		MaxQueryChars:          cfg.Search.MaxQueryChars,
-		MaxFragments:           cfg.Search.MaxFragments,
-		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
-		MaxTopK:                cfg.Search.MaxTopK,
-		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
-		Log:                    log,
-	})
-
+	var searchReranker reranker.Reranker
 	if cfg.Reranker.Enabled {
-		searchService.WithReranker(reranker.NewDependencies(reranker.DependenciesConfig{
+		searchReranker = reranker.NewDependencies(reranker.DependenciesConfig{
 			Addr:           cfg.Reranker.Addr,
 			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
 			RequestTimeout: cfg.Reranker.RequestTimeout,
-		}), cfg.Reranker.CandidateMul)
+			Log:            log,
+		})
 		log.Info("cross-encoder reranker enabled", zap.String("addr", cfg.Reranker.Addr))
 	}
 
@@ -168,7 +158,6 @@ func Server(ctx context.Context, cfg *config.Config) error {
 				log.Error("semantic cache ensure collection failed", zap.Error(err))
 			} else {
 				semanticCache = candidate
-				searchService.WithSemanticCache(semanticCache)
 				log.Info("semantic cache enabled",
 					zap.String("collection", cfg.SemanticCache.Collection),
 					zap.Float32("threshold", cfg.SemanticCache.Threshold),
@@ -176,6 +165,21 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			}
 		}
 	}
+
+	searchService := search.NewDependencies(search.DependenciesConfig{
+		Embedder:               e,
+		Store:                  s,
+		Reranker:               searchReranker,
+		CandidateMul:           cfg.Reranker.CandidateMul,
+		SemanticCache:          semanticCache,
+		QueryPrefix:            cfg.Embedder.QueryPrefix,
+		MaxQueryChars:          cfg.Search.MaxQueryChars,
+		MaxFragments:           cfg.Search.MaxFragments,
+		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
+		MaxTopK:                cfg.Search.MaxTopK,
+		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
+		Log:                    log,
+	})
 
 	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
 		Chunker:           chunkr,
