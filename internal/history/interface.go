@@ -7,6 +7,9 @@ import "context"
 // affect the live chat response.
 type History interface {
 	CreateSession(ctx context.Context, title string) (Session, error)
+	// TruncateSession removes the turn at beforeSequence and every later
+	// turn, preserving the ordered prefix in the existing session.
+	TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error
 	// AppendTurn creates the session on the fly (using firstTurnTitle) if
 	// sessionID doesn't exist yet — a defensive fallback for the common
 	// path of CreateSession having already run.
@@ -16,4 +19,6 @@ type History interface {
 	ListTurns(ctx context.Context, sessionID string) ([]Turn, error)
 	// DeleteSession removes a session and all of its turns.
 	DeleteSession(ctx context.Context, sessionID string) error
+	// DeleteAllSessions removes every persisted chat session and turn.
+	DeleteAllSessions(ctx context.Context) error
 }

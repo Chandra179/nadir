@@ -23,6 +23,7 @@ type Generator interface {
 // minted or saved and StartTurn degrades to stateless search.
 type History interface {
 	CreateSession(ctx context.Context, title string) (history.Session, error)
+	TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error
 	AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error
 	// ListTurns returns a session's turns in sequence order; read when
 	// rewriting a follow-up query against prior conversation context.

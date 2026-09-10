@@ -19,8 +19,10 @@ type TurnView struct {
 	RewrittenQuery string
 	AttachedFiles  []string
 	// SessionID lets the turn's edit button re-ask the question in the same
-	// conversation instead of minting a new one.
+	// conversation after pruning its old tail.
 	SessionID string
+	// Sequence is the zero-based position used when editing a persisted turn.
+	Sequence  int
 	TopK      int
 	Generate  bool
 	Results   []RetrievalResultView
@@ -98,6 +100,7 @@ func HistoryTurnToView(t history.Turn) TurnView {
 		RewrittenQuery: t.RewrittenQuery,
 		AttachedFiles:  t.AttachedFiles,
 		SessionID:      t.SessionID,
+		Sequence:       t.Sequence,
 		TopK:           t.TopK,
 		Generate:       t.Generate,
 		Results:        results,

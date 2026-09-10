@@ -62,7 +62,55 @@ type Turn struct {
 	Failed        bool
 }
 
-// History persists chat sessions and their turns — see interface.go.
+// TruncateSession replaces the tail of an existing conversation in place.
+// The turn at beforeSequence is removed along with all later turns; the
+// caller appends the replacement after retrieval completes.
+func (d *dependencies) TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error {
+	if beforeSequence < 0 {
+		return fmt.Errorf("history: invalid edit position: %d", beforeSequence)
+	}
+
+	unlock := d.lockWrites()
+	defer unlock()
+
+	session, err := d.GetSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("history: edit session: %w", err)
+	}
+	if beforeSequence > session.TurnCount {
+		return fmt.Errorf("history: edit position %d exceeds %d turns", beforeSequence, session.TurnCount)
+	}
+
+	wait := true
+	sequence := float64(beforeSequence)
+	if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: d.name,
+		Wait:           &wait,
+		Points: qdrant.NewPointsSelectorFilter(&qdrant.Filter{Must: []*qdrant.Condition{
+			matchKeyword("doc_type", docTypeTurn),
+			matchKeyword("session_id", sessionID),
+			qdrant.NewRange("sequence", &qdrant.Range{Gte: &sequence}),
+		}}),
+	}); err != nil {
+		return fmt.Errorf("history: delete edited turns: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if _, err := d.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
+		CollectionName: d.name,
+		Wait:           &wait,
+		Payload: map[string]*qdrant.Value{
+			"updated_at": qdrantutil.IntValue(now.UnixMilli()),
+			"turn_count": qdrantutil.IntValue(int64(beforeSequence)),
+		},
+		PointsSelector: qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
+	}); err != nil {
+		return fmt.Errorf("history: update edited session: %w", err)
+	}
+	return nil
+}
+
+// CreateSession creates a persisted chat session.
 func (d *dependencies) CreateSession(ctx context.Context, title string) (Session, error) {
 	title = truncateTitle(title)
 	now := time.Now().UTC()
@@ -260,6 +308,25 @@ func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) erro
 		Points:         qdrant.NewPointsSelector(qdrant.NewIDUUID(sessionID)),
 	}); err != nil {
 		return fmt.Errorf("history: delete session: %w", err)
+	}
+	return nil
+}
+
+// DeleteAllSessions permanently removes every persisted chat session and
+// turn, while leaving the document corpus and semantic cache untouched.
+func (d *dependencies) DeleteAllSessions(ctx context.Context) error {
+	unlock := d.lockWrites()
+	defer unlock()
+
+	wait := true
+	for _, docType := range []string{docTypeTurn, docTypeSession} {
+		if _, err := d.points.Delete(ctx, &qdrant.DeletePoints{
+			CollectionName: d.name,
+			Wait:           &wait,
+			Points:         qdrant.NewPointsSelectorFilter(docTypeFilter(docType)),
+		}); err != nil {
+			return fmt.Errorf("history: delete all %s records: %w", docType, err)
+		}
 	}
 	return nil
 }

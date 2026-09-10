@@ -100,3 +100,64 @@ func TestSessionAndTurnRoundTrip(t *testing.T) {
 		t.Errorf("ListTurns = %+v, want one turn with answer %q", turns, turn.Answer)
 	}
 }
+
+func TestTruncateSessionRemovesEditedTurnAndTail(t *testing.T) {
+	deps := testDependencies(t)
+	ctx := context.Background()
+
+	source, err := deps.CreateSession(ctx, "Original chat")
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	for _, query := range []string{"first", "second", "third"} {
+		if err := deps.AppendTurn(ctx, source.ID, Turn{Query: query}, source.Title); err != nil {
+			t.Fatalf("AppendTurn(%q): %v", query, err)
+		}
+	}
+
+	if err := deps.TruncateSession(ctx, source.ID, 1); err != nil {
+		t.Fatalf("TruncateSession: %v", err)
+	}
+
+	sourceTurns, err := deps.ListTurns(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("ListTurns(source): %v", err)
+	}
+	if len(sourceTurns) != 1 || sourceTurns[0].Query != "first" || sourceTurns[0].Sequence != 0 {
+		t.Fatalf("truncate must preserve only the prefix with its original ordering, got %+v", sourceTurns)
+	}
+	session, err := deps.GetSession(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if session.TurnCount != 1 {
+		t.Fatalf("truncate must update the session turn count, got %d", session.TurnCount)
+	}
+}
+
+func TestDeleteAllSessionsRemovesOnlyChatRecords(t *testing.T) {
+	deps := testDependencies(t)
+	ctx := context.Background()
+
+	for _, title := range []string{"first chat", "second chat"} {
+		session, err := deps.CreateSession(ctx, title)
+		if err != nil {
+			t.Fatalf("CreateSession(%q): %v", title, err)
+		}
+		if err := deps.AppendTurn(ctx, session.ID, Turn{Query: title + " question"}, title); err != nil {
+			t.Fatalf("AppendTurn(%q): %v", title, err)
+		}
+	}
+
+	if err := deps.DeleteAllSessions(ctx); err != nil {
+		t.Fatalf("DeleteAllSessions: %v", err)
+	}
+
+	sessions, err := deps.ListSessions(ctx, 50)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("DeleteAllSessions left sessions behind: %+v", sessions)
+	}
+}

@@ -36,6 +36,10 @@ func (h *Handlers) RetrievalSearch(c *gin.Context) {
 		Generate:      c.PostForm("generate") == "on",
 		SessionID:     c.PostForm("session_id"),
 		AttachedFiles: attachedFileNames(c.PostForm("attached_files")),
+		Edit:          c.PostForm("edit") == "on",
+	}
+	if sequence, err := strconv.Atoi(c.PostForm("edit_sequence")); err == nil && sequence >= 0 {
+		req.EditSequence = sequence
 	}
 
 	turn := h.chat.StartTurn(c.Request.Context(), req)

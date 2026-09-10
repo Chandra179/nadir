@@ -69,10 +69,15 @@ func (f *fakeGenerator) Generate(ctx context.Context, prompt string) (<-chan gen
 }
 
 type fakeHistory struct {
-	mu         sync.Mutex
-	sessions   []history.Session
-	appended   []history.Turn
-	priorTurns []history.Turn
+	mu            sync.Mutex
+	sessions      []history.Session
+	appended      []history.Turn
+	priorTurns    []history.Turn
+	truncateErr   error
+	truncateCalls []struct {
+		session string
+		before  int
+	}
 	createErr  error
 	appendErr  error
 	listErr    error
@@ -91,6 +96,19 @@ func (f *fakeHistory) CreateSession(ctx context.Context, title string) (history.
 	return s, nil
 }
 
+func (f *fakeHistory) TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error {
+	if f.truncateErr != nil {
+		return f.truncateErr
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.truncateCalls = append(f.truncateCalls, struct {
+		session string
+		before  int
+	}{sessionID, beforeSequence})
+	return nil
+}
+
 func (f *fakeHistory) AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error {
 	if f.appendErr != nil {
 		return f.appendErr
@@ -100,6 +118,8 @@ func (f *fakeHistory) AppendTurn(ctx context.Context, sessionID string, turn his
 	f.appended = append(f.appended, turn)
 	return nil
 }
+
+func (f *fakeHistory) DeleteAllSessions(ctx context.Context) error { return nil }
 
 func (f *fakeHistory) ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error) {
 	if f.listErr != nil {
@@ -195,6 +215,56 @@ func TestStartTurnMintsSessionOnFirstTurnOnly(t *testing.T) {
 	turn = d.StartTurn(context.Background(), Request{Query: "q2", SessionID: "existing"})
 	if turn.SessionID != "existing" || h.mintCount() != 1 {
 		t.Fatalf("subsequent turns must reuse the given session id (mints=%d)", h.mintCount())
+	}
+}
+
+func TestStartTurnPrunesTailBeforeEditedTurn(t *testing.T) {
+	h := &fakeHistory{}
+	d := NewDependencies(DependenciesConfig{
+		Searcher: &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		History:  h,
+		Log:      testLogger(),
+	})
+
+	turn := d.StartTurn(context.Background(), Request{
+		Query:        "edited question",
+		SessionID:    "existing-session",
+		Edit:         true,
+		EditSequence: 2,
+	})
+
+	if turn.Error != "" || turn.SessionID != "existing-session" {
+		t.Fatalf("edit must keep the existing session without an error, got %+v", turn)
+	}
+	if len(h.truncateCalls) != 1 {
+		t.Fatalf("expected one prune operation, got %d", len(h.truncateCalls))
+	}
+	call := h.truncateCalls[0]
+	if call.session != "existing-session" || call.before != 2 {
+		t.Fatalf("edit prune request shape wrong: %+v", call)
+	}
+	waitFor(t, func() bool { return len(h.turns()) == 1 })
+	if got := h.turns()[0].Query; got != "edited question" {
+		t.Fatalf("edited turn must be persisted in the existing session, got %q", got)
+	}
+}
+
+func TestStartTurnEditFailureDoesNotSearchOrPersist(t *testing.T) {
+	h := &fakeHistory{truncateErr: errors.New("session missing")}
+	searcher := &fakeSearcher{}
+	d := NewDependencies(DependenciesConfig{Searcher: searcher, History: h, Log: testLogger()})
+
+	turn := d.StartTurn(context.Background(), Request{
+		Query:     "edited question",
+		SessionID: "existing-session",
+		Edit:      true,
+	})
+
+	if turn.Error == "" || turn.SessionID != "existing-session" {
+		t.Fatalf("failed edit must return an error for the existing session, got %+v", turn)
+	}
+	if searcher.gotQuery != "" {
+		t.Fatalf("failed edit must not execute a search, got %q", searcher.gotQuery)
 	}
 }
 

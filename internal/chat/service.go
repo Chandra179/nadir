@@ -16,30 +16,45 @@ import (
 	"nadir/internal/search"
 )
 
-// StartTurn runs one chat turn: mint session (first turn) → rewrite
-// follow-ups → retrieve → start generation. Never returns an error:
+// StartTurn runs one chat turn: mint a session (first turn) or prune an edit
+// tail → rewrite follow-ups → retrieve → start generation. Never returns an error:
 // failures land in Turn.Error/Turn.GenerateError. Generation is owned by
 // the service — it runs on its own goroutine, fans events out to any number
 // of subscribers, and persists the final turn itself; the caller only
 // renders the trace and (when Turn.Streaming) subscribes via Subscribe.
 func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
-	turn := Turn{SessionID: req.SessionID, Query: req.Query, Generate: req.Generate}
+	turn := Turn{Query: req.Query, Generate: req.Generate}
+	turn.SessionID = req.SessionID
 
 	if strings.TrimSpace(req.Query) == "" {
 		turn.Error = "Enter a question to search."
-		d.persist(ctx, req, turn, true)
+		d.persistStart(ctx, req, turn, true)
 		return turn
 	}
 
 	start := time.Now()
+	if req.Edit {
+		if d.history == nil || req.SessionID == "" {
+			turn.Error = "Chat editing is unavailable."
+			return turn
+		}
+		if err := d.history.TruncateSession(ctx, req.SessionID, req.EditSequence); err != nil {
+			d.log.Warn("chat edit prune failed",
+				zap.String("session_id", req.SessionID),
+				zap.Int("edit_sequence", req.EditSequence),
+				zap.Error(err))
+			turn.Error = "Unable to edit conversation: " + err.Error()
+			return turn
+		}
+	}
 
 	if d.history != nil && turn.SessionID == "" {
 		turn.SessionID = d.mintSession(ctx, req.Query)
 	}
 
 	retrievalQuery := req.Query
-	// Gated on the request's session id, not the minted one: a turn that
-	// mints a session cannot have prior turns by construction.
+	// A minted first session has no prior turns; edited sessions have already
+	// been truncated, so rewrite sees exactly the retained prefix.
 	if d.rewriter != nil && d.history != nil && req.SessionID != "" {
 		retrievalQuery = d.rewriteQuery(ctx, req.SessionID, req.Query)
 		if retrievalQuery != req.Query {
@@ -56,7 +71,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
 		turn.Error = "Search failed: " + err.Error()
-		d.persist(ctx, req, turn, true)
+		d.persistStart(ctx, req, turn, true)
 		return turn
 	}
 	turn.Chunks = searchResult.Chunks
@@ -64,7 +79,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 
 	// Every non-generating outcome is final here: persist and return.
 	if !req.Generate || d.generator == nil || len(turn.Chunks) == 0 {
-		d.persist(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, false)
 		return turn
 	}
 
@@ -83,7 +98,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		observability.Stage(d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
 		turn.GenerateError = "Answer generation failed: " + err.Error()
-		d.persist(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, false)
 		return turn
 	}
 
@@ -95,7 +110,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		d.log.Warn("chat broker rejected generation",
 			zap.String("query", req.Query), zap.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
-		d.persist(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, false)
 		return turn
 	}
 	stream.setCancel(cancel)
@@ -235,6 +250,19 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.persistTimeout)
 	defer cancel()
 	return d.history.AppendTurn(cctx, turn.SessionID, ht, req.Query)
+}
+
+// persistStart keeps an edited turn together with its prune before the UI
+// renders the replacement. Ordinary turns remain best-effort and detached
+// so a slow history store cannot delay the live response.
+func (d *dependencies) persistStart(ctx context.Context, req Request, turn Turn, failed bool) {
+	if req.Edit {
+		if err := d.persistTurn(ctx, req, turn, failed); err != nil {
+			d.log.Warn("chat append edited turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
+		}
+		return
+	}
+	d.persist(ctx, req, turn, failed)
 }
 
 // persist saves a turn in a best-effort, detached goroutine — a slow or

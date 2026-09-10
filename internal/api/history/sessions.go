@@ -48,3 +48,19 @@ func (h *Handlers) HistorySessionDelete(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
+
+// HistorySessionsDeleteAll permanently removes every chat session and turn.
+// The document corpus is a separate concern and is intentionally untouched.
+func (h *Handlers) HistorySessionsDeleteAll(c *gin.Context) {
+	if h.history == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "chat history is disabled"})
+		return
+	}
+
+	if err := h.history.DeleteAllSessions(c.Request.Context()); err != nil {
+		h.log.Warn("history delete all sessions failed", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete all chats failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"deleted": true})
+}

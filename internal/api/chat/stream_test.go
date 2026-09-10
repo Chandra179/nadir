@@ -192,4 +192,32 @@ func TestRetrievalSearchRendersStreamURL(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `name="session_id" value="s1"`) {
 		t.Fatalf("turn fragment must carry the session id for the edit form, got:\n%s", w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), `name="edit" value="on"`) ||
+		!strings.Contains(w.Body.String(), `name="edit_sequence"`) {
+		t.Fatalf("turn edit form must carry edit parameters, got:\n%s", w.Body.String())
+	}
+}
+
+func TestRetrievalSearchStartsInPlaceEdit(t *testing.T) {
+	fc := &fakeChat{turn: chat.Turn{SessionID: "source-1"}}
+	engine := turnTestServer(t, fc)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/retrieval/search", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.PostForm = map[string][]string{
+		"query":         {"edited"},
+		"session_id":    {"source-1"},
+		"edit":          {"on"},
+		"edit_sequence": {"2"},
+	}
+	engine.ServeHTTP(w, req)
+
+	if len(fc.started) != 1 {
+		t.Fatalf("expected one chat request, got %d", len(fc.started))
+	}
+	got := fc.started[0]
+	if !got.Edit || got.SessionID != "source-1" || got.EditSequence != 2 {
+		t.Fatalf("edit request was not parsed correctly: %+v", got)
+	}
 }

@@ -236,6 +236,31 @@
     if (sidInput) sidInput.value = sid;
   }
 
+  // Live fragments do not have a persisted sequence yet, so derive the
+  // edited turn's zero-based position from its rendered order.
+  function nadirConfigEditRequest(evt, form) {
+    var turn = form.closest('.nadir-turn-q');
+    var turns = Array.from(document.querySelectorAll('#reader-inner .nadir-turn-q'));
+    var position = turns.indexOf(turn);
+    if (position < 0) position = 0;
+    evt.detail.parameters['edit'] = 'on';
+    evt.detail.parameters['edit_sequence'] = String(position);
+  }
+
+  // Editing replaces the selected turn and everything after it. Remove the
+  // rendered tail before the new result is appended by htmx; the persisted
+  // history is pruned by the chat use-case at the same sequence boundary.
+  function nadirRemoveEditedTail(form) {
+    var row = form.closest('[data-turn-sequence]');
+    if (!row) return;
+    var current = row;
+    while (current) {
+      var next = current.nextElementSibling;
+      current.remove();
+      current = next;
+    }
+  }
+
   function nadirAfterSearch(form, evt) {
     document.getElementById('pending-turn')?.remove();
     form.reset();
@@ -256,9 +281,8 @@
 
   // Question editor: the inline form posts the same /retrieval/search with
   // the turn's original parameters (top_k, generate, attachments) and the
-  // session it belongs to, so the edited question is re-asked and the new
-  // turn appends below. History is append-only — nothing is deleted or
-  // branched.
+  // session it belongs to. The server prunes this turn and its later tail,
+  // then appends the replacement below the retained prefix.
   function nadirBeforeEdit(form) {
     // Close the editor before the request goes out; requestSubmit() has
     // already enforced the textarea's validity by the time we get here.
@@ -270,6 +294,7 @@
     if (!query) return;
     document.getElementById('empty-state')?.remove();
     document.getElementById('pending-turn')?.remove();
+    nadirRemoveEditedTail(form);
     nadirBusyAdd(1);
     var files = Array.prototype.map.call(
       form.querySelectorAll('input[name="attached_files"]'),
@@ -302,6 +327,33 @@
       })
       .catch(function(err) { console.error(err); });
   }
+
+  // Delete-all is deliberately separate from the indexed-data reset route:
+  // this only removes chat sessions and their turns, never source documents.
+  function nadirDeleteAllChats(state) {
+    if (!state || state.deleteAllBusy) return;
+    if (nadirBusyCount > 0) {
+      state.deleteAllError = 'Stop the active response before deleting chats.';
+      return;
+    }
+    state.deleteAllBusy = true;
+    state.deleteAllError = '';
+    fetch('/history/sessions', { method: 'DELETE' })
+      .then(function(res) {
+        if (!res.ok) return res.json().catch(function() { return {}; }).then(function(body) {
+          throw new Error(body.error || 'delete all chats failed with status ' + res.status);
+        });
+        return res.json();
+      })
+      .then(function() {
+        window.location.href = '/retrieval';
+      })
+      .catch(function(err) {
+        state.deleteAllBusy = false;
+        state.deleteAllError = 'Could not delete chats. Please try again.';
+        console.error(err);
+      });
+  }
 </script>
 <style>
   body{ font-family:'Public Sans', ui-sans-serif, system-ui, sans-serif; background:#f7f7f4; color:#20241f; }
@@ -325,7 +377,7 @@
 </style>
 </head>
 <body class="h-full overflow-hidden">
-  <div class="flex h-screen relative" x-data="{ sidebarOpen: false, deleteSession: null }">
+  <div class="flex h-screen relative" x-data="{ sidebarOpen: false, settingsOpen: false, deleteSession: null, deleteAllChats: false, deleteAllBusy: false, deleteAllError: '' }">
     <div x-show="sidebarOpen" x-cloak @click="sidebarOpen = false"
          class="fixed inset-0 bg-black/30 z-30 md:hidden"></div>
 
@@ -343,6 +395,57 @@
             class="text-[13.5px] text-white bg-[#b04a3f] rounded-lg px-3.5 py-2 flex items-center gap-2 hover:bg-[#a03e34] transition">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 4h4M6 7l1 13a1 1 0 0 0 1 .93h8A1 1 0 0 0 17 20l1-13M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div x-show="settingsOpen" x-cloak
+         class="fixed inset-0 z-40 flex items-end md:items-center justify-center bg-black/30 p-4"
+         @keydown.escape.window="settingsOpen = false">
+      <div @click.outside="settingsOpen = false"
+           class="bg-[#f7f7f4] border border-[#dcd8c9] rounded-[16px] shadow-xl w-full max-w-[380px] p-5">
+        <div class="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <div class="font-serif-display font-semibold text-[18px]">Settings</div>
+            <p class="text-[13px] text-[#8b8f81] mt-1">Manage this local reading room.</p>
+          </div>
+          <button type="button" @click="settingsOpen = false" aria-label="Close settings"
+            class="w-7 h-7 rounded-lg text-[#8b8f81] hover:bg-[#eeece3] hover:text-[#20241f]">×</button>
+        </div>
+        <div class="border-t border-[#e3e2d8] pt-4">
+          <div class="text-[11px] tracking-[0.1em] uppercase text-[#8b8f81] mb-2">Chat history</div>
+          <button type="button" @click="settingsOpen = false; deleteAllChats = true"
+            class="w-full flex items-center gap-3 rounded-[10px] border border-[#e8c9c4] bg-[#fff9f8] px-3.5 py-3 text-left text-[#b04a3f] hover:bg-[#fcefeb] transition">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 4h4M6 7l1 13a1 1 0 0 0 1 .93h8A1 1 0 0 0 17 20l1-13M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>
+              <span class="block text-[13.5px] font-medium">Delete all chats</span>
+              <span class="block text-[12px] text-[#a56a63] mt-0.5">Permanently remove every saved conversation</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div x-show="deleteAllChats" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+         @keydown.escape.window="if (!deleteAllBusy) deleteAllChats = false">
+      <div @click.outside="if (!deleteAllBusy) deleteAllChats = false"
+           class="bg-[#f7f7f4] border border-[#dcd8c9] rounded-[16px] shadow-xl w-full max-w-[360px] p-6">
+        <div class="w-10 h-10 rounded-full bg-[#f6e4e0] text-[#b04a3f] flex items-center justify-center mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 4h4M6 7l1 13a1 1 0 0 0 1 .93h8A1 1 0 0 0 17 20l1-13M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="font-serif-display font-semibold text-[18px] mb-1">Delete all chats?</div>
+        <p class="text-[13px] leading-[1.5] text-[#5c6156] mb-2">This permanently removes every saved conversation and cannot be undone.</p>
+        <p class="text-[12px] text-[#8b8f81] mb-5">Your indexed documents will not be affected.</p>
+        <p x-show="deleteAllError" x-text="deleteAllError" class="text-[12px] text-[#b04a3f] mb-3"></p>
+        <div class="flex justify-end gap-2">
+          <button type="button" @click="deleteAllChats = false" :disabled="deleteAllBusy"
+            class="text-[13.5px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:bg-[#eeece3] transition disabled:opacity-50">Cancel</button>
+          <button type="button" @click="nadirDeleteAllChats($data)" :disabled="deleteAllBusy"
+            class="text-[13.5px] text-white bg-[#b04a3f] rounded-lg px-3.5 py-2 flex items-center gap-2 hover:bg-[#a03e34] transition disabled:opacity-60">
+            <span x-show="!deleteAllBusy">Delete all</span>
+            <span x-show="deleteAllBusy">Deleting…</span>
           </button>
         </div>
       </div>

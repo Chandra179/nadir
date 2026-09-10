@@ -30,6 +30,7 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.GET(RouteTurnEvents, deps.turns.RetrievalAnswer)
 	engine.POST(RouteTurnCancel, deps.turns.RetrievalTurnCancel)
 	engine.GET(RouteHistorySessions, deps.hist.HistorySessions)
+	engine.DELETE(RouteHistorySessions, deps.hist.HistorySessionsDeleteAll)
 	engine.GET(RouteHistorySession, deps.HistorySession)
 	engine.DELETE(RouteHistorySession, deps.hist.HistorySessionDelete)
 	engine.GET(RouteHealth, func(c *gin.Context) {

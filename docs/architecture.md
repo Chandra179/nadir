@@ -81,6 +81,11 @@ attributable to indexed documents. grounded RAG with lost-in-the-middle ordering
 Each turn (query, rewritten query, chunks, prompt, answer, errors, timing)
 is persisted per session, enabling conversation continuity and a reviewable
 trace; sessions are listed in the sidebar and can be deleted individually.
+The Settings menu also provides a guarded delete-all action that clears only
+the chat-history collection; indexed documents and the semantic cache remain
+untouched.
+Editing a prior question prunes that turn and the later tail in the same
+session, then runs the replacement against the retained prefix.
 
 ## Index-time enrichment
 
@@ -143,6 +148,7 @@ request or response bodies.
 | GET | `/history/sessions` | List persisted chat sessions |
 | GET | `/history/sessions/:id` | Render one persisted session |
 | DELETE | `/history/sessions/:id` | Delete one persisted session |
+| DELETE | `/history/sessions` | Delete all persisted chat sessions and turns |
 | GET | `/healthz` | Liveness check |
 
 ## Verification

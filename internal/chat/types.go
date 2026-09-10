@@ -10,6 +10,10 @@ type Request struct {
 	Generate      bool
 	SessionID     string // empty → mint a new session (when History is set)
 	AttachedFiles []string
+	// Edit replaces the turn at EditSequence and prunes every later turn in
+	// the existing SessionID before the edited turn is persisted.
+	Edit         bool
+	EditSequence int
 }
 
 // Turn is the outcome of starting a chat turn: everything needed to render

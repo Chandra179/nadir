@@ -7,7 +7,7 @@
 {{end}}
 
 {{define "turn"}}
-<div class="mb-8">
+<div class="mb-8" data-turn-sequence="{{.Sequence}}">
   {{if .AttachedFiles}}
   <div class="flex justify-end flex-wrap gap-2 mb-2">
     {{range .AttachedFiles}}
@@ -25,6 +25,7 @@
     <div x-show="editing" x-cloak class="w-full max-w-[82%] mb-3.5">
       <form class="rounded-[16px] border border-[#dcd8c9] bg-[#f7f7f4] shadow-[0_20px_40px_-26px_rgba(32,36,31,0.28)] px-[18px] pt-[14px] pb-[12px]"
             hx-post="/retrieval/search" hx-target="#reader-inner" hx-swap="beforeend"
+            hx-on::config-request="if(event.target===this){ nadirConfigEditRequest(event, this); }"
             hx-on::before-request="if(event.target===this){ nadirBeforeEdit(this); }"
             hx-on::after-request="if(event.target===this){ nadirAfterEdit(this, event); }">
         <textarea name="query" rows="2" required x-ref="editbox"
@@ -34,6 +35,8 @@
         <input type="hidden" name="top_k" value="{{.TopK}}">
         {{if .Generate}}<input type="hidden" name="generate" value="on">{{end}}
         <input type="hidden" name="session_id" value="{{.SessionID}}">
+        <input type="hidden" name="edit" value="on">
+        <input type="hidden" name="edit_sequence" value="{{.Sequence}}">
         {{if .AttachedFiles}}<input type="hidden" name="attached_files" value="{{range .AttachedFiles}}{{.}},{{end}}">{{end}}
         <div class="flex justify-end gap-2 mt-1">
           <button type="button" @click="editing = false"
