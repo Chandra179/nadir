@@ -12,7 +12,6 @@
 * { box-sizing: border-box; }
 html, body, #root { min-width: 320px; min-height: 100%; }
 body { margin: 0; background: #f7f7f4; color: #20241f; }
-button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 
 .font-serif-display { font-family: "Source Serif 4", Georgia, serif; }

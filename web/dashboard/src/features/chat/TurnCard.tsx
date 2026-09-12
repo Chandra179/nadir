@@ -11,6 +11,7 @@ type Props = {
   onEditQueryChange?: (query: string) => void;
   onEditSubmit?: () => void;
   onCancelEdit?: () => void;
+  pending?: boolean;
 };
 
 function scoreText(score: number): string {
@@ -175,9 +176,34 @@ function ThinkTrace({ turn }: { turn: Turn }) {
   );
 }
 
-export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing = false, editQuery = turn.query, onEdit, onEditQueryChange = () => {}, onEditSubmit = () => {}, onCancelEdit = () => {} }: Props) {
+function PendingTrace() {
+  return (
+    <div className="flex gap-2.5 py-1.5">
+      <span className="w-4 text-center text-[#8b8f81] flex-none animate-pulse">⊕</span>
+      <div className="flex-1 min-w-0 text-[14px]">
+        <span className="font-semibold text-[#5c6156]">Tool</span><span className="text-[#8b8f81]"> · </span>
+        <span className="text-[#8b8f81] animate-pulse">Retrieving relevant passages…</span>
+      </div>
+    </div>
+  );
+}
+
+export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing = false, editQuery = turn.query, onEdit, onEditQueryChange = () => {}, onEditSubmit = () => {}, onCancelEdit = () => {}, pending = false }: Props) {
+  if (pending) {
+    return (
+      <div className="mb-8" data-pending-turn>
+        <AttachmentCards files={turn.attached_files ?? []} />
+        <div className="flex flex-col items-end mb-3.5">
+          <div data-copy-text className="text-[16px] leading-[1.5] bg-[#2f5d5017] border border-[#2f5d5017] rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[14px] rounded-br-[3px] px-[15px] py-[10px] max-w-[82%] whitespace-pre-wrap">{turn.query}</div>
+        </div>
+        <PendingTrace />
+      </div>
+    );
+  }
+
   const hasAnswer = Boolean(turn.has_answer || turn.answer);
   const hasTrace = !turn.error && (hasAnswer || turn.stream_url || turn.generate_error);
+  const showThinkTrace = hasTrace && (!turn.streaming || !hasAnswer || Boolean(turn.generate_error));
 
   return (
     <div className="mb-8" data-turn-sequence={sequence}>
@@ -212,7 +238,7 @@ export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing 
         <>
           <div className="flex flex-col gap-0.5 mb-3.5">
             <SearchTrace turn={turn} />
-            {hasTrace && <ThinkTrace turn={turn} />}
+            {showThinkTrace && <ThinkTrace turn={turn} />}
           </div>
 
           {hasAnswer && (

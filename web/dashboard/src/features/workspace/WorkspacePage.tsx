@@ -22,6 +22,7 @@ export default function WorkspacePage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [pendingTurn, setPendingTurn] = useState<Turn | null>(null);
   const [query, setQuery] = useState("");
   const [editQuery, setEditQuery] = useState("");
   const [editSequence, setEditSequence] = useState<number | null>(null);
@@ -101,10 +102,11 @@ export default function WorkspacePage() {
   useEffect(() => {
     const reader = readerRef.current;
     if (reader) reader.scrollTop = reader.scrollHeight;
-  }, [turns]);
+  }, [pendingTurn, turns]);
 
   const selectSession = useCallback(async (id: string) => {
     closeStream();
+    setPendingTurn(null);
     setError(null);
     try {
       const detail = await getSession(id);
@@ -122,6 +124,7 @@ export default function WorkspacePage() {
     closeStream();
     setActiveSessionID(null);
     setTurns([]);
+    setPendingTurn(null);
     setQuery("");
     setEditQuery("");
     setEditSequence(null);
@@ -155,6 +158,19 @@ export default function WorkspacePage() {
     setBusy(true);
     setError(null);
     if (editing) setTurns((current) => current.slice(0, requestedEditSequence));
+    setPendingTurn({
+      query: text,
+      attached_files: files,
+      session_id: activeSessionID ?? "",
+      top_k: 0,
+      generate: true,
+      results: [],
+      count: 0,
+      elapsed_ms: 0,
+      from_cache: false,
+      has_answer: false,
+      streaming: false,
+    });
     setQuery("");
     setEditQuery("");
     setEditSequence(null);
@@ -174,6 +190,7 @@ export default function WorkspacePage() {
         window.history.pushState({}, "", `/sessions/${encodeURIComponent(nextSessionID)}`);
       }
       if (!editing) setAttachedFiles([]);
+      setPendingTurn(null);
       setTurns((current) => [...current, withSequence(turn, current.length)]);
       if (turn.streaming) {
         startStream(turn);
@@ -182,6 +199,7 @@ export default function WorkspacePage() {
         void refreshSessions();
       }
     } catch (cause) {
+      setPendingTurn(null);
       setBusy(false);
       setError(messageFrom(cause, "Could not start turn"));
     }
@@ -289,7 +307,7 @@ export default function WorkspacePage() {
         <div id="reader" ref={readerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           <div id="reader-inner" className="mx-auto max-w-[768px] px-4 md:px-7 pt-8 pb-4">
             {error && <div className="feedback feedback-err mb-4" role="alert">{error}</div>}
-            {turns.length === 0 ? (
+            {turns.length === 0 && !pendingTurn ? (
               <div id="empty-state" className="pt-16 text-center">
                 <div className="font-serif-display text-[24px] font-semibold mb-2">Ask your documents</div>
                 <p className="text-[14.5px] text-[#8b8f81] mb-6">Retrieval runs through Qdrant hybrid search before every generated answer.</p>
@@ -299,19 +317,22 @@ export default function WorkspacePage() {
                 </div>
               </div>
             ) : (
-              turns.map((turn, index) => (
-                <TurnCard
-                  key={`${turn.turn_id ?? turn.query}-${index}`}
-                  turn={turn}
-                  sequence={index}
-                  editing={editSequence === index}
-                  editQuery={editQuery}
-                  onEdit={() => editTurn(turn, index)}
-                  onEditQueryChange={setEditQuery}
-                  onEditSubmit={() => void submit(editQuery, index)}
-                  onCancelEdit={() => { setEditSequence(null); setEditQuery(""); }}
-                />
-              ))
+              <>
+                {turns.map((turn, index) => (
+                  <TurnCard
+                    key={`${turn.turn_id ?? turn.query}-${index}`}
+                    turn={turn}
+                    sequence={index}
+                    editing={editSequence === index}
+                    editQuery={editQuery}
+                    onEdit={() => editTurn(turn, index)}
+                    onEditQueryChange={setEditQuery}
+                    onEditSubmit={() => void submit(editQuery, index)}
+                    onCancelEdit={() => { setEditSequence(null); setEditQuery(""); }}
+                  />
+                ))}
+                {pendingTurn && <TurnCard turn={pendingTurn} pending onEdit={() => {}} />}
+              </>
             )}
           </div>
         </div>

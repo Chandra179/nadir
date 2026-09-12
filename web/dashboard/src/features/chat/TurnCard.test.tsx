@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import TurnCard from "./TurnCard";
 import type { Turn } from "../../lib/api-contract";
 
@@ -19,6 +19,34 @@ const turn: Turn = {
 };
 
 describe("TurnCard", () => {
+  afterEach(() => cleanup());
+
+  it("shows retrieval progress while the turn request is pending", () => {
+    render(
+      <TurnCard
+        turn={{ ...turn, answer: undefined, has_answer: false, results: [], count: 0 }}
+        pending
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("What is the formula?")).toBeInTheDocument();
+    expect(screen.getByText("Retrieving relevant passages…")).toBeInTheDocument();
+    expect(screen.queryByText("No matching chunks.")).not.toBeInTheDocument();
+  });
+
+  it("hands the trace area to the answer after streaming starts", () => {
+    render(
+      <TurnCard
+        turn={{ ...turn, answer: "Partial answer", streaming: true }}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Partial answer")).toBeInTheDocument();
+    expect(screen.queryByText(/Reordering retrieved chunks/)).not.toBeInTheDocument();
+  });
+
   it("renders model text as text and copies the answer", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
