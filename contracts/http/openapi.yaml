@@ -1,0 +1,194 @@
+openapi: 3.0.3
+info:
+  title: Nadir API
+  version: 1.0.0
+  description: JSON and Server-Sent Events API for document-grounded search.
+servers:
+  - url: /
+paths:
+  /api/v1/health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: API is accepting requests.
+  /api/v1/documents:
+    post:
+      operationId: ingestDocuments
+      summary: Ingest uploaded or configured documents.
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        '200':
+          description: Ingestion result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestResponse' }
+  /api/v1/documents/reset:
+    post:
+      operationId: resetDocuments
+      responses:
+        '200':
+          description: Document corpus reset completed.
+  /api/v1/turns:
+    post:
+      operationId: startTurn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartTurnRequest' }
+      responses:
+        '200':
+          description: Retrieval result and optional stream URL.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Turn' }
+  /api/v1/turns/{id}/events:
+    get:
+      operationId: streamTurn
+      parameters:
+        - { $ref: '#/components/parameters/TurnID' }
+        - in: header
+          name: Last-Event-ID
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Ordered turn events.
+          content:
+            text/event-stream: {}
+        '204': { description: Stream already fully replayed. }
+  /api/v1/turns/{id}/cancel:
+    post:
+      operationId: cancelTurn
+      parameters: [{ $ref: '#/components/parameters/TurnID' }]
+      responses:
+        '204': { description: Cancellation accepted. }
+  /api/v1/sessions:
+    get:
+      operationId: listSessions
+      responses:
+        '200':
+          description: Recent sessions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionsResponse' }
+    delete:
+      operationId: deleteAllSessions
+      responses:
+        '200': { description: All sessions deleted. }
+  /api/v1/sessions/{id}:
+    get:
+      operationId: getSession
+      parameters: [{ $ref: '#/components/parameters/SessionID' }]
+      responses:
+        '200':
+          description: Session and ordered turns.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionDetail' }
+    delete:
+      operationId: deleteSession
+      parameters: [{ $ref: '#/components/parameters/SessionID' }]
+      responses:
+        '200': { description: Session deleted. }
+components:
+  parameters:
+    TurnID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    SessionID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    StartTurnRequest:
+      type: object
+      required: [query, generate]
+      properties:
+        query: { type: string }
+        top_k: { type: integer, minimum: 1 }
+        generate: { type: boolean }
+        session_id: { type: string }
+        attached_files: { type: array, items: { type: string } }
+        edit: { type: boolean }
+        edit_sequence: { type: integer, minimum: 0 }
+        filter:
+          type: object
+          properties:
+            file_path: { type: string }
+            header: { type: string }
+            source_sha: { type: string }
+    Result:
+      type: object
+      required: [file_path, line_start, score, text]
+      properties:
+        file_path: { type: string }
+        header: { type: string }
+        line_start: { type: integer }
+        score: { type: number, format: float }
+        source_sha: { type: string }
+        text: { type: string }
+    Turn:
+      type: object
+      required: [query, session_id, top_k, generate, results, count, elapsed_ms, from_cache, has_answer, streaming]
+      properties:
+        error: { type: string }
+        query: { type: string }
+        rewritten_query: { type: string }
+        attached_files: { type: array, items: { type: string } }
+        session_id: { type: string }
+        sequence: { type: integer }
+        top_k: { type: integer }
+        generate: { type: boolean }
+        results: { type: array, items: { $ref: '#/components/schemas/Result' } }
+        count: { type: integer }
+        elapsed_ms: { type: integer, format: int64 }
+        from_cache: { type: boolean }
+        answer: { type: string }
+        has_answer: { type: boolean }
+        turn_id: { type: string }
+        stream_url: { type: string }
+        prompt: { type: string }
+        generate_error: { type: string }
+        streaming: { type: boolean }
+    Session:
+      type: object
+      required: [id, title, created_at, updated_at, turn_count]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        turn_count: { type: integer }
+    SessionsResponse:
+      type: object
+      required: [enabled, sessions]
+      properties:
+        enabled: { type: boolean }
+        sessions: { type: array, items: { $ref: '#/components/schemas/Session' } }
+    SessionDetail:
+      type: object
+      required: [session, turns]
+      properties:
+        session: { $ref: '#/components/schemas/Session' }
+        turns: { type: array, items: { $ref: '#/components/schemas/Turn' } }
+    IngestResponse:
+      type: object
+      properties:
+        processed: { type: integer }
+        skipped: { type: integer }
+        failed: { type: integer }
+        names: { type: array, items: { type: string } }
+        error: { type: string }

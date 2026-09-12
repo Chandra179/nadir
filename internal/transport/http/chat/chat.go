@@ -1,0 +1,36 @@
+// Package chat is the HTTP transport for the chat turn lifecycle: start a
+// turn (POST /api/v1/turns), observe its event stream (SSE), cancel it.
+// It parses requests and maps domain results to JSON — generation ownership,
+// persistence and cancellation semantics live in internal/conversation/chat
+// (ADR 0006).
+package chat
+
+import (
+	"nadir/internal/conversation/chat"
+)
+
+// Config wires the turn handlers.
+type Config struct {
+	// Chat is the chat use-case.
+	Chat chat.Chat
+	// TopK is the resolved default result count for requests that omit one.
+	TopK int
+	// MaxTopK bounds client-provided result counts before they reach the use case.
+	MaxTopK int
+}
+
+// Handlers serves the turn lifecycle endpoints.
+type Handlers struct {
+	chat    chat.Chat
+	topK    int
+	maxTopK int
+}
+
+// New builds the turn handlers.
+func New(cfg Config) *Handlers {
+	maxTopK := cfg.MaxTopK
+	if maxTopK <= 0 {
+		maxTopK = 50
+	}
+	return &Handlers{chat: cfg.Chat, topK: cfg.TopK, maxTopK: maxTopK}
+}

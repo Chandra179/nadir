@@ -27,8 +27,8 @@ has an NVIDIA GPU (RTX 4050) already used by Ollama. Constraints discovered:
 
 Packaging: `services/reranker/Dockerfile` takes a `GPU` build arg choosing
 `requirements-gpu.txt` (CUDA torch) vs `requirements-cpu.txt`. The base
-`docker-compose.yml` is CPU-safe and has no NVIDIA reservation, so it works on
-Linux, Windows Docker Desktop, and macOS. `docker-compose.gpu.yml` is an
+	`deploy/compose/docker-compose.yml` is CPU-safe and has no NVIDIA reservation, so it works on
+Linux, Windows Docker Desktop, and macOS. `deploy/compose/docker-compose.gpu.yml` is an
 explicit overlay for Linux or Windows WSL2: it selects the CUDA image and adds
 the NVIDIA device reservation. The AVX2 quantized bake is optional and only
 runs for amd64 builds; portable CPU Compose defaults to the torch backend.

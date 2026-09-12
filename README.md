@@ -35,24 +35,27 @@ source:
 ./scripts/local.sh
 ```
 
-This starts Qdrant + reranker, runs the Go server, ingests all source files, and blocks on the server.
+This starts Qdrant + reranker, runs the Go API, ingests all source files, and blocks on the server. Run the React dashboard separately with `cd web/dashboard && npm install && npm run dev`, then open `http://localhost:3000`.
 
 ### 3. Test search
 
 ```bash
-curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
+curl -X POST localhost:8100/api/v1/turns \
+  -H 'content-type: application/json' \
+  -d '{"query":"secant formula","generate":false}'
 ```
 
-Returns an HTML fragment (the chat UI's turn card) plus an `X-Nadir-Session-Id`
-header for follow-up turns. Add `-F generate=on` to include an LLM answer.
+The API is JSON-only. Live generated answers are delivered by the SSE URL in
+the turn response; the React dashboard handles that stream.
 
 ### 4. Include LLM answer generation
 
-Pass `generate=on` to run answer generation over the retrieved chunks:
+Set `generate` to `true` to run answer generation over the retrieved chunks:
 
 ```bash
-curl -X POST localhost:8100/retrieval/search \
-  --data-urlencode "query=secant formula" -F generate=on
+curl -X POST localhost:8100/api/v1/turns \
+  -H 'content-type: application/json' \
+  -d '{"query":"secant formula","generate":true}'
 ```
 
 ## Source data
@@ -71,19 +74,19 @@ source:
     - "/another/directory"
 ```
 
-Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/ingest` on a running server). Only new/changed files are processed (SHA-256 dedup).
+Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/api/v1/documents` on a running server). Only new/changed files are processed (SHA-256 dedup).
 
 ## Run separately
 
 ```bash
 # 1. Start Docker services (Qdrant + reranker)
-docker compose up -d qdrant reranker
+docker compose -f deploy/compose/docker-compose.yml up -d qdrant reranker
 
 # 2. Start Go server
-go run ./cmd/server
+go run ./cmd/api
 
 # 3. Ingest documents
-curl -X POST localhost:8100/ingest
+curl -X POST localhost:8100/api/v1/documents
 ```
 
 ## Docker Desktop (Linux, Windows, and macOS)
@@ -93,8 +96,8 @@ with Docker Desktop on Windows and macOS; Ollama runs on the host and the
 container reaches it through `host.docker.internal`.
 
 ```bash
-docker compose up -d --build
-curl -X POST localhost:8100/ingest
+docker compose -f deploy/compose/docker-compose.yml up -d --build
+# Open http://localhost:3000 in a browser.
 ```
 
 The default source mount is `./samples`. Set `SOURCE_DIR` in `.env` to a
@@ -106,7 +109,7 @@ On Linux or Windows with Docker Desktop + WSL2 and the NVIDIA Container
 Toolkit, opt into the GPU override:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.gpu.yml up -d --build
 ```
 
 The GPU override is optional. Do not use it on macOS.
@@ -165,25 +168,28 @@ environment overrides even when roles share one Ollama server.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/ingest` | Ingest uploaded files: chunk+embed new/changed ones (SHA-256 dedup) |
-| POST | `/store/reset` | Publish an empty Qdrant collection generation and retire the previous one |
-| GET | `/retrieval` | Chat UI |
-| POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
-| GET | `/history/sessions` | Recent chat sessions (sidebar) |
-| DELETE | `/history/sessions/:id` | Delete one persisted chat session and its turns |
-| DELETE | `/history/sessions` | Delete all persisted chat sessions and turns |
-| GET | `/history/sessions/:id` | Replay a past session |
-| GET | `/healthz` | Health check |
+| POST | `/api/v1/documents` | Ingest multipart uploaded files or configured sources |
+| POST | `/api/v1/documents/reset` | Publish an empty Qdrant collection generation |
+| POST | `/api/v1/turns` | Start one JSON Retrieval/chat turn |
+| GET | `/api/v1/turns/:id/events` | Stream answer events over SSE |
+| POST | `/api/v1/turns/:id/cancel` | Cancel generation and keep the partial answer |
+| GET | `/api/v1/sessions` | List recent chat sessions |
+| GET | `/api/v1/sessions/:id` | Read one session and its turns |
+| DELETE | `/api/v1/sessions/:id` | Delete one session and its turns |
+| DELETE | `/api/v1/sessions` | Delete all sessions and turns |
+| GET | `/api/v1/health` | API health check |
 
 ## Architecture
 
 ```
-POST /ingest → document intake (.md or optional .pdf→.md) → indexing pass
+React dashboard → JSON/SSE API → domain services
+
+POST /api/v1/documents → document intake (.md or optional .pdf→.md) → indexing pass
                                       ├── Chunker (recursive / sentence-window)
                                       ├── Embedder (Ollama)
                                       └── versioned Document replacement (Qdrant)
 
-POST /retrieval/search → chat.Service.StartTurn
+POST /api/v1/turns → chat.Service.StartTurn
                  ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
                  ├── [Generator] supervised streaming answer over retrieved chunks
                  └── History persist at terminal state (mutation-owned and revision-checked)
@@ -194,6 +200,10 @@ server instance. If horizontal scaling is required, put the turn event log
 behind a shared backend such as Redis Streams and route or broadcast SSE
 subscribers through that shared log.
 
+The Go API and React dashboard are separate deployable artifacts. Docker Compose
+serves the built dashboard through Nginx and proxies `/api/` plus SSE traffic to
+the Go API. Vite proxies the same paths during local development.
+
 ## Run tests
 
 ### Unit tests (no Docker required)
@@ -201,7 +211,7 @@ subscribers through that shared log.
 ```bash
 make test                       # unit tests only; excludes local Python venv
 make check                      # tests + vet + build
-go test -count=1 ./config ./cmd/... ./internal/... # all Go tests (Qdrant as available)
+go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 ```
 
 ## Evaluate Retrieval quality
@@ -211,9 +221,9 @@ collection, bypasses semantic cache, and reports HitRate, Recall, MRR, nDCG,
 and latency percentiles. It uses the configured reranker by default:
 
 ```bash
-go run ./cmd/evalbench --runs 3
-go run ./cmd/evalbench --no-rerank --runs 3
-go run ./cmd/evalbench --ensure-ingest --report tests/eval/reports/local.json
+go run ./cmd/evaluator --runs 3
+go run ./cmd/evaluator --no-rerank --runs 3
+go run ./cmd/evaluator --ensure-ingest --report test/evaluation/reports/local.json
 ```
 
 The default golden set is intentionally small and is a Retrieval regression
@@ -231,8 +241,8 @@ With Docker Compose:
 
 ```bash
 DOCLING_ENABLED=true DOCKER_DOCLING_ADDR=http://docling:5003 \
-  docker compose --profile pdf up -d --build
-curl -X POST localhost:8100/ingest
+  docker compose -f deploy/compose/docker-compose.yml --profile pdf up -d --build
+curl -X POST localhost:8100/api/v1/documents
 ```
 
 For host-side development, start the sidecar and enable it in
@@ -241,7 +251,7 @@ For host-side development, start the sidecar and enable it in
 ```bash
 pip install -r services/docling/requirements.txt   # one-time: install Python deps
 python services/docling/main.py                    # HTTP sidecar on :5003
-curl -X POST localhost:8100/ingest                 # ingests .md and .pdf sources
+curl -X POST localhost:8100/api/v1/documents                 # ingests .md and .pdf sources
 ```
 
 The directory CLI remains available when a separate offline conversion step
@@ -253,10 +263,10 @@ is preferred.
 
 Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
 
-Use `POST /store/reset` to publish an empty collection generation safely:
+Use `POST /api/v1/documents/reset` to publish an empty collection generation safely:
 
 ```bash
-curl -X POST localhost:8100/store/reset
+curl -X POST localhost:8100/api/v1/documents/reset
 ```
 
 ### Ollama connection refused

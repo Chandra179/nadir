@@ -1,6 +1,6 @@
 .PHONY: run test race vet build check mdn
 
-GO_PACKAGES := ./config ./cmd/... ./internal/...
+GO_PACKAGES := ./internal/platform/configuration ./cmd/... ./internal/...
 
 run:
 	./scripts/local.sh
@@ -15,7 +15,7 @@ vet:
 	go vet $(GO_PACKAGES)
 
 build:
-	go build ./cmd/server
+	go build ./cmd/api
 
 check: test vet build
 

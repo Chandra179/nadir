@@ -31,6 +31,11 @@ Documents → prepare and index → search knowledge base → generate grounded 
                               your question ← conversation history
 ```
 
+Nadir presents this workflow through a responsive browser dashboard. The
+dashboard sends structured requests to the application and receives generated
+answers as a live stream, while the application remains responsible for
+retrieval, ordering, persistence, and data safety.
+
 ### 1. Add documents
 
 Nadir reads supported documents and breaks them into smaller passages. Each

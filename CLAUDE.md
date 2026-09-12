@@ -18,13 +18,13 @@ This is a single-context repository with one root `CONTEXT.md` and system decisi
 
 ## What this is
 
-Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. Single Go binary at `cmd/server/main.go`. Two Python sidecars live under `services/` (reranker, docling PDF→MD).
+Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. The API binary is `cmd/api/main.go` and the evaluator is `cmd/evaluator/main.go`. Two Python sidecars live under `services/` (reranker, docling PDF→MD).
 
 ## Commands
 
 ```bash
 # Build
-go build ./cmd/server
+go build ./cmd/api
 
 # Vendor deps (NOT committed — gitignored; run after adding/changing imports)
 go mod tidy && go mod vendor
@@ -33,55 +33,62 @@ go mod tidy && go mod vendor
 ./scripts/local.sh              # addrs come from config/config.yaml (localhost)
 
 # Run standalone (config/config.yaml, .env sourced)
-go run ./cmd/server
+go run ./cmd/api
 
 # Tests
-go test -short -count=1 ./config ./cmd/... ./internal/... # unit tests, no Docker
-go test -count=1 ./config ./cmd/... ./internal/...       # all Go tests
-go test -run TestMatchPattern ./internal/ingest/   # focused package test
+go test -short -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # unit tests, no Docker
+go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/...       # all Go tests
+go test -run TestMatchPattern ./internal/knowledge/indexing/   # focused package test
 
 # Quick ops (server must be on :8100)
-curl -X POST localhost:8100/ingest
-curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
-curl -X POST localhost:8100/store/reset                    # safely reset the Document collection
+curl -X POST localhost:8100/api/v1/documents
+curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"secant formula","generate":false}'
+curl -X POST localhost:8100/api/v1/documents/reset                    # safely reset the Document collection
 ```
 
-> The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check` targets. The Go checks use explicit package scopes so a local Python `venv/` is not discovered as a Go package. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists; `tests/eval/` contains only committed evaluation data and reports.
+> The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check` targets. The Go checks use explicit package scopes so a local Python `venv/` is not discovered as a Go package. The retrieval-quality evaluator lives at `cmd/evaluator`; `test/evaluation/` contains only committed evaluation data and reports.
 
 ## Architecture
 
 ```
-POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /retrieval/search → RetrievalSearchHandler → chat.Service.StartTurn (session mint → retrieve → supervised generation)
-GET  /retrieval/turns/:id/events → bounded replayable SSE event log
-POST /retrieval/turns/:id/cancel → cancel generation and persist the partial answer
-GET  /healthz → 200
+POST /api/v1/documents → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
+POST /api/v1/turns → StartTurnHandler → chat.Service.StartTurn (session mint or in-place edit prune → retrieve → supervised generation)
+GET  /api/v1/turns/:id/events → bounded replayable SSE event log
+POST /api/v1/turns/:id/cancel → cancel generation and persist the partial answer
+GET  /api/v1/health → 200
 ```
 
-Wiring lives in `internal/server/server.go` (entrypoint `server.Server(ctx, cfg)`, called from `cmd/server/main.go`); HTTP handlers and route registration live in `internal/api/`.
+Wiring lives in `internal/platform/lifecycle/server.go` (entrypoint
+`server.Server(ctx, cfg)`, called from `cmd/api/main.go`); HTTP handlers and
+route registration live in `internal/transport/http/`.
 
-**Domain packages (under `internal/`):**
-- `chunker/` — `Chunker` interface, `Chunk` value type, `RecursiveChunker`, `SentenceWindowChunker`, `ContextualText`
-- `embedder/` — `Embedder`, `BatchEmbedder` interfaces, `OllamaEmbedder`
-- `store/` — document-corpus `Store` interface and Qdrant hybrid Adapter; retrieval-facing chunk/filter types live in `search`
-- `ingest/` — document intake (`.md`, optional `.pdf` through Docling), SHA dedup, bounded indexing pass
-- `search/` — Retrieval-owned request/result types; bounded multi-fragment hybrid search → rerank → semantic cache
-- `generator/` — `Generator` interface, `OllamaGenerator`, `buildPrompt`, `lostInMiddleOrder`
-- `reranker/` — `Reranker` interface, `HTTPReranker` (cross-encoder sidecar client)
-- `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
-- `history/` — `History` interface, `Session`/`Turn` value types, serialized chat persistence backed by a dedicated Qdrant collection (see `history.enabled`)
+**Bounded contexts (under `internal/`):**
+- `knowledge/` — Document intake and the Indexing pass: normalize, chunk,
+  enrich, embed, deduplicate, and versioned publication.
+- `retrieval/` — query rewriting, fragmentation, hybrid dense/BM25 search,
+  RRF, cache lookup, reranking, and context selection.
+- `conversation/` — Sessions, Chat turns, prompt construction, generation
+  supervision, bounded event retention, cancellation, edit/prune, and history.
+- `evaluation/` — golden-set Retrieval evaluation and reports.
 
-`internal/api/` — HTTP transport grouped by ingest, retrieval/chat, history, and reset features; `NewRouter` registers the current routes on the gin engine.
+**Transport and infrastructure:**
+- `transport/http/` — versioned JSON/SSE transport and route registration.
+- `adapters/qdrant/` — Qdrant clients and persistence Adapters.
+- `adapters/ollama/` — embedding, enrichment, generation, and rewriting
+  Adapters.
+- `adapters/reranker/` and `adapters/docling/` — sidecar Adapters.
+- `platform/` — configuration, logging, observability, HTTP middleware, and
+  lifecycle/composition.
 
-`internal/server/` — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
-
-`internal/middleware/` — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`. `Timeout` (from `middleware.timeout` in config) bounds downstream Qdrant/Ollama calls; source sweeps and SSE turn streams are exempt.
+The React/TypeScript/Tailwind dashboard is a separate package under
+`web/dashboard`; Python sidecars remain under `services/` as independent
+processes.
 
 `services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `docling/` (:5003, PDF→Markdown HTTP intake).
 
-`internal/qdrantutil/` — shared Qdrant clients, dense collection setup, payload
-codecs, and point-ID decoding; document, history, and semantic-cache
-lifecycle rules remain separate.
+`internal/adapters/qdrant/` — shared Qdrant clients, dense collection setup,
+payload codecs, point-ID decoding, and persistence Adapters; document, history,
+and semantic-cache lifecycle rules remain separate.
 
 ### Request pipeline details
 
@@ -94,25 +101,27 @@ lifecycle rules remain separate.
 
 ## Key rules
 
-- Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
+- Domain contexts must NOT import `internal/transport/http/`,
+  `internal/platform/lifecycle/`, `internal/platform/httpmiddleware/`, or
+  frontend code.
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests
 
 ## Addresses: local vs Docker
 
-`config/config.yaml` defaults to `localhost` addresses for the host-side server (`./scripts/local.sh` runs it as-is). The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; it uses Qdrant `qdrant:6334`, reranker `reranker:5002`, and Ollama `host.docker.internal:11434`. Layer `docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
+`config/config.yaml` defaults to `localhost` addresses for the host-side server (`./scripts/local.sh` runs it as-is). The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; it uses Qdrant `qdrant:6334`, reranker `reranker:5002`, and Ollama `host.docker.internal:11434`. Layer `deploy/compose/docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
 
 ## Features gated by config
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=on` |
+| Answer generation | `generator.enabled` (on by default) | Ollama LLM; dashboard or `POST /api/v1/turns` with `generate=true` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
-| Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists `/retrieval` chat sessions/turns to a dedicated collection, browsable via the sidebar and `/history/sessions/:id` |
+| Chat history | `history.enabled` (on by default) | None (reuses Qdrant); persists chat sessions/turns to a dedicated collection, browsable via the dashboard and `/api/v1/sessions/:id` |
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
 Enabled LLM roles must declare their own `ollama_addr` and `model`; generator,

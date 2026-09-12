@@ -63,7 +63,7 @@ Measured evidence:
 
 ## Consequences
 
-- The default deployment (`docker compose build reranker`) serves int8 from
+- The default deployment (`docker compose -f deploy/compose/docker-compose.yml build reranker`) serves int8 from
   the baked export with fp32-equal ranking expected (≈2× speedup per sbert's
   benchmarks) — pending the evalbench A/B on the baked artifact.
 - The bake must run on a machine with ~8–10GB free (or from the saved fp32

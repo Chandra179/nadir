@@ -20,7 +20,7 @@ conventions and [`logging.md`](logging.md) for logging conventions.
   configuration or request struct.
 - Keep module boundaries aligned with domain ownership, invariants, data
   ownership, and change cadence—not with arbitrary file counts. See
-  [`../modules/README.md`](../modules/README.md) for the module contract.
+  [`../internal/README.md`](../internal/README.md) for the module contract.
 - Use Mockery-generated mocks for interfaces at unit-test seams. Keep generated
   mocks under `mocks/`, out of production code, and configure Mockery once in
   `.mockery.yaml`; do not hand-write a new fake for every test file. A small

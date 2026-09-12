@@ -1,6 +1,10 @@
 # 0007 — Dashboard streams via a plain EventSource; htmx's sse extension is removed
 
-- **Status:** Accepted
+> Superseded by [ADR-0021](0021-react-typescript-dashboard.md). The plain
+> EventSource decision remains part of the current dashboard implementation;
+> this record is retained as migration history.
+
+- **Status:** Superseded by [ADR-0021](0021-react-typescript-dashboard.md)
 - **Date:** 2026-09-06
 - **Deciders:** Chandra, ZCode session
 

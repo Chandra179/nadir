@@ -25,7 +25,7 @@ Device, via RERANKER_DEVICE (auto | cpu | cuda, default auto):
     artifacts (AVX2 ONNX export / dynamic int8 quantization), so on cuda
     every backend serves fp32 torch; use RERANKER_BACKEND=torch for a GPU
     build explicitly. The CUDA build of torch comes from the GPU image
-    variant (docker-compose.gpu.yml / Dockerfile GPU=1 build arg).
+    variant (deploy/compose/docker-compose.gpu.yml / Dockerfile GPU=1 build arg).
 
 Install:
     pip install "sentence-transformers[onnx]" fastapi uvicorn

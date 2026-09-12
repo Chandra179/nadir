@@ -1,13 +1,20 @@
 # Modules
 
-Each module is a Go package under `modules/<name>/`. A module owns its domain
-logic, application behavior, transport, and dependency wiring.
+Private Go code lives under `internal/` and is organized by bounded context.
+Knowledge, Retrieval, Conversation, and Evaluation own domain behavior;
+Transport maps HTTP; Adapters integrate external systems; Platform owns
+cross-cutting runtime concerns.
+
+The executable applications under `cmd/` are intentionally thin entrypoints:
+`cmd/api` starts the HTTP application and `cmd/evaluator` runs quality
+measurement. They do not contain domain logic. The React application under
+`web/dashboard` is a separate client organized by feature.
 
 ## Required files
 
 | File | Purpose |
 |------|---------|
-| `dependencies.go` | Exported `DependenciesConfig` struct callers fill in; unexported `dependencies` struct holding the module's wired deps (e.g. `logger`, `store`); `NewDependencies(*DependenciesConfig) *dependencies` constructor. For a module with persistence, `DependenciesConfig` takes the shared `*sql.DB` (SQLite) and `NewDependencies` builds the store internally (see `modules/example/dependencies.go`) — callers never construct the store directly. Handlers are methods on `*dependencies`. |
+| `dependencies.go` | Exported `DependenciesConfig` struct callers fill in; unexported `dependencies` struct holding the Module's wired deps; `NewDependencies(DependenciesConfig)` constructor. Callers pass provider-owned Interfaces and concrete Adapters are assembled only by the lifecycle composition code. |
 | `types.go` | Domain types, structs, constants |
 
 ## Optional files
@@ -37,7 +44,7 @@ and holding a sibling module's concrete `*dependencies` type directly.
   modules. It's the module's own public contract:
 
 ```go
-// modules/example/interface.go — example provides this to callers
+// internal/knowledge/interface.go — Knowledge provides this to callers
 type Service interface {
     CreateExample(ctx context.Context, name string) (*Example, error)
 }
@@ -48,11 +55,10 @@ var _ Service = (*dependencies)(nil)
 A module that consumes a sibling depends on that sibling's `Service`
 interface, wired in via its own `DependenciesConfig`.
 
-`server/server.go` constructs the concrete `*dependencies` for each module,
-passes infrastructure into `NewDependencies`, and passes the returned value to
-siblings as the provider's interface type (e.g. `exampleDeps` used as
-`example.Service`). HTTP handlers are then handed to `router/` for route
-registration.
+`internal/platform/lifecycle/server.go` constructs the concrete dependencies,
+passes infrastructure into constructors, and passes the returned value to
+other contexts as the provider's Interface type. HTTP handlers remain in
+`internal/transport/http` and only adapt requests, responses, and SSE.
 
 Only add a `Service` interface for a real cross-module contract. Do not impose a
 universal one-public-interface rule: expose small provider-owned contracts when

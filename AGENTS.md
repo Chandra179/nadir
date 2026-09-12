@@ -3,12 +3,12 @@
 ## Commands
 
 The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check`
-targets. It scopes Go checks to `./config`, `./cmd/...`, and `./internal/...`
+targets. It scopes Go checks to `./internal/platform/configuration`, `./cmd/...`, and `./internal/...`
 so a local Python `venv/` is not discovered as a Go package.
 
 ```bash
 # Build
-go build ./cmd/server
+go build ./cmd/api
 
 # Vendor deps (NOT committed — gitignored; run after adding imports)
 go mod tidy && go mod vendor
@@ -17,68 +17,71 @@ go mod tidy && go mod vendor
 ./scripts/local.sh               # addrs come from config/config.yaml (localhost)
 
 # Run standalone (config/config.yaml, .env sourced)
-go run ./cmd/server
+go run ./cmd/api
 
 # Tests
-go test -short -count=1 ./config ./cmd/... ./internal/... # unit tests only
-go test -count=1 ./config ./cmd/... ./internal/...       # all Go tests
-go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
+go test -short -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # unit tests only
+go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/...       # all Go tests
+go test -run TestMatchPattern ./internal/knowledge/indexing/   # focused pkg test
 
 # Quick ops (server must be on :8100)
-curl -X POST localhost:8100/ingest
-curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
-curl -X POST localhost:8100/store/reset                    # safely reset the Document collection
+curl -X POST localhost:8100/api/v1/documents
+curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"secant formula","generate":false}'
+curl -X POST localhost:8100/api/v1/documents/reset                    # safely reset the Document collection
 
 # Retrieval quality evaluation (Qdrant + embedder, optional reranker must be running)
-go run ./cmd/evalbench --runs 3
-go run ./cmd/evalbench --no-rerank --runs 3
+go run ./cmd/evaluator --runs 3
+go run ./cmd/evaluator --no-rerank --runs 3
 ```
 
 ## Architecture
 
-Single Go binary at `cmd/server/main.go`. Wiring in `internal/server/server.go` (`server.Server(ctx, cfg)`); HTTP handlers and route registration live in `internal/api/`.
+The API binary is `cmd/api/main.go`; the evaluator is `cmd/evaluator/main.go`. Composition and lifecycle wiring live in `internal/platform/lifecycle/server.go`; HTTP handlers and route registration live in `internal/transport/http/`.
 
 ```
-POST /ingest → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /retrieval/search → RetrievalSearchHandler → chat.StartTurn (session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor)
-GET  /retrieval/turns/:id/events → SSE adapter over the turn event log (replay via Last-Event-ID). Generation is owned by the chat service (subscribers never kill it); the turn is persisted by the supervisor at its terminal state
-POST /retrieval/turns/:id/cancel → abort generation; the partial answer is kept and persisted
-GET  /healthz → 200
+POST /api/v1/documents → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
+POST /api/v1/turns → StartTurnHandler → chat.StartTurn (session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor)
+GET  /api/v1/turns/:id/events → SSE adapter over the turn event log (replay via Last-Event-ID). Generation is owned by the chat service (subscribers never kill it); the turn is persisted by the supervisor at its terminal state
+POST /api/v1/turns/:id/cancel → abort generation; the partial answer is kept and persisted
+GET  /api/v1/health → 200
 ```
 
-**Domain packages (under `internal/`):**
-- `chunker/` — `Chunker` interface, `Chunk` value type, recursive + sentence-window providers, `ContextualText`
-- `embedder/` — `Embedder`, `BatchEmbedder` interfaces, Ollama HTTP client
-- `store/` — document-corpus `Store` interface and Qdrant hybrid Adapter (dense + BM25 sparse + RRF); storage chunk/filter types stay behind `search`'s caller-facing seam
-- `ingest/` — document intake (`.md`, optional `.pdf` through Docling), SHA dedup, bounded indexing pass, chunk→enrich→embed→replace; consumes `enrichment.Enricher`
-- `search/` — Retrieval-owned request/result types; multi-fragment hybrid search → rerank → semantic cache
-- `eval/` — development-only golden-set Retrieval evaluator; bypasses semantic cache and writes aggregate/per-query reports
-- `chat/` — chat use-case (`StartTurn`: session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor; owns the turn event log, terminal persistence, mutation revisions, destructive history coordination, and `CancelTurn`); handlers only map request/result
-- `generator/` — `Generator` interface (`Generate(ctx, prompt) <-chan Event` with typed `TokenEvent`/`ErrorEvent`/`DoneEvent`), Ollama streaming client; prompt building lives in `internal/chat/prompt.go`
-- `rewriter/` — `Rewriter` interface, Ollama client rewriting conversational follow-ups into standalone search queries (feature-flagged)
-- `reranker/` — `Reranker` interface, cross-encoder sidecar client
-- `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
-- `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
+**Bounded contexts (under `internal/`):**
+- `knowledge/` — Document intake and the Indexing pass: normalize, chunk,
+  enrich, embed, deduplicate, and versioned publication.
+- `retrieval/` — query rewriting, fragmentation, hybrid dense/BM25 search,
+  RRF, cache lookup, reranking, and context selection.
+- `conversation/` — Sessions, Chat turns, prompt construction, generation
+  supervision, bounded event retention, cancellation, edit/prune, and history.
+- `evaluation/` — development-only golden-set Retrieval evaluator and reports.
 
-**`internal/api/`** — HTTP transport, grouped by feature. Root package: `NewRouter` (route consts + registration), `NewDependencies` (DI; resolves the default top_k once), the page shell (`Retrieval`, `HistorySession`), and the `Ingest`/`DeleteAllData` handlers. Sub-packages: `chat/` (turn lifecycle — start, SSE event stream, cancel — plus the turn views), `history/` (sidebar session list and destructive operations delegated through chat’s mutation owner), `internal/render/` (template engine). UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup and rendered through the shared render engine — no markup in Go source.
+**Transport and infrastructure:**
+- `transport/http/` — versioned JSON/SSE request mapping, status codes, route
+  registration, and SSE adaptation only; shared response shapes live in
+  `transport/http/contract/`.
+- `adapters/qdrant/` — Qdrant clients, schema helpers, and document storage;
+  domain lifecycle rules remain owned by their calling context.
+- `adapters/ollama/` — embedding, enrichment, generation, and rewriting
+  Adapters, each with explicit role-specific configuration.
+- `adapters/reranker/` — cross-encoder sidecar Adapter.
+- `platform/` — configuration, logging, observability, HTTP middleware, and
+  process lifecycle/composition.
 
-**`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
+The React/TypeScript/Tailwind client lives in `web/dashboard`; it is built
+separately and served by Nginx in Compose. Python sidecars remain under
+`services/` because they are separately deployed processes.
 
-**`internal/middleware/`** — gin middleware, registered outermost-first in `internal/server/server.go`: `Recovery→RequestID→Timeout→RequestLog`.
-
-**`services/`** — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `docling/` (:5003, PDF→Markdown HTTP intake).
-
-**`internal/qdrantutil/`** — shared Qdrant client set, dense collection setup,
-payload primitive codecs, and point-ID decoding. It is infrastructure shared
-by the document store, history, and semantic cache; their domain lifecycles
-remain separate.
+**`services/`** — Python sidecars (each has its own Dockerfile): `reranker/`
+(:5002) and optional `docling/` (:5003, PDF→Markdown HTTP intake).
 
 ## Key rules
 
-- Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
+- Domain contexts must NOT import `internal/transport/http/`,
+  `internal/platform/lifecycle/`, `internal/platform/httpmiddleware/`, or
+  frontend code.
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active
-- Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
@@ -86,13 +89,13 @@ remain separate.
 
 ## Addresses: local vs Docker
 
-`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly. The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
+`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly. The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `deploy/compose/docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
 
 ## Features gated by config
 
 | Feature | Config key | Requires |
 |---------|-----------|----------|
-| Answer generation | `generator.enabled` (on by default) | Ollama LLM; chat UI or `POST /retrieval/search` with `generate=true` |
+| Answer generation | `generator.enabled` (on by default) | Ollama LLM; dashboard or `POST /api/v1/turns` with `generate=true` |
 | Semantic cache | `semantic_cache.enabled` (on by default) | None (reuses Qdrant) |
 | Reranker | `reranker.enabled` (on by default) | Reranker sidecar |
 | Query rewriting | `rewriter.enabled` (on by default) | Ollama LLM; follow-up turns only (+1 LLM call); chat history enabled |
@@ -100,7 +103,7 @@ remain separate.
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
-Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and supports `RERANKER_BACKEND` (`onnx`, `torch-int8`, or `torch`). The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
+Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and supports `RERANKER_BACKEND` (`onnx`, `torch-int8`, or `torch`). The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
 
 ## Sample data
 

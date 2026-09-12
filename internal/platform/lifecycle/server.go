@@ -1,0 +1,400 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"sync"
+
+	"nadir/internal/adapters/docling"
+	"nadir/internal/adapters/ollama/embedding"
+	ollamaenrichment "nadir/internal/adapters/ollama/enrichment"
+	ollamagenerator "nadir/internal/adapters/ollama/generator"
+	ollamarewriter "nadir/internal/adapters/ollama/rewriter"
+	"nadir/internal/adapters/qdrant/documents"
+	qdranthistory "nadir/internal/adapters/qdrant/history"
+	"nadir/internal/adapters/qdrant/shared"
+	"nadir/internal/adapters/reranker"
+	"nadir/internal/conversation/chat"
+	"nadir/internal/conversation/generation"
+	"nadir/internal/conversation/history"
+	"nadir/internal/knowledge/chunking"
+	"nadir/internal/knowledge/enrichment"
+	"nadir/internal/knowledge/indexing"
+	"nadir/internal/platform/configuration"
+	"nadir/internal/platform/httpmiddleware"
+	"nadir/internal/platform/logging"
+	"nadir/internal/retrieval/cache"
+	"nadir/internal/retrieval/rewriting"
+	"nadir/internal/retrieval/search"
+	"nadir/internal/transport/http"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func Server(ctx context.Context, cfg *config.Config) error {
+	log, err := logger.New(cfg.Middleware.Logger.Level)
+	if err != nil {
+		return fmt.Errorf("create logger: %w", err)
+	}
+	defer log.Sync()
+	startupCtx, startupCancel := context.WithTimeout(ctx, cfg.HTTP.StartupTimeout)
+	defer startupCancel()
+
+	deps := middleware.NewDependencies(middleware.DependenciesConfig{
+		Logger: log,
+	})
+
+	// Shared gRPC connection to Qdrant: store and the semantic cache both
+	// talk to the same address, so they reuse one connection instead of
+	// each dialing their own.
+	qdrantConn, err := grpc.NewClient(cfg.Qdrant.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Error("qdrant dial failed", zap.Error(err))
+		return fmt.Errorf("qdrant dial: %w", err)
+	}
+	defer qdrantConn.Close()
+	qdrantClients := qdrantutil.NewClients(qdrantConn)
+
+	s, err := store.NewDependencies(store.DependenciesConfig{
+		Clients:     qdrantClients,
+		Collection:  cfg.Qdrant.Collection,
+		PrefetchMul: cfg.Qdrant.PrefetchMul,
+	})
+	if err != nil {
+		log.Error("qdrant init failed", zap.Error(err))
+		return fmt.Errorf("qdrant init: %w", err)
+	}
+
+	e := embedder.NewDependencies(embedder.DependenciesConfig{
+		Addr:           cfg.Embedder.OllamaAddr,
+		Model:          cfg.Embedder.Model,
+		Dimensions:     cfg.Embedder.Dimensions,
+		RequestTimeout: cfg.Embedder.RequestTimeout,
+	})
+
+	if err := s.EnsureCollection(startupCtx, e.Dimensions()); err != nil {
+		log.Error("qdrant ensure collection failed", zap.Error(err))
+		return fmt.Errorf("qdrant ensure collection: %w", err)
+	}
+
+	chunkr := chunker.NewDependencies(chunker.DependenciesConfig{
+		Provider:     cfg.Chunker.Provider,
+		ChunkSize:    cfg.Chunker.ChunkSize,
+		ChunkOverlap: cfg.Chunker.ChunkOverlap,
+		WindowSize:   cfg.Chunker.WindowSize,
+	})
+	if cfg.Chunker.Provider == chunker.ProviderSentenceWindow {
+		log.Info("sentence-window chunker enabled", zap.Int("window_size", cfg.Chunker.WindowSize))
+	}
+
+	var documentConverter ingest.DocumentConverter
+	if cfg.Docling.Enabled {
+		documentConverter = docling.New(docling.Config{Addr: cfg.Docling.Addr, RequestTimeout: cfg.Docling.RequestTimeout, Log: log})
+		log.Info("PDF document intake enabled", zap.String("addr", cfg.Docling.Addr))
+	}
+
+	// Index-time LLM enrichment (HyPE questions, contextual intros): both
+	// are one-time costs per chunk at ingest, zero query-time latency.
+	// Enabling either after a collection was already ingested requires a
+	// reindex to take effect.
+	var enricher enrichment.Enricher
+	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
+		enricher = ollamaenrichment.NewDependencies(ollamaenrichment.DependenciesConfig{
+			HypeAddr:        cfg.Enrichment.Hype.OllamaAddr,
+			HypeModel:       cfg.Enrichment.Hype.Model,
+			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
+			ContextualModel: cfg.Enrichment.Contextual.Model,
+			RequestTimeout:  cfg.Enrichment.RequestTimeout,
+		})
+		log.Info("index-time LLM enrichment enabled",
+			zap.Bool("hype", cfg.Enrichment.Hype.Enabled),
+			zap.Int("questions_per_chunk", cfg.Enrichment.Hype.QuestionsPerChunk),
+			zap.Bool("contextual", cfg.Enrichment.Contextual.Enabled),
+			zap.String("hype_model", cfg.Enrichment.Hype.Model),
+			zap.String("hype_addr", cfg.Enrichment.Hype.OllamaAddr),
+			zap.String("contextual_model", cfg.Enrichment.Contextual.Model),
+			zap.String("contextual_addr", cfg.Enrichment.Contextual.OllamaAddr))
+	}
+
+	var searchReranker reranker.Reranker
+	if cfg.Reranker.Enabled {
+		searchReranker = reranker.NewDependencies(reranker.DependenciesConfig{
+			Addr:           cfg.Reranker.Addr,
+			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
+			RequestTimeout: cfg.Reranker.RequestTimeout,
+			Log:            log,
+		})
+		log.Info("cross-encoder reranker enabled", zap.String("addr", cfg.Reranker.Addr))
+	}
+
+	var gen generator.Generator
+	if cfg.Generator.Enabled {
+		generatorEndpoint := cfg.GeneratorEndpoint()
+		gen = ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
+			Addr:           generatorEndpoint.Addr,
+			Model:          generatorEndpoint.Model,
+			RequestTimeout: cfg.Generator.RequestTimeout,
+		})
+		log.Info("LLM generator enabled",
+			zap.String("model", cfg.Generator.Model),
+		)
+	}
+
+	var semanticCache cache.SemanticCache
+
+	if cfg.SemanticCache.Enabled {
+		candidate, err := cache.NewDependencies(cache.DependenciesConfig{
+			Clients:     qdrantClients,
+			Collection:  cfg.SemanticCache.Collection,
+			Embedder:    e,
+			Threshold:   cfg.SemanticCache.Threshold,
+			TTL:         cfg.SemanticCache.TTL,
+			QueryPrefix: cfg.Embedder.QueryPrefix,
+			Version: "v1:" + cfg.Embedder.Model + ":" + fmt.Sprint(cfg.Embedder.Dimensions) +
+				":" + cfg.Embedder.QueryPrefix + ":" + cfg.Embedder.DocumentPrefix,
+		})
+		if err != nil {
+			log.Error("semantic cache init failed", zap.Error(err))
+		} else {
+			if err := candidate.EnsureCollection(startupCtx); err != nil {
+				log.Error("semantic cache ensure collection failed", zap.Error(err))
+			} else {
+				semanticCache = candidate
+				log.Info("semantic cache enabled",
+					zap.String("collection", cfg.SemanticCache.Collection),
+					zap.Float32("threshold", cfg.SemanticCache.Threshold),
+				)
+			}
+		}
+	}
+
+	searchService := search.NewDependencies(search.DependenciesConfig{
+		Embedder:               e,
+		Store:                  s,
+		Reranker:               searchReranker,
+		CandidateMul:           cfg.Reranker.CandidateMul,
+		SemanticCache:          semanticCache,
+		QueryPrefix:            cfg.Embedder.QueryPrefix,
+		MaxQueryChars:          cfg.Search.MaxQueryChars,
+		MaxFragments:           cfg.Search.MaxFragments,
+		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
+		MaxTopK:                cfg.Search.MaxTopK,
+		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
+		Log:                    log,
+	})
+
+	lifecycle := &documentLifecycle{}
+	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
+		Chunker:           chunkr,
+		Embedder:          e,
+		Store:             s,
+		Coordinator:       lifecycle,
+		SemanticCache:     semanticCache,
+		Enricher:          enricher,
+		DocumentConverter: documentConverter,
+		HypeEnabled:       cfg.Enrichment.Hype.Enabled,
+		HypeQuestions:     cfg.Enrichment.Hype.QuestionsPerChunk,
+		ContextualEnabled: cfg.Enrichment.Contextual.Enabled,
+		Retry: ingest.RetryConfig{
+			MaxAttempts:     cfg.Ingest.MaxAttempts,
+			InitialInterval: cfg.Ingest.InitialInterval,
+			MaxInterval:     cfg.Ingest.MaxInterval,
+			Multiplier:      cfg.Ingest.Multiplier,
+		},
+		Workers:          cfg.Ingest.Workers,
+		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
+		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
+		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
+		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
+		Log:              log,
+	})
+
+	var histChat chatHistory
+	var histReader historyReader
+	if cfg.History.Enabled {
+		h, err := qdranthistory.NewDependencies(qdranthistory.DependenciesConfig{
+			Clients:    qdrantClients,
+			Collection: cfg.History.Collection,
+			Embedder:   e,
+		})
+		if err != nil {
+			log.Error("history init failed", zap.Error(err))
+		} else if err := h.EnsureCollection(startupCtx); err != nil {
+			log.Error("history ensure collection failed", zap.Error(err))
+		} else {
+			histChat = h
+			histReader = h
+			log.Info("chat history persistence enabled", zap.String("collection", cfg.History.Collection))
+		}
+	}
+
+	// Composite data-reset rule: replacing the collection generation must also
+	// invalidate the semantic cache, or it keeps serving stale results for
+	// deleted content. Enforced once here at the composition root so every
+	// caller of the reset seam gets it for free.
+	var resetter documentResetter = s
+	if semanticCache != nil {
+		resetter = &cacheInvalidatingStore{resetter: s, cache: semanticCache}
+	}
+	resetter = &coordinatedStore{resetter: resetter, lifecycle: lifecycle}
+
+	// Conversational query rewriting: follow-ups are rewritten into
+	// standalone search queries against the session's recent turns before
+	// retrieval (Rewrite-Retrieve-Read). Skipped when a session has no
+	// prior turns; rewrite failures fall back to the raw query.
+	var chatRewriter rewriter.Rewriter
+	if cfg.Rewriter.Enabled {
+		rewriteEndpoint := cfg.RewriterEndpoint()
+		if rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
+			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
+				zap.String("addr", rewriteEndpoint.Addr), zap.String("model", rewriteEndpoint.Model))
+		} else {
+			chatRewriter = ollamarewriter.NewDependencies(ollamarewriter.DependenciesConfig{
+				Addr:           rewriteEndpoint.Addr,
+				Model:          rewriteEndpoint.Model,
+				RequestTimeout: cfg.Rewriter.RequestTimeout,
+			})
+			log.Info("conversational query rewriting enabled",
+				zap.String("model", rewriteEndpoint.Model),
+				zap.String("addr", rewriteEndpoint.Addr),
+				zap.Int("turns", cfg.Rewriter.Turns))
+		}
+	}
+
+	chatService := chat.NewDependencies(chat.DependenciesConfig{
+		Searcher:         searchService,
+		Generator:        gen,
+		History:          histChat,
+		Rewriter:         chatRewriter,
+		RewriteTurns:     cfg.Rewriter.Turns,
+		MaxContextTokens: cfg.Chat.MaxContextTokens,
+		EventBuffer:      cfg.Chat.EventBuffer,
+		MaxEventLogBytes: cfg.Chat.MaxEventLogBytes,
+		MaxRetainedTurns: cfg.Chat.MaxRetainedTurns,
+		FinishedTurnTTL:  cfg.Chat.FinishedTurnTTL,
+		PersistTimeout:   cfg.Chat.PersistTimeout,
+		Model:            cfg.Generator.Model,
+		Log:              log,
+	})
+
+	apiDeps := api.NewDependencies(api.DependenciesConfig{
+		Ingest:               ingestDeps,
+		Store:                resetter,
+		History:              histReader,
+		Chat:                 chatService,
+		TopK:                 cfg.Qdrant.TopK,
+		MaxTopK:              cfg.Search.MaxTopK,
+		SourcePaths:          cfg.Source.Paths,
+		SourceIgnorePatterns: cfg.Source.IgnorePatterns,
+		MaxSourceFileBytes:   cfg.Ingest.MaxFileBytes,
+		MaxUploadBytes:       cfg.Ingest.MaxUploadBytes,
+		Log:                  log,
+	})
+
+	engine := gin.New()
+	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog())
+	router := api.NewRouter(engine, apiDeps)
+
+	srv := &http.Server{
+		Addr:         cfg.HTTP.Addr,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTP.ReadTimeout,
+		WriteTimeout: cfg.HTTP.WriteTimeout,
+		IdleTimeout:  cfg.HTTP.IdleTimeout,
+	}
+
+	go func() {
+		<-ctx.Done()
+		log.Info("http server shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Error("http server shutdown error", zap.Error(err))
+		}
+	}()
+
+	log.Info("http server starting", zap.String("addr", srv.Addr))
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Error("http server error", zap.Error(err))
+		return fmt.Errorf("http server: %w", err)
+	}
+	return nil
+}
+
+// documentResetter is the narrow composition-root seam for a full Document
+// reset. Retrieval and indexing use the concrete Store through their own
+// consumer-owned seams.
+type documentResetter interface {
+	DeleteAll(ctx context.Context) error
+}
+
+// chatHistory is the Chat lifecycle's persistence capability. Read-only
+// sidebar and page operations use the separate historyReader seam below.
+type chatHistory interface {
+	CreateSession(ctx context.Context, title string) (history.Session, error)
+	TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error
+	AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error
+	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+	DeleteAllSessions(ctx context.Context) error
+}
+
+type historyReader interface {
+	ListSessions(ctx context.Context, limit int) ([]history.Session, error)
+	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
+	GetSession(ctx context.Context, sessionID string) (history.Session, error)
+}
+
+type cacheClearer interface {
+	Clear(ctx context.Context) error
+}
+
+// cacheInvalidatingStore decorates the document reset seam so a full data reset
+// also clears the semantic cache — otherwise the cache keeps serving
+// results for content that no longer exists.
+type cacheInvalidatingStore struct {
+	resetter documentResetter
+	cache    cacheClearer
+}
+
+// documentLifecycle coordinates a complete Indexing pass with a destructive
+// Document reset. It is intentionally process-local; distributed operation
+// needs a shared lease/fencing Adapter at this seam.
+type documentLifecycle struct {
+	mu sync.RWMutex
+}
+
+var _ ingest.LifecycleCoordinator = (*documentLifecycle)(nil)
+
+func (d *documentLifecycle) BeginIngest() {
+	d.mu.RLock()
+}
+
+func (d *documentLifecycle) EndIngest() {
+	d.mu.RUnlock()
+}
+
+type coordinatedStore struct {
+	resetter  documentResetter
+	lifecycle *documentLifecycle
+}
+
+func (d *coordinatedStore) DeleteAll(ctx context.Context) error {
+	d.lifecycle.mu.Lock()
+	defer d.lifecycle.mu.Unlock()
+	return d.resetter.DeleteAll(ctx)
+}
+
+func (d *cacheInvalidatingStore) DeleteAll(ctx context.Context) error {
+	if err := d.resetter.DeleteAll(ctx); err != nil {
+		return err
+	}
+	if err := d.cache.Clear(ctx); err != nil {
+		return fmt.Errorf("clear semantic cache: %w", err)
+	}
+	return nil
+}

@@ -37,10 +37,13 @@ availability requirements justify its operational cost.
 ## Current topology
 
 ```text
-Browser / API client
-          |
-          v
-   one Nadir process
+Browser
+  |
+  v
+static React dashboard + Nginx API/SSE proxy
+  |
+  v
+one Nadir API process
    ├── Document intake + Indexing pass
    ├── Retrieval: embed → dense + BM25 → RRF → optional rerank → cache
    ├── Chat turn lifecycle + generation supervisor
@@ -121,7 +124,7 @@ serve independent Retrieval requests if they use the same:
 This is not a complete active-active deployment. The following must remain
 single-writer or coordinated:
 
-- `/ingest` for a shared source identity;
+- `/api/v1/documents` for a shared source identity;
 - full Document reset;
 - Chat generation start and SSE subscription routing;
 - Session edit, append, and delete operations; and
@@ -192,7 +195,7 @@ These issues should be addressed before claiming production-grade scale-out.
 
 ### Overlapping Indexing passes
 
-Concurrent `/ingest` requests are serialized within one process, and reset is
+Concurrent `/api/v1/documents` requests are serialized within one process, and reset is
 coordinated with the complete Indexing pass. Distributed workers can still
 race because the gate is not shared. Add per-source leases and a monotonic
 fencing generation before allowing distributed Indexing.

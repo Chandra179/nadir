@@ -36,6 +36,8 @@ vendor
 # User document content — supplied via source.path config
 gitbook/
 
+# Legacy root-level frontend artifacts; the dashboard now lives under
+# web/dashboard and its package manifest/lockfile are tracked there.
 src/
 build.sh
 package.json
@@ -43,6 +45,13 @@ package-lock.json
 tailwind.config.js
 wrangler.jsonc
 vendor/
+web/dashboard/node_modules/
+!web/
+!web/dashboard/
+!web/dashboard/**
+web/dashboard/node_modules/
+web/dashboard/dist/
+web/dashboard/.vite-cache/
 venv/
 
 # compiled binaries

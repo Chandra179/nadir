@@ -17,14 +17,14 @@ tests and production evidence instead.
 | same, no-rerank reference | — | 0.740 | 0.784 | 49ms |
 | HyPE enabled on toy corpus | 0.882 | 0.804 | 0.823 | ~flat |
 
-Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
+Reports in `test/evaluation/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
 1–2s budget → quantized/base model swap listed under P2.
 
 ## Phase 0 — Eval foundation
 
-- [x] Golden set: `tests/eval/golden.json` (34 queries over `samples/`) with
-      committed run reports in `tests/eval/reports/`
-- [x] Repeatable Retrieval evaluator: `go run ./cmd/evalbench` loads the golden
+- [x] Golden set: `test/evaluation/golden.json` (34 queries over `samples/`) with
+      committed run reports in `test/evaluation/reports/`
+- [x] Repeatable Retrieval evaluator: `go run ./cmd/evaluator` loads the golden
       set, bypasses semantic cache, supports reranker control, repeats latency
       samples, and writes comparable JSON reports.
 - [ ] Grow golden set to 100+ queries as real corpus grows; keep distractor pairs
@@ -50,8 +50,9 @@ Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
 Zero query-time latency; one-time Ollama cost per chunk at ingest. Enabling
 after a prior ingest requires a reindex.
 
-- [x] `internal/enrichment` — `Enricher` interface (in `interface.go`, the
-      single definition; ingest imports it), Ollama chat client, lenient
+- [x] `internal/knowledge/enrichment` — `Enricher` interface (in
+      `interface.go`, the single definition; indexing imports it), Ollama chat
+      client, lenient
       JSON parsing, graceful per-chunk degradation (warn + index without
       enrichment)
 - [x] HyPE feature flag `enrichment.hype.enabled` (+ `questions_per_chunk`,
@@ -102,11 +103,43 @@ after a prior ingest requires a reindex.
 - [x] Split the indexing pass into per-file planning and replacement commit
       stages while preserving bounded workers, retries, and cache invalidation.
 - [x] Shared Qdrant clients, collection provisioning, payload codecs, and
-      point-ID decoding live in `internal/qdrantutil`; document, history, and
-      semantic-cache lifecycles remain separate.
+      point-ID decoding live under `internal/adapters/qdrant`; document,
+      history, and semantic-cache lifecycles remain separate.
 - [x] Wired optional PDF document intake through the Docling HTTP Adapter for
       uploads and configured source paths; the original PDF path remains the
       source identity.
+
+## Phase 2.7 — Frontend contract migration ✅
+
+- [x] Replace server-rendered HTMX/Alpine templates with a React + TypeScript +
+      Tailwind dashboard under `web/dashboard`.
+- [x] Replace HTML fragments and legacy routes with versioned JSON/SSE API
+      contracts; document them in `contracts/` and ADR-0021.
+- [x] Keep in-place edit pruning, SSE cursor replay, cancellation, document
+      upload/reset, and chat deletion in the new client.
+- [x] Add a Docker Desktop-compatible static dashboard service with Nginx API
+      and SSE proxying; Vite provides the local development proxy.
+- [x] Add Vitest/React Testing Library coverage for safe result rendering,
+      copy behavior, and native EventSource cursor/reconnect lifecycle.
+
+## Phase 2.8 — Bounded-context architecture refactor ✅
+
+- [x] Keep executable entrypoints under `cmd/api` and `cmd/evaluator`; future
+      indexer/admin processes remain deferred until they have real lifecycles.
+- [x] Group private Go code under the target contexts: `internal/knowledge`,
+      `internal/retrieval`, `internal/conversation`, and `internal/evaluation`.
+- [x] Move HTTP concerns to `internal/transport/http` and external systems to
+      `internal/adapters/{qdrant,ollama,reranker,docling}`.
+- [x] Move configuration, logging, observability, middleware, and composition
+      under `internal/platform`.
+- [x] Group supported Compose assets and future Kubernetes/Helm deployment
+      ownership under `deploy/`; keep unsupported distributed manifests
+      explicitly deferred.
+- [x] Split dashboard ownership into `app`, feature-owned API/types and
+      components, a workspace composition layer, shared hooks/HTTP, and
+      `styles` so Chat, history, and document work can proceed independently.
+- [x] Record the ownership and migration decision in ADR-0022; no old package
+      aliases or compatibility routes remain.
 
 ## Priority backlog
 
@@ -159,6 +192,13 @@ should wait for real usage data.
 - [x] Reconcile user documentation and ADRs with the current in-place editing,
       delete-all chat, explicit configuration, and single-node event-log
       behavior.
+- [x] Add deterministic browser-level Playwright coverage for dashboard open,
+      chat streaming, upload, cancellation, edit-tail pruning, one/all chat
+      deletion, and document reset.
+- [ ] Add dependency-backed browser coverage for session replay/reconnect and
+      full-service flows against Qdrant, Ollama, reranking, and Docling.
+- [x] Add and enforce a committed dashboard package lockfile plus CI checks for
+      the TypeScript typecheck, lint, tests, static build, and Playwright run.
 
 ### P2 — Production measurements and maintainability
 
@@ -183,6 +223,8 @@ should wait for real usage data.
       limits are per request or per process.
 - [ ] Add domain-level metrics, traces, and structured operation IDs for
       Retrieval, Chat, Indexing, cache invalidation, and reset outcomes.
+- [ ] Add a CI contract-drift check or OpenAPI code generation so the central
+      TypeScript API mirror cannot diverge from `contracts/http/openapi.yaml`.
 - [ ] Run Qdrant backup/restore drills and document recovery objectives before
       claiming high availability.
 - [ ] Add load benchmarks for concurrent Chat streams, long-fragment Retrieval,

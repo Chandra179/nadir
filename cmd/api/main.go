@@ -1,0 +1,38 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	_ "net/http/pprof" // registers /debug/pprof/* on the default mux
+	"os"
+	"os/signal"
+	"syscall"
+
+	"nadir/internal/platform/configuration"
+	"nadir/internal/platform/lifecycle"
+)
+
+// pprofAddr is the dedicated debug listener for external profiling tools.
+const pprofAddr = ":6063"
+
+func main() {
+	cfg, err := config.Load("config/config.yaml")
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+
+	go func() {
+		log.Printf("pprof listening on %s", pprofAddr)
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			log.Printf("pprof server: %v", err)
+		}
+	}()
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if err := server.Server(ctx, cfg); err != nil {
+		log.Fatalf("server: %v", err)
+	}
+}

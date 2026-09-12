@@ -34,7 +34,7 @@ obfuscate before crossing a package boundary you don't control.
    how it gets logged from there.
 
 ```go
-// modules/example/business_error.go — domain sentinel, no non-stdlib imports
+// internal/example/business_error.go — domain sentinel, no non-stdlib imports
 var ErrUserNotFound = errors.New("user not found")
 
 // infra layer
@@ -72,4 +72,4 @@ func (h *handler) HandleGetUser(c *gin.Context) {
 
 A request-binding failure follows the same shape — no sentinel to check,
 just `c.JSON(http.StatusBadRequest, ...)` directly — see
-`modules/example/handler.go`.
+`internal/example/handler.go`.

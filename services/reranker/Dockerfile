@@ -10,7 +10,7 @@ ARG RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ENV RERANKER_MODEL=${RERANKER_MODEL}
 
 # GPU=1 installs the CUDA torch build instead of the CPU wheel (see
-# requirements-gpu.txt); pair with the docker-compose.gpu.yml override, which
+# requirements-gpu.txt); pair with the deploy/compose/docker-compose.gpu.yml override, which
 # sets this from RERANKER_GPU=1 and reserves the host GPU.
 ARG GPU=0
 ARG BAKE_QUANTIZED=1

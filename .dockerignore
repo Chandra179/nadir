@@ -13,3 +13,5 @@ coverage.*
 profile.cov
 eval
 server
+web/dashboard/node_modules
+web/dashboard/dist

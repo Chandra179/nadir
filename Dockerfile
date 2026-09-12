@@ -3,7 +3,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o /nadir ./cmd/server
+RUN go build -o /nadir ./cmd/api
 
 FROM alpine:3.20
 RUN apk add --no-cache curl
