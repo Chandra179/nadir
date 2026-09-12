@@ -23,6 +23,8 @@ type dependencies struct {
 	log    *zap.Logger
 }
 
+var _ Reranker = (*dependencies)(nil)
+
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	maxConcurrent := cfg.MaxConcurrent
 	if maxConcurrent <= 0 {

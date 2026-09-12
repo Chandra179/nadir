@@ -208,7 +208,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		Log:              log,
 	})
 
-	var hist history.History
+	var histChat chatHistory
+	var histReader historyReader
 	if cfg.History.Enabled {
 		h, err := history.NewDependencies(history.DependenciesConfig{
 			Clients:    qdrantClients,
@@ -220,7 +221,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		} else if err := h.EnsureCollection(startupCtx); err != nil {
 			log.Error("history ensure collection failed", zap.Error(err))
 		} else {
-			hist = h
+			histChat = h
+			histReader = h
 			log.Info("chat history persistence enabled", zap.String("collection", cfg.History.Collection))
 		}
 	}
@@ -228,12 +230,12 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// Composite data-reset rule: replacing the collection generation must also
 	// invalidate the semantic cache, or it keeps serving stale results for
 	// deleted content. Enforced once here at the composition root so every
-	// caller of Store.DeleteAll gets it for free.
-	storeSvc := store.Store(s)
+	// caller of the reset seam gets it for free.
+	var resetter documentResetter = s
 	if semanticCache != nil {
-		storeSvc = &cacheInvalidatingStore{Store: s, cache: semanticCache}
+		resetter = &cacheInvalidatingStore{resetter: s, cache: semanticCache}
 	}
-	storeSvc = &coordinatedStore{Store: storeSvc, lifecycle: lifecycle}
+	resetter = &coordinatedStore{resetter: resetter, lifecycle: lifecycle}
 
 	// Conversational query rewriting: follow-ups are rewritten into
 	// standalone search queries against the session's recent turns before
@@ -261,7 +263,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	chatService := chat.NewDependencies(chat.DependenciesConfig{
 		Searcher:         searchService,
 		Generator:        gen,
-		History:          hist,
+		History:          histChat,
 		Rewriter:         chatRewriter,
 		RewriteTurns:     cfg.Rewriter.Turns,
 		MaxContextTokens: cfg.Chat.MaxContextTokens,
@@ -276,8 +278,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 
 	apiDeps := api.NewDependencies(api.DependenciesConfig{
 		Ingest:               ingestDeps,
-		Store:                storeSvc,
-		History:              hist,
+		Store:                resetter,
+		History:              histReader,
 		Chat:                 chatService,
 		TopK:                 cfg.Qdrant.TopK,
 		MaxTopK:              cfg.Search.MaxTopK,
@@ -318,12 +320,39 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-// cacheInvalidatingStore decorates Store.DeleteAll so a full data reset
+// documentResetter is the narrow composition-root seam for a full Document
+// reset. Retrieval and indexing use the concrete Store through their own
+// consumer-owned seams.
+type documentResetter interface {
+	DeleteAll(ctx context.Context) error
+}
+
+// chatHistory is the Chat lifecycle's persistence capability. Read-only
+// sidebar and page operations use the separate historyReader seam below.
+type chatHistory interface {
+	CreateSession(ctx context.Context, title string) (history.Session, error)
+	TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error
+	AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error
+	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+	DeleteAllSessions(ctx context.Context) error
+}
+
+type historyReader interface {
+	ListSessions(ctx context.Context, limit int) ([]history.Session, error)
+	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
+}
+
+type cacheClearer interface {
+	Clear(ctx context.Context) error
+}
+
+// cacheInvalidatingStore decorates the document reset seam so a full data reset
 // also clears the semantic cache — otherwise the cache keeps serving
 // results for content that no longer exists.
 type cacheInvalidatingStore struct {
-	store.Store
-	cache cache.SemanticCache
+	resetter documentResetter
+	cache    cacheClearer
 }
 
 // documentLifecycle coordinates a complete Indexing pass with a destructive
@@ -332,6 +361,8 @@ type cacheInvalidatingStore struct {
 type documentLifecycle struct {
 	mu sync.RWMutex
 }
+
+var _ ingest.LifecycleCoordinator = (*documentLifecycle)(nil)
 
 func (d *documentLifecycle) BeginIngest() {
 	d.mu.RLock()
@@ -342,18 +373,18 @@ func (d *documentLifecycle) EndIngest() {
 }
 
 type coordinatedStore struct {
-	store.Store
+	resetter  documentResetter
 	lifecycle *documentLifecycle
 }
 
 func (d *coordinatedStore) DeleteAll(ctx context.Context) error {
 	d.lifecycle.mu.Lock()
 	defer d.lifecycle.mu.Unlock()
-	return d.Store.DeleteAll(ctx)
+	return d.resetter.DeleteAll(ctx)
 }
 
 func (d *cacheInvalidatingStore) DeleteAll(ctx context.Context) error {
-	if err := d.Store.DeleteAll(ctx); err != nil {
+	if err := d.resetter.DeleteAll(ctx); err != nil {
 		return err
 	}
 	if err := d.cache.Clear(ctx); err != nil {

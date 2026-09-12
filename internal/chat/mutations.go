@@ -66,7 +66,7 @@ func (m *historyMutations) currentLocked(sessionID string) historyMutation {
 	}
 }
 
-func (m *historyMutations) createSession(ctx context.Context, h History, title string) (history.Session, historyMutation, error) {
+func (m *historyMutations) createSession(ctx context.Context, h historyStore, title string) (history.Session, historyMutation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -77,7 +77,7 @@ func (m *historyMutations) createSession(ctx context.Context, h History, title s
 	return session, m.currentLocked(session.ID), nil
 }
 
-func (m *historyMutations) prepareEdit(ctx context.Context, h History, sessionID string, beforeSequence int) (historyMutation, error) {
+func (m *historyMutations) prepareEdit(ctx context.Context, h historyStore, sessionID string, beforeSequence int) (historyMutation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (m *historyMutations) prepareEdit(ctx context.Context, h History, sessionID
 	return m.currentLocked(sessionID), nil
 }
 
-func (m *historyMutations) append(ctx context.Context, h History, token historyMutation, turn history.Turn, firstTurnTitle string) error {
+func (m *historyMutations) append(ctx context.Context, h historyStore, token historyMutation, turn history.Turn, firstTurnTitle string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.currentLocked(token.sessionID).equals(token) {
@@ -101,7 +101,7 @@ func (m *historyMutations) append(ctx context.Context, h History, token historyM
 	return h.AppendTurn(ctx, token.sessionID, turn, firstTurnTitle)
 }
 
-func (m *historyMutations) deleteSession(ctx context.Context, h History, sessionID string) error {
+func (m *historyMutations) deleteSession(ctx context.Context, h historyStore, sessionID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -112,7 +112,7 @@ func (m *historyMutations) deleteSession(ctx context.Context, h History, session
 	return h.DeleteSession(ctx, sessionID)
 }
 
-func (m *historyMutations) deleteAll(ctx context.Context, h History) error {
+func (m *historyMutations) deleteAll(ctx context.Context, h historyStore) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

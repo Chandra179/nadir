@@ -22,6 +22,9 @@ type dependencies struct {
 	client     *http.Client
 }
 
+var _ Embedder = (*dependencies)(nil)
+var _ BatchEmbedder = (*dependencies)(nil)
+
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

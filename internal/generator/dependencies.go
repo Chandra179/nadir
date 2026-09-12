@@ -20,6 +20,8 @@ type dependencies struct {
 	client *http.Client
 }
 
+var _ Generator = (*dependencies)(nil)
+
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

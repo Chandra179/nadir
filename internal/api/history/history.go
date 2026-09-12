@@ -8,14 +8,13 @@ import (
 
 	"nadir/internal/api/render"
 	"nadir/internal/chat"
-	"nadir/internal/history"
 )
 
 // Config wires the history handlers.
 type Config struct {
 	// History is the persistence use-case; optional — when nil, the sidebar
 	// renders empty and deletion reports "disabled".
-	History history.History
+	History sessionLister
 	// Render renders the UI templates.
 	Render *render.Engine
 	// Log receives handler failures.
@@ -27,7 +26,7 @@ type Config struct {
 
 // Handlers serves the history endpoints.
 type Handlers struct {
-	history history.History
+	history sessionLister
 	chat    chat.Chat
 	render  *render.Engine
 	log     *zap.Logger

@@ -4,26 +4,23 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"nadir/internal/cache"
-	"nadir/internal/store"
 )
 
 type compositionStore struct {
-	store.Store
 	deleteErr error
 	deleted   bool
 }
+
+var _ documentResetter = (*compositionStore)(nil)
 
 func (s *compositionStore) DeleteAll(context.Context) error {
 	s.deleted = true
 	return s.deleteErr
 }
 
-type compositionCache struct {
-	cache.SemanticCache
-	cleared bool
-}
+type compositionCache struct{ cleared bool }
+
+var _ cacheClearer = (*compositionCache)(nil)
 
 func (c *compositionCache) Clear(context.Context) error {
 	c.cleared = true
@@ -33,7 +30,7 @@ func (c *compositionCache) Clear(context.Context) error {
 func TestCacheInvalidatingStoreClearsCacheAfterSuccessfulReset(t *testing.T) {
 	base := &compositionStore{}
 	cacheStore := &compositionCache{}
-	decorated := &cacheInvalidatingStore{Store: base, cache: cacheStore}
+	decorated := &cacheInvalidatingStore{resetter: base, cache: cacheStore}
 	if err := decorated.DeleteAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +42,7 @@ func TestCacheInvalidatingStoreClearsCacheAfterSuccessfulReset(t *testing.T) {
 func TestCacheInvalidatingStoreDoesNotClearCacheAfterStoreFailure(t *testing.T) {
 	base := &compositionStore{deleteErr: context.Canceled}
 	cacheStore := &compositionCache{}
-	decorated := &cacheInvalidatingStore{Store: base, cache: cacheStore}
+	decorated := &cacheInvalidatingStore{resetter: base, cache: cacheStore}
 	if err := decorated.DeleteAll(context.Background()); err == nil {
 		t.Fatal("DeleteAll() succeeded despite store failure")
 	}
@@ -57,7 +54,7 @@ func TestCacheInvalidatingStoreDoesNotClearCacheAfterStoreFailure(t *testing.T) 
 func TestCoordinatedStoreWaitsForIndexingBeforeReset(t *testing.T) {
 	lifecycle := &documentLifecycle{}
 	base := &compositionStore{}
-	decorated := &coordinatedStore{Store: base, lifecycle: lifecycle}
+	decorated := &coordinatedStore{resetter: base, lifecycle: lifecycle}
 	lifecycle.BeginIngest()
 
 	done := make(chan struct{})

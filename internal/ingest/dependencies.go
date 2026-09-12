@@ -10,7 +10,6 @@ import (
 	"nadir/internal/chunker"
 	"nadir/internal/embedder"
 	"nadir/internal/enrichment"
-	"nadir/internal/store"
 
 	"go.uber.org/zap"
 )
@@ -35,7 +34,7 @@ type RetryConfig struct {
 type DependenciesConfig struct {
 	Chunker           chunker.Chunker
 	Embedder          embedder.Embedder
-	Store             store.Store
+	Store             documentIndexer
 	Coordinator       LifecycleCoordinator
 	SemanticCache     cache.SemanticCache
 	Enricher          enrichment.Enricher
@@ -60,7 +59,7 @@ type DependenciesConfig struct {
 type dependencies struct {
 	chunker        chunker.Chunker
 	embedder       embedder.Embedder
-	store          store.Store
+	store          documentIndexer
 	coordinator    LifecycleCoordinator
 	cache          cache.SemanticCache
 	cfg            RetryConfig
@@ -77,6 +76,8 @@ type dependencies struct {
 	converter      DocumentConverter
 	log            *zap.Logger
 }
+
+var _ Ingest = (*dependencies)(nil)
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	workers := cfg.Workers

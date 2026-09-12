@@ -34,6 +34,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// ingestStore is the narrow Document Store capability needed by the
+// development indexing pass. Retrieval and reset are separate concerns.
+type ingestStore interface {
+	GetAllFileSHAs(context.Context) (map[string]string, error)
+	ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error
+}
+
 func main() {
 	configPath := flag.String("config", "config/config.yaml", "path to config file")
 	goldenPath := flag.String("golden", "tests/eval/golden.json", "path to golden query set")
@@ -158,7 +165,7 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 	return nil
 }
 
-func ensureIngested(ctx context.Context, cfg *config.Config, st store.Store, emb embedder.Embedder, log *zap.Logger) error {
+func ensureIngested(ctx context.Context, cfg *config.Config, st ingestStore, emb embedder.Embedder, log *zap.Logger) error {
 	if len(cfg.Source.Paths) == 0 {
 		return fmt.Errorf("collection is empty or --ensure-ingest was requested, but source.paths has no directories")
 	}

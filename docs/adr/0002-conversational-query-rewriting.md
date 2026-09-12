@@ -47,8 +47,8 @@ Constraints and tradeoffs from the research pass recorded in the TODO roadmap:
   `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`.
   Addr/model are explicit role configuration; the rewriter does not inherit
   another role's endpoint or model.
-- `chat.History` gained `ListTurns` (consumer-side interface extension);
-  `history.Dependencies` already implemented it.
+- Chat's private history seam includes `ListTurns`; the History Adapter already
+  implemented it.
 
 ## Consequences
 

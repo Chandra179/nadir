@@ -53,20 +53,12 @@ func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA strin
 	f.replaced = append(f.replaced, chunks...)
 	return nil
 }
-func (f *fakeStore) DeleteAll(context.Context) error { return nil }
-func (f *fakeStore) HybridSearch(context.Context, []float32, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
-func (f *fakeStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
 func (f *fakeStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
 	return map[string]string{}, nil
 }
-func (f *fakeStore) Stats(context.Context) (store.Stats, error) { return store.Stats{}, nil }
 
 var _ embedder.Embedder = fakeEmbedder{}
-var _ store.Store = (*fakeStore)(nil)
+var _ documentIndexer = (*fakeStore)(nil)
 
 type fakeEnricher struct {
 	hypeCalls       int
@@ -183,20 +175,14 @@ func (s *serialStore) ReplaceDocument(context.Context, string, string, []store.S
 	return nil
 }
 
-func (s *serialStore) DeleteAll(context.Context) error { return nil }
-func (s *serialStore) HybridSearch(context.Context, []float32, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
-func (s *serialStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
 func (s *serialStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
 	if s.getCalls.Add(1) == 2 {
 		s.secondOnce.Do(func() { close(s.secondStart) })
 	}
 	return map[string]string{}, nil
 }
-func (s *serialStore) Stats(context.Context) (store.Stats, error) { return store.Stats{}, nil }
+
+var _ documentIndexer = (*serialStore)(nil)
 
 func TestRunSerializesOverlappingIndexingPasses(t *testing.T) {
 	storeFake := &serialStore{

@@ -18,7 +18,6 @@ import (
 	domainhistory "nadir/internal/history"
 	"nadir/internal/ingest"
 	"nadir/internal/search"
-	"nadir/internal/store"
 )
 
 type e2eIngest struct {
@@ -34,44 +33,19 @@ type e2eStore struct {
 	resetCalls int
 }
 
-func (f *e2eStore) ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error {
-	return nil
-}
 func (f *e2eStore) DeleteAll(context.Context) error {
 	f.resetCalls++
 	return nil
 }
-func (f *e2eStore) HybridSearch(context.Context, []float32, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
-func (f *e2eStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
-	return nil, nil
-}
-func (f *e2eStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-func (f *e2eStore) Stats(context.Context) (store.Stats, error) { return store.Stats{}, nil }
 
 type e2eHistory struct{}
 
-func (e2eHistory) CreateSession(context.Context, string) (domainhistory.Session, error) {
-	return domainhistory.Session{ID: "session-1"}, nil
-}
-func (e2eHistory) TruncateSession(context.Context, string, int) error { return nil }
-func (e2eHistory) AppendTurn(context.Context, string, domainhistory.Turn, string) error {
-	return nil
-}
 func (e2eHistory) ListSessions(context.Context, int) ([]domainhistory.Session, error) {
 	return []domainhistory.Session{{ID: "session-1", Title: "A chat"}}, nil
-}
-func (e2eHistory) GetSession(context.Context, string) (domainhistory.Session, error) {
-	return domainhistory.Session{ID: "session-1"}, nil
 }
 func (e2eHistory) ListTurns(context.Context, string) ([]domainhistory.Turn, error) {
 	return nil, nil
 }
-func (e2eHistory) DeleteSession(context.Context, string) error { return nil }
-func (e2eHistory) DeleteAllSessions(context.Context) error     { return nil }
 
 type e2eChat struct {
 	startCalls    []domainchat.Request

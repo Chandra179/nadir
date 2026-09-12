@@ -32,8 +32,6 @@ type dependencies struct {
 	mu          sync.RWMutex
 }
 
-var _ Store = (*dependencies)(nil)
-
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	prefetchMul := cfg.PrefetchMul
 	if prefetchMul <= 0 {

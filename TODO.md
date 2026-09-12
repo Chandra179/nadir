@@ -162,6 +162,9 @@ should wait for real usage data.
 
 ### P2 — Production measurements and maintainability
 
+- [x] Narrow consumer-owned capability seams for Document Retrieval,
+      indexing, reset, history reads, and Chat persistence; remove redundant
+      Generator and cache-provisioning contracts. See ADR-0020.
 - [ ] Measure PDF document-intake latency, memory, timeout, and failure
       behavior against real documents in a production-like environment.
 - [ ] Finish the reranker benchmark on representative hardware. Compare the

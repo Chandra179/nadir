@@ -36,8 +36,6 @@ type dependencies struct {
 	writeMu    sync.Mutex
 }
 
-var _ History = (*dependencies)(nil)
-
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	collection := cfg.Collection
 	if collection == "" {

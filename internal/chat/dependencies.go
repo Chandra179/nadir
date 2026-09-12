@@ -5,7 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"nadir/internal/generator"
 	"nadir/internal/rewriter"
+	"nadir/internal/search"
 )
 
 const (
@@ -16,12 +18,12 @@ const (
 // DependenciesConfig groups everything needed to construct the chat
 // service.
 type DependenciesConfig struct {
-	Searcher Searcher
+	Searcher search.Retriever
 	// Generator is optional: when nil, StartTurn ignores Request.Generate.
-	Generator Generator
+	Generator generator.Generator
 	// History is optional: when nil, no sessions are minted and turns are
 	// not persisted.
-	History History
+	History historyStore
 	// Rewriter is optional: when set (with History), follow-up turns are
 	// rewritten into standalone search queries against the session's recent
 	// turns before retrieval. Best-effort — failures fall back to the raw
@@ -47,9 +49,9 @@ type DependenciesConfig struct {
 }
 
 type dependencies struct {
-	searcher         Searcher
-	generator        Generator
-	history          History
+	searcher         search.Retriever
+	generator        generator.Generator
+	history          historyStore
 	mutations        *historyMutations
 	rewriter         rewriter.Rewriter
 	rewriteTurns     int

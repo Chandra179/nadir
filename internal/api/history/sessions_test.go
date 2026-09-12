@@ -13,37 +13,11 @@ import (
 )
 
 type fakeHistory struct {
-	deleteAllCalls int
-	err            error
-}
-
-func (f *fakeHistory) CreateSession(context.Context, string) (domainhistory.Session, error) {
-	return domainhistory.Session{}, nil
-}
-
-func (f *fakeHistory) TruncateSession(context.Context, string, int) error { return nil }
-
-func (f *fakeHistory) AppendTurn(context.Context, string, domainhistory.Turn, string) error {
-	return nil
+	err error
 }
 
 func (f *fakeHistory) ListSessions(context.Context, int) ([]domainhistory.Session, error) {
 	return nil, nil
-}
-
-func (f *fakeHistory) GetSession(context.Context, string) (domainhistory.Session, error) {
-	return domainhistory.Session{}, nil
-}
-
-func (f *fakeHistory) ListTurns(context.Context, string) ([]domainhistory.Turn, error) {
-	return nil, nil
-}
-
-func (f *fakeHistory) DeleteSession(context.Context, string) error { return nil }
-
-func (f *fakeHistory) DeleteAllSessions(context.Context) error {
-	f.deleteAllCalls++
-	return f.err
 }
 
 type fakeChat struct {
@@ -94,9 +68,6 @@ func TestHistorySessionsDeleteAll(t *testing.T) {
 	}
 	if chat.deleteAllCalls != 1 {
 		t.Fatalf("chat DeleteAllSessions calls = %d, want 1", chat.deleteAllCalls)
-	}
-	if fake.deleteAllCalls != 0 {
-		t.Fatalf("handler must not bypass chat lifecycle, history DeleteAllSessions calls = %d", fake.deleteAllCalls)
 	}
 }
 

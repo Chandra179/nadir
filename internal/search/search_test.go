@@ -44,17 +44,9 @@ type searchTestStore struct {
 	results     []store.ScoredChunk
 }
 
-func (s *searchTestStore) ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error {
-	return nil
-}
-func (s *searchTestStore) DeleteAll(context.Context) error { return nil }
 func (s *searchTestStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
 	return nil, nil
 }
-func (s *searchTestStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
-	return nil, nil
-}
-func (s *searchTestStore) Stats(context.Context) (store.Stats, error) { return store.Stats{}, nil }
 
 func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
 	s.mu.Lock()
@@ -68,7 +60,7 @@ func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string,
 	return results, nil
 }
 
-var _ store.Store = (*searchTestStore)(nil)
+var _ documentSearcher = (*searchTestStore)(nil)
 
 type searchTestCache struct {
 	chunks   []store.ScoredChunk
@@ -82,7 +74,6 @@ func (c *searchTestCache) Get(context.Context, string) ([]store.ScoredChunk, boo
 }
 func (c *searchTestCache) Set(context.Context, string, []store.ScoredChunk) error { return nil }
 func (c *searchTestCache) Clear(context.Context) error                            { return nil }
-func (c *searchTestCache) EnsureCollection(context.Context) error                 { return nil }
 
 var _ cache.SemanticCache = (*searchTestCache)(nil)
 

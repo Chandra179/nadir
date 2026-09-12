@@ -20,7 +20,7 @@ obfuscate before crossing a package boundary you don't control.
 
 ## Layered pattern
 
-1. **Infra layer** recognizes a driver/library sentinel (e.g. `pgx.ErrNoRows`)
+1. **Infra layer** recognizes a driver/library sentinel (e.g. `sql.ErrNoRows`)
    with `errors.Is` and translates it into a domain sentinel owned by that
    module (e.g. `ErrUserNotFound`, in that module's own `business_error.go`). A
    domain sentinel is a plain `errors.New(...)` value — it imports nothing
@@ -39,7 +39,7 @@ var ErrUserNotFound = errors.New("user not found")
 
 // infra layer
 func (r *Repository) FetchUser(id string) (*User, error) {
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("fetch user %s: %w", id, ErrUserNotFound)
 	}
 	...

@@ -7,7 +7,6 @@ import (
 	"nadir/internal/cache"
 	"nadir/internal/embedder"
 	"nadir/internal/reranker"
-	"nadir/internal/store"
 
 	"go.uber.org/zap"
 )
@@ -16,7 +15,7 @@ import (
 // dependencies.
 type DependenciesConfig struct {
 	Embedder embedder.Embedder
-	Store    store.Store
+	Store    documentSearcher
 	Reranker reranker.Reranker
 	// CandidateMul controls how many candidates are fetched before reranking.
 	// It is ignored when Reranker is nil.
@@ -35,7 +34,7 @@ type DependenciesConfig struct {
 
 type dependencies struct {
 	embedder               embedder.Embedder
-	store                  store.Store
+	store                  documentSearcher
 	reranker               reranker.Reranker
 	candidateMul           int
 	cache                  cache.SemanticCache
@@ -47,6 +46,8 @@ type dependencies struct {
 	maxChunksPerFile       int
 	log                    *zap.Logger
 }
+
+var _ Retriever = (*dependencies)(nil)
 
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	maxQueryChars := cfg.MaxQueryChars

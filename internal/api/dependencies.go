@@ -7,9 +7,7 @@ import (
 	historyapi "nadir/internal/api/history"
 	"nadir/internal/api/render"
 	"nadir/internal/chat"
-	"nadir/internal/history"
 	"nadir/internal/ingest"
-	"nadir/internal/store"
 )
 
 // defaultTopK backs the configured default when config leaves it unset.
@@ -19,10 +17,10 @@ const defaultTopK = 8
 // dependencies.
 type DependenciesConfig struct {
 	Ingest ingest.Ingest
-	Store  store.Store
+	Store  documentResetter
 	// History is optional: when nil, session pages 404, sessions are not
 	// minted and the sidebar's chat list is simply empty.
-	History history.History
+	History sessionReader
 	// Chat runs the chat use-case for the chat UI: start turn, subscribe to
 	// its event stream, cancel it.
 	Chat chat.Chat
@@ -40,8 +38,8 @@ type DependenciesConfig struct {
 
 type dependencies struct {
 	ingest               ingest.Ingest
-	store                store.Store
-	history              history.History
+	store                documentResetter
+	history              sessionReader
 	topK                 int
 	sourcePaths          []string
 	sourceIgnorePatterns []string

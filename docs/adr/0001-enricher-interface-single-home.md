@@ -34,5 +34,6 @@ interface.
 - `internal/ingest` now depends on `internal/enrichment`. Both are domain
   packages, so the "no api/server/middleware imports" rule still holds.
 - Convention going forward: when a package owns an abstraction (like
-  `enrichment`), its interface lives there; consumer-side narrow interfaces
-  (like `chat.Searcher`) remain for slices of packages owned elsewhere.
+  `enrichment`), its interface lives there; consumer-side narrow seams (like
+  Chat's private history seam) remain in the consuming Module when they cover
+  only part of a sibling's contract.

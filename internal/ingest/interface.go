@@ -1,12 +1,23 @@
 package ingest
 
-import "context"
+import (
+	"context"
+
+	"nadir/internal/store"
+)
 
 // Ingest runs an ingest pass over a batch of uploaded files: chunk, embed,
 // and upsert each one that's new or changed since the last run (by content
 // SHA-256).
 type Ingest interface {
 	Run(ctx context.Context, files []UploadFile) (Result, error)
+}
+
+// documentIndexer is the narrow Document Store capability needed by an
+// Indexing pass. Retrieval and administrative reset stay outside this seam.
+type documentIndexer interface {
+	GetAllFileSHAs(ctx context.Context) (map[string]string, error)
+	ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []store.ScoredChunk) error
 }
 
 // LifecycleCoordinator serializes a complete Indexing pass against

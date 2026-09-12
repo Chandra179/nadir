@@ -20,6 +20,8 @@ type doclingConverter struct {
 	log    *zap.Logger
 }
 
+var _ DocumentConverter = (*doclingConverter)(nil)
+
 func (d *doclingConverter) Convert(ctx context.Context, name string, data []byte) ([]byte, error) {
 	started := time.Now()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.addr+"/convert", bytes.NewReader(data))

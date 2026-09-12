@@ -17,13 +17,13 @@ import (
 
 // DependenciesConfig groups the Retrieval seam exercised by the harness.
 type DependenciesConfig struct {
-	Searcher Searcher
+	Searcher search.Retriever
 	Log      *zap.Logger
 }
 
 // Harness evaluates a GoldenSet through one configured Retrieval Adapter.
 type Harness struct {
-	searcher Searcher
+	searcher search.Retriever
 	log      *zap.Logger
 }
 

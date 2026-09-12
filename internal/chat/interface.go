@@ -3,25 +3,12 @@ package chat
 import (
 	"context"
 
-	"nadir/internal/generator"
 	"nadir/internal/history"
-	"nadir/internal/search"
 )
 
-// Searcher is the retrieval entry point (satisfied by *search.Dependencies).
-type Searcher interface {
-	Query(ctx context.Context, request search.Request) (search.Result, error)
-}
-
-// Generator turns a fully-built prompt into a typed event stream
-// (satisfied by *generator.Dependencies).
-type Generator interface {
-	Generate(ctx context.Context, prompt string) (<-chan generator.Event, error)
-}
-
-// History persists sessions and turns; optional — when nil, turns are not
-// minted or saved and StartTurn degrades to stateless search.
-type History interface {
+// historyStore is the Chat lifecycle's narrow persistence seam. Sidebar
+// listing and unrelated session lookups stay outside the Chat Module.
+type historyStore interface {
 	CreateSession(ctx context.Context, title string) (history.Session, error)
 	TruncateSession(ctx context.Context, sessionID string, beforeSequence int) error
 	AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error
