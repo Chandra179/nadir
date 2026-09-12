@@ -6,9 +6,9 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 
 | Tool | Required? | Purpose |
 |------|-----------|---------|
-| Docker + Docker Compose | **Required** | Qdrant, reranker sidecar |
-| Go 1.26+ | **Required** | Server + CLI |
-| Python 3.10+ | **Required** | Reranker sidecar, PDF conversion |
+| Docker + Docker Compose | **Required for the provided local/Compose flow** | Qdrant and optional containerized reranker |
+| Go 1.27+ | **Required** | Server + CLI |
+| Python 3.10+ | **Required for the host reranker/PDF sidecar** | Reranker sidecar and optional PDF conversion |
 | Node.js 22+ | **Required for dashboard** | React dashboard and browser tests |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`nomic-embed-text`) and optional LLM features |
 
@@ -36,7 +36,16 @@ source:
 ./scripts/local.sh
 ```
 
-This starts Qdrant + reranker, runs the Go API, ingests all source files, and blocks on the server. Run the React dashboard separately with `cd web/dashboard && npm ci && npm run dev`, then open `http://localhost:3000`.
+This starts Qdrant, the host-side reranker, and the Go API, ingests all source
+files, and blocks on the server. Run the React dashboard separately:
+
+```bash
+cd web/dashboard
+npm ci
+npm run dev
+```
+
+Then open `http://localhost:3000`.
 
 ### 3. Test search
 
@@ -46,8 +55,9 @@ curl -X POST localhost:8100/api/v1/turns \
   -d '{"query":"secant formula","generate":false}'
 ```
 
-The API is JSON-only. Live generated answers are delivered by the SSE URL in
-the turn response; the React dashboard handles that stream.
+The control API uses JSON requests and responses. Live generated answers are
+delivered by an SSE endpoint in the turn response; the React dashboard handles
+that stream.
 
 ### 4. Include LLM answer generation
 
@@ -92,14 +102,25 @@ curl -X POST localhost:8100/api/v1/documents
 
 ## Docker Desktop (Linux, Windows, and macOS)
 
-The default Compose stack is CPU-safe and does not require NVIDIA. It works
-with Docker Desktop on Windows and macOS; Ollama runs on the host and the
-container reaches it through `host.docker.internal`.
+The default Compose stack is CPU-safe and does not require NVIDIA. It runs the
+Go API, Qdrant, and the CPU reranker. It works with Docker Desktop on Windows
+and macOS; Ollama runs on the host and the container reaches it through
+`host.docker.internal`.
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d --build
-# Open http://localhost:3000 in a browser.
 ```
+
+The dashboard is not built or served by Compose. Start it with the local Node
+toolchain in a second terminal:
+
+```bash
+cd web/dashboard
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000` after Vite starts.
 
 The default source mount is `./samples`. Set `SOURCE_DIR` in `.env` to a
 different host directory. On Apple Silicon, keep the default CPU reranker
@@ -208,6 +229,16 @@ For production, serve the dashboard's built `dist/` directory from an
 independently managed static host and proxy the versioned API/SSE paths to the
 Go API.
 
+## Documentation map
+
+- [Overview](docs/OVERVIEW.md) — what Nadir does and how users experience it.
+- [Architecture](docs/architecture.md) — high-level system design and data flow.
+- [Scaling and concurrency](docs/SCALING.md) — current single-node guarantees
+  and the requirements for distributed operation.
+- [Active TODO](TODO.md) — open engineering work and evaluation priorities.
+- [Completed roadmap archive](docs/roadmap/archive.md) — finished phases and
+  historical benchmark context.
+
 ## Run tests
 
 ### Unit tests (no Docker required)
@@ -279,6 +310,23 @@ curl -X POST localhost:8100/api/v1/documents/reset
 curl http://localhost:11434/api/tags
 ollama serve
 ```
+
+### Ollama embedding fails or the GPU is out of memory
+
+Check which models and processes are resident before changing the embedding
+model:
+
+```bash
+ollama ps
+nvidia-smi                 # NVIDIA hosts only
+ollama stop <idle-model>   # unload an unused resident model
+```
+
+The host-side local script can place the reranker on the GPU. On a small GPU,
+run the reranker in CPU mode or use the portable Compose profile so the
+generator, embedder, and reranker do not compete for the same memory. Changing
+an embedding model, vector dimension, or query/document prefix requires a full
+document reindex.
 
 ### "model not found" during ingest/search
 

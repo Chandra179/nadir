@@ -80,3 +80,36 @@ func TestRerankHonorsTimeoutAndCancellation(t *testing.T) {
 		t.Fatal("Rerank() succeeded with canceled request")
 	}
 }
+
+func TestProbeReportsLoadedModelAndRuntime(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"ok","model":"BAAI/bge-reranker-base","loaded_model":"BAAI/bge-reranker-base","backend":"torch-int8","device":"cpu"}`))
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "BAAI/bge-reranker-base", RequestTimeout: time.Second})
+	got, err := d.Probe(context.Background())
+	if err != nil {
+		t.Fatalf("Probe() error = %v", err)
+	}
+	if got.LoadedModel != "BAAI/bge-reranker-base" || got.Backend != "torch-int8" || got.Device != "cpu" {
+		t.Fatalf("Probe() = %+v, want loaded model and runtime", got)
+	}
+}
+
+func TestProbeReportsRunnerFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"status":"not_ready","model":"model","error":"model load failed"}`))
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "model", RequestTimeout: time.Second})
+	if _, err := d.Probe(context.Background()); err == nil || !strings.Contains(err.Error(), "model load failed") {
+		t.Fatalf("Probe() error = %v, want runner failure", err)
+	}
+}

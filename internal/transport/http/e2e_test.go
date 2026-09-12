@@ -207,6 +207,45 @@ func TestHTTPWorkflow(t *testing.T) {
 	}
 }
 
+func TestReadinessReturnsServiceUnavailableWithFailedCheck(t *testing.T) {
+	server := startE2EServer(t, NewDependencies(DependenciesConfig{
+		Readiness: func(context.Context) ReadinessReport {
+			return ReadinessReport{
+				Ready: false,
+				Checks: map[string]ReadinessCheck{
+					"embedding": {Model: "embed", Error: "model is unavailable"},
+				},
+			}
+		},
+	}))
+	client := &http.Client{Transport: handlerTransport{handler: server.handler}}
+
+	resp, err := client.Get(server.URL + RouteReady)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("readiness status = %d, want %d", resp.StatusCode, http.StatusServiceUnavailable)
+	}
+	var report ReadinessReport
+	if err := json.NewDecoder(resp.Body).Decode(&report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Ready || report.Checks["embedding"].Error == "" {
+		t.Fatalf("readiness report = %+v, want failed embedding diagnostic", report)
+	}
+
+	resp, err = client.Get(server.URL + RouteHealth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("liveness status = %d, want %d while readiness is failing", resp.StatusCode, http.StatusOK)
+	}
+}
+
 func mustRequest(t *testing.T, method, target string, body io.Reader) *http.Request {
 	t.Helper()
 	req, err := http.NewRequest(method, target, body)

@@ -68,3 +68,47 @@ func TestEmbedBatchHonorsTimeoutAndCancellation(t *testing.T) {
 		t.Fatal("EmbedBatch() succeeded with canceled context")
 	}
 }
+
+func TestProbeVerifiesLoadedModelAndDimensions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/embed":
+			_, _ = w.Write([]byte(`{"embeddings":[[1,2,3]]}`))
+		case "/api/ps":
+			_, _ = w.Write([]byte(`{"models":[{"name":"embed:latest"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{
+		Addr:           srv.URL,
+		Model:          "embed",
+		Dimensions:     3,
+		RequestTimeout: time.Second,
+	})
+	got, err := d.Probe(context.Background())
+	if err != nil {
+		t.Fatalf("Probe() error = %v", err)
+	}
+	if got.ConfiguredModel != "embed" || got.LoadedModel != "embed:latest" || got.Dimensions != 3 {
+		t.Fatalf("Probe() = %+v, want configured/loaded model and dimensions", got)
+	}
+}
+
+func TestProbeRejectsUnexpectedDimensions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/embed" {
+			_, _ = w.Write([]byte(`{"embeddings":[[1,2]]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "embed", Dimensions: 3, RequestTimeout: time.Second})
+	if _, err := d.Probe(context.Background()); err == nil || !strings.Contains(err.Error(), "want 3") {
+		t.Fatalf("Probe() error = %v, want dimension mismatch", err)
+	}
+}

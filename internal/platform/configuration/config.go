@@ -42,12 +42,13 @@ type ChatConfig struct {
 }
 
 type HTTPConfig struct {
-	Addr            string        `yaml:"addr"`
-	ReadTimeout     time.Duration `yaml:"read_timeout"`
-	WriteTimeout    time.Duration `yaml:"write_timeout"`
-	IdleTimeout     time.Duration `yaml:"idle_timeout"`
-	StartupTimeout  time.Duration `yaml:"startup_timeout"`
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	Addr             string        `yaml:"addr"`
+	ReadTimeout      time.Duration `yaml:"read_timeout"`
+	WriteTimeout     time.Duration `yaml:"write_timeout"`
+	IdleTimeout      time.Duration `yaml:"idle_timeout"`
+	StartupTimeout   time.Duration `yaml:"startup_timeout"`
+	ShutdownTimeout  time.Duration `yaml:"shutdown_timeout"`
+	ReadinessTimeout time.Duration `yaml:"readiness_timeout"`
 }
 
 type MiddlewareConfig struct {
@@ -353,6 +354,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.HTTP.ShutdownTimeout <= 0 {
 		c.HTTP.ShutdownTimeout = 10 * time.Second
+	}
+	if c.HTTP.ReadinessTimeout <= 0 {
+		c.HTTP.ReadinessTimeout = 15 * time.Second
 	}
 	if c.Qdrant.PrefetchMul <= 0 {
 		c.Qdrant.PrefetchMul = 5

@@ -38,7 +38,8 @@ API:
     POST /rerank  {"query": "...", "passages": ["...", ...]}
     -> {"scores": [0.95, -2.3, ...]}   # parallel to passages, higher = more relevant
 
-    GET /health -> {"status": "ok"}
+    GET /health -> loaded model, backend, and device (503 with the load error
+    while the runner is not ready)
 """
 
 import os
@@ -46,6 +47,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import CrossEncoder
 
@@ -59,6 +61,9 @@ DEVICE_SETTING = os.environ.get("RERANKER_DEVICE", "auto")
 QUANTIZED_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
 
 _model: CrossEncoder | None = None
+_load_error: str | None = None
+_loaded_backend: str | None = None
+_loaded_device: str | None = None
 
 
 def resolve_device() -> str:
@@ -153,19 +158,23 @@ def load_model() -> CrossEncoder:
     sidecar — and with it retrieval quality — down with it, while a fp32
     fallback merely costs latency.
     """
+    global _loaded_backend, _loaded_device
     device = resolve_device()
+    _loaded_device = device
     if device == "cuda":
         if BACKEND != "torch":
             print(
                 f"RERANKER_DEVICE=cuda: backend {BACKEND!r} is CPU-only "
                 "(int8 exports/quantization are CPU artifacts); serving fp32 torch on cuda"
             )
+        _loaded_backend = "torch"
         return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cuda")
 
     if BACKEND == "onnx":
         fname = baked_quantized_file()
         if fname is not None:
             print(f"loading baked int8 onnx model {fname!r} for {MODEL_NAME}")
+            _loaded_backend = "onnx-int8"
             return CrossEncoder(
                 QUANTIZED_DIR,
                 backend="onnx",
@@ -175,19 +184,32 @@ def load_model() -> CrossEncoder:
         print(f"no baked int8 export matching {MODEL_NAME}; loading fp32 onnx")
     if BACKEND in ("onnx", "openvino"):
         try:
+            _loaded_backend = BACKEND
             return CrossEncoder(MODEL_NAME, backend=BACKEND, max_length=MAX_LENGTH)
         except Exception as e:
             print(f"backend {BACKEND!r} failed to load ({e!r}); falling back to torch fp32")
     if BACKEND == "torch-int8":
+        _loaded_backend = "torch-int8"
         return TorchInt8Reranker(MODEL_NAME, MAX_LENGTH)
+    _loaded_backend = "torch"
     return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cpu")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _model
-    _model = load_model()
+    global _model, _load_error
+    try:
+        _model = load_model()
+        _load_error = None
+    except Exception as exc:
+        # Keep the process alive so orchestration can observe the failure and
+        # restart it with useful diagnostics instead of seeing a connection
+        # refusal with no runner context.
+        _model = None
+        _load_error = repr(exc)
+        print(f"reranker model failed to load: {_load_error}")
     yield
+    _model = None
 
 
 app = FastAPI(lifespan=lifespan)
@@ -204,6 +226,11 @@ class RerankResponse(BaseModel):
 
 @app.post("/rerank", response_model=RerankResponse)
 def rerank(req: RerankRequest) -> RerankResponse:
+    if _model is None:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "reranker model is not ready", "error": _load_error},
+        )
     pairs = [[req.query, passage] for passage in req.passages]
     scores = _model.predict(pairs).tolist()
     return RerankResponse(scores=scores)
@@ -211,7 +238,24 @@ def rerank(req: RerankRequest) -> RerankResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    if _model is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "model": MODEL_NAME,
+                "backend": _loaded_backend or BACKEND,
+                "device": _loaded_device or DEVICE_SETTING,
+                "error": _load_error or "model is not loaded",
+            },
+        )
+    return {
+        "status": "ok",
+        "model": MODEL_NAME,
+        "loaded_model": MODEL_NAME,
+        "backend": _loaded_backend or BACKEND,
+        "device": _loaded_device or DEVICE_SETTING,
+    }
 
 
 if __name__ == "__main__":

@@ -124,6 +124,20 @@ func (m *historyMutations) deleteAll(ctx context.Context, h historyStore) error 
 	return h.DeleteAllSessions(ctx)
 }
 
+// cancelAll cancels every generation that is tied to a persisted session. It
+// deliberately does not advance a revision: a shutdown cancellation must
+// still allow the supervisor to persist its partial answer. A destructive
+// delete uses deleteAll instead, which invalidates older mutations first.
+func (m *historyMutations) cancelAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for id, generation := range m.active {
+		generation.stream.cancelGeneration()
+		delete(m.active, id)
+	}
+}
+
 func (m *historyMutations) registerGeneration(turnID string, token historyMutation, stream *turnStream) bool {
 	if token.sessionID == "" {
 		return true

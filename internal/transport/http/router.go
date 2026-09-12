@@ -15,6 +15,7 @@ const (
 	RouteSessions       = "/api/v1/sessions"
 	RouteSession        = "/api/v1/sessions/:id"
 	RouteHealth         = "/api/v1/health"
+	RouteReady          = "/api/v1/ready"
 )
 
 // NewRouter registers the API endpoints on engine. Global middleware
@@ -34,5 +35,6 @@ func NewRouter(engine *gin.Engine, deps *dependencies) *gin.Engine {
 	engine.GET(RouteHealth, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
+	engine.GET(RouteReady, deps.readinessHandler)
 	return engine
 }

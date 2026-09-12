@@ -30,6 +30,10 @@ The browser has no server-rendered HTML dependency. It consumes a versioned
 JSON API and one SSE stream per generated turn. The API owns ordering,
 mutation, cancellation, persistence, and bounded event retention.
 
+Operationally, `/api/v1/health` is dependency-free liveness, while
+`/api/v1/ready` verifies Qdrant, the configured embedding model, and the
+enabled reranker before an instance should receive Retrieval traffic.
+
 Retrieval combines dense semantic search and BM25 keyword search using
 Reciprocal Rank Fusion. An optional cross-encoder reranks the leading
 candidates. The answer generator receives the selected source passages and

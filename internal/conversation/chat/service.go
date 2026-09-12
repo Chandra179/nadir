@@ -23,6 +23,11 @@ import (
 // of subscribers, and persists the final turn itself; the caller only
 // renders the trace and (when Turn.Streaming) subscribes via Subscribe.
 func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
+	if !d.beginStart() {
+		return Turn{Error: "Chat service is shutting down."}
+	}
+	defer d.endStart()
+
 	turn := Turn{Query: req.Query, Generate: req.Generate}
 	turn.SessionID = req.SessionID
 	var mutation historyMutation
@@ -135,8 +140,12 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		turn.GenerateError = "Conversation changed while generation was starting; please retry."
 		return turn
 	}
-	go d.consumeGeneration(stream, req, turn, mutation, events, generationStarted)
 	turn.Streaming = true
+	d.generations.Add(1)
+	go func(supervisorTurn Turn) {
+		defer d.generations.Done()
+		d.consumeGeneration(stream, req, supervisorTurn, mutation, events, generationStarted)
+	}(turn)
 	return turn
 }
 
@@ -167,6 +176,72 @@ func (d *dependencies) DeleteAllSessions(ctx context.Context) error {
 		return errors.New("chat history is disabled")
 	}
 	return d.mutations.deleteAll(ctx, d.history)
+}
+
+// Drain stops active generation and waits for generation supervisors and
+// detached history writes to finish. The composition root calls this after
+// HTTP shutdown has stopped new requests and before closing shared stores.
+//
+// A timeout is reported to the caller; it never abandons the wait silently.
+// The caller can then decide whether to continue process shutdown and record
+// the failed drain in its operational logs.
+func (d *dependencies) Drain(ctx context.Context) error {
+	activeDone := d.beginDrain()
+	d.mutations.cancelAll()
+	d.broker.cancelAll()
+	select {
+	case <-activeDone:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	// A StartTurn that was already inside the gate may have created its
+	// stream after the first cancellation snapshot. Cancel once more after
+	// all such callers have left so no generation slips through the drain.
+	d.mutations.cancelAll()
+	d.broker.cancelAll()
+
+	done := make(chan struct{})
+	go func() {
+		d.generations.Wait()
+		d.persists.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (d *dependencies) beginStart() bool {
+	d.lifecycleMu.Lock()
+	defer d.lifecycleMu.Unlock()
+	if d.draining {
+		return false
+	}
+	if d.activeStarts == 0 {
+		d.activeDone = make(chan struct{})
+	}
+	d.activeStarts++
+	return true
+}
+
+func (d *dependencies) endStart() {
+	d.lifecycleMu.Lock()
+	defer d.lifecycleMu.Unlock()
+	d.activeStarts--
+	if d.activeStarts == 0 {
+		close(d.activeDone)
+	}
+}
+
+func (d *dependencies) beginDrain() <-chan struct{} {
+	d.lifecycleMu.Lock()
+	defer d.lifecycleMu.Unlock()
+	d.draining = true
+	return d.activeDone
 }
 
 // consumeGeneration drains one in-flight answer: it maps the generator's
@@ -317,7 +392,9 @@ func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, m
 	if d.history == nil || turn.SessionID == "" {
 		return
 	}
+	d.persists.Add(1)
 	go func() {
+		defer d.persists.Done()
 		if err := d.persistTurn(reqCtx, req, turn, mutation, failed); err != nil {
 			if errors.Is(err, errStaleHistoryMutation) {
 				return

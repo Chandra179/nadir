@@ -86,6 +86,26 @@ type fakeHistory struct {
 	deleteSessionCalls []string
 }
 
+type blockingAppendHistory struct {
+	*fakeHistory
+	started chan struct{}
+	release chan struct{}
+}
+
+func (f *blockingAppendHistory) AppendTurn(ctx context.Context, sessionID string, turn history.Turn, firstTurnTitle string) error {
+	select {
+	case <-f.started:
+	default:
+		close(f.started)
+	}
+	select {
+	case <-f.release:
+		return f.fakeHistory.AppendTurn(ctx, sessionID, turn, firstTurnTitle)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (f *fakeHistory) CreateSession(ctx context.Context, title string) (history.Session, error) {
 	if f.createErr != nil {
 		return history.Session{}, f.createErr
@@ -608,6 +628,72 @@ func TestCancelTurnPersistsPartialAnswer(t *testing.T) {
 	appended := h.turns()[0]
 	if !appended.HasAnswer || appended.Answer != "partial " {
 		t.Fatalf("cancelled turn must persist the partial answer, got %+v", appended)
+	}
+}
+
+func TestDrainWaitsForDetachedHistoryPersistence(t *testing.T) {
+	h := &blockingAppendHistory{
+		fakeHistory: &fakeHistory{},
+		started:     make(chan struct{}),
+		release:     make(chan struct{}),
+	}
+	d := NewDependencies(DependenciesConfig{
+		Searcher: &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		History:  h,
+		Log:      testLogger(),
+	})
+
+	d.StartTurn(context.Background(), Request{Query: "q"})
+	select {
+	case <-h.started:
+	case <-time.After(time.Second):
+		t.Fatal("detached history write did not start")
+	}
+
+	drained := make(chan error, 1)
+	go func() { drained <- d.Drain(context.Background()) }()
+	select {
+	case err := <-drained:
+		t.Fatalf("Drain returned before the history write finished: %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	close(h.release)
+	select {
+	case err := <-drained:
+		if err != nil {
+			t.Fatalf("Drain returned error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Drain did not wait for the detached history write")
+	}
+	if len(h.turns()) != 1 {
+		t.Fatalf("drained history write was not persisted: %d turns", len(h.turns()))
+	}
+}
+
+func TestDrainCancelsGenerationAndWaitsForPersistence(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &blockingGenerator{started: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+
+	turn := d.StartTurn(context.Background(), Request{Query: "q", Generate: true})
+	if !turn.Streaming {
+		t.Fatalf("expected active generation, got %+v", turn)
+	}
+	<-gen.started
+
+	if err := d.Drain(context.Background()); err != nil {
+		t.Fatalf("Drain returned error: %v", err)
+	}
+	appended := h.turns()
+	if len(appended) != 1 || appended[0].Answer != "partial " || !appended[0].HasAnswer {
+		t.Fatalf("Drain did not persist the cancelled generation: %+v", appended)
 	}
 }
 

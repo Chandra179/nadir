@@ -241,6 +241,22 @@ func (b *broker) get(id string) *turnStream {
 	return b.turns[id]
 }
 
+// cancelAll asks every retained stream to stop its owning generation. It
+// snapshots under the broker lock so stream cancellation cannot block broker
+// lookups or retention pruning.
+func (b *broker) cancelAll() {
+	b.mu.Lock()
+	streams := make([]*turnStream, 0, len(b.turns))
+	for _, stream := range b.turns {
+		streams = append(streams, stream)
+	}
+	b.mu.Unlock()
+
+	for _, stream := range streams {
+		stream.cancelGeneration()
+	}
+}
+
 func (b *broker) pruneLocked() {
 	now := time.Now()
 	kept := b.ordered[:0]

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"nadir/internal/conversation/chat"
@@ -32,6 +34,8 @@ type DependenciesConfig struct {
 	SourceIgnorePatterns []string
 	MaxSourceFileBytes   int64
 	MaxUploadBytes       int64
+	Readiness            ReadinessFunc
+	ReadinessTimeout     time.Duration
 	Log                  *zap.Logger
 }
 
@@ -44,6 +48,8 @@ type dependencies struct {
 	sourceIgnorePatterns []string
 	maxSourceFileBytes   int64
 	maxUploadBytes       int64
+	readiness            ReadinessFunc
+	readinessTimeout     time.Duration
 	turns                *chatapi.Handlers
 	hist                 *historyapi.Handlers
 	log                  *zap.Logger
@@ -63,6 +69,10 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if maxTopK <= 0 {
 		maxTopK = 50
 	}
+	readinessTimeout := cfg.ReadinessTimeout
+	if readinessTimeout <= 0 {
+		readinessTimeout = readinessTimeoutDefault
+	}
 	return &dependencies{
 		ingest:               cfg.Ingest,
 		store:                cfg.Store,
@@ -72,6 +82,8 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		sourceIgnorePatterns: cfg.SourceIgnorePatterns,
 		maxSourceFileBytes:   cfg.MaxSourceFileBytes,
 		maxUploadBytes:       cfg.MaxUploadBytes,
+		readiness:            cfg.Readiness,
+		readinessTimeout:     readinessTimeout,
 		turns:                chatapi.New(chatapi.Config{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK}),
 		hist:                 historyapi.New(historyapi.Config{History: cfg.History, Chat: cfg.Chat, Log: log}),
 		log:                  log,

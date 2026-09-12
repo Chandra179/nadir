@@ -30,6 +30,7 @@ import (
 	"nadir/internal/transport/http"
 
 	"github.com/gin-gonic/gin"
+	qdrant "github.com/qdrant/go-client/qdrant"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -58,6 +59,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 	defer qdrantConn.Close()
 	qdrantClients := qdrantutil.NewClients(qdrantConn)
+	qdrantHealth := qdrant.NewQdrantClient(qdrantConn)
 
 	s, err := store.NewDependencies(store.DependenciesConfig{
 		Clients:     qdrantClients,
@@ -121,13 +123,17 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 
 	var searchReranker reranker.Reranker
+	var rerankerProbe func(context.Context) (reranker.ProbeResult, error)
 	if cfg.Reranker.Enabled {
-		searchReranker = reranker.NewDependencies(reranker.DependenciesConfig{
+		r := reranker.NewDependencies(reranker.DependenciesConfig{
 			Addr:           cfg.Reranker.Addr,
+			Model:          cfg.Reranker.Model,
 			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
 			RequestTimeout: cfg.Reranker.RequestTimeout,
 			Log:            log,
 		})
+		searchReranker = r
+		rerankerProbe = r.Probe
 		log.Info("cross-encoder reranker enabled", zap.String("addr", cfg.Reranker.Addr))
 	}
 
@@ -292,7 +298,55 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		SourceIgnorePatterns: cfg.Source.IgnorePatterns,
 		MaxSourceFileBytes:   cfg.Ingest.MaxFileBytes,
 		MaxUploadBytes:       cfg.Ingest.MaxUploadBytes,
-		Log:                  log,
+		Readiness: func(ctx context.Context) api.ReadinessReport {
+			checks := map[string]api.ReadinessCheck{}
+
+			if _, err := qdrantHealth.HealthCheck(ctx, &qdrant.HealthCheckRequest{}); err != nil {
+				checks["qdrant"] = api.ReadinessCheck{Error: err.Error()}
+			} else {
+				checks["qdrant"] = api.ReadinessCheck{Ready: true}
+			}
+
+			embedResult, err := e.Probe(ctx)
+			embedCheck := api.ReadinessCheck{
+				Ready:       err == nil,
+				Model:       embedResult.ConfiguredModel,
+				LoadedModel: embedResult.LoadedModel,
+				Details:     fmt.Sprintf("dimensions=%d", embedResult.Dimensions),
+			}
+			if err != nil {
+				embedCheck.Error = err.Error()
+			}
+			checks["embedding"] = embedCheck
+
+			if rerankerProbe == nil {
+				checks["reranker"] = api.ReadinessCheck{Ready: true, Details: "disabled"}
+			} else {
+				rerankResult, probeErr := rerankerProbe(ctx)
+				rerankCheck := api.ReadinessCheck{
+					Ready:       probeErr == nil,
+					Model:       rerankResult.ConfiguredModel,
+					LoadedModel: rerankResult.LoadedModel,
+					Backend:     rerankResult.Backend,
+					Device:      rerankResult.Device,
+				}
+				if probeErr != nil {
+					rerankCheck.Error = probeErr.Error()
+				}
+				checks["reranker"] = rerankCheck
+			}
+
+			ready := true
+			for _, check := range checks {
+				if !check.Ready {
+					ready = false
+					break
+				}
+			}
+			return api.ReadinessReport{Ready: ready, Checks: checks}
+		},
+		ReadinessTimeout: cfg.HTTP.ReadinessTimeout,
+		Log:              log,
 	})
 
 	engine := gin.New()
@@ -307,7 +361,9 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 	}
 
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		log.Info("http server shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
@@ -315,12 +371,18 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			log.Error("http server shutdown error", zap.Error(err))
 		}
+		if err := chatService.Drain(shutdownCtx); err != nil {
+			log.Error("chat lifecycle drain failed", zap.Error(err))
+		}
 	}()
 
 	log.Info("http server starting", zap.String("addr", srv.Addr))
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Error("http server error", zap.Error(err))
 		return fmt.Errorf("http server: %w", err)
+	}
+	if ctx.Err() != nil {
+		<-shutdownDone
 	}
 	return nil
 }

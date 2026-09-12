@@ -100,7 +100,7 @@ event ownership needed to satisfy all of them across multiple processes.
 | Session mutations | One process-local revision registry serializes destructive Chat mutations | Another process has a different revision registry and can append stale data |
 | History writes | One process-local mutex protects sequence allocation | The mutex does not protect writes made by another process and serializes all sessions together |
 | Cache writes | Cache entries carry a process-local invalidation generation and are checked at read time | A shared generation is still needed across application instances |
-| Shutdown | HTTP connections receive a bounded graceful shutdown | Detached persistence and active generation are not fully drainable yet |
+| Shutdown | HTTP connections, active generations, and detached history writes drain within a bounded shutdown budget | A timeout can still leave an external history write unfinished; the lifecycle logs this and durable retry state is still open |
 | Full reset | Builds a new collection generation and switches a stable alias before cleanup | Cleanup can leave temporary retired collections; alias/lifecycle state is still single-node |
 
 The Interface at each of these seams is useful only when its ordering and
@@ -219,10 +219,22 @@ process-local lifecycle gate defines behavior when reset and Indexing overlap.
 ### Detached Chat persistence
 
 Normal turn persistence and generation supervision are intentionally detached
-from the HTTP request. This keeps a slow history store from blocking the user,
-but the process currently has no complete drain protocol. Shutdown can lose a
-completed turn that has not reached Qdrant yet. Track persistence and active
-generation work, stop new admission, and drain with a bounded shutdown budget.
+from the HTTP request. The process now stops new Chat admission on shutdown,
+cancels active generations, waits for generation supervisors, and drains
+detached history writes within the configured shutdown budget. If the external
+history store remains unavailable past that budget, the lifecycle logs the
+failure; durable retry state is still required before claiming recoverability
+across process loss.
+
+### Liveness and readiness
+
+`/api/v1/health` is a cheap liveness endpoint and does not call external
+services. `/api/v1/ready` is the dependency gate: it checks Qdrant, performs a
+real embedding request and dimension check against the configured Ollama model,
+and checks the enabled reranker sidecar's loaded model and runtime. It returns
+HTTP 503 with per-dependency diagnostics until all required checks pass. A
+deployment should route traffic only to ready instances and use liveness for
+restart decisions.
 
 ### Global resource admission
 
@@ -363,9 +375,10 @@ cache invalidation and in-flight Retrieval.
 
 ## Operations and observability needed for scale
 
-Before operating multiple instances, add:
+Before operating multiple instances, retain the existing `/api/v1/health`
+liveness and `/api/v1/ready` dependency-readiness checks in the deployment
+contract, and add:
 
-- `/livez` for process liveness and `/readyz` for dependency readiness;
 - protected or disabled profiling endpoints;
 - request, Session, Chat turn, Indexing job, and reset operation IDs in logs;
 - metrics for Retrieval latency, fragment fan-out, cache hit/stale rates,

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -60,6 +61,12 @@ type dependencies struct {
 	broker           *broker
 	model            string
 	log              *zap.Logger
+	generations      sync.WaitGroup
+	persists         sync.WaitGroup
+	lifecycleMu      sync.Mutex
+	activeStarts     int
+	activeDone       chan struct{}
+	draining         bool
 }
 
 var _ Chat = (*dependencies)(nil)
@@ -81,6 +88,8 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	activeDone := make(chan struct{})
+	close(activeDone)
 	return &dependencies{
 		searcher:         cfg.Searcher,
 		generator:        cfg.Generator,
@@ -97,7 +106,8 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 			FinishedTurnTTL:  cfg.FinishedTurnTTL,
 			Log:              log,
 		}),
-		model: cfg.Model,
-		log:   log,
+		model:      cfg.Model,
+		log:        log,
+		activeDone: activeDone,
 	}
 }
