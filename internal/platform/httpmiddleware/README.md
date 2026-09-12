@@ -6,6 +6,14 @@ Gin middleware used by the HTTP server. Registered in order via `engine.Use(...)
 gin.Recovery → RequestID → Timeout → RequestLog → handler
 ```
 
+## Change routing
+
+Change this folder for request-wide concerns such as request IDs, deadlines,
+panic recovery, or canonical request logging. Change `transport/http/` for
+request decoding, validation, response mapping, routes, and SSE. Change
+`platform/configuration/` for middleware settings. Middleware must not inspect
+domain payloads or implement Document, Retrieval, or Conversation policy.
+
 ## Files
 
 | File | Kind | Description |
@@ -30,3 +38,8 @@ Gin's `engine.SetTrustedProxies()` + `c.ClientIP()` handle `X-Forwarded-For` / `
 ## Why no validation middleware?
 
 `c.ShouldBindJSON(&req)` + `binding` struct tags replace the old `DecodeAndValidate[T]` helper. Keep validation logic in handlers, not middleware.
+
+## Verification
+
+Run `go test ./internal/platform/httpmiddleware` and verify middleware order
+with `go test ./internal/platform/lifecycle` when registration changes.

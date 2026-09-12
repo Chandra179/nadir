@@ -67,9 +67,11 @@ GET  /api/v1/health → 200
 - `platform/` — configuration, logging, observability, HTTP middleware, and
   process lifecycle/composition.
 
-The React/TypeScript/Tailwind client lives in `web/dashboard`; it is built
-separately and served by Nginx in Compose. Python sidecars remain under
-`services/` because they are separately deployed processes.
+The React/TypeScript/Tailwind client lives in `web/dashboard`; it is a separate
+Node/Vite application run with `npm run dev`. Compose runs the backend and
+sidecars only; a production static host may serve the built dashboard.
+Python sidecars remain under `services/` because they are separately deployed
+processes.
 
 **`services/`** — Python sidecars (each has its own Dockerfile): `reranker/`
 (:5002) and optional `docling/` (:5003, PDF→Markdown HTTP intake).
@@ -89,7 +91,7 @@ separately and served by Nginx in Compose. Python sidecars remain under
 
 ## Addresses: local vs Docker
 
-`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly. The base Compose stack is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `deploy/compose/docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support.
+`./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly and prints the local dashboard command. The base Compose stack runs the backend services and is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `deploy/compose/docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support. The dashboard is not a Compose service.
 
 ## Features gated by config
 

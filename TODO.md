@@ -117,8 +117,8 @@ after a prior ingest requires a reindex.
       contracts; document them in `contracts/` and ADR-0021.
 - [x] Keep in-place edit pruning, SSE cursor replay, cancellation, document
       upload/reset, and chat deletion in the new client.
-- [x] Add a Docker Desktop-compatible static dashboard service with Nginx API
-      and SSE proxying; Vite provides the local development proxy.
+- [x] Keep the React dashboard as a separate local Vite application; backend
+      Compose runs Qdrant, the reranker, and the Go API only.
 - [x] Add Vitest/React Testing Library coverage for safe result rendering,
       copy behavior, and native EventSource cursor/reconnect lifecycle.
 

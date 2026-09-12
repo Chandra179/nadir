@@ -26,5 +26,6 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0018](0018-repeatable-retrieval-evaluation.md) | Maintain a small repeatable `cmd/evaluator` around the current Retrieval seam | Accepted |
 | [0019](0019-recoverable-document-reset.md) | Publish a fresh Document collection generation through a stable active alias before retiring the old generation | Accepted |
 | [0020](0020-consumer-owned-capability-seams.md) | Keep provider contracts public and consumer capability seams narrow | Accepted |
-| [0021](0021-react-typescript-dashboard.md) | Replace server-rendered HTMX/Alpine UI with a React + TypeScript + Tailwind client over versioned JSON/SSE | Accepted |
+| [0021](0021-react-typescript-dashboard.md) | Replace server-rendered HTMX/Alpine UI with a React + TypeScript + Tailwind client over versioned JSON/SSE | Superseded by 0023 |
 | [0022](0022-bounded-context-layout.md) | Organize Go code by `cmd/` applications and bounded contexts under `internal/` | Accepted |
+| [0023](0023-local-vite-dashboard.md) | Run the React dashboard with the local Vite toolchain; keep frontend containers out of the supported Compose stack | Accepted |

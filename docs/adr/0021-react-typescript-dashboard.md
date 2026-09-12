@@ -1,8 +1,12 @@
 # 0021 — Replace server-rendered dashboard with React and TypeScript
 
+> Superseded by [ADR-0023](0023-local-vite-dashboard.md) for dashboard
+> packaging and deployment. The React/TypeScript API contract decision remains
+> current.
+
 ## Status
 
-Accepted
+Superseded by ADR-0023
 
 ## Decision
 

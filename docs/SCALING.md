@@ -40,7 +40,7 @@ availability requirements justify its operational cost.
 Browser
   |
   v
-static React dashboard + Nginx API/SSE proxy
+React dashboard (Vite locally or an external static host)
   |
   v
 one Nadir API process

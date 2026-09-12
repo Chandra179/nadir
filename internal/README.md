@@ -1,70 +1,117 @@
-# Modules
+# Internal packages
 
-Private Go code lives under `internal/` and is organized by bounded context.
-Knowledge, Retrieval, Conversation, and Evaluation own domain behavior;
-Transport maps HTTP; Adapters integrate external systems; Platform owns
-cross-cutting runtime concerns.
+Private Go code is organized by bounded context. Start with the README in the
+folder that owns the behaviour, then follow its related-folder table. The
+folders are deliberately small enough that a task should have one clear owner:
 
-The executable applications under `cmd/` are intentionally thin entrypoints:
-`cmd/api` starts the HTTP application and `cmd/evaluator` runs quality
-measurement. They do not contain domain logic. The React application under
-`web/dashboard` is a separate client organized by feature.
+| Task | Start here | Usually related |
+|------|------------|-----------------|
+| Normalize, chunk, enrich, embed, or publish Documents | `knowledge/` | `adapters/`, `retrieval/cache/` |
+| Rewrite or rank a query and select context | `retrieval/` | `adapters/`, `conversation/chat/` |
+| Sessions, turns, edit/prune, generation, or replay | `conversation/` | `retrieval/`, `adapters/qdrant/history/` |
+| HTTP JSON, SSE, routes, or status mapping | `transport/http/` | owning bounded context, `contracts/` |
+| Qdrant, Ollama, Docling, or reranker protocol | `adapters/` | the consumer seam and `platform/configuration/` |
+| Startup wiring, configuration, middleware, logs, or lifecycle | `platform/` | `cmd/`, affected package |
+| Retrieval quality metrics and golden queries | `evaluation/` | `retrieval/`, `test/evaluation/` |
 
-## Required files
+## Dependency map
 
-| File | Purpose |
-|------|---------|
-| `dependencies.go` | Exported `DependenciesConfig` struct callers fill in; unexported `dependencies` struct holding the Module's wired deps; `NewDependencies(DependenciesConfig)` constructor. Callers pass provider-owned Interfaces and concrete Adapters are assembled only by the lifecycle composition code. |
-| `types.go` | Domain types, structs, constants |
+Arrows mean “calls or depends on.” `platform/lifecycle` is the composition
+root: it constructs concrete Adapters and injects them into the bounded
+contexts and HTTP transport. It is not a runtime business-flow owner.
 
-## Optional files
+### Runtime call flow
 
-| File | Purpose |
-|------|---------|
-| `interface.go` | The module's interfaces together: the provider-owned `Service` interface (what the module provides to real sibling consumers) and the package-private `store` interface (what it requires), each with its `var _ X = ...` compile-time assertion |
-| `handler.go` | Module entrypoint — HTTP handlers |
-| `business_error.go` | Domain sentinels (plain `errors.New(...)`, no non-stdlib imports) |
-| `constant.go` | Unexported package constants |
-| `<action>.go` | One file per handler/operation (e.g. `create_example.go`); holds the `*dependencies`/store method implementations that would otherwise live in `service.go`/`store.go` |
+```text
+Client
+  │
+  ▼
+transport/http
+  ├── POST documents ──────▶ knowledge/indexing
+  │                           ├──▶ knowledge/chunking
+  │                           ├──▶ knowledge/enrichment ──▶ adapters/ollama/enrichment
+  │                           ├──▶ adapters/ollama/embedding
+  │                           ├──▶ adapters/qdrant/documents
+  │                           └──▶ retrieval/cache ──▶ adapters/qdrant/shared
+  │
+  ├── POST documents/reset ─▶ adapters/qdrant/documents
+  │
+  ├── POST turns ──────────▶ conversation/chat
+  │                           ├──▶ retrieval/rewriting ──▶ adapters/ollama/rewriter
+  │                           ├──▶ retrieval/search
+  │                           │     ├──▶ retrieval/cache
+  │                           │     ├──▶ adapters/ollama/embedding
+  │                           │     ├──▶ adapters/qdrant/documents
+  │                           │     └──▶ adapters/reranker
+  │                           ├──▶ conversation/generation
+  │                           │     └──▶ adapters/ollama/generator
+  │                           └──▶ adapters/qdrant/history
+  │
+  └── sessions/history ────▶ adapters/qdrant/history
 
-There is no separate `service.go`/`store.go` — the `Service` and `store`
-interfaces live in `interface.go`, and implementations are split across
-per-action files like `create_example.go`. `Service` is exported only when a
-real sibling consumer needs it. `store` remains package-private because it is
-an implementation port. Mockery generates its test mock under `mocks/`; its
-method names are exported when an external generated mock must satisfy the
-private interface.
-
-## Cross-module communication
-
-Modules call each other in-process, through an interface — never by importing
-and holding a sibling module's concrete `*dependencies` type directly.
-
-- **`Service`** (in `interface.go`) is what a module *provides* to other
-  modules. It's the module's own public contract:
-
-```go
-// internal/knowledge/interface.go — Knowledge provides this to callers
-type Service interface {
-    CreateExample(ctx context.Context, name string) (*Example, error)
-}
-
-var _ Service = (*dependencies)(nil)
+evaluation ─────────────▶ retrieval/search   (cache bypassed for measurement)
 ```
 
-A module that consumes a sibling depends on that sibling's `Service`
-interface, wired in via its own `DependenciesConfig`.
+### Package dependency direction
 
-`internal/platform/lifecycle/server.go` constructs the concrete dependencies,
-passes infrastructure into constructors, and passes the returned value to
-other contexts as the provider's Interface type. HTTP handlers remain in
-`internal/transport/http` and only adapt requests, responses, and SSE.
+```text
+cmd/api
+  │
+  ▼
+platform/lifecycle  ── constructs and injects
+  ├──▶ transport/http
+  ├──▶ knowledge/*
+  ├──▶ retrieval/*
+  ├──▶ conversation/*
+  └──▶ adapters/*
 
-Only add a `Service` interface for a real cross-module contract. Do not impose a
-universal one-public-interface rule: expose small provider-owned contracts when
-there are multiple meaningful consumers, and keep internal ports private.
+transport/http ──▶ bounded contexts ──▶ consumer-owned Interfaces
+       │                    ▲                       ▲
+       └──▶ HTTP contracts  │                       │
+                            └── Adapters implement ─┘
 
-For tests, use the package-private `newDependencies` helper pattern (exposed
-to external tests only through `export_test.go`) to inject the Mockery-generated
-`store` mock. External sibling modules should mock the
-exported `Service` contract, not the provider's storage port.
+adapters/qdrant/{documents,history}
+  └──▶ adapters/qdrant/shared       (shared infrastructure only)
+```
+
+The first diagram is runtime behaviour. The second is the intended ownership
+direction for package dependencies: a bounded context defines the meaning of a
+capability, an Adapter implements that capability, and lifecycle supplies the
+concrete implementation. An Adapter may import a consumer-owned Interface to
+implement it; that import is not a call back into the consumer.
+
+### How to detect a circular dependency
+
+The safe direction is:
+
+```text
+transport  ──▶ bounded context ──▶ seam/Adapter
+                    ▲                 │
+                    └── wired by ─────┘
+                         platform/lifecycle
+```
+
+Never add an arrow from a bounded context or Adapter to `transport/http/` or
+`platform/lifecycle/`. Never make an Adapter call a handler. If a lower-level
+package needs behaviour from a higher-level package, define the narrow seam at
+the caller and inject an implementation from lifecycle. If two bounded
+contexts need each other directly, stop and reconsider ownership before adding
+an import; usually one context should expose a smaller Interface or the shared
+value should move to a neutral contract package.
+
+## Task placement rules
+
+- Change an existing folder when the concept already belongs to it.
+- Add a new folder only for a new concept with its own lifecycle, data, or
+  meaningful seam. Do not create a folder for one helper or one endpoint.
+- Put provider protocol details in an Adapter; keep business rules in the
+  consuming bounded context.
+- Put HTTP translation in `transport/http`; do not make domain packages know
+  about Gin, JSON, SSE, or status codes.
+- Keep composition in `platform/lifecycle`; domain packages must not import
+  transport or lifecycle packages.
+- Expose a small provider-owned Interface only when another package consumes
+  it. Keep implementation ports private and add compile-time assertions.
+
+Each child README documents the local contract, related work, and verification.
+The root architecture and ADRs remain authoritative for cross-folder design.

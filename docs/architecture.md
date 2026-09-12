@@ -43,5 +43,8 @@ new empty collection before retiring the old one.
 
 The default deployment is single-node. Qdrant and model sidecars are external
 processes, but Chat streams and mutation coordination remain process-local.
+The React dashboard runs locally through Vite; Docker Compose supplies the
+backend services only. A production deployment may serve the built dashboard
+from an independently managed static host.
 See [SCALING.md](SCALING.md) for the distributed-system boundary and required
 shared ordering/fencing work.

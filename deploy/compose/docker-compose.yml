@@ -1,15 +1,4 @@
 services:
-  dashboard:
-    build:
-      context: ../..
-      dockerfile: web/dashboard/Dockerfile
-    ports:
-      - "${DASHBOARD_PORT:-3000}:80"
-    depends_on:
-      app:
-        condition: service_healthy
-    restart: unless-stopped
-
   app:
     build:
       context: ../..

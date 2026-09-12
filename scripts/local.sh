@@ -51,7 +51,7 @@ curl -sf -X POST localhost:8100/api/v1/documents
 
 echo ""
 echo "Local stack running. Server PID=$SERVER_PID, Reranker PID=$RERANKER_PID"
-echo "  Dashboard: http://localhost:3000 (run npm install && npm run dev in web/dashboard)"
+echo "  Dashboard: http://localhost:3000 (cd web/dashboard && npm ci && npm run dev)"
 echo "  Search: curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{\"query\":\"...\"}'"
 echo "  Stop:   kill $SERVER_PID $RERANKER_PID && docker compose -f deploy/compose/docker-compose.yml stop"
 echo "  (full-Docker reranker needs the NVIDIA container toolkit; see AGENTS.md)"

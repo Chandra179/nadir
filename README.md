@@ -9,6 +9,7 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 | Docker + Docker Compose | **Required** | Qdrant, reranker sidecar |
 | Go 1.26+ | **Required** | Server + CLI |
 | Python 3.10+ | **Required** | Reranker sidecar, PDF conversion |
+| Node.js 22+ | **Required for dashboard** | React dashboard and browser tests |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`nomic-embed-text`) and optional LLM features |
 
 ```bash
@@ -35,7 +36,7 @@ source:
 ./scripts/local.sh
 ```
 
-This starts Qdrant + reranker, runs the Go API, ingests all source files, and blocks on the server. Run the React dashboard separately with `cd web/dashboard && npm install && npm run dev`, then open `http://localhost:3000`.
+This starts Qdrant + reranker, runs the Go API, ingests all source files, and blocks on the server. Run the React dashboard separately with `cd web/dashboard && npm ci && npm run dev`, then open `http://localhost:3000`.
 
 ### 3. Test search
 
@@ -200,9 +201,12 @@ server instance. If horizontal scaling is required, put the turn event log
 behind a shared backend such as Redis Streams and route or broadcast SSE
 subscribers through that shared log.
 
-The Go API and React dashboard are separate deployable artifacts. Docker Compose
-serves the built dashboard through Nginx and proxies `/api/` plus SSE traffic to
-the Go API. Vite proxies the same paths during local development.
+The Go API and React dashboard are separate artifacts. The dashboard is run
+locally with Vite, which proxies `/api/` plus SSE traffic to the Go API. Docker
+Compose runs the backend dependencies and does not build a frontend container.
+For production, serve the dashboard's built `dist/` directory from an
+independently managed static host and proxy the versioned API/SSE paths to the
+Go API.
 
 ## Run tests
 
