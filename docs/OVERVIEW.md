@@ -133,6 +133,7 @@ Nadir is designed for private, document-grounded search on a single machine
 or a small local network. It prioritizes understandable results, local data
 control, and a simple operating model.
 
-For a larger multi-machine deployment, the search and storage services can be
-scaled separately. Live answer streaming also needs a shared event backend so
-that users can receive the same conversation from any application instance.
+Retrieval and storage can be scaled separately when needed. Horizontal scaling
+of live Chat streaming and concurrent Indexing requires a shared event backend
+and coordination layer. See the [scaling and concurrency guide](SCALING.md)
+for the current guarantees and future deployment path.
