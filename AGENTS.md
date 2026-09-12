@@ -28,6 +28,10 @@ go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 curl -X POST localhost:8100/ingest
 curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
 curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
+
+# Retrieval quality evaluation (Qdrant + embedder, optional reranker must be running)
+go run ./cmd/evalbench --runs 3
+go run ./cmd/evalbench --no-rerank --runs 3
 ```
 
 ## Architecture
@@ -48,14 +52,15 @@ GET  /healthz → 200
 - `store/` — document-corpus `Store` interface and Qdrant hybrid Adapter (dense + BM25 sparse + RRF); storage chunk/filter types stay behind `search`'s caller-facing seam
 - `ingest/` — document intake (`.md`, optional `.pdf` through Docling), SHA dedup, bounded indexing pass, chunk→enrich→embed→replace; consumes `enrichment.Enricher`
 - `search/` — Retrieval-owned request/result types; multi-fragment hybrid search → rerank → semantic cache
-- `chat/` — chat use-case (`StartTurn`: session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor; owns the turn event log, persistence at terminal state, and `CancelTurn`); handlers only map request/result
+- `eval/` — development-only golden-set Retrieval evaluator; bypasses semantic cache and writes aggregate/per-query reports
+- `chat/` — chat use-case (`StartTurn`: session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor; owns the turn event log, terminal persistence, mutation revisions, destructive history coordination, and `CancelTurn`); handlers only map request/result
 - `generator/` — `Generator` interface (`Generate(ctx, prompt) <-chan Event` with typed `TokenEvent`/`ErrorEvent`/`DoneEvent`), Ollama streaming client; prompt building lives in `internal/chat/prompt.go`
 - `rewriter/` — `Rewriter` interface, Ollama client rewriting conversational follow-ups into standalone search queries (feature-flagged)
 - `reranker/` — `Reranker` interface, cross-encoder sidecar client
 - `cache/` — `SemanticCache` backed by a dedicated Qdrant collection
 - `enrichment/` — `Enricher` interface + index-time LLM enrichment over Ollama: HyPE hypothetical questions, contextual chunk intros (feature-flagged)
 
-**`internal/api/`** — HTTP transport, grouped by feature. Root package: `NewRouter` (route consts + registration), `NewDependencies` (DI; resolves the default top_k once), the page shell (`Retrieval`, `HistorySession`), and the `Ingest`/`DeleteAllData` handlers. Sub-packages: `chat/` (turn lifecycle — start, SSE event stream, cancel — plus the turn views), `history/` (sidebar session list, single-session delete, and guarded delete-all), `internal/render/` (template engine). UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup and rendered through the shared render engine — no markup in Go source.
+**`internal/api/`** — HTTP transport, grouped by feature. Root package: `NewRouter` (route consts + registration), `NewDependencies` (DI; resolves the default top_k once), the page shell (`Retrieval`, `HistorySession`), and the `Ingest`/`DeleteAllData` handlers. Sub-packages: `chat/` (turn lifecycle — start, SSE event stream, cancel — plus the turn views), `history/` (sidebar session list and destructive operations delegated through chat’s mutation owner), `internal/render/` (template engine). UI templates live as files in `dashboard/` (`embed.go` exposes them via go:embed); they are parsed once at startup and rendered through the shared render engine — no markup in Go source.
 
 **`internal/server/`** — `Server(ctx, cfg)`: builds dependencies, wires middleware, starts the gin engine.
 

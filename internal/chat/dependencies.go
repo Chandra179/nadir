@@ -50,6 +50,7 @@ type dependencies struct {
 	searcher         Searcher
 	generator        Generator
 	history          History
+	mutations        *historyMutations
 	rewriter         rewriter.Rewriter
 	rewriteTurns     int
 	maxContextTokens int
@@ -82,6 +83,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		searcher:         cfg.Searcher,
 		generator:        cfg.Generator,
 		history:          cfg.History,
+		mutations:        newHistoryMutations(),
 		rewriter:         cfg.Rewriter,
 		rewriteTurns:     rewriteTurns,
 		maxContextTokens: maxContextTokens,

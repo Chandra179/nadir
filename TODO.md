@@ -24,6 +24,9 @@ Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
 
 - [x] Golden set: `tests/eval/golden.json` (34 queries over `samples/`) with
       committed run reports in `tests/eval/reports/`
+- [x] Repeatable Retrieval evaluator: `go run ./cmd/evalbench` loads the golden
+      set, bypasses semantic cache, supports reranker control, repeats latency
+      samples, and writes comparable JSON reports.
 - [ ] Grow golden set to 100+ queries as real corpus grows; keep distractor pairs
 
 ## Phase 1 — Cheap wins ✅
@@ -119,9 +122,10 @@ should wait for real usage data.
       new version, activate it, then deactivate and clean up older versions.
       Record the protocol in ADR-0016 and cover replacement visibility in the
       Store integration test.
-- [ ] Make in-place Chat turn edits and delete-all chat operations safe against
-      concurrent turn creation or generation. Define session mutation
-      ownership/version checks so deleted or pruned turns cannot reappear.
+- [x] Make in-place Chat turn edits and delete-all chat operations safe against
+      concurrent turn creation or generation. Chat owns serialized history
+      mutations, session/global revision checks, and active-generation
+      cancellation; see ADR-0017.
 - [ ] Make full Document reset recoverable if collection deletion or recreation
       fails; preserve a known-good collection or define restore/retry semantics.
 - [ ] Add fault-injection tests proving failed staging preserves the previous

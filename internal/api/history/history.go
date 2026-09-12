@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"nadir/internal/api/render"
+	"nadir/internal/chat"
 	"nadir/internal/history"
 )
 
@@ -19,11 +20,15 @@ type Config struct {
 	Render *render.Engine
 	// Log receives handler failures.
 	Log *zap.Logger
+	// Chat owns generation and history mutation coordination. Destructive
+	// operations must go through it so in-flight turns cannot reappear.
+	Chat chat.Chat
 }
 
 // Handlers serves the history endpoints.
 type Handlers struct {
 	history history.History
+	chat    chat.Chat
 	render  *render.Engine
 	log     *zap.Logger
 }
@@ -34,5 +39,5 @@ func New(cfg Config) *Handlers {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Handlers{history: cfg.History, render: cfg.Render, log: log}
+	return &Handlers{history: cfg.History, chat: cfg.Chat, render: cfg.Render, log: log}
 }

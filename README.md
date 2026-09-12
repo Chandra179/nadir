@@ -170,6 +170,7 @@ environment overrides even when roles share one Ollama server.
 | GET | `/retrieval` | Chat UI |
 | POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
 | GET | `/history/sessions` | Recent chat sessions (sidebar) |
+| DELETE | `/history/sessions/:id` | Delete one persisted chat session and its turns |
 | DELETE | `/history/sessions` | Delete all persisted chat sessions and turns |
 | GET | `/history/sessions/:id` | Replay a past session |
 | GET | `/healthz` | Health check |
@@ -185,7 +186,7 @@ POST /ingest → document intake (.md or optional .pdf→.md) → indexing pass
 POST /retrieval/search → chat.Service.StartTurn
                  ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
                  ├── [Generator] supervised streaming answer over retrieved chunks
-                 └── History persist at terminal state
+                 └── History persist at terminal state (mutation-owned and revision-checked)
 ```
 
 The in-process event broker keeps a bounded, ordered replay window for one
@@ -202,6 +203,23 @@ make test                       # unit tests only; excludes local Python venv
 make check                      # tests + vet + build
 go test -count=1 ./config ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 ```
+
+## Evaluate Retrieval quality
+
+The evaluation command runs the golden query set against the configured Qdrant
+collection, bypasses semantic cache, and reports HitRate, Recall, MRR, nDCG,
+and latency percentiles. It uses the configured reranker by default:
+
+```bash
+go run ./cmd/evalbench --runs 3
+go run ./cmd/evalbench --no-rerank --runs 3
+go run ./cmd/evalbench --ensure-ingest --report tests/eval/reports/local.json
+```
+
+The default golden set is intentionally small and is a Retrieval regression
+fixture, not evidence that generated answers are faithful. Expand it with
+real Documents and add generation-quality evaluation before treating a score
+as a production release gate.
 
 ## PDF ingestion
 

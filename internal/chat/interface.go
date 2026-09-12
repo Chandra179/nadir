@@ -28,6 +28,8 @@ type History interface {
 	// ListTurns returns a session's turns in sequence order; read when
 	// rewriting a follow-up query against prior conversation context.
 	ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+	DeleteAllSessions(ctx context.Context) error
 }
 
 // Chat is consumed by the API layer. Generation is owned by the service:
@@ -42,4 +44,10 @@ type Chat interface {
 	// CancelTurn aborts an in-flight generation; the partial answer is kept
 	// and persisted. ok is false for unknown turn ids.
 	CancelTurn(turnID string) bool
+	// DeleteSession removes a session and prevents in-flight or detached chat
+	// work from recreating its turns.
+	DeleteSession(ctx context.Context, sessionID string) error
+	// DeleteAllSessions removes every persisted session and turn and cancels
+	// active generations before the destructive operation.
+	DeleteAllSessions(ctx context.Context) error
 }

@@ -81,7 +81,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		maxUploadBytes:       cfg.MaxUploadBytes,
 		render:               engine,
 		turns:                chatapi.New(chatapi.Config{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK, Render: engine}),
-		hist:                 historyapi.New(historyapi.Config{History: cfg.History, Render: engine, Log: log}),
+		hist:                 historyapi.New(historyapi.Config{History: cfg.History, Chat: cfg.Chat, Render: engine, Log: log}),
 		log:                  log,
 	}
 }

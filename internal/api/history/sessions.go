@@ -41,7 +41,11 @@ func (h *Handlers) HistorySessionDelete(c *gin.Context) {
 	}
 
 	sessionID := c.Param("id")
-	if err := h.history.DeleteSession(c.Request.Context(), sessionID); err != nil {
+	if h.chat == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "chat lifecycle unavailable"})
+		return
+	}
+	if err := h.chat.DeleteSession(c.Request.Context(), sessionID); err != nil {
 		h.log.Warn("history delete session failed", zap.String("session_id", sessionID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
 		return
@@ -57,7 +61,11 @@ func (h *Handlers) HistorySessionsDeleteAll(c *gin.Context) {
 		return
 	}
 
-	if err := h.history.DeleteAllSessions(c.Request.Context()); err != nil {
+	if h.chat == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "chat lifecycle unavailable"})
+		return
+	}
+	if err := h.chat.DeleteAllSessions(c.Request.Context()); err != nil {
 		h.log.Warn("history delete all sessions failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete all chats failed"})
 		return

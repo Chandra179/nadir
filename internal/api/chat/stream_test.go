@@ -57,6 +57,10 @@ func (f *fakeChat) CancelTurn(turnID string) bool {
 	return f.cancelOK
 }
 
+func (f *fakeChat) DeleteSession(context.Context, string) error { return nil }
+
+func (f *fakeChat) DeleteAllSessions(context.Context) error { return nil }
+
 func turnTestServer(t *testing.T, fc *fakeChat) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

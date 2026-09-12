@@ -1,6 +1,6 @@
-# 0010 — The offline eval harness is removed from the repo (supersedes 0005)
+# 0010 — The offline eval harness is removed from the repo (superseded by 0018)
 
-- **Status:** Accepted — supersedes [0005](0005-fresh-control-evalbench-ab.md)
+- **Status:** Superseded by [0018](0018-repeatable-retrieval-evaluation.md)
 - **Date:** 2026-09-05
 - **Deciders:** Chandra, ZCode session
 

@@ -25,10 +25,14 @@ import (
 func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	turn := Turn{Query: req.Query, Generate: req.Generate}
 	turn.SessionID = req.SessionID
+	var mutation historyMutation
+	if d.history != nil && req.SessionID != "" {
+		mutation = d.mutations.capture(req.SessionID)
+	}
 
 	if strings.TrimSpace(req.Query) == "" {
 		turn.Error = "Enter a question to search."
-		d.persistStart(ctx, req, turn, true)
+		d.persistStart(ctx, req, turn, mutation, true)
 		return turn
 	}
 
@@ -38,7 +42,9 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 			turn.Error = "Chat editing is unavailable."
 			return turn
 		}
-		if err := d.history.TruncateSession(ctx, req.SessionID, req.EditSequence); err != nil {
+		var err error
+		mutation, err = d.mutations.prepareEdit(ctx, d.history, req.SessionID, req.EditSequence)
+		if err != nil {
 			d.log.Warn("chat edit prune failed",
 				zap.String("session_id", req.SessionID),
 				zap.Int("edit_sequence", req.EditSequence),
@@ -49,7 +55,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 
 	if d.history != nil && turn.SessionID == "" {
-		turn.SessionID = d.mintSession(ctx, req.Query)
+		turn.SessionID, mutation = d.mintSession(ctx, req.Query)
 	}
 
 	retrievalQuery := req.Query
@@ -61,6 +67,10 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 			turn.RewrittenQuery = retrievalQuery
 		}
 	}
+	if d.mutationStale(mutation) {
+		turn.Error = "Conversation changed while this turn was starting; please retry."
+		return turn
+	}
 
 	searchResult, err := d.searcher.Query(ctx, search.Request{
 		Query:  retrievalQuery,
@@ -71,15 +81,19 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	if err != nil {
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
 		turn.Error = "Search failed: " + err.Error()
-		d.persistStart(ctx, req, turn, true)
+		d.persistStart(ctx, req, turn, mutation, true)
 		return turn
 	}
 	turn.Chunks = searchResult.Chunks
 	turn.ElapsedMS = time.Since(start).Milliseconds()
+	if d.mutationStale(mutation) {
+		turn.Error = "Conversation changed while this turn was running; please retry."
+		return turn
+	}
 
 	// Every non-generating outcome is final here: persist and return.
 	if !req.Generate || d.generator == nil || len(turn.Chunks) == 0 {
-		d.persistStart(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, mutation, false)
 		return turn
 	}
 
@@ -98,7 +112,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		observability.Stage(d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
 		turn.GenerateError = "Answer generation failed: " + err.Error()
-		d.persistStart(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, mutation, false)
 		return turn
 	}
 
@@ -110,11 +124,18 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		d.log.Warn("chat broker rejected generation",
 			zap.String("query", req.Query), zap.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
-		d.persistStart(ctx, req, turn, false)
+		d.persistStart(ctx, req, turn, mutation, false)
 		return turn
 	}
 	stream.setCancel(cancel)
-	go d.consumeGeneration(stream, req, turn, events, generationStarted)
+	if !d.mutations.registerGeneration(turn.ID, mutation, stream) {
+		cancel()
+		stream.finish()
+		turn.ID = ""
+		turn.GenerateError = "Conversation changed while generation was starting; please retry."
+		return turn
+	}
+	go d.consumeGeneration(stream, req, turn, mutation, events, generationStarted)
 	turn.Streaming = true
 	return turn
 }
@@ -129,11 +150,33 @@ func (d *dependencies) CancelTurn(turnID string) bool {
 	return stream.cancelGeneration()
 }
 
+// DeleteSession removes one conversation through the chat lifecycle seam.
+// This invalidates older turn mutations and cancels active generation before
+// handing the destructive operation to the history Module.
+func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) error {
+	if d.history == nil {
+		return errors.New("chat history is disabled")
+	}
+	return d.mutations.deleteSession(ctx, d.history, sessionID)
+}
+
+// DeleteAllSessions removes every conversation through the chat lifecycle
+// seam, preventing detached generation persistence from recreating turns.
+func (d *dependencies) DeleteAllSessions(ctx context.Context) error {
+	if d.history == nil {
+		return errors.New("chat history is disabled")
+	}
+	return d.mutations.deleteAll(ctx, d.history)
+}
+
 // consumeGeneration drains one in-flight answer: it maps the generator's
 // typed events onto the turn's event log and persists the final turn when
 // the stream ends. Runs on its own goroutine — no HTTP request owns this.
-func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, events <-chan generator.Event, started time.Time) {
-	defer stream.finish()
+func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generator.Event, started time.Time) {
+	defer func() {
+		d.mutations.unregisterGeneration(turn.ID)
+		stream.finish()
+	}()
 
 	var answer strings.Builder
 	for ev := range events {
@@ -157,7 +200,7 @@ func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn T
 		observability.Stage(d.log, "generation", "success", started, nil,
 			zap.Int("answer_bytes", answer.Len()))
 	}
-	d.saveTurn(req, turn)
+	d.saveTurn(req, turn, mutation)
 }
 
 // Subscribe attaches to a turn's event log, replaying after since. The
@@ -214,18 +257,18 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 // mintSession creates a conversation session for the first turn of a chat.
 // Best-effort: failures are logged and return "" so the turn proceeds
 // without a session.
-func (d *dependencies) mintSession(ctx context.Context, query string) string {
-	session, err := d.history.CreateSession(ctx, query)
+func (d *dependencies) mintSession(ctx context.Context, query string) (string, historyMutation) {
+	session, mutation, err := d.mutations.createSession(ctx, d.history, query)
 	if err != nil {
 		d.log.Warn("chat create session failed", zap.String("query", query), zap.Error(err))
-		return ""
+		return "", historyMutation{}
 	}
-	return session.ID
+	return session.ID, mutation
 }
 
 // persistTurn writes the turn's current state to history; the 5s timeout
 // keeps an unreachable store from pinning the caller.
-func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, failed bool) error {
+func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) error {
 	if d.history == nil || turn.SessionID == "" {
 		return nil
 	}
@@ -249,40 +292,54 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 	}
 	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.persistTimeout)
 	defer cancel()
-	return d.history.AppendTurn(cctx, turn.SessionID, ht, req.Query)
+	return d.mutations.append(cctx, d.history, mutation, ht, req.Query)
 }
 
 // persistStart keeps an edited turn together with its prune before the UI
 // renders the replacement. Ordinary turns remain best-effort and detached
 // so a slow history store cannot delay the live response.
-func (d *dependencies) persistStart(ctx context.Context, req Request, turn Turn, failed bool) {
+func (d *dependencies) persistStart(ctx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) {
 	if req.Edit {
-		if err := d.persistTurn(ctx, req, turn, failed); err != nil {
+		if err := d.persistTurn(ctx, req, turn, mutation, failed); err != nil {
+			if errors.Is(err, errStaleHistoryMutation) {
+				return
+			}
 			d.log.Warn("chat append edited turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
 		}
 		return
 	}
-	d.persist(ctx, req, turn, failed)
+	d.persist(ctx, req, turn, mutation, failed)
 }
 
 // persist saves a turn in a best-effort, detached goroutine — a slow or
 // unreachable store must never delay the response the user is watching.
-func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, failed bool) {
+func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) {
 	if d.history == nil || turn.SessionID == "" {
 		return
 	}
 	go func() {
-		if err := d.persistTurn(reqCtx, req, turn, failed); err != nil {
+		if err := d.persistTurn(reqCtx, req, turn, mutation, failed); err != nil {
+			if errors.Is(err, errStaleHistoryMutation) {
+				return
+			}
 			d.log.Warn("chat append turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
 		}
 	}()
 }
 
 // saveTurn persists a finished generation from the supervisor goroutine.
-func (d *dependencies) saveTurn(req Request, turn Turn) {
-	if err := d.persistTurn(context.Background(), req, turn, false); err != nil {
+
+func (d *dependencies) saveTurn(req Request, turn Turn, mutation historyMutation) {
+	if err := d.persistTurn(context.Background(), req, turn, mutation, false); err != nil {
+		if errors.Is(err, errStaleHistoryMutation) {
+			return
+		}
 		d.log.Warn("chat append turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
 	}
+}
+
+func (d *dependencies) mutationStale(mutation historyMutation) bool {
+	return mutation.sessionID != "" && !d.mutations.current(mutation)
 }
 
 // chunkResults snapshots retrieved chunks for persistence — captured at

@@ -78,10 +78,12 @@ type fakeHistory struct {
 		session string
 		before  int
 	}
-	createErr  error
-	appendErr  error
-	listErr    error
-	mintCalled bool
+	createErr          error
+	appendErr          error
+	listErr            error
+	mintCalled         bool
+	deleteAllCalls     int
+	deleteSessionCalls []string
 }
 
 func (f *fakeHistory) CreateSession(ctx context.Context, title string) (history.Session, error) {
@@ -119,7 +121,19 @@ func (f *fakeHistory) AppendTurn(ctx context.Context, sessionID string, turn his
 	return nil
 }
 
-func (f *fakeHistory) DeleteAllSessions(ctx context.Context) error { return nil }
+func (f *fakeHistory) DeleteSession(ctx context.Context, sessionID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleteSessionCalls = append(f.deleteSessionCalls, sessionID)
+	return nil
+}
+
+func (f *fakeHistory) DeleteAllSessions(ctx context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleteAllCalls++
+	return nil
+}
 
 func (f *fakeHistory) ListTurns(ctx context.Context, sessionID string) ([]history.Turn, error) {
 	if f.listErr != nil {
@@ -594,5 +608,80 @@ func TestCancelTurnPersistsPartialAnswer(t *testing.T) {
 	appended := h.turns()[0]
 	if !appended.HasAnswer || appended.Answer != "partial " {
 		t.Fatalf("cancelled turn must persist the partial answer, got %+v", appended)
+	}
+}
+
+func TestEditInvalidatesActiveGenerationPersistence(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &blockingGenerator{started: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+	old := d.StartTurn(context.Background(), Request{
+		Query:     "old",
+		SessionID: "session-1",
+		Generate:  true,
+	})
+	if !old.Streaming {
+		t.Fatalf("expected the original turn to stream, got %+v", old)
+	}
+	<-gen.started
+
+	replacement := d.StartTurn(context.Background(), Request{
+		Query:        "edited",
+		SessionID:    "session-1",
+		Edit:         true,
+		EditSequence: 0,
+		Generate:     false,
+	})
+	if replacement.Error != "" {
+		t.Fatalf("edit failed: %+v", replacement)
+	}
+	waitFor(t, func() bool { return len(h.turns()) == 1 })
+	if got := h.turns()[0].Query; got != "edited" {
+		t.Fatalf("invalidated generation must not reappear after edit, got %q", got)
+	}
+
+	if _, kind := drain(t, d, old); kind != EventDone {
+		t.Fatalf("cancelled generation must finish cleanly after edit, got %v", kind)
+	}
+	if got := len(h.turns()); got != 1 {
+		t.Fatalf("edited session must contain only the replacement, got %d turns", got)
+	}
+}
+
+func TestDeleteAllInvalidatesActiveGenerationPersistence(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &blockingGenerator{started: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+	turn := d.StartTurn(context.Background(), Request{
+		Query:     "question",
+		SessionID: "session-1",
+		Generate:  true,
+	})
+	if !turn.Streaming {
+		t.Fatalf("expected the turn to stream, got %+v", turn)
+	}
+	<-gen.started
+
+	if err := d.DeleteAllSessions(context.Background()); err != nil {
+		t.Fatalf("DeleteAllSessions: %v", err)
+	}
+	if _, kind := drain(t, d, turn); kind != EventDone {
+		t.Fatalf("deleted generation must finish cleanly, got %v", kind)
+	}
+	if got := len(h.turns()); got != 0 {
+		t.Fatalf("delete-all must prevent the finished generation from reappearing, got %d turns", got)
+	}
+	if h.deleteAllCalls != 1 {
+		t.Fatalf("DeleteAllSessions calls = %d, want 1", h.deleteAllCalls)
 	}
 }
