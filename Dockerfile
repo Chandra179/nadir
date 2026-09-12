@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN go build -o /nadir ./cmd/api
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=builder /nadir /app/nadir
