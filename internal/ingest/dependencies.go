@@ -3,6 +3,7 @@ package ingest
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"nadir/internal/cache"
@@ -35,6 +36,7 @@ type DependenciesConfig struct {
 	Chunker           chunker.Chunker
 	Embedder          embedder.Embedder
 	Store             store.Store
+	Coordinator       LifecycleCoordinator
 	SemanticCache     cache.SemanticCache
 	Enricher          enrichment.Enricher
 	DocumentConverter DocumentConverter
@@ -59,6 +61,7 @@ type dependencies struct {
 	chunker        chunker.Chunker
 	embedder       embedder.Embedder
 	store          store.Store
+	coordinator    LifecycleCoordinator
 	cache          cache.SemanticCache
 	cfg            RetryConfig
 	documentPrefix string
@@ -70,6 +73,7 @@ type dependencies struct {
 	embedBatchSize int
 	maxChunks      int
 	workers        int
+	runMu          sync.Mutex
 	converter      DocumentConverter
 	log            *zap.Logger
 }
@@ -99,6 +103,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		chunker:        cfg.Chunker,
 		embedder:       cfg.Embedder,
 		store:          cfg.Store,
+		coordinator:    cfg.Coordinator,
 		cache:          cfg.SemanticCache,
 		enrich:         cfg.Enricher,
 		hypeEnabled:    cfg.HypeEnabled,

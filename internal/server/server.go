@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"nadir/config"
 	"nadir/internal/api"
@@ -181,10 +182,12 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		Log:                    log,
 	})
 
+	lifecycle := &documentLifecycle{}
 	ingestDeps := ingest.NewDependencies(ingest.DependenciesConfig{
 		Chunker:           chunkr,
 		Embedder:          e,
 		Store:             s,
+		Coordinator:       lifecycle,
 		SemanticCache:     semanticCache,
 		Enricher:          enricher,
 		DocumentConverter: documentConverter,
@@ -222,14 +225,15 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	// Composite data-reset rule: dropping the collection must also clear
-	// the semantic cache, or it keeps serving stale results for deleted
-	// content. Enforced once here at the composition root so every caller
-	// of Store.DeleteAll gets it for free.
+	// Composite data-reset rule: replacing the collection generation must also
+	// invalidate the semantic cache, or it keeps serving stale results for
+	// deleted content. Enforced once here at the composition root so every
+	// caller of Store.DeleteAll gets it for free.
 	storeSvc := store.Store(s)
 	if semanticCache != nil {
 		storeSvc = &cacheInvalidatingStore{Store: s, cache: semanticCache}
 	}
+	storeSvc = &coordinatedStore{Store: storeSvc, lifecycle: lifecycle}
 
 	// Conversational query rewriting: follow-ups are rewritten into
 	// standalone search queries against the session's recent turns before
@@ -320,6 +324,32 @@ func Server(ctx context.Context, cfg *config.Config) error {
 type cacheInvalidatingStore struct {
 	store.Store
 	cache cache.SemanticCache
+}
+
+// documentLifecycle coordinates a complete Indexing pass with a destructive
+// Document reset. It is intentionally process-local; distributed operation
+// needs a shared lease/fencing Adapter at this seam.
+type documentLifecycle struct {
+	mu sync.RWMutex
+}
+
+func (d *documentLifecycle) BeginIngest() {
+	d.mu.RLock()
+}
+
+func (d *documentLifecycle) EndIngest() {
+	d.mu.RUnlock()
+}
+
+type coordinatedStore struct {
+	store.Store
+	lifecycle *documentLifecycle
+}
+
+func (d *coordinatedStore) DeleteAll(ctx context.Context) error {
+	d.lifecycle.mu.Lock()
+	defer d.lifecycle.mu.Unlock()
+	return d.Store.DeleteAll(ctx)
 }
 
 func (d *cacheInvalidatingStore) DeleteAll(ctx context.Context) error {

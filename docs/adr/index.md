@@ -24,3 +24,4 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0016](0016-versioned-document-replacement.md) | Stage a versioned Document before deactivating and cleaning up the previous version | Accepted |
 | [0017](0017-chat-history-mutation-ownership.md) | Chat owns revision checks and cancellation around destructive history mutations | Accepted |
 | [0018](0018-repeatable-retrieval-evaluation.md) | Restore a small repeatable Retrieval evaluator around the current search seam | Accepted |
+| [0019](0019-recoverable-document-reset.md) | Publish a fresh Document collection generation through a stable active alias before retiring the old generation | Accepted |

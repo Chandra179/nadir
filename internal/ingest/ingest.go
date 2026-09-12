@@ -27,6 +27,17 @@ func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, err
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, error) {
+	// A single process must not let two passes plan against the same SHA
+	// snapshot and then commit in completion order. Distributed workers need a
+	// lease/fencing token later; this lock provides the explicit single-node
+	// ownership guarantee for now.
+	d.runMu.Lock()
+	defer d.runMu.Unlock()
+	if d.coordinator != nil {
+		d.coordinator.BeginIngest()
+		defer d.coordinator.EndIngest()
+	}
+
 	started := time.Now()
 	storedSHAs, err := d.store.GetAllFileSHAs(ctx)
 	if err != nil {

@@ -43,7 +43,7 @@ go test -run TestMatchPattern ./internal/ingest/   # focused package test
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
 curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
-curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
+curl -X POST localhost:8100/store/reset                    # safely reset the Document collection
 ```
 
 > The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check` targets. The Go checks use explicit package scopes so a local Python `venv/` is not discovered as a Go package. The `cmd/eval` retrieval/RAGAS CLI referenced in older docs no longer exists; `tests/eval/` contains only committed evaluation data and reports.

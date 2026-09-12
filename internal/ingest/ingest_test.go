@@ -2,7 +2,10 @@ package ingest
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"nadir/internal/chunker"
@@ -152,5 +155,97 @@ func TestEnrichmentFeatureFlagsAreIndependent(t *testing.T) {
 				t.Fatalf("planned chunks = %d, want %d", len(plan.chunks), tt.wantChunks)
 			}
 		})
+	}
+}
+
+type serialStore struct {
+	active      atomic.Int32
+	maxActive   atomic.Int32
+	getCalls    atomic.Int32
+	firstStart  chan struct{}
+	secondStart chan struct{}
+	release     chan struct{}
+	firstOnce   sync.Once
+	secondOnce  sync.Once
+}
+
+func (s *serialStore) ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error {
+	active := s.active.Add(1)
+	for {
+		max := s.maxActive.Load()
+		if active <= max || s.maxActive.CompareAndSwap(max, active) {
+			break
+		}
+	}
+	s.firstOnce.Do(func() { close(s.firstStart) })
+	<-s.release
+	s.active.Add(-1)
+	return nil
+}
+
+func (s *serialStore) DeleteAll(context.Context) error { return nil }
+func (s *serialStore) HybridSearch(context.Context, []float32, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
+	return nil, nil
+}
+func (s *serialStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
+	return nil, nil
+}
+func (s *serialStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
+	if s.getCalls.Add(1) == 2 {
+		s.secondOnce.Do(func() { close(s.secondStart) })
+	}
+	return map[string]string{}, nil
+}
+func (s *serialStore) Stats(context.Context) (store.Stats, error) { return store.Stats{}, nil }
+
+func TestRunSerializesOverlappingIndexingPasses(t *testing.T) {
+	storeFake := &serialStore{
+		firstStart:  make(chan struct{}),
+		secondStart: make(chan struct{}),
+		release:     make(chan struct{}),
+	}
+	d := NewDependencies(DependenciesConfig{
+		Chunker:  &fakeChunker{},
+		Embedder: fakeEmbedder{},
+		Store:    storeFake,
+		Workers:  1,
+		Log:      zap.NewNop(),
+	})
+
+	firstDone := make(chan struct{})
+	go func() {
+		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("first")}})
+		close(firstDone)
+	}()
+	select {
+	case <-storeFake.firstStart:
+	case <-time.After(time.Second):
+		t.Fatal("first indexing pass did not reach the store")
+	}
+
+	secondDone := make(chan struct{})
+	go func() {
+		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("second")}})
+		close(secondDone)
+	}()
+	select {
+	case <-storeFake.secondStart:
+		t.Fatal("second indexing pass entered while first pass was active")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(storeFake.release)
+	select {
+	case <-firstDone:
+	case <-time.After(time.Second):
+		t.Fatal("first indexing pass did not finish")
+	}
+	select {
+	case <-secondDone:
+	case <-time.After(time.Second):
+		t.Fatal("second indexing pass did not finish after first pass")
+	}
+	if got := storeFake.maxActive.Load(); got != 1 {
+		t.Fatalf("maximum concurrent replacements = %d, want 1", got)
 	}
 }

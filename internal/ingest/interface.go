@@ -9,6 +9,15 @@ type Ingest interface {
 	Run(ctx context.Context, files []UploadFile) (Result, error)
 }
 
+// LifecycleCoordinator serializes a complete Indexing pass against
+// destructive Document operations in the composition root. The current
+// Adapter is process-local; distributed workers will need a shared lease and
+// fencing token instead.
+type LifecycleCoordinator interface {
+	BeginIngest()
+	EndIngest()
+}
+
 // DocumentConverter is the document-intake seam. It converts one supported
 // source file into Markdown while preserving the caller's source identity.
 type DocumentConverter interface {

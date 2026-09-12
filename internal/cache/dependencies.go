@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"sync/atomic"
 	"time"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
@@ -39,6 +40,7 @@ type dependencies struct {
 	ttl         time.Duration
 	queryPrefix string
 	version     string
+	generation  atomic.Uint64
 	dimensions  int
 }
 

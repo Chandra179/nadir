@@ -14,6 +14,10 @@ import (
 )
 
 func (c *dependencies) Clear(ctx context.Context) error {
+	// Invalidate logically before deleting points. A concurrent detached Set
+	// may still finish after the delete, but its captured older generation will
+	// never be accepted by Get.
+	c.generation.Add(1)
 	_, err := c.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: c.name,
 		Points: &qdrant.PointsSelector{
@@ -33,6 +37,7 @@ func (c *dependencies) EnsureCollection(ctx context.Context) error {
 }
 
 func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChunk, bool, error) {
+	version := c.cacheVersion()
 	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
 	if err != nil {
 		return nil, false, fmt.Errorf("semantic cache embed: %w", err)
@@ -54,7 +59,7 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChu
 	}
 
 	hit := resp.Result[0]
-	if c.version != "" && qdrantutil.StringFromPayload(hit.Payload, "cache_version") != c.version {
+	if c.cacheVersion() != version || qdrantutil.StringFromPayload(hit.Payload, "cache_version") != version {
 		return nil, false, nil
 	}
 	if c.ttl > 0 {
@@ -79,6 +84,7 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]store.ScoredChu
 }
 
 func (c *dependencies) Set(ctx context.Context, query string, chunks []store.ScoredChunk) error {
+	version := c.cacheVersion()
 	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
 	if err != nil {
 		return fmt.Errorf("semantic cache embed for set: %w", err)
@@ -97,9 +103,7 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 		"results_json": qdrantutil.StringValue(string(raw)),
 		"cached_at":    qdrantutil.StringValue(time.Now().UTC().Format(time.RFC3339)),
 	}
-	if c.version != "" {
-		payload["cache_version"] = qdrantutil.StringValue(c.version)
-	}
+	payload["cache_version"] = qdrantutil.StringValue(version)
 
 	_, err = c.points.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: c.name,
@@ -116,4 +120,12 @@ func (c *dependencies) Set(ctx context.Context, query string, chunks []store.Sco
 
 func (c *dependencies) embedQuery(query string) string {
 	return c.queryPrefix + query
+}
+
+func (c *dependencies) cacheVersion() string {
+	return effectiveVersion(c.version, c.generation.Load())
+}
+
+func effectiveVersion(base string, generation uint64) string {
+	return fmt.Sprintf("%s:g%d", base, generation)
 }

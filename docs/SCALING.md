@@ -92,13 +92,13 @@ event ownership needed to satisfy all of them across multiple processes.
 | Embeddings | Ingest batches requests and uses bounded file workers | Search and ingest share the external embedder without a global budget |
 | Reranking | A per-process semaphore bounds concurrent sidecar calls | Multiple application instances multiply sidecar pressure |
 | Document replacement | New versions are staged inactive, then activated and old versions cleaned | Concurrent replacements for one source identity are not ordered or fenced |
-| Indexing pass | One pass bounds file workers and deduplicates names within its input | Multiple `/ingest` calls can plan and commit the same source concurrently |
+| Indexing pass | One process serializes complete passes and coordinates them with reset | The gate is process-local; distributed workers still need leases/fencing |
 | Chat event log | Bounded, insertion-ordered, replayable in-process streams | Turn IDs and event cursors exist only on the owning process |
 | Session mutations | One process-local revision registry serializes destructive Chat mutations | Another process has a different revision registry and can append stale data |
 | History writes | One process-local mutex protects sequence allocation | The mutex does not protect writes made by another process and serializes all sessions together |
-| Cache writes | Cache writes are bounded by Qdrant and are best-effort | An asynchronous old write can finish after a cache clear and restore stale data |
+| Cache writes | Cache entries carry a process-local invalidation generation and are checked at read time | A shared generation is still needed across application instances |
 | Shutdown | HTTP connections receive a bounded graceful shutdown | Detached persistence and active generation are not fully drainable yet |
-| Full reset | Deletes the configured collection and recreates it | A failure after deletion can leave the corpus unavailable |
+| Full reset | Builds a new collection generation and switches a stable alias before cleanup | Cleanup can leave temporary retired collections; alias/lifecycle state is still single-node |
 
 The Interface at each of these seams is useful only when its ordering and
 failure guarantees are explicit. A second Adapter is not enough by itself:
@@ -192,30 +192,26 @@ These issues should be addressed before claiming production-grade scale-out.
 
 ### Overlapping Indexing passes
 
-Concurrent `/ingest` requests can race on the same Document. Add a single-node
-run lock or per-source lock now, then preserve the same protocol behind a
-distributed lease later. The Store replacement seam should accept or derive a
-monotonic generation so an older plan cannot deactivate a newer plan.
+Concurrent `/ingest` requests are serialized within one process, and reset is
+coordinated with the complete Indexing pass. Distributed workers can still
+race because the gate is not shared. Add per-source leases and a monotonic
+fencing generation before allowing distributed Indexing.
 
 ### Semantic-cache invalidation race
 
-Retrieval writes cache entries asynchronously with a detached context. An
-Indexing pass clears the cache after a changed Document, but an earlier
-Retrieval cache write can complete after that clear. The cache can then serve
-an old result until the next invalidation or TTL expiry.
-
-The safer long-term rule is to attach a corpus generation to cache entries and
-validate it at read time. A cache clear remains useful for space reclamation,
-but correctness no longer depends on racing every in-flight writer. The same
-generation must be shared by all application instances.
+Retrieval writes cache entries asynchronously with a detached context. The
+cache now attaches a process-local invalidation generation to each entry and
+validates it at read time, so a write from before an Indexing pass or reset
+cannot become valid again within that process. A cache clear remains useful
+for space reclamation; the generation must be shared by all application
+instances later.
 
 ### Recoverability of full reset
 
-The current reset deletes the live collection before recreating its schema.
-Reset should stage a replacement collection, validate the full dense and BM25
-schema, atomically switch the active collection identity, and clean up the old
-collection only after successful activation. Failed cleanup must be retryable.
-Reset and Indexing must also have defined behavior when they overlap.
+Reset now stages a replacement collection, validates the full dense and BM25
+schema, atomically switches the active alias, and cleans up the old collection
+only after successful publication. Failed cleanup is retryable, and the
+process-local lifecycle gate defines behavior when reset and Indexing overlap.
 
 ### Detached Chat persistence
 
@@ -394,7 +390,7 @@ matter to the domain, not only generic HTTP request counts.
 | Relational Session authority plus Qdrant vectors | Strong ordering and simple conditional writes | More infrastructure and two data lifecycles to reconcile |
 | Synchronous Indexing endpoint | Simple user experience and immediate result | Large Documents occupy HTTP/workers and are hard to retry or distribute |
 | Queue-based Indexing | Backpressure, retries, leases, and horizontal workers | Eventual consistency, job visibility, and queue operations |
-| Best-effort semantic cache | Lower latency and resilience when cache is unavailable | Requires corpus generations to avoid stale data after concurrent writes |
+| Best-effort semantic cache | Lower latency and resilience when cache is unavailable | Requires a shared corpus generation to avoid stale data across replicas |
 | CPU reranker | Portable Linux, Windows, and macOS deployment | High p50 latency and lower concurrency |
 | GPU reranker pool | Lower latency at sufficient batch/concurrency levels | Hardware scheduling, vendor coupling, and higher deployment cost |
 
@@ -402,18 +398,11 @@ matter to the domain, not only generic HTTP request counts.
 
 ### Before any horizontal deployment
 
-1. Make full Document reset recoverable with staged collection generations and
-   retryable cleanup.
-2. Add fault-injection tests for reset, Document replacement, and cache
-   invalidation.
-3. Serialize or fence overlapping Indexing passes and define source deletion
-   reconciliation.
-4. Make semantic-cache correctness independent of asynchronous stale writers by
-   using a shared corpus generation.
-5. Add drainable Chat persistence and generation shutdown.
-6. Add HTTP smoke tests, readiness checks, protected profiling, and basic
+1. Add drainable Chat persistence and generation shutdown.
+2. Expand HTTP smoke tests with dependency-backed failure cases, readiness
+   checks, protected profiling, and basic
    admission/rate limits for expensive and destructive operations.
-7. Expand Retrieval and generation evaluation on real Documents before tuning
+3. Expand Retrieval and generation evaluation on real Documents before tuning
    capacity or model defaults.
 
 ### First scale step: read-heavy Retrieval

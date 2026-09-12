@@ -1,6 +1,8 @@
 package store
 
 import (
+	"sync"
+
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
 
@@ -24,8 +26,10 @@ type dependencies struct {
 	points      qdrant.PointsClient
 	collection  qdrant.CollectionsClient
 	name        string
+	activeAlias string
 	prefetchMul int
 	dimensions  int
+	mu          sync.RWMutex
 }
 
 var _ Store = (*dependencies)(nil)
@@ -44,6 +48,7 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		points:      clients.Points,
 		collection:  clients.Collections,
 		name:        cfg.Collection,
+		activeAlias: activeAliasName(cfg.Collection),
 		prefetchMul: prefetchMul,
 	}, nil
 }

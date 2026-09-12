@@ -166,7 +166,7 @@ environment overrides even when roles share one Ollama server.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/ingest` | Ingest uploaded files: chunk+embed new/changed ones (SHA-256 dedup) |
-| POST | `/store/reset` | Drop and recreate the Qdrant collection |
+| POST | `/store/reset` | Publish an empty Qdrant collection generation and retire the previous one |
 | GET | `/retrieval` | Chat UI |
 | POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
 | GET | `/history/sessions` | Recent chat sessions (sidebar) |
@@ -253,11 +253,11 @@ is preferred.
 
 Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
 
-```bash
-curl -X DELETE localhost:6333/collections/documents_chunks
-```
+Use `POST /store/reset` to publish an empty collection generation safely:
 
-Use `POST /store/reset` to drop and recreate the Qdrant collection.
+```bash
+curl -X POST localhost:8100/store/reset
+```
 
 ### Ollama connection refused
 

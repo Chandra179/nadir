@@ -23,19 +23,56 @@ import (
 const sparseVectorName = "bm25"
 
 func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.dimensions = dimensions
+	active, aliasFound, err := s.activeCollection(ctx, s.activeAlias)
+	if err != nil {
+		return fmt.Errorf("qdrant list aliases: %w", err)
+	}
+	if aliasFound {
+		return s.validateCollection(ctx, active, dimensions)
+	}
+
 	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
 	if err != nil {
 		if status.Code(err) != codes.NotFound {
 			return fmt.Errorf("qdrant get collection: %w", err)
 		}
-		return s.createCollection(ctx, dimensions)
-	}
-	if err := qdrantutil.ValidateDenseCollection(s.name, info.GetResult(), dimensions); err != nil {
+		if err := s.createCollection(ctx, s.name, dimensions); err != nil {
+			return err
+		}
+	} else if err := s.validateCollectionInfo(s.name, info.GetResult(), dimensions); err != nil {
 		return err
 	}
-	if !qdrantutil.HasSparseVector(info.GetResult(), sparseVectorName) {
-		return fmt.Errorf("qdrant collection %q is missing sparse vector %q; reset/recreate it", s.name, sparseVectorName)
+
+	if err := s.switchActiveAlias(ctx, s.activeAlias, s.name, false); err != nil {
+		// Another process may have initialized the alias concurrently. Re-read
+		// it before reporting failure so startup remains idempotent.
+		active, found, resolveErr := s.activeCollection(ctx, s.activeAlias)
+		if resolveErr == nil && found {
+			return s.validateCollection(ctx, active, dimensions)
+		}
+		return fmt.Errorf("qdrant create active alias: %w", err)
+	}
+	return nil
+}
+
+func (s *dependencies) validateCollection(ctx context.Context, name string, dimensions int) error {
+	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: name})
+	if err != nil {
+		return fmt.Errorf("qdrant get active collection %q: %w", name, err)
+	}
+	return s.validateCollectionInfo(name, info.GetResult(), dimensions)
+}
+
+func (s *dependencies) validateCollectionInfo(name string, info *qdrant.CollectionInfo, dimensions int) error {
+	if err := qdrantutil.ValidateDenseCollection(name, info, dimensions); err != nil {
+		return err
+	}
+	if !qdrantutil.HasSparseVector(info, sparseVectorName) {
+		return fmt.Errorf("qdrant collection %q is missing sparse vector %q; reset/recreate it", name, sparseVectorName)
 	}
 	return nil
 }
@@ -44,10 +81,10 @@ func (s *dependencies) EnsureCollection(ctx context.Context, dimensions int) err
 // payload field indexes from scratch. Qdrant fixes a collection's named
 // vectors at creation time, so a new named vector can only arrive via
 // drop + recreate, never in place.
-func (s *dependencies) createCollection(ctx context.Context, dimensions int) error {
+func (s *dependencies) createCollection(ctx context.Context, name string, dimensions int) error {
 	idf := qdrant.Modifier_Idf
 	_, err := s.collection.Create(ctx, &qdrant.CreateCollection{
-		CollectionName: s.name,
+		CollectionName: name,
 		VectorsConfig: &qdrant.VectorsConfig{
 			Config: &qdrant.VectorsConfig_Params{
 				Params: &qdrant.VectorParams{
@@ -66,7 +103,7 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 
 	ft := qdrant.FieldType_FieldTypeText
 	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-		CollectionName: s.name,
+		CollectionName: name,
 		FieldName:      "text",
 		FieldType:      &ft,
 		FieldIndexParams: qdrant.NewPayloadIndexParamsText(&qdrant.TextIndexParams{
@@ -80,7 +117,7 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 	for _, field := range []string{"file_path", "header", "source_sha"} {
 		fk := qdrant.FieldType_FieldTypeKeyword
 		_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-			CollectionName: s.name,
+			CollectionName: name,
 			FieldName:      field,
 			FieldType:      &fk,
 		})
@@ -90,7 +127,7 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 	}
 	boolType := qdrant.FieldType_FieldTypeBool
 	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
-		CollectionName:   s.name,
+		CollectionName:   name,
 		FieldName:        "active",
 		FieldType:        &boolType,
 		FieldIndexParams: qdrant.NewPayloadIndexParamsBool(&qdrant.BoolIndexParams{}),
@@ -138,7 +175,7 @@ func (s *dependencies) upsert(ctx context.Context, chunks []ScoredChunk, active 
 		}
 	}
 	_, err := s.points.Upsert(ctx, &qdrant.UpsertPoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Wait:           new(true),
 		Points:         points,
 	})
@@ -150,6 +187,9 @@ func (s *dependencies) upsert(ctx context.Context, chunks []ScoredChunk, active 
 // new version active. Older versions are then hidden before cleanup, so a
 // cleanup failure after deactivation cannot expose stale search results.
 func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []ScoredChunk) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if strings.TrimSpace(filePath) == "" {
 		return fmt.Errorf("document file path is required")
 	}
@@ -173,7 +213,7 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 
 	wait := true
 	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Wait:           &wait,
 		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(true)},
 		PointsSelector: qdrant.NewPointsSelectorFilter(documentVersionFilter(filePath, sourceSHA)),
@@ -182,7 +222,7 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 	}
 
 	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Wait:           &wait,
 		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(false)},
 		PointsSelector: qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
@@ -191,7 +231,7 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 	}
 
 	if _, err := s.points.Delete(ctx, &qdrant.DeletePoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Wait:           &wait,
 		Points:         qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
 	}); err != nil {
@@ -200,16 +240,24 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 	return nil
 }
 
-// DeleteAll drops the collection and recreates it (dense + bm25 sparse
-// vectors, payload indexes). Qdrant fixes named vectors at creation time,
-// so a schema change can only be picked up by drop + recreate, not point
-// deletes.
+// DeleteAll provisions a fresh collection generation (dense + bm25 sparse
+// vectors, payload indexes) and publishes it through the stable active alias.
+// The previous generation is retired only after publication, so a failed
+// provision or alias switch leaves the old corpus addressable.
 func (s *dependencies) DeleteAll(ctx context.Context) error {
-	_, err := s.collection.Delete(ctx, &qdrant.DeleteCollection{CollectionName: s.name})
-	if err != nil && status.Code(err) != codes.NotFound {
-		return fmt.Errorf("qdrant delete collection: %w", err)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.dimensions <= 0 {
+		return fmt.Errorf("document collection dimensions are not initialized")
 	}
-	return s.createCollection(ctx, s.dimensions)
+	return resetCollection(ctx, s.name, s.activeAlias, resetCollectionOps{
+		active:      s.activeCollection,
+		create:      func(ctx context.Context, name string) error { return s.createCollection(ctx, name, s.dimensions) },
+		switchAlias: s.switchActiveAlias,
+		list:        s.listCollections,
+		delete:      s.deleteCollection,
+	})
 }
 
 func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
@@ -261,6 +309,9 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 // prefetches and fuses them server-side with RRF in a single round trip,
 // rather than issuing two separate queries and re-implementing RRF in Go.
 func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	fetchN := uint64(topK * s.prefetchMul)
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
@@ -284,7 +335,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 	}
 
 	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Prefetch:       prefetch,
 		Query:          qdrant.NewQueryFusion(qdrant.Fusion_RRF),
 		Filter:         qf,
@@ -304,10 +355,13 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 }
 
 func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	qf := toQdrantFilter(buildFilterConditions(filter))
 	qf.Must = append(qf.Must, qdrant.NewMatchText("text", keyword))
 	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
-		CollectionName: s.name,
+		CollectionName: s.activeAlias,
 		Filter:         qf,
 		Limit:          new(uint32(topK)),
 		WithPayload:    qdrant.NewWithPayload(true),
@@ -323,12 +377,18 @@ func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK i
 }
 
 func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.getAllFileSHAs(ctx)
+}
+
+func (s *dependencies) getAllFileSHAs(ctx context.Context) (map[string]string, error) {
 	shas := make(map[string]string)
 	var offset *qdrant.PointId
 	pageSize := uint32(1000)
 	for {
 		resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
-			CollectionName: s.name,
+			CollectionName: s.activeAlias,
 			Filter:         toQdrantFilter(nil),
 			Limit:          &pageSize,
 			Offset:         offset,
@@ -353,12 +413,15 @@ func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, e
 }
 
 func (s *dependencies) Stats(ctx context.Context) (Stats, error) {
-	shas, err := s.GetAllFileSHAs(ctx)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	shas, err := s.getAllFileSHAs(ctx)
 	if err != nil {
 		return Stats{}, fmt.Errorf("stats file count: %w", err)
 	}
 
-	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.name})
+	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.activeAlias})
 	if err != nil {
 		return Stats{}, fmt.Errorf("stats collection info: %w", err)
 	}

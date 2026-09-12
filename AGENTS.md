@@ -27,7 +27,7 @@ go test -run TestMatchPattern ./internal/ingest/   # focused pkg test
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/ingest
 curl -X POST localhost:8100/retrieval/search --data-urlencode "query=secant formula"
-curl -X DELETE localhost:6333/collections/documents_chunks   # reset Qdrant collection (REST :6333)
+curl -X POST localhost:8100/store/reset                    # safely reset the Document collection
 
 # Retrieval quality evaluation (Qdrant + embedder, optional reranker must be running)
 go run ./cmd/evalbench --runs 3

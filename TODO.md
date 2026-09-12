@@ -126,21 +126,34 @@ should wait for real usage data.
       concurrent turn creation or generation. Chat owns serialized history
       mutations, session/global revision checks, and active-generation
       cancellation; see ADR-0017.
-- [ ] Make full Document reset recoverable if collection deletion or recreation
-      fails; preserve a known-good collection or define restore/retry semantics.
-- [ ] Add fault-injection tests proving failed staging preserves the previous
-      active Document and failed cleanup is retryable without duplicate active
-      versions.
+- [x] Make full Document reset recoverable if collection deletion or recreation
+      fails: publish a freshly provisioned collection through a stable Qdrant
+      active alias, then retire old generations after publication.
+- [x] Add fault-injection tests proving failed staging/publishing preserves the
+      previous active Document and failed cleanup is retryable without deleting
+      the published generation.
+- [x] Serialize overlapping Indexing passes within one process so two SHA
+      snapshots cannot commit the same source in completion order; distributed
+      workers still need leases/fencing.
+- [x] Make semantic-cache invalidation generation-aware so detached cache writes
+      from before ingest/reset cannot become valid again after Clear fails or
+      completes out of order.
 
 ### P1 — Lifecycle and user-visible confidence
 
 - [ ] Make detached chat-history persistence drainable during shutdown so a
       process stop cannot silently lose completed Chat turns.
-- [ ] Add end-to-end HTTP smoke tests for ingest, Retrieval, SSE replay and
-      cancellation, in-place editing, single-chat deletion, delete-all chats,
-      full document reset, and error responses.
+- [x] Add end-to-end HTTP smoke tests for ingest, Retrieval, SSE replay and
+      cancellation, in-place editing/deletion routing, delete-all chats, full
+      document reset, and the main success path. Add dependency-backed failure
+      cases as the real-service E2E profile grows.
 - [ ] Grow the golden set from 34 sample queries to 100+ real queries with
       distractor pairs, multi-hop cases, and generation-faithfulness labels.
+- [ ] Reconcile removed source files when configured source paths are intended
+      to mirror the corpus; retain source versions when ingest is upload-only.
+- [ ] Add restart/shutdown tests proving active Chat generation and pending
+      history persistence either drain within the shutdown budget or report a
+      durable retry state.
 - [ ] Secure or disable the always-on profiling listener, and separate liveness
       from readiness checks for Qdrant, Ollama, and the reranker.
 - [x] Reconcile user documentation and ADRs with the current in-place editing,
@@ -162,6 +175,15 @@ should wait for real usage data.
       verifiable at startup so separately deployed settings cannot drift.
 - [ ] Move the history sidebar page size and other operational limits into
       explicit configuration if they need operational tuning.
+- [ ] Add global admission and backpressure for Retrieval fragments, reranking,
+      generation, embedding, indexing, and destructive operations; current
+      limits are per request or per process.
+- [ ] Add domain-level metrics, traces, and structured operation IDs for
+      Retrieval, Chat, Indexing, cache invalidation, and reset outcomes.
+- [ ] Run Qdrant backup/restore drills and document recovery objectives before
+      claiming high availability.
+- [ ] Add load benchmarks for concurrent Chat streams, long-fragment Retrieval,
+      and large Document ingestion with p50/p95/p99 and dependency saturation.
 
 ### P3 — Retrieval experiments and capacity work
 

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"nadir/internal/cache"
 	"nadir/internal/store"
@@ -50,5 +51,36 @@ func TestCacheInvalidatingStoreDoesNotClearCacheAfterStoreFailure(t *testing.T) 
 	}
 	if cacheStore.cleared {
 		t.Fatal("cache was cleared after store reset failure")
+	}
+}
+
+func TestCoordinatedStoreWaitsForIndexingBeforeReset(t *testing.T) {
+	lifecycle := &documentLifecycle{}
+	base := &compositionStore{}
+	decorated := &coordinatedStore{Store: base, lifecycle: lifecycle}
+	lifecycle.BeginIngest()
+
+	done := make(chan struct{})
+	go func() {
+		_ = decorated.DeleteAll(context.Background())
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatal("reset ran while indexing was active")
+	case <-time.After(25 * time.Millisecond):
+	}
+	if base.deleted {
+		t.Fatal("reset reached the store before indexing ended")
+	}
+
+	lifecycle.EndIngest()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("reset did not run after indexing ended")
+	}
+	if !base.deleted {
+		t.Fatal("reset did not reach the store")
 	}
 }
