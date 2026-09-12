@@ -1,108 +1,234 @@
 import { useState } from "react";
 
-import type { Turn } from "../../lib/api-contract";
-
-function scorePercent(score: number, max: number): number {
-  if (max <= 0) return 100;
-  return Math.max(4, Math.round((score / max) * 100));
-}
+import type { Result, Turn } from "../../lib/api-contract";
 
 type Props = {
   turn: Turn;
   onEdit: () => void;
+  sequence?: number;
+  editing?: boolean;
+  editQuery?: string;
+  onEditQueryChange?: (query: string) => void;
+  onEditSubmit?: () => void;
+  onCancelEdit?: () => void;
 };
 
-export default function TurnCard({ turn, onEdit }: Props) {
-  const [copied, setCopied] = useState(false);
-  const maxScore = Math.max(...turn.results.map((result) => result.score), 0);
+function scoreText(score: number): string {
+  return score.toFixed(3);
+}
 
-  const copyAnswer = async () => {
-    if (!turn.answer) return;
-    await navigator.clipboard.writeText(turn.answer);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // Clipboard access is optional in insecure browser contexts.
+    }
   };
 
   return (
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/45 p-5 md:p-6">
-      <div className="flex items-start justify-between gap-5">
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap text-base leading-7 text-white">{turn.query}</p>
-          {turn.attached_files?.length ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {turn.attached_files.map((file) => (
-                <span key={file} className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] text-slate-500">
-                  {file}
-                </span>
-              ))}
-            </div>
-          ) : null}
+    <button type="button" onClick={() => void copy()} aria-label={copied ? "Copied" : label} title={label} className="p-1.5 text-[#8b8f81] hover:text-[#20241f] rounded-md transition">
+      {copied ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+      )}
+    </button>
+  );
+}
+
+function EditIcon() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>;
+}
+
+function DocumentIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" /><path d="M14 2v6h6M8 13h8M8 17h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+}
+
+function AttachmentCards({ files }: { files: string[] }) {
+  if (!files.length) return null;
+  return (
+    <div className="flex justify-end flex-wrap gap-2 mb-2">
+      {files.map((file) => (
+        <div key={file} className="w-[118px] bg-[#eeece3] border border-[#e3e2d8] rounded-[12px] px-2.5 py-2.5 flex flex-col items-start gap-2">
+          <div className="w-7 h-7 rounded-[7px] bg-[#dce8fb] text-[#2f5db0] flex items-center justify-center"><DocumentIcon /></div>
+          <div className="text-[12px] text-[#5c6156] truncate w-full">{file}</div>
         </div>
-        <button
-          onClick={onEdit}
-          className="shrink-0 rounded-lg border border-transparent px-2 py-1 text-xs text-slate-600 hover:border-slate-700 hover:text-cyan-300"
-        >
-          Edit
-        </button>
+      ))}
+    </div>
+  );
+}
+
+function EditForm({ editQuery, onEditQueryChange, onSubmit, onCancel }: { editQuery: string; onEditQueryChange: (query: string) => void; onSubmit: () => void; onCancel: () => void }) {
+  return (
+    <div className="w-full max-w-[82%] mb-3.5">
+      <form
+        className="rounded-[16px] border border-[#dcd8c9] bg-[#f7f7f4] shadow-[0_20px_40px_-26px_rgba(32,36,31,0.28)] px-[18px] pt-[14px] pb-[12px]"
+        onSubmit={(event) => { event.preventDefault(); onSubmit(); }}
+      >
+        <textarea
+          value={editQuery}
+          onChange={(event) => onEditQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              onSubmit();
+            }
+          }}
+          rows={2}
+          required
+          autoFocus
+          className="w-full resize-none bg-transparent outline-none text-[16px] leading-[1.6] pb-2.5 max-h-[200px]"
+        />
+        <div className="flex justify-end gap-2 mt-1">
+          <button type="button" onClick={onCancel} className="text-[13.5px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-1.5 hover:bg-[#eeece3] transition">Cancel</button>
+          <button type="submit" className="text-[13.5px] text-white bg-[#2f5d50] rounded-lg px-3.5 py-1.5 hover:bg-[#234840] transition">Send</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function SearchTrace({ turn }: { turn: Turn }) {
+  const [open, setOpen] = useState(!turn.has_answer && !turn.answer);
+  const [raw, setRaw] = useState(false);
+  const rawSearch = JSON.stringify({
+    query: turn.query,
+    ...(turn.rewritten_query ? { rewritten: turn.rewritten_query } : {}),
+    top_k: turn.top_k,
+    generate: turn.generate,
+  }, null, 2);
+
+  return (
+    <div className="flex gap-2.5 py-1.5">
+      <span className="w-4 text-center text-[#8b8f81] flex-none">⊕</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap gap-1.5 items-baseline text-[14px]">
+          <span className="font-semibold text-[#5c6156]">Tool</span><span className="text-[#8b8f81]">·</span>
+          <span className="text-[#8b8f81]">Retrieve relevant passages</span>
+        </div>
+        <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5">
+          <button type="button" onClick={() => setOpen((value) => !value)} className="w-full text-left flex items-center gap-1.5 py-0.5 text-[13px] text-[#5c6156] font-mono-ui">
+            <svg className={`w-2.5 h-2.5 text-[#8b8f81] transition-transform ${open ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span><b className="text-[#20241f] font-semibold">Search</b> · &quot;{turn.query}&quot;</span>
+          </button>
+          {open && (
+            <div className="pt-2">
+              {turn.results.length ? (
+                <div className="bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] py-2">
+                  {turn.results.map((result, index) => <SearchResult key={`${result.file_path}-${result.line_start}-${index}`} result={result} />)}
+                </div>
+              ) : (
+                <p className="text-[13px] text-[#8b8f81]">No matching chunks.</p>
+              )}
+              <button type="button" onClick={() => setRaw((value) => !value)} className="mt-2 font-mono-ui text-[12px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect</button>
+              {raw && <pre className="mt-2 font-mono-ui text-[12.5px] leading-relaxed text-[#5c6156] bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] px-3 py-2 overflow-x-auto">{rawSearch}{`\n→ ${turn.count} chunks · ${turn.elapsed_ms}ms${turn.from_cache ? " · cached" : ""}`}</pre>}
+            </div>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
 
-      {turn.rewritten_query && (
-        <p className="mt-4 border-l-2 border-violet-400/40 pl-3 text-xs text-slate-500">
-          Searched as: {turn.rewritten_query}
-        </p>
-      )}
-      {turn.error && <p className="mt-4 text-sm text-rose-300">{turn.error}</p>}
+function SearchResult({ result }: { result: Result }) {
+  return (
+    <div className="grid grid-cols-[14px_1fr_auto] gap-2.5 items-baseline px-3 py-[3px] font-mono-ui text-[12.5px]">
+      <span className="text-[#8b8f81]">·</span>
+      <span className="text-[#5c6156] truncate"><b className="text-[#20241f] font-medium">{result.file_path}</b>{result.header ? ` · ${result.header}` : ""} · L{result.line_start}<span className="sr-only">{result.text}</span></span>
+      <span className="text-[#8b8f81]">{scoreText(result.score)}</span>
+    </div>
+  );
+}
 
-      {turn.results.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-            Retrieved context · {turn.count}
-          </p>
-          {turn.results.map((result, index) => (
-            <div
-              key={`${result.file_path}-${result.line_start}-${index}`}
-              className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="truncate text-xs text-cyan-300">
-                  {result.file_path}{result.header ? ` · ${result.header}` : ""}
-                </p>
-                <span className="shrink-0 text-[11px] text-slate-600">{result.score.toFixed(3)}</span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-cyan-500/60"
-                  style={{ width: `${scorePercent(result.score, maxScore)}%` }}
-                />
-              </div>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-400">{result.text}</p>
-              <p className="mt-2 text-[11px] text-slate-700">Line {result.line_start}</p>
-            </div>
-          ))}
+function ThinkTrace({ turn }: { turn: Turn }) {
+  const [contextOpen, setContextOpen] = useState(false);
+  return (
+    <div className="flex gap-2.5 py-1.5">
+      <span className="w-4 text-center text-[#8b8f81] flex-none">⊗</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[14px]">
+          <span className="font-semibold text-[#5c6156]">Think</span><span className="text-[#8b8f81]"> · </span>
+          <span className="text-[#8b8f81]">Reordering retrieved chunks (lost-in-middle) and generating the answer.</span>
         </div>
-      )}
-
-      {turn.answer && (
-        <div className="mt-6 border-t border-slate-800 pt-5">
-          <div className="flex items-start justify-between gap-3">
-            <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{turn.answer}</p>
-            <button
-              onClick={() => void copyAnswer()}
-              className="shrink-0 rounded-md px-2 py-1 text-[11px] text-slate-600 hover:text-cyan-300"
-            >
-              {copied ? "Copied" : "Copy"}
-            </button>
+        {turn.rewritten_query && (
+          <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5 font-mono-ui text-[12.5px] leading-relaxed">
+            <span className="text-[#8b8f81]">Rewrite · </span>
+            <span className="text-[#8b8f81]">&quot;{turn.query}&quot; </span>
+            <span className="text-[#8b8f81]">→ </span>
+            <b className="text-[#20241f] font-medium">&quot;{turn.rewritten_query}&quot;</b>
           </div>
-        </div>
-      )}
-      {turn.generate_error && <p className="mt-4 text-sm text-amber-300">Generation: {turn.generate_error}</p>}
-      {turn.streaming && !turn.answer && !turn.generate_error && (
-        <p className="mt-5 animate-pulse text-xs text-slate-600">Generating…</p>
-      )}
-      <div className="mt-5 flex gap-3 text-[11px] text-slate-700">
-        <span>{turn.elapsed_ms} ms</span>
-        {turn.from_cache && <span>cached retrieval</span>}
+        )}
+        {turn.generate_error && <div className="ml-0.5 mt-1.5 text-[14px] text-[#b04a3f]">{turn.generate_error}</div>}
+        {turn.prompt && (
+          <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5">
+            <button type="button" onClick={() => setContextOpen((value) => !value)} className="font-mono-ui text-[12px] text-[#8b8f81] border border-[#e3e2d8] rounded-md px-2.5 py-1 hover:text-[#5c6156] hover:border-[#dcd8c9]">&lt;/&gt; Inspect context sent to the LLM</button>
+            {contextOpen && <pre className="mt-2 font-mono-ui text-[12.5px] leading-relaxed text-[#5c6156] bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] px-3 py-2 overflow-x-auto whitespace-pre-wrap">{turn.prompt}</pre>}
+          </div>
+        )}
       </div>
-    </article>
+    </div>
+  );
+}
+
+export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing = false, editQuery = turn.query, onEdit, onEditQueryChange = () => {}, onEditSubmit = () => {}, onCancelEdit = () => {} }: Props) {
+  const hasAnswer = Boolean(turn.has_answer || turn.answer);
+  const hasTrace = !turn.error && (hasAnswer || turn.stream_url || turn.generate_error);
+
+  return (
+    <div className="mb-8" data-turn-sequence={sequence}>
+      <AttachmentCards files={turn.attached_files ?? []} />
+      <div className="sr-only" aria-label="Retrieved passage text">
+        {turn.results.map((result, index) => <span key={`${result.file_path}-${result.line_start}-text-${index}`}>{result.text}</span>)}
+      </div>
+
+      <div className="nadir-turn-q flex flex-col items-end">
+        {!editing ? (
+          <div data-copy-text className="text-[16px] leading-[1.5] bg-[#2f5d5017] border border-[#2f5d5017] rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[14px] rounded-br-[3px] px-[15px] py-[10px] max-w-[82%] whitespace-pre-wrap">{turn.query}</div>
+        ) : (
+          <EditForm
+            editQuery={editQuery}
+            onEditQueryChange={onEditQueryChange}
+            onSubmit={onEditSubmit}
+            onCancel={onCancelEdit}
+          />
+        )}
+
+        {!editing && (
+          <div className="nadir-msg-actions flex items-center gap-0.5 mt-1.5 mb-3.5">
+            <CopyButton text={turn.query} label="Copy question" />
+            <button type="button" onClick={onEdit} aria-label="Edit question" title="Edit" className="p-1.5 text-[#8b8f81] hover:text-[#20241f] rounded-md transition"><EditIcon /></button>
+          </div>
+        )}
+      </div>
+
+      {turn.error ? (
+        <p className="text-[14px] text-[#b04a3f]">{turn.error}</p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-0.5 mb-3.5">
+            <SearchTrace turn={turn} />
+            {hasTrace && <ThinkTrace turn={turn} />}
+          </div>
+
+          {hasAnswer && (
+            <div className={`nadir-turn-a text-[17px] text-[#20241f] leading-[1.7] ${turn.streaming ? "nadir-streaming" : ""}`}>
+              <p className="whitespace-pre-wrap" data-copy-text>{turn.answer}</p>
+              <div className="nadir-msg-actions flex items-center gap-0.5 mt-1.5 -ml-1.5"><CopyButton text={turn.answer ?? ""} /></div>
+            </div>
+          )}
+          {!hasAnswer && turn.streaming && (
+            <div className="nadir-turn-a text-[17px] text-[#20241f] leading-[1.7] nadir-streaming">
+              <p className="nadir-answer" data-copy-text />
+              <div className="nadir-msg-actions flex items-center gap-0.5 mt-1.5 -ml-1.5"><CopyButton text="" /></div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

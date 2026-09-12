@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import Notice from "../../components/Notice";
 import type { Session, Turn } from "../../lib/api-contract";
 import { useTurnStream } from "../../hooks/useTurnStream";
 import AdministrationPanel from "../administration/AdministrationPanel";
 import { cancelTurn, startTurn } from "../chat/api";
 import Composer from "../chat/Composer";
 import TurnCard from "../chat/TurnCard";
-import { ingestDocuments, resetDocuments } from "../documents/api";
-import DocumentPanel from "../documents/DocumentPanel";
+import { ingestDocuments } from "../documents/api";
 import { deleteAllSessions, deleteSession, getSession, listSessions } from "../history/api";
 import SessionList from "../history/SessionList";
 
@@ -25,14 +23,20 @@ export default function WorkspacePage() {
   const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [query, setQuery] = useState("");
+  const [editQuery, setEditQuery] = useState("");
   const [editSequence, setEditSequence] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteSessionTarget, setDeleteSessionTarget] = useState<Session | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteAllBusy, setDeleteAllBusy] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
-  const turnsEndRef = useRef<HTMLDivElement | null>(null);
+  const readerRef = useRef<HTMLDivElement | null>(null);
 
   const refreshSessions = useCallback(async () => {
     try {
@@ -95,7 +99,8 @@ export default function WorkspacePage() {
   });
 
   useEffect(() => {
-    turnsEndRef.current?.scrollIntoView({ block: "end" });
+    const reader = readerRef.current;
+    if (reader) reader.scrollTop = reader.scrollHeight;
   }, [turns]);
 
   const selectSession = useCallback(async (id: string) => {
@@ -105,6 +110,8 @@ export default function WorkspacePage() {
       const detail = await getSession(id);
       setActiveSessionID(id);
       setTurns(detail.turns.map(withSequence));
+      setEditSequence(null);
+      setEditQuery("");
       window.history.pushState({}, "", `/sessions/${encodeURIComponent(id)}`);
     } catch (cause) {
       setError(messageFrom(cause, "Could not load conversation"));
@@ -116,9 +123,11 @@ export default function WorkspacePage() {
     setActiveSessionID(null);
     setTurns([]);
     setQuery("");
+    setEditQuery("");
     setEditSequence(null);
     setAttachedFiles([]);
     setError(null);
+    setSidebarOpen(false);
     window.history.pushState({}, "", "/");
   }, [closeStream]);
 
@@ -136,18 +145,18 @@ export default function WorkspacePage() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [newChat, refreshSessions, selectSession]);
 
-  const submit = useCallback(async () => {
-    const text = query.trim();
+  const submit = useCallback(async (requestedQuery = query, requestedEditSequence: number | null = editSequence) => {
+    const text = requestedQuery.trim();
     if (!text || busy) return;
 
-    const editing = editSequence !== null;
-    const sequence = editSequence;
+    const editing = requestedEditSequence !== null;
+    const originalTurn = editing ? turns[requestedEditSequence] : undefined;
+    const files = editing ? (originalTurn?.attached_files ?? []) : attachedFiles;
     setBusy(true);
     setError(null);
-    if (editing && sequence !== null) {
-      setTurns((current) => current.slice(0, sequence));
-    }
+    if (editing) setTurns((current) => current.slice(0, requestedEditSequence));
     setQuery("");
+    setEditQuery("");
     setEditSequence(null);
 
     try {
@@ -155,16 +164,16 @@ export default function WorkspacePage() {
         query: text,
         generate: true,
         session_id: activeSessionID ?? undefined,
-        attached_files: attachedFiles.length ? attachedFiles : undefined,
+        attached_files: files.length ? files : undefined,
         edit: editing,
-        edit_sequence: sequence ?? undefined,
+        edit_sequence: requestedEditSequence ?? undefined,
       });
       const nextSessionID = turn.session_id || activeSessionID;
       if (nextSessionID && nextSessionID !== activeSessionID) {
         setActiveSessionID(nextSessionID);
         window.history.pushState({}, "", `/sessions/${encodeURIComponent(nextSessionID)}`);
       }
-      setAttachedFiles([]);
+      if (!editing) setAttachedFiles([]);
       setTurns((current) => [...current, withSequence(turn, current.length)]);
       if (turn.streaming) {
         startStream(turn);
@@ -176,7 +185,7 @@ export default function WorkspacePage() {
       setBusy(false);
       setError(messageFrom(cause, "Could not start turn"));
     }
-  }, [activeSessionID, attachedFiles, busy, editSequence, query, refreshSessions, startStream]);
+  }, [activeSessionID, attachedFiles, busy, editSequence, query, refreshSessions, startStream, turns]);
 
   const upload = useCallback(async (files: File[]) => {
     setUploading(true);
@@ -184,50 +193,49 @@ export default function WorkspacePage() {
     try {
       const response = await ingestDocuments(files);
       setAttachedFiles((current) => [...current, ...(response.names ?? files.map((file) => file.name))]);
-      setDocumentMessage(`${response.processed} processed, ${response.skipped} skipped, ${response.failed} failed.`);
+      if (response.failed > 0) setDocumentMessage(`${response.processed} processed, ${response.skipped} skipped, ${response.failed} failed.`);
     } catch (cause) {
-      setDocumentMessage(messageFrom(cause, "Upload failed"));
+      setDocumentMessage(messageFrom(cause, "Import failed"));
     } finally {
       setUploading(false);
     }
   }, []);
 
-  const removeOne = useCallback(async (session: Session) => {
-    if (!window.confirm(`Delete “${session.title}” and all its turns?`)) return;
+  const confirmDeleteSession = useCallback(async () => {
+    const target = deleteSessionTarget;
+    if (!target) return;
+    setDeleteSessionTarget(null);
     try {
-      await deleteSession(session.id);
-      if (activeSessionID === session.id) newChat();
+      await deleteSession(target.id);
+      if (activeSessionID === target.id) newChat();
       await refreshSessions();
     } catch (cause) {
       setError(messageFrom(cause, "Could not delete conversation"));
     }
-  }, [activeSessionID, newChat, refreshSessions]);
+  }, [activeSessionID, deleteSessionTarget, newChat, refreshSessions]);
 
   const removeAll = useCallback(async () => {
-    if (!window.confirm("Delete every conversation? This cannot be undone.")) return;
+    if (deleteAllBusy) return;
+    setDeleteAllBusy(true);
+    setDeleteAllError("");
     try {
       await deleteAllSessions();
+      setDeleteAllOpen(false);
+      setDeleteAllBusy(false);
       newChat();
       setSessions([]);
-      setSettingsOpen(false);
     } catch (cause) {
-      setError(messageFrom(cause, "Could not delete conversations"));
+      setDeleteAllBusy(false);
+      setDeleteAllError(messageFrom(cause, "Could not delete chats. Please try again."));
     }
-  }, [newChat]);
-
-  const resetIndex = useCallback(async () => {
-    try {
-      await resetDocuments();
-      setDocumentMessage("Document index reset.");
-    } catch (cause) {
-      setDocumentMessage(messageFrom(cause, "Could not reset document index"));
-    }
-  }, []);
+  }, [deleteAllBusy, newChat]);
 
   const editTurn = useCallback((turn: Turn, sequence: number) => {
-    setQuery(turn.query);
+    setEditQuery(turn.query);
     setEditSequence(sequence);
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    window.setTimeout(() => {
+      document.querySelector(`[data-turn-sequence="${sequence}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
   }, []);
 
   const stop = useCallback(() => {
@@ -239,71 +247,105 @@ export default function WorkspacePage() {
   }, [activeTurnID, closeStream]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-nadir-ink text-slate-200 md:flex-row">
-      <SessionList
-        sessions={sessions}
-        activeSessionId={activeSessionID}
-        onSelect={(id) => void selectSession(id)}
-        onNew={newChat}
-        onDelete={(session) => void removeOne(session)}
-      />
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-800 px-5 py-4 md:px-10">
-          <div>
-            <p className="text-sm font-medium text-slate-300">
-              {activeSessionID ? "Conversation" : "New conversation"}
-            </p>
-            <p className="text-xs text-slate-600">Search your indexed knowledge with grounded context.</p>
-          </div>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
-          >
-            Settings
-          </button>
-        </header>
+    <div className="flex h-screen relative bg-[#f7f7f4]">
+      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
-        <div className="scrollbar-thin flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-5 py-8 md:px-10">
-            {error && <Notice tone="error">{error}</Notice>}
-            {turns.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-slate-800 px-6 py-20 text-center">
-                <p className="text-lg text-slate-300">Ask Nadir about your documents.</p>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-                  Upload source material, then ask a question. Answers stream from retrieved passages and remain
-                  attached to this conversation.
-                </p>
+      {deleteSessionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteSessionTarget(null); }}>
+          <section className="bg-[#f7f7f4] border border-[#dcd8c9] rounded-[16px] shadow-xl w-full max-w-[340px] p-6 text-center">
+            <div className="font-serif-display font-semibold text-[16px] mb-1">Delete chat?</div>
+            <p className="text-[13px] text-[#8b8f81] mb-5 truncate">{deleteSessionTarget.title}</p>
+            <div className="flex justify-center gap-2">
+              <button type="button" onClick={() => setDeleteSessionTarget(null)} className="text-[13.5px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:bg-[#eeece3] transition">Cancel</button>
+              <button type="button" onClick={() => void confirmDeleteSession()} className="text-[13.5px] text-white bg-[#b04a3f] rounded-lg px-3.5 py-2 flex items-center gap-2 hover:bg-[#a03e34] transition">
+                <TrashIcon />
+                Delete
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <div className={`fixed inset-y-0 left-0 z-40 w-[264px] max-w-[82vw] transform transition-transform duration-200 ease-out md:static md:translate-x-0 md:flex-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <SessionList
+          sessions={sessions}
+          activeSessionId={activeSessionID}
+          onSelect={(id) => void selectSession(id)}
+          onNew={newChat}
+          onDelete={setDeleteSessionTarget}
+          onSettings={() => setSettingsOpen(true)}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
+
+      <main className="flex flex-col min-w-0 min-h-0 flex-1">
+        <div className="flex items-center gap-2.5 border-b border-[#e3e2d8] px-4 md:px-7 py-3 flex-none">
+          <button type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle chats" className="md:hidden w-8 h-8 -ml-1 rounded-lg flex items-center justify-center text-[#5c6156] hover:bg-[#eeece3]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          </button>
+          <div className="font-serif-display font-semibold text-[17px]">New chat</div>
+        </div>
+
+        <div id="reader" ref={readerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div id="reader-inner" className="mx-auto max-w-[768px] px-4 md:px-7 pt-8 pb-4">
+            {error && <div className="feedback feedback-err mb-4" role="alert">{error}</div>}
+            {turns.length === 0 ? (
+              <div id="empty-state" className="pt-16 text-center">
+                <div className="font-serif-display text-[24px] font-semibold mb-2">Ask your documents</div>
+                <p className="text-[14.5px] text-[#8b8f81] mb-6">Retrieval runs through Qdrant hybrid search before every generated answer.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button type="button" onClick={() => void submit("What's the secant formula, and when do I use it instead of tangent?", null)} className="text-[14px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:border-[#2f5d50] hover:text-[#234840] transition">What&apos;s the secant formula, and when do I use it instead of tangent?</button>
+                  <button type="button" onClick={() => void submit("How does chunk overlap affect retrieval quality?", null)} className="text-[14px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:border-[#2f5d50] hover:text-[#234840] transition">How does chunk overlap affect retrieval quality?</button>
+                </div>
               </div>
+            ) : (
+              turns.map((turn, index) => (
+                <TurnCard
+                  key={`${turn.turn_id ?? turn.query}-${index}`}
+                  turn={turn}
+                  sequence={index}
+                  editing={editSequence === index}
+                  editQuery={editQuery}
+                  onEdit={() => editTurn(turn, index)}
+                  onEditQueryChange={setEditQuery}
+                  onEditSubmit={() => void submit(editQuery, index)}
+                  onCancelEdit={() => { setEditSequence(null); setEditQuery(""); }}
+                />
+              ))
             )}
-            {turns.map((turn, index) => (
-              <TurnCard
-                key={`${turn.turn_id ?? turn.query}-${index}`}
-                turn={turn}
-                onEdit={() => editTurn(turn, index)}
-              />
-            ))}
-            <DocumentPanel onUpload={upload} onReset={resetIndex} uploading={uploading} message={documentMessage} />
-            <div ref={turnsEndRef} />
           </div>
         </div>
 
         <Composer
           query={query}
           attachedFiles={attachedFiles}
-          editSequence={editSequence}
           busy={busy}
           activeTurnID={activeTurnID}
+          uploading={uploading}
+          uploadMessage={documentMessage}
           onQueryChange={setQuery}
           onSubmit={() => void submit()}
-          onCancelEdit={() => {
-            setEditSequence(null);
-            setQuery("");
-          }}
           onStop={stop}
+          onUpload={upload}
+          onRemoveAttachment={(name) => setAttachedFiles((current) => current.filter((file) => file !== name))}
         />
       </main>
 
-      {settingsOpen && <AdministrationPanel onClose={() => setSettingsOpen(false)} onDeleteAll={() => void removeAll()} />}
+      {(settingsOpen || deleteAllOpen) && (
+        <AdministrationPanel
+          deleteAllOpen={deleteAllOpen}
+          deleteAllBusy={deleteAllBusy}
+          deleteAllError={deleteAllError}
+          onClose={() => setSettingsOpen(false)}
+          onOpenDeleteAll={() => { setSettingsOpen(false); setDeleteAllError(""); setDeleteAllOpen(true); }}
+          onCloseDeleteAll={() => setDeleteAllOpen(false)}
+          onDeleteAll={() => void removeAll()}
+        />
+      )}
     </div>
   );
+}
+
+function TrashIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 4h4M6 7l1 13a1 1 0 0 0 1 .93h8A1 1 0 0 0 17 20l1-13M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }

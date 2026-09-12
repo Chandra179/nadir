@@ -1,23 +1,41 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap");
 @import "tailwindcss";
 
-@theme {
-  --color-nadir-ink: #070b13;
-  --color-nadir-text: #dbe4f0;
-  --color-nadir-border: #26344a;
-}
-
 :root {
-  color: var(--color-nadir-text);
-  background: var(--color-nadir-ink);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #20241f;
+  background: #f7f7f4;
+  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+html, body, #root { min-width: 320px; min-height: 100%; }
+body { margin: 0; background: #f7f7f4; color: #20241f; }
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 
-.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-nadir-border); border-radius: 999px; }
+.font-serif-display { font-family: "Source Serif 4", Georgia, serif; }
+.font-mono-ui { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace; }
+.feedback { font-size: 11px; }
+.feedback-ok { color: #234840; }
+.feedback-err { color: #b04a3f; }
+
+/* Message actions preserve the old quiet reading-room surface until hovered. */
+.nadir-msg-actions { opacity: 0; transition: opacity 150ms ease; }
+.nadir-turn-q:hover .nadir-msg-actions,
+.nadir-turn-a:hover .nadir-msg-actions { opacity: 1; }
+@media (hover: none) {
+  .nadir-msg-actions { opacity: 1; }
+}
+
+.nadir-streaming .nadir-answer::after {
+  content: "▍";
+  margin-left: 1px;
+  color: #8b8f81;
+  animation: nadir-blink 1s steps(2, start) infinite;
+}
+@keyframes nadir-blink { to { visibility: hidden; } }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #e4e1d5; border-radius: 6px; border: 2px solid #f7f7f4; }

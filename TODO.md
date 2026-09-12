@@ -176,6 +176,14 @@ should wait for real usage data.
 
 - [ ] Make detached chat-history persistence drainable during shutdown so a
       process stop cannot silently lose completed Chat turns.
+- [ ] Add dependency readiness checks for the configured Ollama embedding path
+      and reranker sidecar: verify model load/embed capability, report runner
+      failures and loaded model identity, and keep readiness separate from
+      liveness before accepting Retrieval traffic.
+- [ ] Define an explicit local inference resource profile that prevents
+      generator, embedder, and reranker GPU contention; bound Ollama residency
+      and parallelism, document CPU-reranker mode, and do not rely on automatic
+      GPU selection as the only policy.
 - [x] Add end-to-end HTTP smoke tests for ingest, Retrieval, SSE replay and
       cancellation, in-place editing/deletion routing, delete-all chats, full
       document reset, and the main success path. Add dependency-backed failure
@@ -208,9 +216,22 @@ should wait for real usage data.
 - [ ] Measure PDF document-intake latency, memory, timeout, and failure
       behavior against real documents in a production-like environment.
 - [ ] Finish the reranker benchmark on representative hardware. Compare the
-      current CPU profile, smaller models, and quantized ONNX against quality,
-      p50/p95 latency, and memory; the 34-query toy set is not sufficient for a
-      production default.
+      current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
+      MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
+      VRAM, startup time, and throughput; the 34-query toy set is not
+      sufficient for a production default.
+- [ ] Benchmark EmbeddingGemma 300M quantized against the current Nomic
+      embedder on the same corpus and golden set. Treat prompt-format changes,
+      vector dimensions, index size, RAM/VRAM, and a full reindex as part of
+      the experiment; do not change the default embedder without evidence.
+- [ ] Add confidence-gated adaptive reranking: return the hybrid RRF result
+      for high-confidence queries and invoke a reranker only when dense and
+      lexical rankings disagree or the top-result margin is weak. Measure
+      quality, rerank coverage, p50/p95 latency, and dependency load.
+- [ ] Tune and calibrate dense/BM25/RRF fusion with offline golden-set
+      evaluation, query-type thresholds, exact-match/header boosts, and
+      deterministic score handling. Keep the current unreranked hybrid path as
+      the low-resource baseline.
 - [ ] Add generation-side evaluation for faithfulness, answer relevancy, and
       context precision/recall using a judge model larger than the model under
       test.
@@ -238,6 +259,21 @@ should wait for real usage data.
       or golden-set recall demonstrates a capacity or quality ceiling.
 - [ ] Benchmark sentence-window versus recursive chunking before changing the
       default chunker.
+- [ ] Prototype SPLADE-v3 as an optional learned-sparse retrieval leg behind
+      an explicit feature flag. Measure query/document CPU time, RAM, sparse
+      index size, nonzero-term counts, and quality against BM25; require a full
+      reindex and keep it out of the default profile unless it improves the
+      real golden set. SPLADE's 30,522-term vocabulary and model inference are
+      not a lightweight replacement for BM25 on the current laptop.
+- [ ] Prototype ColBERT-style late interaction with precomputed token vectors
+      and MaxSim, preferably using Qdrant multivectors. Measure index growth,
+      ingest throughput, RAM, query latency, and quality before considering it
+      as a reranker or retrieval replacement.
+- [ ] Collect explicit relevance and user-selection labels, then evaluate a
+      small learned-to-rank model over dense score, BM25 score, RRF rank,
+      metadata, exact-match, and position features. Compare linear/logistic
+      and LambdaMART-style models; keep the model optional until labels and
+      out-of-sample gains justify the added training/evaluation lifecycle.
 
 ### Deliberately deferred
 
