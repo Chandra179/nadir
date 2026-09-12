@@ -72,7 +72,7 @@ remain separate.
 
 - Domain packages must NOT import `internal/api/`, `internal/server/`, or `internal/middleware/`
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
-- Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — deterministic upserts, no duplicates
+- Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active
 - Config: `config/config.yaml` → `config/config.go applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.

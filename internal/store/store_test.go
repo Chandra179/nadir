@@ -1,7 +1,9 @@
 package store
 
 import (
+	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"nadir/internal/qdrantutil"
@@ -54,6 +56,11 @@ func TestStorePayloadAndPointIdentity(t *testing.T) {
 	if pointID(chunk) != pointID(chunk) {
 		t.Fatal("pointID is not deterministic")
 	}
+	otherVersion := chunk
+	otherVersion.SourceSHA = "another-sha"
+	if pointID(chunk) == pointID(otherVersion) {
+		t.Fatal("different document versions must have distinct point IDs")
+	}
 	hype := chunk
 	hype.HypeQuestion = "what is intro?"
 	hype.HypeIndex = 1
@@ -67,7 +74,34 @@ func TestBuildFilterConditions(t *testing.T) {
 	if len(conds) != 3 {
 		t.Fatalf("buildFilterConditions() returned %d conditions, want 3", len(conds))
 	}
-	if toQdrantFilter(nil) != nil || toQdrantFilter(conds) == nil {
-		t.Fatal("toQdrantFilter() nil handling is incorrect")
+	if toQdrantFilter(nil) == nil || toQdrantFilter(conds) == nil {
+		t.Fatal("toQdrantFilter() must always exclude inactive points")
+	}
+	if len(toQdrantFilter(nil).MustNot) != 1 {
+		t.Fatal("toQdrantFilter() is missing the inactive-point guard")
+	}
+}
+
+func TestReplaceDocumentValidatesVersionIdentity(t *testing.T) {
+	s := &dependencies{}
+	tests := []struct {
+		name  string
+		path  string
+		sha   string
+		chunk ScoredChunk
+		want  string
+	}{
+		{name: "missing path", sha: "sha", want: "file path is required"},
+		{name: "missing sha", path: "doc.md", want: "source SHA is required"},
+		{name: "chunk path mismatch", path: "doc.md", sha: "sha", chunk: ScoredChunk{FilePath: "other.md", SourceSHA: "sha"}, want: "does not match \"doc.md\""},
+		{name: "chunk sha mismatch", path: "doc.md", sha: "sha", chunk: ScoredChunk{FilePath: "doc.md", SourceSHA: "other"}, want: "does not match \"sha\""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := s.ReplaceDocument(context.Background(), tt.path, tt.sha, []ScoredChunk{tt.chunk})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("ReplaceDocument() error = %v, want substring %q", err, tt.want)
+			}
+		})
 	}
 }

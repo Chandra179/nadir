@@ -44,9 +44,10 @@ type searchTestStore struct {
 	results     []store.ScoredChunk
 }
 
-func (s *searchTestStore) Upsert(context.Context, []store.ScoredChunk) error { return nil }
-func (s *searchTestStore) DeleteByFile(context.Context, string) error        { return nil }
-func (s *searchTestStore) DeleteAll(context.Context) error                   { return nil }
+func (s *searchTestStore) ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error {
+	return nil
+}
+func (s *searchTestStore) DeleteAll(context.Context) error { return nil }
 func (s *searchTestStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
 	return nil, nil
 }

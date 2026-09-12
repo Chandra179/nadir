@@ -17,6 +17,8 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0009](0009-remove-runtime-settings-panel.md) | The runtime settings panel is removed; config is `config.yaml` + env, applied once at startup | Accepted |
 | [0010](0010-remove-offline-eval-harness.md) | The offline eval harness (`cmd/evalbench`, `internal/eval`, `config/golden`) is removed | Accepted |
 | [0011](0011-semantic-cache-naming-and-package.md) | The query-level vector cache is `cache.SemanticCache` in its own package, separate from `internal/store` | Accepted |
-| [0012](0012-turn-copy-and-edit-append-only-re-ask.md) | Hover copy/edit actions on turns: edit re-asks via `POST /retrieval/search` with the turn's original parameters as a new appended turn; history stays append-only | Accepted |
+| [0012](0012-turn-copy-and-edit-append-only-re-ask.md) | Hover copy/edit actions on turns: original append-only edit semantics | Superseded by 0015 |
 | [0013](0013-bounded-ordered-turn-retention.md) | Bound and order in-process turn-event retention; use a shared event backend only when scaling horizontally | Accepted |
 | [0014](0014-deepened-indexing-retrieval-and-qdrant-seams.md) | Deepen indexing, retrieval, Qdrant infrastructure, configuration, and PDF document intake without merging domains | Accepted |
+| [0015](0015-in-place-turn-edit.md) | Editing a turn truncates that turn and its tail, then replaces it in the same session | Accepted |
+| [0016](0016-versioned-document-replacement.md) | Stage a versioned Document before deactivating and cleaning up the previous version | Accepted |

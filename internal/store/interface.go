@@ -3,8 +3,10 @@ package store
 import "context"
 
 type Store interface {
-	Upsert(ctx context.Context, chunks []ScoredChunk) error
-	DeleteByFile(ctx context.Context, filePath string) error
+	// ReplaceDocument stages a complete version of one Document before it is
+	// made visible to Retrieval. An implementation must keep the previous
+	// active version readable when staging fails.
+	ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []ScoredChunk) error
 	// DeleteAll drops the collection and recreates it from scratch, so any
 	// schema drift (e.g. a new vector field) is picked up as well.
 	DeleteAll(ctx context.Context) error

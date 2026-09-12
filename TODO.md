@@ -1,8 +1,10 @@
 # TODO
 
-Retrieval-accuracy roadmap (audit + research cross-reference, Aug 2026; items
-re-audited and research pass re-verified Sep 2026). Each change is measured
-against the golden set (HitRate@k / Recall@k / MRR@10 / nDCG@k) before and after.
+Retrieval-accuracy roadmap (audit + research cross-reference, Aug 2026; priority
+and architecture re-audited Sep 2026). Each change is measured
+against the golden set (HitRate@k / Recall@k / MRR@10 / nDCG@k) when it changes
+Retrieval quality; correctness and lifecycle changes require focused regression
+tests and production evidence instead.
 
 ## Measured results (34-query golden set over `samples/`, top_k=5)
 
@@ -16,9 +18,9 @@ against the golden set (HitRate@k / Recall@k / MRR@10 / nDCG@k) before and after
 | HyPE enabled on toy corpus | 0.882 | 0.804 | 0.823 | ~flat |
 
 Reports in `tests/eval/reports/`. Rerank CPU latency (~3.2s p50) exceeds the
-1–2s budget → quantized/base model swap listed under Phase 3.
+1–2s budget → quantized/base model swap listed under P2.
 
-## Phase 0 — Eval foundation ✅
+## Phase 0 — Eval foundation
 
 - [x] Golden set: `tests/eval/golden.json` (34 queries over `samples/`) with
       committed run reports in `tests/eval/reports/`
@@ -52,7 +54,7 @@ after a prior ingest requires a reindex.
 - [x] HyPE feature flag `enrichment.hype.enabled` (+ `questions_per_chunk`,
       default 3): hypothetical questions embedded as extra sibling points that
       carry the parent's identity fields → existing Key() dedup collapses them;
-      DeleteByFile sweeps them; point IDs get `:hype:<n>` suffix
+      ReplaceDocument sweeps them; point IDs get `:hype:<n>` suffix
 - [x] Contextual retrieval flag `enrichment.contextual.enabled`: LLM-written
       situational intro prepended before embedding/indexing
 - [x] Env overrides `HYPE_ENABLED`, `CONTEXTUAL_ENABLED`
@@ -105,67 +107,62 @@ after a prior ingest requires a reindex.
 
 ## Priority backlog
 
-Work from the top down. P0 protects correctness and keeps the Go test command
-reproducible. P1 deepens the Retrieval and Adapter seams. P2 addresses
-durability and lifecycle concerns after the behaviour is covered. P3 contains
-measured performance and product experiments.
+This backlog is ordered by risk, not novelty. P0 protects data correctness and
+destructive operations. P1 covers lifecycle reliability, user-visible
+correctness, and evidence needed to make quality decisions. P2 covers
+production measurements and maintainability. P3 contains experiments that
+should wait for real usage data.
 
-### P0 — Correctness and test foundation
+### P0 — Data correctness and destructive-operation safety
 
-- [x] Keep HyPE and contextual enrichment independently gated. Contextual-only
-      indexing must not make HyPE LLM calls or create HyPE sibling points.
-- [x] Add ingest regression tests for both flags disabled, HyPE only,
-      contextual only, and both enabled.
-- [x] Add Retrieval behaviour tests for fragment batching/prefixes,
-      per-file caps, semantic-cache filtering, and bounded reranker fallback.
-- [x] Add reproducible `make test`, `make race`, `make vet`, `make build`, and
-      `make check` targets scoped to Go packages, excluding a local Python
-      `venv/` from `go test ./...` discovery.
+- [x] Make Document replacement failure-safe with versioned points: stage the
+      new version, activate it, then deactivate and clean up older versions.
+      Record the protocol in ADR-0016 and cover replacement visibility in the
+      Store integration test.
+- [ ] Make in-place Chat turn edits and delete-all chat operations safe against
+      concurrent turn creation or generation. Define session mutation
+      ownership/version checks so deleted or pruned turns cannot reappear.
+- [ ] Make full Document reset recoverable if collection deletion or recreation
+      fails; preserve a known-good collection or define restore/retry semantics.
+- [ ] Add fault-injection tests proving failed staging preserves the previous
+      active Document and failed cleanup is retryable without duplicate active
+      versions.
 
-### P1 — Architecture and operational confidence
+### P1 — Lifecycle and user-visible confidence
 
-- [x] Construct `internal/search` once from `DependenciesConfig`; move the
-      reranker, candidate multiplier, and semantic cache into that config and
-      remove post-construction `With*` mutators.
-- [x] Add HTTP contract tests for the embedder, generator, reranker, rewriter,
-      enrichment, and document-intake Adapters: status errors, malformed JSON,
-      timeouts, cancellation, response-shape mismatches, and stream closure.
-- [x] Add store, cache, Qdrant utility, chunker, middleware, and composition-root
-      tests. Use fake Adapters for unit tests and a clearly marked Qdrant
-      integration test suite for collection/schema and persistence behaviour.
-- [x] Add per-stage observability: ingest, embedding, Retrieval, reranking,
-      generation, cache hits/misses, replay gaps, broker rejection, and Docling
-      conversion. Record durations, outcomes, and bounded error labels.
-- [x] Harden configuration: reject malformed environment values, reject unknown
-      YAML fields, centralize production defaults, and keep role-specific
-      endpoints explicit. Update stale architecture/configuration documentation.
-
-### P2 — Durability and lifecycle
-
-- [ ] Make Document replacement failure-safe. The current delete-then-upsert
-      sequence can temporarily remove a Document when the replacement upsert
-      fails. Define a versioned replacement/cleanup protocol and record it in an
-      ADR before changing the Store seam.
 - [ ] Make detached chat-history persistence drainable during shutdown so a
       process stop cannot silently lose completed Chat turns.
-- [ ] Measure PDF document-intake latency, memory, timeout, and failure behaviour
-      against real documents in a production-like environment.
-- [ ] Add end-to-end HTTP tests for ingest, Retrieval, SSE replay/cancellation,
-      history listing/deletion, full reset, and error responses.
+- [ ] Add end-to-end HTTP smoke tests for ingest, Retrieval, SSE replay and
+      cancellation, in-place editing, single-chat deletion, delete-all chats,
+      full document reset, and error responses.
+- [ ] Grow the golden set from 34 sample queries to 100+ real queries with
+      distractor pairs, multi-hop cases, and generation-faithfulness labels.
+- [ ] Secure or disable the always-on profiling listener, and separate liveness
+      from readiness checks for Qdrant, Ollama, and the reranker.
+- [x] Reconcile user documentation and ADRs with the current in-place editing,
+      delete-all chat, explicit configuration, and single-node event-log
+      behavior.
 
-### P3 — Measured performance and Retrieval quality
+### P2 — Production measurements and maintainability
 
-- [~] Finish the reranker benchmark on a machine with enough memory to bake the
-      `bge-reranker-v2-m3` ONNX artifact. Compare quality, p50/p95 latency, and
-      memory against the current torch-int8 route. Existing measurements remain
-      in the committed evaluation reports.
-- [ ] Grow the golden set from 34 to 100+ real queries with distractor pairs,
-      multi-hop cases, and generation-faithfulness annotations.
-- [ ] Add adaptive Retrieval fallback only after confidence, filter-miss, and
-      unsupported-answer telemetry exists; measure coverage against noise.
+- [ ] Measure PDF document-intake latency, memory, timeout, and failure
+      behavior against real documents in a production-like environment.
+- [ ] Finish the reranker benchmark on representative hardware. Compare the
+      current CPU profile, smaller models, and quantized ONNX against quality,
+      p50/p95 latency, and memory; the 34-query toy set is not sufficient for a
+      production default.
 - [ ] Add generation-side evaluation for faithfulness, answer relevancy, and
       context precision/recall using a judge model larger than the model under
       test.
+- [ ] Make the configured reranker model and the loaded sidecar model
+      verifiable at startup so separately deployed settings cannot drift.
+- [ ] Move the history sidebar page size and other operational limits into
+      explicit configuration if they need operational tuning.
+
+### P3 — Retrieval experiments and capacity work
+
+- [ ] Add adaptive Retrieval fallback only after confidence, filter-miss, and
+      unsupported-answer telemetry exists; measure coverage against noise.
 - [ ] Revisit Qdrant quantization and embedder replacement only when corpus size
       or golden-set recall demonstrates a capacity or quality ceiling.
 - [ ] Benchmark sentence-window versus recursive chunking before changing the

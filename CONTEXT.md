@@ -31,7 +31,8 @@ answer.
 _Avoid_: request, message
 
 **Session**:
-An append-only ordered conversation containing Chat turns.
+An ordered conversation containing Chat turns. Normal turns append; an edit
+can replace a turn and its later tail in place.
 _Avoid_: thread, chat request
 
 **Source identity**:

@@ -39,16 +39,15 @@ func (fakeEmbedder) Embed(context.Context, string) ([]float32, error) { return [
 func (fakeEmbedder) Dimensions() int                                  { return 2 }
 
 type fakeStore struct {
-	deleted  string
-	upserted []store.ScoredChunk
+	replacedPath string
+	replacedSHA  string
+	replaced     []store.ScoredChunk
 }
 
-func (f *fakeStore) Upsert(_ context.Context, chunks []store.ScoredChunk) error {
-	f.upserted = append(f.upserted, chunks...)
-	return nil
-}
-func (f *fakeStore) DeleteByFile(_ context.Context, filePath string) error {
-	f.deleted = filePath
+func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA string, chunks []store.ScoredChunk) error {
+	f.replacedPath = filePath
+	f.replacedSHA = sourceSHA
+	f.replaced = append(f.replaced, chunks...)
 	return nil
 }
 func (f *fakeStore) DeleteAll(context.Context) error { return nil }
@@ -106,8 +105,8 @@ func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 	if string(intake.data) != "pdf bytes" || chunkerFake.text != "# converted report.pdf" {
 		t.Fatalf("document intake did not feed Markdown to indexing: data=%q text=%q", intake.data, chunkerFake.text)
 	}
-	if storeFake.deleted != "report.pdf" || len(storeFake.upserted) != 1 || storeFake.upserted[0].FilePath != "report.pdf" {
-		t.Fatalf("source identity was not preserved: deleted=%q chunks=%+v", storeFake.deleted, storeFake.upserted)
+	if storeFake.replacedPath != "report.pdf" || storeFake.replacedSHA == "" || len(storeFake.replaced) != 1 || storeFake.replaced[0].FilePath != "report.pdf" {
+		t.Fatalf("source identity was not preserved: path=%q sha=%q chunks=%+v", storeFake.replacedPath, storeFake.replacedSHA, storeFake.replaced)
 	}
 }
 

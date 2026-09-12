@@ -128,8 +128,9 @@ func contentSHA(data []byte) string {
 // each chunk additionally gets sibling points from embedded hypothetical
 // questions.
 type indexPlan struct {
-	filePath string
-	chunks   []store.ScoredChunk
+	filePath  string
+	sourceSHA string
+	chunks    []store.ScoredChunk
 }
 
 // indexFile is the indexing pass seam for one Document. Planning contains
@@ -192,21 +193,17 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 
 	observability.Stage(d.log, "ingest_plan", "success", started, nil,
 		zap.String("path", filePath), zap.Int("chunks", len(scored)))
-	return indexPlan{filePath: filePath, chunks: scored}, nil
+	return indexPlan{filePath: filePath, sourceSHA: sourceSHA, chunks: scored}, nil
 }
 
 func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
 	started := time.Now()
-	// Chunk IDs derive from filePath:lineStart:chunkIndex, so content that
-	// shifts line boundaries changes IDs and stale old points must be deleted
-	// first. Delete and upsert share one retry so a partial failure can't leave
-	// the file unindexed.
+	// Store replacement is versioned: it stages the new points, makes that
+	// version visible, then deactivates and cleans up older versions. Retrying
+	// the whole operation is safe because the version identity is deterministic.
 	op := func() error {
-		if err := d.store.DeleteByFile(ctx, plan.filePath); err != nil {
-			return fmt.Errorf("delete stale chunks for %s: %w", plan.filePath, err)
-		}
-		if err := d.store.Upsert(ctx, plan.chunks); err != nil {
-			return fmt.Errorf("upsert %s: %w", plan.filePath, err)
+		if err := d.store.ReplaceDocument(ctx, plan.filePath, plan.sourceSHA, plan.chunks); err != nil {
+			return fmt.Errorf("replace %s: %w", plan.filePath, err)
 		}
 		return nil
 	}

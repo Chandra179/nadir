@@ -40,7 +40,7 @@ func TestQdrantStoreIntegration(t *testing.T) {
 	if err := s.EnsureCollection(ctx, 3); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Upsert(ctx, []ScoredChunk{{
+	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha", []ScoredChunk{{
 		Text:       "integration test document",
 		FilePath:   "integration.md",
 		LineStart:  1,
@@ -56,5 +56,23 @@ func TestQdrantStoreIntegration(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].FilePath != "integration.md" {
 		t.Fatalf("results = %+v, want the inserted integration document", results)
+	}
+
+	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha-v2", []ScoredChunk{{
+		Text:       "replacement document",
+		FilePath:   "integration.md",
+		LineStart:  1,
+		ChunkIndex: 0,
+		Vector:     []float32{1, 0, 0},
+		SourceSHA:  "integration-sha-v2",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	results, err = s.HybridSearch(ctx, []float32{1, 0, 0}, "replacement document", 10, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].SourceSHA != "integration-sha-v2" {
+		t.Fatalf("results after replacement = %+v, want only the active new version", results)
 	}
 }

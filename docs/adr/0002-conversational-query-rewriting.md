@@ -13,7 +13,7 @@ BM25 leg never see the antecedent. The known fix is Rewrite-Retrieve-Read
 follow-up into a standalone query against recent conversation turns, then
 retrieve with it.
 
-Constraints and tradeoffs from the research pass (TODO.md Phase 3):
+Constraints and tradeoffs from the research pass recorded in the TODO roadmap:
 
 - The rewrite costs +1 LLM call per follow-up turn (measured ≈0.6–0.9s warm
   on gemma3:1b).

@@ -88,10 +88,20 @@ func (s *dependencies) createCollection(ctx context.Context, dimensions int) err
 			return fmt.Errorf("qdrant create %s index: %w", field, err)
 		}
 	}
+	boolType := qdrant.FieldType_FieldTypeBool
+	_, err = s.points.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
+		CollectionName:   s.name,
+		FieldName:        "active",
+		FieldType:        &boolType,
+		FieldIndexParams: qdrant.NewPayloadIndexParamsBool(&qdrant.BoolIndexParams{}),
+	})
+	if err != nil {
+		return fmt.Errorf("qdrant create active index: %w", err)
+	}
 	return nil
 }
 
-func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
+func (s *dependencies) upsert(ctx context.Context, chunks []ScoredChunk, active bool) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := pointID(c)
@@ -113,6 +123,7 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 			"window_text": qdrantutil.StringValue(c.WindowText),
 			"source_sha":  qdrantutil.StringValue(c.SourceSHA),
 			"ingested_at": qdrantutil.StringValue(ingestedAt),
+			"active":      qdrantutil.BoolValue(active),
 		}
 		if c.HypeQuestion != "" {
 			payload["hype_question"] = qdrantutil.StringValue(c.HypeQuestion)
@@ -128,34 +139,65 @@ func (s *dependencies) Upsert(ctx context.Context, chunks []ScoredChunk) error {
 	}
 	_, err := s.points.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: s.name,
+		Wait:           new(true),
 		Points:         points,
 	})
 	return err
 }
 
-func (s *dependencies) DeleteByFile(ctx context.Context, filePath string) error {
-	_, err := s.points.Delete(ctx, &qdrant.DeletePoints{
+// ReplaceDocument performs a failure-safe, versioned replacement. New points
+// are invisible while staged; only after every point is written do we make the
+// new version active. Older versions are then hidden before cleanup, so a
+// cleanup failure after deactivation cannot expose stale search results.
+func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []ScoredChunk) error {
+	if strings.TrimSpace(filePath) == "" {
+		return fmt.Errorf("document file path is required")
+	}
+	if strings.TrimSpace(sourceSHA) == "" {
+		return fmt.Errorf("document source SHA is required")
+	}
+	for _, c := range chunks {
+		if c.FilePath != filePath {
+			return fmt.Errorf("document chunk path %q does not match %q", c.FilePath, filePath)
+		}
+		if c.SourceSHA != sourceSHA {
+			return fmt.Errorf("document chunk source SHA %q does not match %q", c.SourceSHA, sourceSHA)
+		}
+	}
+
+	if len(chunks) > 0 {
+		if err := s.upsert(ctx, chunks, false); err != nil {
+			return fmt.Errorf("stage document version: %w", err)
+		}
+	}
+
+	wait := true
+	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
 		CollectionName: s.name,
-		Points: &qdrant.PointsSelector{
-			PointsSelectorOneOf: &qdrant.PointsSelector_Filter{
-				Filter: &qdrant.Filter{
-					Must: []*qdrant.Condition{
-						{
-							ConditionOneOf: &qdrant.Condition_Field{
-								Field: &qdrant.FieldCondition{
-									Key: "file_path",
-									Match: &qdrant.Match{
-										MatchValue: &qdrant.Match_Keyword{Keyword: filePath},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	})
-	return err
+		Wait:           &wait,
+		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(true)},
+		PointsSelector: qdrant.NewPointsSelectorFilter(documentVersionFilter(filePath, sourceSHA)),
+	}); err != nil {
+		return fmt.Errorf("activate document version: %w", err)
+	}
+
+	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
+		CollectionName: s.name,
+		Wait:           &wait,
+		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(false)},
+		PointsSelector: qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
+	}); err != nil {
+		return fmt.Errorf("deactivate previous document versions: %w", err)
+	}
+
+	if _, err := s.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: s.name,
+		Wait:           &wait,
+		Points:         qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
+	}); err != nil {
+		return fmt.Errorf("delete previous document versions: %w", err)
+	}
+	return nil
 }
 
 // DeleteAll drops the collection and recreates it (dense + bm25 sparse
@@ -209,10 +251,10 @@ func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
 }
 
 func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
-	if len(conds) == 0 {
-		return nil
+	return &qdrant.Filter{
+		Must:    conds,
+		MustNot: []*qdrant.Condition{qdrant.NewMatchBool("active", false)},
 	}
-	return &qdrant.Filter{Must: conds}
 }
 
 // HybridSearch runs dense and BM25-style sparse legs as Qdrant-native
@@ -262,14 +304,13 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 }
 
 func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
-	conds := append([]*qdrant.Condition{qdrant.NewMatchText("text", keyword)}, buildFilterConditions(filter)...)
+	qf := toQdrantFilter(buildFilterConditions(filter))
+	qf.Must = append(qf.Must, qdrant.NewMatchText("text", keyword))
 	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 		CollectionName: s.name,
-		Filter: &qdrant.Filter{
-			Must: conds,
-		},
-		Limit:       new(uint32(topK)),
-		WithPayload: qdrant.NewWithPayload(true),
+		Filter:         qf,
+		Limit:          new(uint32(topK)),
+		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
 		return nil, err
@@ -288,6 +329,7 @@ func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, e
 	for {
 		resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
 			CollectionName: s.name,
+			Filter:         toQdrantFilter(nil),
 			Limit:          &pageSize,
 			Offset:         offset,
 			WithPayload:    qdrant.NewWithPayloadInclude("file_path", "source_sha"),
@@ -330,14 +372,39 @@ func (s *dependencies) Stats(ctx context.Context) (Stats, error) {
 var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 
 // pointID derives a stable UUID for a chunk (or HyPE sibling) from its
-// identity fields; siblings get ":hype:<n>" appended so they never collide
-// with their parent.
+// document-version identity fields; siblings get ":hype:<n>" appended so they
+// never collide with their parent.
 func pointID(c ScoredChunk) string {
-	key := c.FilePath + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
+	key := c.FilePath + ":" + c.SourceSHA + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
 	if c.HypeQuestion != "" {
 		key += ":hype:" + strconv.Itoa(c.HypeIndex)
 	}
 	return uuid.NewSHA1(chunkIDNamespace, []byte(key)).String()
+}
+
+func documentVersionFilter(filePath, sourceSHA string) *qdrant.Filter {
+	return &qdrant.Filter{Must: []*qdrant.Condition{
+		matchKeywordCondition("file_path", filePath),
+		matchKeywordCondition("source_sha", sourceSHA),
+	}}
+}
+
+func staleDocumentFilter(filePath, sourceSHA string) *qdrant.Filter {
+	return &qdrant.Filter{
+		Must:    []*qdrant.Condition{matchKeywordCondition("file_path", filePath)},
+		MustNot: []*qdrant.Condition{matchKeywordCondition("source_sha", sourceSHA)},
+	}
+}
+
+func matchKeywordCondition(key, value string) *qdrant.Condition {
+	return &qdrant.Condition{
+		ConditionOneOf: &qdrant.Condition_Field{
+			Field: &qdrant.FieldCondition{
+				Key:   key,
+				Match: &qdrant.Match{MatchValue: &qdrant.Match_Keyword{Keyword: value}},
+			},
+		},
+	}
 }
 
 // contextualSparseText mirrors the chunker's ContextualText format so the

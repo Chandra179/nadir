@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 ## Status
 
-Accepted
+Superseded by [ADR-0015](0015-in-place-turn-edit.md)
 
 ## Context
 

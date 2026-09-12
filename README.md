@@ -170,6 +170,7 @@ environment overrides even when roles share one Ollama server.
 | GET | `/retrieval` | Chat UI |
 | POST | `/retrieval/search` | One chat turn: retrieve → (optional) generate → persist |
 | GET | `/history/sessions` | Recent chat sessions (sidebar) |
+| DELETE | `/history/sessions` | Delete all persisted chat sessions and turns |
 | GET | `/history/sessions/:id` | Replay a past session |
 | GET | `/healthz` | Health check |
 
@@ -179,7 +180,7 @@ environment overrides even when roles share one Ollama server.
 POST /ingest → document intake (.md or optional .pdf→.md) → indexing pass
                                       ├── Chunker (recursive / sentence-window)
                                       ├── Embedder (Ollama)
-                                      └── Store.Upsert (Qdrant)
+                                      └── versioned Document replacement (Qdrant)
 
 POST /retrieval/search → chat.Service.StartTurn
                  ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
