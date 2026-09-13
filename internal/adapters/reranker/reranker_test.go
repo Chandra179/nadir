@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"nadir/internal/adapters/qdrant/documents"
+	"nadir/internal/retrieval/search"
 )
 
 func TestRerankHTTPContract(t *testing.T) {
@@ -31,7 +31,7 @@ func TestRerankHTTPContract(t *testing.T) {
 			defer srv.Close()
 
 			d := NewDependencies(DependenciesConfig{Addr: srv.URL, RequestTimeout: time.Second})
-			_, err := d.Rerank(context.Background(), "query", []store.ScoredChunk{{Text: "one"}, {Text: "two"}})
+			_, err := d.Rerank(context.Background(), "query", []search.SearchCandidate{{Text: "one"}, {Text: "two"}})
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("Rerank() error = %v, want %q", err, tt.wantErr)
 			}
@@ -47,7 +47,7 @@ func TestRerankHonorsTimeoutAndCancellation(t *testing.T) {
 		}
 	}))
 	d := NewDependencies(DependenciesConfig{Addr: timeoutServer.URL, RequestTimeout: 10 * time.Millisecond})
-	if _, err := d.Rerank(context.Background(), "query", []store.ScoredChunk{{Text: "one"}}); err == nil {
+	if _, err := d.Rerank(context.Background(), "query", []search.SearchCandidate{{Text: "one"}}); err == nil {
 		t.Fatal("Rerank() succeeded after client timeout")
 	}
 	timeoutServer.Close()
@@ -67,7 +67,7 @@ func TestRerankHonorsTimeoutAndCancellation(t *testing.T) {
 	d = NewDependencies(DependenciesConfig{Addr: cancelServer.URL, RequestTimeout: time.Second})
 	result := make(chan error, 1)
 	go func() {
-		_, err := d.Rerank(ctx, "query", []store.ScoredChunk{{Text: "one"}})
+		_, err := d.Rerank(ctx, "query", []search.SearchCandidate{{Text: "one"}})
 		result <- err
 	}()
 	select {

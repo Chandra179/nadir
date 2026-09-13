@@ -7,7 +7,7 @@ import (
 	retrievalrewriting "nadir/internal/retrieval/rewriting"
 )
 
-// DependenciesConfig groups everything needed to construct the rewriter.
+// DependenciesConfig groups the Ollama rewrite endpoint and timeout.
 type DependenciesConfig struct {
 	Addr           string        // Ollama base addr, e.g. http://localhost:11434
 	Model          string        // instruct LLM used for rewriting
@@ -23,6 +23,7 @@ type dependencies struct {
 
 var _ retrievalrewriting.Rewriter = (*dependencies)(nil)
 
+// NewDependencies constructs an Ollama rewriting Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

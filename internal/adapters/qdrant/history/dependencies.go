@@ -2,13 +2,13 @@ package history
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc"
 
-	"nadir/internal/adapters/ollama/embedding"
 	"nadir/internal/adapters/qdrant/shared"
+	"nadir/internal/embedding"
 )
 
 const (
@@ -20,34 +20,38 @@ const (
 	docTypeTurn    = "turn"
 )
 
+// DependenciesConfig groups the shared Qdrant clients and history embedder.
 type DependenciesConfig struct {
-	Conn       *grpc.ClientConn
 	Clients    qdrantutil.Clients
 	Collection string
-	Embedder   embedder.Embedder
+	Embedder   embedding.Embedder
 }
 
 type dependencies struct {
 	points     qdrant.PointsClient
 	collection qdrant.CollectionsClient
 	name       string
-	embedder   embedder.Embedder
+	embedder   embedding.Embedder
 	dimensions int
 	writeMu    sync.Mutex
 }
 
+// NewDependencies constructs a chat-history persistence Adapter over shared
+// Qdrant clients.
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	collection := cfg.Collection
 	if collection == "" {
 		collection = defaultCollection
 	}
-	clients := cfg.Clients
-	if clients.Points == nil || clients.Collections == nil {
-		clients = qdrantutil.NewClients(cfg.Conn)
+	if cfg.Clients.Points == nil || cfg.Clients.Collections == nil {
+		return nil, fmt.Errorf("qdrant clients are required")
+	}
+	if cfg.Embedder == nil {
+		return nil, fmt.Errorf("history embedder is required")
 	}
 	return &dependencies{
-		points:     clients.Points,
-		collection: clients.Collections,
+		points:     cfg.Clients.Points,
+		collection: cfg.Clients.Collections,
 		name:       collection,
 		embedder:   cfg.Embedder,
 		dimensions: cfg.Embedder.Dimensions(),

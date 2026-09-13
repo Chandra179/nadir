@@ -6,50 +6,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	domainchat "nadir/internal/conversation/chat"
-	domainhistory "nadir/internal/conversation/history"
+	"github.com/stretchr/testify/mock"
+	"nadir/mocks"
 )
-
-type fakeHistory struct {
-	err error
-}
-
-func (f *fakeHistory) ListSessions(context.Context, int) ([]domainhistory.Session, error) {
-	return nil, nil
-}
-func (f *fakeHistory) ListTurns(context.Context, string) ([]domainhistory.Turn, error) {
-	return nil, nil
-}
-func (f *fakeHistory) GetSession(context.Context, string) (domainhistory.Session, error) {
-	return domainhistory.Session{ID: "session-1", Title: "Test"}, nil
-}
-
-type fakeChat struct {
-	deleteCalls    []string
-	deleteAllCalls int
-	err            error
-}
-
-func (f *fakeChat) StartTurn(context.Context, domainchat.Request) domainchat.Turn {
-	return domainchat.Turn{}
-}
-
-func (f *fakeChat) Subscribe(context.Context, string, int64) (<-chan domainchat.TurnEvent, func(), bool) {
-	return nil, nil, false
-}
-
-func (f *fakeChat) CancelTurn(string) bool { return false }
-
-func (f *fakeChat) DeleteSession(_ context.Context, sessionID string) error {
-	f.deleteCalls = append(f.deleteCalls, sessionID)
-	return f.err
-}
-
-func (f *fakeChat) DeleteAllSessions(context.Context) error {
-	f.deleteAllCalls++
-	return f.err
-}
 
 func testContext(method, target string) (*gin.Context, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(method, target, nil)
@@ -61,9 +20,10 @@ func testContext(method, target string) (*gin.Context, *httptest.ResponseRecorde
 
 func TestDeleteAllSessions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	fake := &fakeHistory{}
-	chat := &fakeChat{}
-	h := New(Config{History: fake, Chat: chat})
+	history := &mocks.MockReader{}
+	chat := &mocks.MockChat{}
+	chat.EXPECT().DeleteAllSessions(mock.Anything).Return(nil)
+	h := NewDependencies(DependenciesConfig{History: history, Chat: chat})
 	c, recorder := testContext("DELETE", "/api/v1/sessions")
 
 	h.DeleteAllSessions(c)
@@ -71,16 +31,15 @@ func TestDeleteAllSessions(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
-	if chat.deleteAllCalls != 1 {
-		t.Fatalf("chat DeleteAllSessions calls = %d, want 1", chat.deleteAllCalls)
-	}
+	chat.AssertNumberOfCalls(t, "DeleteAllSessions", 1)
 }
 
 func TestDeleteAllSessionsReturnsError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	fake := &fakeHistory{}
-	chat := &fakeChat{err: context.Canceled}
-	h := New(Config{History: fake, Chat: chat})
+	history := &mocks.MockReader{}
+	chat := &mocks.MockChat{}
+	chat.EXPECT().DeleteAllSessions(mock.Anything).Return(context.Canceled)
+	h := NewDependencies(DependenciesConfig{History: history, Chat: chat})
 	c, recorder := testContext("DELETE", "/api/v1/sessions")
 
 	h.DeleteAllSessions(c)
@@ -92,9 +51,10 @@ func TestDeleteAllSessionsReturnsError(t *testing.T) {
 
 func TestDeleteSessionUsesChatLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	fake := &fakeHistory{}
-	chat := &fakeChat{}
-	h := New(Config{History: fake, Chat: chat})
+	history := &mocks.MockReader{}
+	chat := &mocks.MockChat{}
+	chat.EXPECT().DeleteSession(mock.Anything, "session-1").Return(nil)
+	h := NewDependencies(DependenciesConfig{History: history, Chat: chat})
 	c, recorder := testContext("DELETE", "/api/v1/sessions/session-1")
 	c.Params = gin.Params{{Key: "id", Value: "session-1"}}
 
@@ -103,7 +63,5 @@ func TestDeleteSessionUsesChatLifecycle(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
-	if len(chat.deleteCalls) != 1 || chat.deleteCalls[0] != "session-1" {
-		t.Fatalf("chat DeleteSession calls = %v, want [session-1]", chat.deleteCalls)
-	}
+	chat.AssertNumberOfCalls(t, "DeleteSession", 1)
 }

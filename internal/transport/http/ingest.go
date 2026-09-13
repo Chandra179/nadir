@@ -42,13 +42,13 @@ func (d *dependencies) Ingest(c *gin.Context) {
 		}
 	}
 
-	var files []ingest.UploadFile
+	var files []indexing.UploadFile
 	var names []string
 	if form != nil {
 		headers := form.File["files"]
 		if len(headers) > 0 {
 			names = make([]string, 0, len(headers))
-			files = make([]ingest.UploadFile, 0, len(headers))
+			files = make([]indexing.UploadFile, 0, len(headers))
 			for _, fh := range headers {
 				names = append(names, fh.Filename)
 				f, err := fh.Open()
@@ -62,7 +62,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 					d.respondIngestError(c, http.StatusBadRequest, fmt.Sprintf("read %s: %v", fh.Filename, err))
 					return
 				}
-				files = append(files, ingest.UploadFile{Name: fh.Filename, Data: data})
+				files = append(files, indexing.UploadFile{Name: fh.Filename, Data: data})
 			}
 		}
 	}
@@ -72,7 +72,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 			return
 		}
 		var err error
-		files, err = ingest.DiscoverFiles(d.sourcePaths, d.sourceIgnorePatterns, d.maxSourceFileBytes)
+		files, err = indexing.DiscoverFiles(d.sourcePaths, d.sourceIgnorePatterns, d.maxSourceFileBytes)
 		if err != nil {
 			d.respondIngestError(c, http.StatusBadRequest, err.Error())
 			return

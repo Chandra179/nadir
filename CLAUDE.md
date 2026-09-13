@@ -18,7 +18,7 @@ This is a single-context repository with one root `CONTEXT.md` and system decisi
 
 ## What this is
 
-Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. The API binary is `cmd/api/main.go` and the evaluator is `cmd/evaluator/main.go`. Two Python sidecars live under `services/` (reranker, docling PDF→MD).
+Nadir is a semantic document search engine: ingests markdown/PDF/text files, chunks + embeds them locally (Ollama), stores vectors in Qdrant, and serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation. The API binary is `cmd/api/main.go` and the evaluator is `cmd/evaluator/main.go`. Two Python sidecars live under `sidecars/` (reranker, document-converter PDF→MD).
 
 ## Commands
 
@@ -51,16 +51,17 @@ curl -X POST localhost:8100/api/v1/documents/reset                    # safely r
 ## Architecture
 
 ```
-POST /api/v1/documents → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
+POST /api/v1/documents → IngestHandler → knowledge/indexing (walk + SHA dedup → chunk→embed→replace)
 POST /api/v1/turns → StartTurnHandler → chat.Service.StartTurn (session mint or in-place edit prune → retrieve → supervised generation)
 GET  /api/v1/turns/:id/events → bounded replayable SSE event log
 POST /api/v1/turns/:id/cancel → cancel generation and persist the partial answer
 GET  /api/v1/health → 200
 ```
 
-Wiring lives in `internal/platform/lifecycle/server.go` (entrypoint
-`server.Server(ctx, cfg)`, called from `cmd/api/main.go`); HTTP handlers and
-route registration live in `internal/transport/http/`.
+Shared retrieval/indexing wiring lives in `internal/platform/runtime/`; HTTP
+process wiring and lifecycle live in `internal/platform/server/server.go`
+(entrypoint `server.Server(ctx, cfg)`, called from `cmd/api/main.go`). HTTP
+handlers and route registration live in `internal/transport/http/`.
 
 **Bounded contexts (under `internal/`):**
 - `knowledge/` — Document intake and the Indexing pass: normalize, chunk,
@@ -77,14 +78,14 @@ route registration live in `internal/transport/http/`.
 - `adapters/ollama/` — embedding, enrichment, generation, and rewriting
   Adapters.
 - `adapters/reranker/` and `adapters/docling/` — sidecar Adapters.
-- `platform/` — configuration, logging, observability, HTTP middleware, and
-  lifecycle/composition.
+- `platform/` — configuration, logging, observability, HTTP middleware, shared
+  runtime composition, and server lifecycle.
 
 The React/TypeScript/Tailwind dashboard is a separate package under
-`web/dashboard`; Python sidecars remain under `services/` as independent
+`web/dashboard`; Python sidecars remain under `sidecars/` as independent
 processes.
 
-`services/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `docling/` (:5003, PDF→Markdown HTTP intake).
+`sidecars/` — Python sidecars (each has own Dockerfile): `reranker/` (:5002), optional `document-converter/` (:5003, PDF→Markdown HTTP intake).
 
 `internal/adapters/qdrant/` — shared Qdrant clients, dense collection setup,
 payload codecs, point-ID decoding, and persistence Adapters; document, history,
@@ -102,7 +103,7 @@ and semantic-cache lifecycle rules remain separate.
 ## Key rules
 
 - Domain contexts must NOT import `internal/transport/http/`,
-  `internal/platform/lifecycle/`, `internal/platform/httpmiddleware/`, or
+  `internal/platform/server/`, `internal/platform/httpmiddleware/`, or
   frontend code.
 - Retry logic lives in `Pipeline`, never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:lineStart:chunkIndex` — deterministic upserts, no duplicates

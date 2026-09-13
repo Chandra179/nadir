@@ -11,7 +11,7 @@ bound, timeout/cancellation, and response-shape validation.
 - A reranker provider is replaced or added.
 
 Change `retrieval/search/` for candidate multiplication, top-k selection,
-failure degradation, or when reranking is enabled. Change `services/reranker/`
+failure degradation, or when reranking is enabled. Change `sidecars/reranker/`
 for model loading and inference implementation. Configuration changes belong in
 `platform/configuration/` and deployment files.
 

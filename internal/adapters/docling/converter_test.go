@@ -16,7 +16,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 func TestDoclingConverterPostsPDFAndReturnsMarkdown(t *testing.T) {
-	converter := New(Config{Addr: "http://docling/", RequestTimeout: time.Second})
+	converter := NewDependencies(DependenciesConfig{Addr: "http://docling/", RequestTimeout: time.Second})
 	converter.client.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		if req.Method != http.MethodPost || req.URL.Path != "/convert" {
 			t.Fatalf("request = %s %s, want POST /convert", req.Method, req.URL.Path)
@@ -64,7 +64,7 @@ func TestDoclingConverterRejectsHTTPAndShapeErrors(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			d := New(Config{Addr: srv.URL, RequestTimeout: time.Second})
+			d := NewDependencies(DependenciesConfig{Addr: srv.URL, RequestTimeout: time.Second})
 			_, err := d.Convert(context.Background(), "report.pdf", []byte("pdf"))
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("Convert() error = %v, want %q", err, tt.wantErr)
@@ -85,7 +85,7 @@ func TestDoclingConverterHonorsTimeoutAndCancellation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := New(Config{Addr: srv.URL, RequestTimeout: 10 * time.Millisecond})
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, RequestTimeout: 10 * time.Millisecond})
 	if _, err := d.Convert(context.Background(), "report.pdf", []byte("pdf")); err == nil {
 		t.Fatal("Convert() succeeded after client timeout")
 	}

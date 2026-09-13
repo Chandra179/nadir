@@ -1,74 +1,62 @@
 package cache
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
-	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc"
-
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/qdrant/shared"
+	"nadir/internal/embedding"
 )
 
 const (
-	defaultCollection = "search_cache"
-	defaultThreshold  = 0.90
+	defaultThreshold = 0.90
 )
 
 // DependenciesConfig groups everything needed to construct the semantic
-// cache. Conn is a shared gRPC connection to Qdrant (the caller dials it
-// once and reuses it across store/cache, rather than each opening its own).
+// cache policy. Persistence is supplied through the private backend seam so this Module does
+// not know which database stores its entries.
 type DependenciesConfig struct {
-	Conn        *grpc.ClientConn
-	Clients     qdrantutil.Clients
-	Collection  string
-	Embedder    embedder.Embedder
+	Backend     backend
+	Embedder    embedding.Embedder
 	Threshold   float32
 	TTL         time.Duration
 	QueryPrefix string
 	Version     string
 }
 
-// dependencies is a semantic cache backed by a dedicated Qdrant collection.
+// dependencies applies semantic-cache policy over the injected persistence
+// backend. The backend may be Qdrant, an in-memory store, Redis, or another
+// implementation without changing this Module.
 type dependencies struct {
-	points      qdrant.PointsClient
-	collection  qdrant.CollectionsClient
-	name        string
-	embedder    embedder.Embedder
+	backend     backend
+	embedder    embedding.Embedder
 	threshold   float32
 	ttl         time.Duration
 	queryPrefix string
 	version     string
 	generation  atomic.Uint64
-	dimensions  int
 }
 
 var _ SemanticCache = (*dependencies)(nil)
 
+// NewDependencies constructs semantic-cache policy over an injected backend.
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
-	collection := cfg.Collection
-	if collection == "" {
-		collection = defaultCollection
-	}
 	threshold := cfg.Threshold
 	if threshold == 0 {
 		threshold = defaultThreshold
 	}
-
-	clients := cfg.Clients
-	if clients.Points == nil || clients.Collections == nil {
-		clients = qdrantutil.NewClients(cfg.Conn)
+	if cfg.Backend == nil {
+		return nil, fmt.Errorf("semantic cache backend is required")
+	}
+	if cfg.Embedder == nil {
+		return nil, fmt.Errorf("semantic cache embedder is required")
 	}
 	return &dependencies{
-		points:      clients.Points,
-		collection:  clients.Collections,
-		name:        collection,
+		backend:     cfg.Backend,
 		embedder:    cfg.Embedder,
 		threshold:   threshold,
 		ttl:         cfg.TTL,
 		queryPrefix: cfg.QueryPrefix,
 		version:     cfg.Version,
-		dimensions:  cfg.Embedder.Dimensions(),
 	}, nil
 }

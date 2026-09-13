@@ -1,4 +1,4 @@
-package eval
+package evaluation
 
 import (
 	"encoding/json"
@@ -19,12 +19,14 @@ type RelevantChunk struct {
 	Contains string `json:"contains"`
 }
 
+// GoldenQuery defines one evaluation query and its relevant source matches.
 type GoldenQuery struct {
 	ID       string          `json:"id"`
 	Query    string          `json:"query"`
 	Relevant []RelevantChunk `json:"relevant"`
 }
 
+// GoldenSet is the complete collection of evaluation queries.
 type GoldenSet struct {
 	Queries []GoldenQuery `json:"queries"`
 }
@@ -86,6 +88,7 @@ func matchesFile(actual, expected string) bool {
 	return strings.HasSuffix(actual, expected) || filepath.Base(actual) == filepath.Base(expected)
 }
 
+// QueryResult records retrieval quality and latency for one golden query.
 type QueryResult struct {
 	ID            string    `json:"id"`
 	Query         string    `json:"query"`
@@ -97,6 +100,7 @@ type QueryResult struct {
 	Latencies     []float64 `json:"latencies"`
 }
 
+// Aggregate contains quality and latency metrics across a golden set.
 type Aggregate struct {
 	Queries    int     `json:"queries"`
 	TopK       int     `json:"top_k"`
@@ -108,6 +112,7 @@ type Aggregate struct {
 	P95LatMS   float64 `json:"p95_latency_ms"`
 }
 
+// Report is the persisted evaluation result for one evaluator run.
 type Report struct {
 	Timestamp string        `json:"timestamp"`
 	TopK      int           `json:"top_k"`

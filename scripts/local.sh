@@ -29,7 +29,7 @@ kill $(lsof -ti :5002,8100,6063 2>/dev/null) 2>/dev/null || true
 sleep 1
 
 echo "==> Starting reranker sidecar (repo venv, host GPU)..."
-RERANKER_DEVICE=auto venv/bin/python services/reranker/main.py &
+RERANKER_DEVICE=auto venv/bin/python sidecars/reranker/main.py &
 RERANKER_PID=$!
 trap 'kill $RERANKER_PID 2>/dev/null || true' EXIT
 

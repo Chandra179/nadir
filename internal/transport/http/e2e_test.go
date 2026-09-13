@@ -19,11 +19,11 @@ import (
 	"nadir/internal/retrieval/search"
 )
 
-type e2eIngest struct{ files []ingest.UploadFile }
+type e2eIngest struct{ files []indexing.UploadFile }
 
-func (f *e2eIngest) Run(_ context.Context, files []ingest.UploadFile) (ingest.Result, error) {
-	f.files = append([]ingest.UploadFile(nil), files...)
-	return ingest.Result{Processed: len(files)}, nil
+func (f *e2eIngest) Run(_ context.Context, files []indexing.UploadFile) (indexing.Result, error) {
+	f.files = append([]indexing.UploadFile(nil), files...)
+	return indexing.Result{Processed: len(files)}, nil
 }
 
 type e2eStore struct{ resetCalls int }
@@ -97,7 +97,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	storeFake := &e2eStore{}
 	chatFake := &e2eChat{}
 	server := startE2EServer(t, NewDependencies(DependenciesConfig{
-		Ingest: ingestFake, Store: storeFake, History: e2eHistory{}, Chat: chatFake, TopK: 5, MaxTopK: 10,
+		Ingest: ingestFake, Reset: storeFake.DeleteAll, History: e2eHistory{}, Chat: chatFake, TopK: 5, MaxTopK: 10,
 	}))
 	client := &http.Client{Transport: handlerTransport{handler: server.handler}}
 

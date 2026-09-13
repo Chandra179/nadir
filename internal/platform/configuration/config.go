@@ -1,3 +1,4 @@
+// Package config loads, validates, and normalizes application configuration.
 package config
 
 import (
@@ -11,6 +12,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config is the complete application configuration loaded from YAML and
+// environment overrides.
 type Config struct {
 	HTTP          HTTPConfig          `yaml:"http"`
 	Middleware    MiddlewareConfig    `yaml:"middleware"`
@@ -41,6 +44,7 @@ type ChatConfig struct {
 	PersistTimeout   time.Duration `yaml:"persist_timeout"`
 }
 
+// HTTPConfig controls the API listener and its request/server timeouts.
 type HTTPConfig struct {
 	Addr             string        `yaml:"addr"`
 	ReadTimeout      time.Duration `yaml:"read_timeout"`
@@ -51,11 +55,13 @@ type HTTPConfig struct {
 	ReadinessTimeout time.Duration `yaml:"readiness_timeout"`
 }
 
+// MiddlewareConfig controls cross-cutting HTTP middleware.
 type MiddlewareConfig struct {
 	Timeout time.Duration `yaml:"timeout"`
 	Logger  LoggerConfig  `yaml:"logger"`
 }
 
+// LoggerConfig controls structured log output.
 type LoggerConfig struct {
 	Level string `yaml:"level"`
 }
@@ -80,6 +86,7 @@ type OllamaEndpoint struct {
 	Model string
 }
 
+// QdrantConfig identifies the Qdrant collection and retrieval defaults.
 type QdrantConfig struct {
 	Addr        string `yaml:"addr"`
 	Collection  string `yaml:"collection"`
@@ -87,6 +94,7 @@ type QdrantConfig struct {
 	PrefetchMul int    `yaml:"prefetch_mul"` // store-level candidate multiplier for hybrid search legs (default 5)
 }
 
+// EmbedderConfig selects the embedding provider and vector contract.
 type EmbedderConfig struct {
 	Provider       string        `yaml:"provider"`
 	Model          string        `yaml:"model"`
@@ -98,6 +106,7 @@ type EmbedderConfig struct {
 	DocumentPrefix string        `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
 }
 
+// ChunkerConfig selects the document chunking strategy and its bounds.
 type ChunkerConfig struct {
 	Provider     string `yaml:"provider"`
 	ChunkSize    int    `yaml:"chunk_size"`
@@ -129,6 +138,7 @@ type SearchConfig struct {
 	MaxChunksPerFile       int `yaml:"max_chunks_per_file"`
 }
 
+// RerankerConfig controls the optional cross-encoder reranker Adapter.
 type RerankerConfig struct {
 	Enabled        bool          `yaml:"enabled"`
 	Addr           string        `yaml:"addr"`            // sidecar addr, e.g. http://localhost:5002
@@ -138,6 +148,7 @@ type RerankerConfig struct {
 	RequestTimeout time.Duration `yaml:"request_timeout"` // timeout for one sidecar request
 }
 
+// SemanticCacheConfig controls persistence and matching for cached searches.
 type SemanticCacheConfig struct {
 	Enabled    bool          `yaml:"enabled"`
 	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: search_cache)
@@ -145,6 +156,7 @@ type SemanticCacheConfig struct {
 	TTL        time.Duration `yaml:"ttl"`        // zero = no expiry
 }
 
+// GeneratorConfig controls the optional answer-generation LLM.
 type GeneratorConfig struct {
 	Enabled        bool          `yaml:"enabled"`
 	OllamaAddr     string        `yaml:"ollama_addr"`

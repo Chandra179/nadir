@@ -1,0 +1,42 @@
+# Mockery is the single generator for reusable public interface test doubles.
+# Private dependency seams stay beside their consuming Module when a focused
+# stub is clearer than exporting a test-only contract.
+with-expecter: true
+resolve-type-alias: false
+disable-version-string: true
+issue-845-fix: true
+dir: "mocks"
+outpkg: mocks
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+mockname: "Mock{{.InterfaceName}}"
+packages:
+  nadir/internal/conversation/chat:
+    interfaces:
+      Chat: {}
+  nadir/internal/conversation/generation:
+    interfaces:
+      Generator: {}
+  nadir/internal/conversation/history:
+    interfaces:
+      Reader: {}
+  nadir/internal/embedding:
+    interfaces:
+      Embedder: {}
+  nadir/internal/knowledge/chunking:
+    interfaces:
+      Chunker: {}
+  nadir/internal/knowledge/enrichment:
+    interfaces:
+      Enricher: {}
+  nadir/internal/knowledge/indexing:
+    interfaces:
+      Ingest: {}
+  nadir/internal/retrieval/cache:
+    interfaces:
+      SemanticCache: {}
+  nadir/internal/retrieval/rewriting:
+    interfaces:
+      Rewriter: {}
+  nadir/internal/retrieval/search:
+    interfaces:
+      Retriever: {}

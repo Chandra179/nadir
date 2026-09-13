@@ -69,7 +69,7 @@ services:
     # Portable default: CPU image, no NVIDIA reservation. Linux GPU users
     # should layer docker-compose.gpu.yml on top of this file.
     build:
-      context: ../../services/reranker
+      context: ../../sidecars/reranker
       args:
         RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
         GPU: ${RERANKER_GPU:-0}
@@ -100,7 +100,7 @@ services:
     # docker compose -f deploy/compose/docker-compose.yml --profile pdf up -d --build
     profiles: ["pdf"]
     build:
-      context: ../../services/docling
+      context: ../../sidecars/document-converter
     ports:
       - "${DOCLING_PORT:-5003}:5003"
     restart: unless-stopped

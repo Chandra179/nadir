@@ -1,7 +1,7 @@
 services:
   reranker:
     build:
-      context: ../../services/reranker
+      context: ../../sidecars/reranker
       args:
         GPU: ${RERANKER_GPU:-1}
         BAKE_QUANTIZED: ${RERANKER_BAKE_QUANTIZED:-0}

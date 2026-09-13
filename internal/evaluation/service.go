@@ -1,7 +1,7 @@
 // Package eval provides a repeatable Retrieval-quality evaluation Module.
 // It deliberately uses only the current search Interface and standard Go
 // serialization/timing primitives; the running server remains unchanged.
-package eval
+package evaluation
 
 import (
 	"context"
@@ -14,26 +14,6 @@ import (
 
 	"go.uber.org/zap"
 )
-
-// DependenciesConfig groups the Retrieval seam exercised by the harness.
-type DependenciesConfig struct {
-	Searcher search.Retriever
-	Log      *zap.Logger
-}
-
-// Harness evaluates a GoldenSet through one configured Retrieval Adapter.
-type Harness struct {
-	searcher search.Retriever
-	log      *zap.Logger
-}
-
-func NewDependencies(cfg DependenciesConfig) *Harness {
-	log := cfg.Log
-	if log == nil {
-		log = zap.NewNop()
-	}
-	return &Harness{searcher: cfg.Searcher, log: log}
-}
 
 // Run evaluates every golden query. Each query is executed runs times;
 // ranking comes from the final run while latency is summarized by its median.

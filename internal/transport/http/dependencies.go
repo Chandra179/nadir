@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
 
 	"nadir/internal/conversation/chat"
+	conversationhistory "nadir/internal/conversation/history"
 	"nadir/internal/knowledge/indexing"
 	chatapi "nadir/internal/transport/http/chat"
 	historyapi "nadir/internal/transport/http/history"
@@ -17,11 +19,11 @@ const defaultTopK = 8
 // DependenciesConfig groups everything needed to construct the API
 // dependencies.
 type DependenciesConfig struct {
-	Ingest ingest.Ingest
-	Store  documentResetter
+	Ingest indexing.Ingest
+	Reset  func(context.Context) error
 	// History is optional: when nil, session pages 404, sessions are not
 	// minted and the sidebar's chat list is simply empty.
-	History sessionReader
+	History conversationhistory.Reader
 	// Chat runs the chat use-case for the chat UI: start turn, subscribe to
 	// its event stream, cancel it.
 	Chat chat.Chat
@@ -40,9 +42,8 @@ type DependenciesConfig struct {
 }
 
 type dependencies struct {
-	ingest               ingest.Ingest
-	store                documentResetter
-	history              sessionReader
+	ingest               indexing.Ingest
+	reset                func(context.Context) error
 	topK                 int
 	sourcePaths          []string
 	sourceIgnorePatterns []string
@@ -75,8 +76,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 	return &dependencies{
 		ingest:               cfg.Ingest,
-		store:                cfg.Store,
-		history:              cfg.History,
+		reset:                cfg.Reset,
 		topK:                 topK,
 		sourcePaths:          cfg.SourcePaths,
 		sourceIgnorePatterns: cfg.SourceIgnorePatterns,
@@ -84,8 +84,8 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		maxUploadBytes:       cfg.MaxUploadBytes,
 		readiness:            cfg.Readiness,
 		readinessTimeout:     readinessTimeout,
-		turns:                chatapi.New(chatapi.Config{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK}),
-		hist:                 historyapi.New(historyapi.Config{History: cfg.History, Chat: cfg.Chat, Log: log}),
+		turns:                chatapi.NewDependencies(chatapi.DependenciesConfig{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK}),
+		hist:                 historyapi.NewDependencies(historyapi.DependenciesConfig{History: cfg.History, Chat: cfg.Chat, Log: log}),
 		log:                  log,
 	}
 }

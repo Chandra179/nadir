@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"nadir/internal/adapters/qdrant/documents"
 	"nadir/internal/platform/observability"
+	"nadir/internal/retrieval/search"
 
 	"go.uber.org/zap"
 )
@@ -24,7 +24,7 @@ type rerankResponse struct {
 	Scores []float32 `json:"scores"`
 }
 
-func (r *dependencies) Rerank(ctx context.Context, query string, chunks []store.ScoredChunk) ([]store.ScoredChunk, error) {
+func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search.SearchCandidate) ([]search.SearchCandidate, error) {
 	started := time.Now()
 	if len(chunks) == 0 {
 		observability.Stage(r.log, "reranking", "empty", started, nil, zap.Int("candidates", 0))
@@ -80,7 +80,7 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []store.
 		return nil, err
 	}
 
-	reranked := make([]store.ScoredChunk, len(chunks))
+	reranked := make([]search.SearchCandidate, len(chunks))
 	copy(reranked, chunks)
 	for i := range reranked {
 		reranked[i].Score = rrResp.Scores[i]

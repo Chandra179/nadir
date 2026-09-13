@@ -7,6 +7,7 @@ Document, Session, cache entry, or reset means.
 | Data or concern | Folder | Owner of policy |
 |---|---|---|
 | Indexed Document chunks and reset generations | `documents/` | `knowledge/` and `retrieval/` |
+| Semantic query-cache records | `cache/` | `retrieval/cache/` |
 | Sessions and persisted Chat turns | `history/` | `conversation/` |
 | Shared clients, collections, and value codecs | `shared/` | Adapter infrastructure only |
 

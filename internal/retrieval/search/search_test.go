@@ -6,9 +6,6 @@ import (
 	"sync"
 	"testing"
 
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/qdrant/documents"
-	"nadir/internal/adapters/reranker"
 	"nadir/internal/retrieval/cache"
 )
 
@@ -35,27 +32,25 @@ func (e *searchTestEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]
 	return vecs, nil
 }
 
-var _ embedder.BatchEmbedder = (*searchTestEmbedder)(nil)
-
 type searchTestStore struct {
 	mu          sync.Mutex
 	hybridCalls int
-	lastFilter  *store.SearchFilter
-	results     []store.ScoredChunk
+	lastFilter  *Filter
+	results     []SearchCandidate
 }
 
-func (s *searchTestStore) KeywordSearch(context.Context, string, int, *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *searchTestStore) KeywordSearch(context.Context, string, int, *Filter) ([]SearchCandidate, error) {
 	return nil, nil
 }
 
-func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *Filter) ([]SearchCandidate, error) {
 	s.mu.Lock()
 	s.hybridCalls++
 	if filter != nil {
 		copyFilter := *filter
 		s.lastFilter = &copyFilter
 	}
-	results := append([]store.ScoredChunk(nil), s.results...)
+	results := append([]SearchCandidate(nil), s.results...)
 	s.mu.Unlock()
 	return results, nil
 }
@@ -63,17 +58,17 @@ func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string,
 var _ documentSearcher = (*searchTestStore)(nil)
 
 type searchTestCache struct {
-	chunks   []store.ScoredChunk
+	chunks   []cache.Candidate
 	hit      bool
 	getCalls int
 }
 
-func (c *searchTestCache) Get(context.Context, string) ([]store.ScoredChunk, bool, error) {
+func (c *searchTestCache) Get(context.Context, string) ([]cache.Candidate, bool, error) {
 	c.getCalls++
-	return append([]store.ScoredChunk(nil), c.chunks...), c.hit, nil
+	return append([]cache.Candidate(nil), c.chunks...), c.hit, nil
 }
-func (c *searchTestCache) Set(context.Context, string, []store.ScoredChunk) error { return nil }
-func (c *searchTestCache) Clear(context.Context) error                            { return nil }
+func (c *searchTestCache) Set(context.Context, string, []cache.Candidate) error { return nil }
+func (c *searchTestCache) Clear(context.Context) error                          { return nil }
 
 var _ cache.SemanticCache = (*searchTestCache)(nil)
 
@@ -81,11 +76,9 @@ type searchTestReranker struct {
 	err error
 }
 
-func (r searchTestReranker) Rerank(context.Context, string, []store.ScoredChunk) ([]store.ScoredChunk, error) {
+func (r searchTestReranker) Rerank(context.Context, string, []SearchCandidate) ([]SearchCandidate, error) {
 	return nil, r.err
 }
-
-var _ reranker.Reranker = searchTestReranker{}
 
 func TestNewDependenciesWiresOptionalAdaptersAtConstruction(t *testing.T) {
 	cache := &searchTestCache{}
@@ -104,7 +97,7 @@ func TestNewDependenciesWiresOptionalAdaptersAtConstruction(t *testing.T) {
 
 func TestQueryBatchesFragmentsAndCapsResultsPerFile(t *testing.T) {
 	emb := &searchTestEmbedder{}
-	st := &searchTestStore{results: []store.ScoredChunk{
+	st := &searchTestStore{results: []SearchCandidate{
 		{Text: "a-1", FilePath: "a.md", LineStart: 1, Score: 0.9},
 		{Text: "a-2", FilePath: "a.md", LineStart: 2, Score: 0.8},
 		{Text: "b-1", FilePath: "b.md", LineStart: 1, Score: 0.7},
@@ -147,9 +140,9 @@ func TestQueryBatchesFragmentsAndCapsResultsPerFile(t *testing.T) {
 func TestQueryBypassesCacheForFilteredSearches(t *testing.T) {
 	cache := &searchTestCache{
 		hit:    true,
-		chunks: []store.ScoredChunk{{Text: "cached", FilePath: "cached.md", LineStart: 1}},
+		chunks: []cache.Candidate{{Text: "cached", FilePath: "cached.md", LineStart: 1}},
 	}
-	st := &searchTestStore{results: []store.ScoredChunk{{Text: "fresh", FilePath: "fresh.md", LineStart: 1}}}
+	st := &searchTestStore{results: []SearchCandidate{{Text: "fresh", FilePath: "fresh.md", LineStart: 1}}}
 	d := NewDependencies(DependenciesConfig{
 		Embedder:      embTestEmbedder{},
 		Store:         st,
@@ -192,7 +185,7 @@ func (embTestEmbedder) Embed(context.Context, string) ([]float32, error) { retur
 func (embTestEmbedder) Dimensions() int                                  { return 1 }
 
 func TestQueryRerankerFailureKeepsResultsBounded(t *testing.T) {
-	st := &searchTestStore{results: []store.ScoredChunk{
+	st := &searchTestStore{results: []SearchCandidate{
 		{Text: "one", FilePath: "one.md", LineStart: 1, Score: 0.9},
 		{Text: "two", FilePath: "two.md", LineStart: 1, Score: 0.8},
 		{Text: "three", FilePath: "three.md", LineStart: 1, Score: 0.7},

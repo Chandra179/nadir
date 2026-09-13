@@ -7,9 +7,17 @@ import (
 	"testing"
 
 	"nadir/internal/adapters/qdrant/shared"
+	"nadir/internal/knowledge/indexing"
+	"nadir/internal/retrieval/search"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 )
+
+func TestNewDependenciesRequiresSharedClients(t *testing.T) {
+	if _, err := NewDependencies(DependenciesConfig{}); err == nil {
+		t.Fatal("NewDependencies accepted an empty Qdrant client set")
+	}
+}
 
 func TestTokenizeAndVectorizeSparseAreStableByTermFrequency(t *testing.T) {
 	if got := tokenize("Power-rule, POWER rule! x²"); len(got) != 5 {
@@ -38,7 +46,7 @@ func TestTokenizeAndVectorizeSparseAreStableByTermFrequency(t *testing.T) {
 }
 
 func TestStorePayloadAndPointIdentity(t *testing.T) {
-	chunk := ScoredChunk{Text: "text", WindowText: "window", FilePath: "doc.md", Header: "Intro", LineStart: 4, ChunkIndex: 2, SourceSHA: "sha", IngestedAt: "time"}
+	chunk := indexing.IndexedChunk{Text: "text", WindowText: "window", FilePath: "doc.md", Header: "Intro", LineStart: 4, ChunkIndex: 2, SourceSHA: "sha", IngestedAt: "time"}
 	payload := map[string]*qdrant.Value{
 		"text":        qdrantutil.StringValue(chunk.Text),
 		"window_text": qdrantutil.StringValue(chunk.WindowText),
@@ -50,7 +58,8 @@ func TestStorePayloadAndPointIdentity(t *testing.T) {
 		"ingested_at": qdrantutil.StringValue(chunk.IngestedAt),
 	}
 	got := chunkFromPayload(payload)
-	if !reflect.DeepEqual(got, chunk) {
+	want := search.SearchCandidate{Text: chunk.Text, WindowText: chunk.WindowText, FilePath: chunk.FilePath, Header: chunk.Header, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex, SourceSHA: chunk.SourceSHA}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("chunkFromPayload() = %+v, want %+v", got, chunk)
 	}
 	if pointID(chunk) != pointID(chunk) {
@@ -70,7 +79,7 @@ func TestStorePayloadAndPointIdentity(t *testing.T) {
 }
 
 func TestBuildFilterConditions(t *testing.T) {
-	conds := buildFilterConditions(&SearchFilter{FilePath: "doc.md", Header: "Intro", SourceSHA: "sha"})
+	conds := buildFilterConditions(&search.Filter{FilePath: "doc.md", Header: "Intro", SourceSHA: "sha"})
 	if len(conds) != 3 {
 		t.Fatalf("buildFilterConditions() returned %d conditions, want 3", len(conds))
 	}
@@ -88,17 +97,17 @@ func TestReplaceDocumentValidatesVersionIdentity(t *testing.T) {
 		name  string
 		path  string
 		sha   string
-		chunk ScoredChunk
+		chunk indexing.IndexedChunk
 		want  string
 	}{
 		{name: "missing path", sha: "sha", want: "file path is required"},
 		{name: "missing sha", path: "doc.md", want: "source SHA is required"},
-		{name: "chunk path mismatch", path: "doc.md", sha: "sha", chunk: ScoredChunk{FilePath: "other.md", SourceSHA: "sha"}, want: "does not match \"doc.md\""},
-		{name: "chunk sha mismatch", path: "doc.md", sha: "sha", chunk: ScoredChunk{FilePath: "doc.md", SourceSHA: "other"}, want: "does not match \"sha\""},
+		{name: "chunk path mismatch", path: "doc.md", sha: "sha", chunk: indexing.IndexedChunk{FilePath: "other.md", SourceSHA: "sha"}, want: "does not match \"doc.md\""},
+		{name: "chunk sha mismatch", path: "doc.md", sha: "sha", chunk: indexing.IndexedChunk{FilePath: "doc.md", SourceSHA: "other"}, want: "does not match \"sha\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := s.ReplaceDocument(context.Background(), tt.path, tt.sha, []ScoredChunk{tt.chunk})
+			err := s.ReplaceDocument(context.Background(), tt.path, tt.sha, []indexing.IndexedChunk{tt.chunk})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("ReplaceDocument() error = %v, want substring %q", err, tt.want)
 			}

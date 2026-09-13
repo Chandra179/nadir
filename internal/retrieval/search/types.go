@@ -1,10 +1,31 @@
 package search
 
-// Filter narrows Retrieval to a source file, heading, or content version.
+import "strconv"
+
+// Filter limits document searches to indexed document fields.
 type Filter struct {
 	FilePath  string
 	Header    string
 	SourceSHA string
+}
+
+// SearchCandidate is the Retrieval-owned candidate exchanged with the
+// document store, reranker, and semantic cache boundaries.
+type SearchCandidate struct {
+	Text       string
+	WindowText string
+	FilePath   string
+	Header     string
+	LineStart  int
+	ChunkIndex int
+	SourceSHA  string
+	Score      float32
+}
+
+// Key identifies a logical source chunk across dense, lexical, and HyPE
+// results. HyPE siblings intentionally collapse onto their parent chunk.
+func (c SearchCandidate) Key() string {
+	return c.FilePath + ":" + strconv.Itoa(c.LineStart)
 }
 
 // Chunk is the stable Retrieval result shape used by chat and the HTTP
@@ -21,6 +42,7 @@ type Chunk struct {
 	Score      float32
 }
 
+// Request is one bounded retrieval request.
 type Request struct {
 	Query     string
 	Keyword   string
@@ -29,6 +51,7 @@ type Request struct {
 	SkipCache bool
 }
 
+// Result is the provider-neutral retrieval response.
 type Result struct {
 	Chunks    []Chunk
 	FromCache bool

@@ -1,3 +1,4 @@
+// Package history owns the persisted Conversation session and turn values.
 package history
 
 import "time"

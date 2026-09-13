@@ -1,13 +1,13 @@
-package ingest
+package indexing
 
 import (
+	"context"
 	"sync"
 	"time"
 
-	"nadir/internal/adapters/ollama/embedding"
+	"nadir/internal/embedding"
 	"nadir/internal/knowledge/chunking"
 	"nadir/internal/knowledge/enrichment"
-	"nadir/internal/retrieval/cache"
 
 	"go.uber.org/zap"
 )
@@ -30,13 +30,15 @@ type RetryConfig struct {
 // DependenciesConfig groups everything needed to construct the ingest
 // dependencies.
 type DependenciesConfig struct {
-	Chunker           chunker.Chunker
-	Embedder          embedder.Embedder
+	Chunker           chunking.Chunker
+	Embedder          embedding.Embedder
 	Store             documentIndexer
-	Coordinator       LifecycleCoordinator
-	SemanticCache     cache.SemanticCache
+	Coordinator       lifecycleCoordinator
+	CacheInvalidator  cacheInvalidator
 	Enricher          enrichment.Enricher
-	DocumentConverter DocumentConverter
+	DocumentConverter documentConverter
+	Reset             func(context.Context) error
+	ClearCache        func(context.Context) error
 	HypeEnabled       bool
 	HypeQuestions     int
 	ContextualEnabled bool
@@ -55,11 +57,11 @@ type DependenciesConfig struct {
 // against what's already stored, and for each new/changed file runs
 // chunk -> embed -> upsert.
 type dependencies struct {
-	chunker        chunker.Chunker
-	embedder       embedder.Embedder
+	chunker        chunking.Chunker
+	embedder       embedding.Embedder
 	store          documentIndexer
-	coordinator    LifecycleCoordinator
-	cache          cache.SemanticCache
+	coordinator    lifecycleCoordinator
+	cache          cacheInvalidator
 	cfg            RetryConfig
 	documentPrefix string
 	enrich         enrichment.Enricher
@@ -71,12 +73,15 @@ type dependencies struct {
 	maxChunks      int
 	workers        int
 	runMu          sync.Mutex
-	converter      DocumentConverter
+	converter      documentConverter
+	reset          func(context.Context) error
+	clearCache     func(context.Context) error
 	log            *zap.Logger
 }
 
 var _ Ingest = (*dependencies)(nil)
 
+// NewDependencies constructs the indexing pass over caller-supplied seams.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	workers := cfg.Workers
 	if workers <= 0 {
@@ -98,17 +103,20 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	coordinator := cfg.Coordinator
 	return &dependencies{
 		chunker:        cfg.Chunker,
 		embedder:       cfg.Embedder,
 		store:          cfg.Store,
-		coordinator:    cfg.Coordinator,
-		cache:          cfg.SemanticCache,
+		coordinator:    coordinator,
+		cache:          cfg.CacheInvalidator,
 		enrich:         cfg.Enricher,
 		hypeEnabled:    cfg.HypeEnabled,
 		hypeQuestions:  cfg.HypeQuestions,
 		contextual:     cfg.ContextualEnabled,
 		converter:      cfg.DocumentConverter,
+		reset:          cfg.Reset,
+		clearCache:     cfg.ClearCache,
 		cfg:            cfg.Retry,
 		documentPrefix: cfg.DocumentPrefix,
 		maxFileBytes:   maxFileBytes,

@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"nadir/internal/adapters/qdrant/shared"
+	indexing "nadir/internal/knowledge/indexing"
+	"nadir/internal/retrieval/search"
 )
 
 // sparseVectorName is the named sparse vector next to the unnamed dense
@@ -138,7 +140,7 @@ func (s *dependencies) createCollection(ctx context.Context, name string, dimens
 	return nil
 }
 
-func (s *dependencies) upsert(ctx context.Context, chunks []ScoredChunk, active bool) error {
+func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChunk, active bool) error {
 	points := make([]*qdrant.PointStruct, len(chunks))
 	for i, c := range chunks {
 		id := pointID(c)
@@ -186,7 +188,7 @@ func (s *dependencies) upsert(ctx context.Context, chunks []ScoredChunk, active 
 // are invisible while staged; only after every point is written do we make the
 // new version active. Older versions are then hidden before cleanup, so a
 // cleanup failure after deactivation cannot expose stale search results.
-func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []ScoredChunk) error {
+func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []indexing.IndexedChunk) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -260,7 +262,7 @@ func (s *dependencies) DeleteAll(ctx context.Context) error {
 	})
 }
 
-func buildFilterConditions(f *SearchFilter) []*qdrant.Condition {
+func buildFilterConditions(f *search.Filter) []*qdrant.Condition {
 	if f == nil {
 		return nil
 	}
@@ -308,7 +310,7 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 // HybridSearch runs dense and BM25-style sparse legs as Qdrant-native
 // prefetches and fuses them server-side with RRF in a single round trip,
 // rather than issuing two separate queries and re-implementing RRF in Go.
-func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *search.Filter) ([]search.SearchCandidate, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -346,7 +348,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 		return nil, fmt.Errorf("hybrid search: %w", err)
 	}
 
-	results := make([]ScoredChunk, len(resp.Result))
+	results := make([]search.SearchCandidate, len(resp.Result))
 	for i, r := range resp.Result {
 		results[i] = chunkFromPayload(r.Payload)
 		results[i].Score = r.Score
@@ -354,7 +356,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 	return results, nil
 }
 
-func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *SearchFilter) ([]ScoredChunk, error) {
+func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *search.Filter) ([]search.SearchCandidate, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -369,7 +371,7 @@ func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK i
 	if err != nil {
 		return nil, err
 	}
-	results := make([]ScoredChunk, len(resp.Result))
+	results := make([]search.SearchCandidate, len(resp.Result))
 	for i, r := range resp.Result {
 		results[i] = chunkFromPayload(r.Payload)
 	}
@@ -437,7 +439,7 @@ var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 // pointID derives a stable UUID for a chunk (or HyPE sibling) from its
 // document-version identity fields; siblings get ":hype:<n>" appended so they
 // never collide with their parent.
-func pointID(c ScoredChunk) string {
+func pointID(c indexing.IndexedChunk) string {
 	key := c.FilePath + ":" + c.SourceSHA + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
 	if c.HypeQuestion != "" {
 		key += ":hype:" + strconv.Itoa(c.HypeIndex)
@@ -484,8 +486,8 @@ func contextualSparseText(filePath, header, text string) string {
 	return sb.String()
 }
 
-func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
-	return ScoredChunk{
+func chunkFromPayload(p map[string]*qdrant.Value) search.SearchCandidate {
+	return search.SearchCandidate{
 		Text:       qdrantutil.StringFromPayload(p, "text"),
 		WindowText: qdrantutil.StringFromPayload(p, "window_text"),
 		FilePath:   qdrantutil.StringFromPayload(p, "file_path"),
@@ -493,7 +495,6 @@ func chunkFromPayload(p map[string]*qdrant.Value) ScoredChunk {
 		LineStart:  int(qdrantutil.IntFromPayload(p, "line_start")),
 		ChunkIndex: int(qdrantutil.IntFromPayload(p, "chunk_index")),
 		SourceSHA:  qdrantutil.StringFromPayload(p, "source_sha"),
-		IngestedAt: qdrantutil.StringFromPayload(p, "ingested_at"),
 	}
 }
 

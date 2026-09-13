@@ -16,7 +16,7 @@ folders are deliberately small enough that a task should have one clear owner:
 
 ## Dependency map
 
-Arrows mean “calls or depends on.” `platform/lifecycle` is the composition
+Arrows mean “calls or depends on.” `platform/server` is the composition
 root: it constructs concrete Adapters and injects them into the bounded
 contexts and HTTP transport. It is not a runtime business-flow owner.
 
@@ -30,19 +30,15 @@ transport/http
   ├── POST documents ──────▶ knowledge/indexing
   │                           ├──▶ knowledge/chunking
   │                           ├──▶ knowledge/enrichment ──▶ adapters/ollama/enrichment
-  │                           ├──▶ adapters/ollama/embedding
-  │                           ├──▶ adapters/qdrant/documents
-  │                           └──▶ retrieval/cache ──▶ adapters/qdrant/shared
+  │                           ├──▶ injected embedding/document-store ports
+  │                           └──▶ injected cache invalidation port
   │
-  ├── POST documents/reset ─▶ adapters/qdrant/documents
+  ├── POST documents/reset ─▶ knowledge/indexing reset policy
   │
   ├── POST turns ──────────▶ conversation/chat
   │                           ├──▶ retrieval/rewriting ──▶ adapters/ollama/rewriter
   │                           ├──▶ retrieval/search
-  │                           │     ├──▶ retrieval/cache
-  │                           │     ├──▶ adapters/ollama/embedding
-  │                           │     ├──▶ adapters/qdrant/documents
-  │                           │     └──▶ adapters/reranker
+  │                           │     └──▶ injected cache/embedding/store/reranker ports
   │                           ├──▶ conversation/generation
   │                           │     └──▶ adapters/ollama/generator
   │                           └──▶ adapters/qdrant/history
@@ -55,30 +51,40 @@ evaluation ─────────────▶ retrieval/search   (cache 
 ### Package dependency direction
 
 ```text
-cmd/api
+cmd/api and cmd/evaluator
   │
   ▼
-platform/lifecycle  ── constructs and injects
+platform/runtime ── constructs the shared graph
+  ├──▶ adapters/qdrant, adapters/ollama, adapters/reranker
+  ├──▶ knowledge/indexing and retrieval/search
+  └──▶ exposes capability functions
+
+platform/server ── constructs the HTTP process and injects
   ├──▶ transport/http
-  ├──▶ knowledge/*
-  ├──▶ retrieval/*
   ├──▶ conversation/*
-  └──▶ adapters/*
+  └──▶ platform/runtime
+
+cmd/evaluator ── uses platform/runtime without starting HTTP
 
 transport/http ──▶ bounded contexts ──▶ consumer-owned Interfaces
        │                    ▲                       ▲
        └──▶ HTTP contracts  │                       │
                             └── Adapters implement ─┘
 
-adapters/qdrant/{documents,history}
+adapters/qdrant/{documents,cache,history}
   └──▶ adapters/qdrant/shared       (shared infrastructure only)
+
+knowledge/indexing owns IndexedChunk values; retrieval/search owns
+SearchCandidate and Filter values; retrieval/cache owns cached Candidate
+values. Adapters map between these context-owned values at their consumer
+seams.
 ```
 
 The first diagram is runtime behaviour. The second is the intended ownership
 direction for package dependencies: a bounded context defines the meaning of a
-capability, an Adapter implements that capability, and lifecycle supplies the
-concrete implementation. An Adapter may import a consumer-owned Interface to
-implement it; that import is not a call back into the consumer.
+capability, an Adapter implements that capability, and the composition root
+supplies the concrete implementation. An Adapter may import a consumer-owned
+Interface to implement it; that import is not a call back into the consumer.
 
 ### How to detect a circular dependency
 
@@ -88,16 +94,16 @@ The safe direction is:
 transport  ──▶ bounded context ──▶ seam/Adapter
                     ▲                 │
                     └── wired by ─────┘
-                         platform/lifecycle
+                         platform/server
 ```
 
 Never add an arrow from a bounded context or Adapter to `transport/http/` or
-`platform/lifecycle/`. Never make an Adapter call a handler. If a lower-level
+`platform/server/`. Never make an Adapter call a handler. If a lower-level
 package needs behaviour from a higher-level package, define the narrow seam at
-the caller and inject an implementation from lifecycle. If two bounded
+the caller and inject an implementation from the composition root. If two bounded
 contexts need each other directly, stop and reconsider ownership before adding
-an import; usually one context should expose a smaller Interface or the shared
-value should move to a neutral contract package.
+an import; usually one context should expose a smaller Interface or the
+Adapter/composition root should translate between their value types.
 
 ## Task placement rules
 
@@ -108,10 +114,14 @@ value should move to a neutral contract package.
   consuming bounded context.
 - Put HTTP translation in `transport/http`; do not make domain packages know
   about Gin, JSON, SSE, or status codes.
-- Keep composition in `platform/lifecycle`; domain packages must not import
-  transport or lifecycle packages.
+- Keep shared graph composition in `platform/runtime` and HTTP process
+  composition in `platform/server`; domain packages must not import transport
+  or composition packages.
 - Expose a small provider-owned Interface only when another package consumes
   it. Keep implementation ports private and add compile-time assertions.
+- Keep exported behavioural interfaces in `interface.go`; keep consumer-only
+  dependency seams in `private_interfaces.go`. A private seam is allowed to
+  have several methods when those methods form one cohesive dependency role.
 
 Each child README documents the local contract, related work, and verification.
 The root architecture and ADRs remain authoritative for cross-folder design.

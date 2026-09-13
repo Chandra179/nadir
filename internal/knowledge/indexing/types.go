@@ -1,5 +1,6 @@
-package ingest
+package indexing
 
+// Result summarizes one indexing pass.
 type Result struct {
 	Processed int
 	Skipped   int
@@ -13,4 +14,22 @@ type Result struct {
 type UploadFile struct {
 	Name string
 	Data []byte
+}
+
+// IndexedChunk is the indexing value sent to a document persistence Adapter.
+// It contains the vector and enrichment metadata required to publish one
+// version, while storage protocol types remain inside the Adapter.
+type IndexedChunk struct {
+	Text         string
+	WindowText   string
+	FilePath     string
+	Header       string
+	LineStart    int
+	ChunkIndex   int
+	Vector       []float32
+	SourceSHA    string
+	IngestedAt   string
+	SparseText   string
+	HypeQuestion string
+	HypeIndex    int
 }

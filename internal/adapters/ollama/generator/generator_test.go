@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	conversationgeneration "nadir/internal/conversation/generation"
 )
 
 func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
@@ -41,8 +43,8 @@ func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
 			}
 			var streamErr string
 			for event := range events {
-				if e, ok := event.(ErrorEvent); ok {
-					streamErr = e.Err.Error()
+				if event.Kind == conversationgeneration.EventError && event.Err != nil {
+					streamErr = event.Err.Error()
 				}
 			}
 			if !strings.Contains(streamErr, tt.wantErr) {
@@ -63,10 +65,10 @@ func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
 	var got strings.Builder
 	var done bool
 	for event := range events {
-		switch e := event.(type) {
-		case TokenEvent:
-			got.WriteString(e.Text)
-		case DoneEvent:
+		switch event.Kind {
+		case conversationgeneration.EventToken:
+			got.WriteString(event.Text)
+		case conversationgeneration.EventDone:
 			done = true
 		}
 	}

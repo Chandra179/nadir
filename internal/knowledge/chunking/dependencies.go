@@ -1,4 +1,4 @@
-package chunker
+package chunking
 
 import (
 	"regexp"
@@ -37,6 +37,8 @@ type dependencies struct {
 
 var _ Chunker = (*dependencies)(nil)
 
+// NewDependencies constructs a Chunker using the configured strategy and
+// bounds.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	windowSize := cfg.WindowSize
 	if windowSize <= 0 {

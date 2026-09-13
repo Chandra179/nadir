@@ -21,7 +21,7 @@ const (
 type DependenciesConfig struct {
 	Searcher search.Retriever
 	// Generator is optional: when nil, StartTurn ignores Request.Generate.
-	Generator generator.Generator
+	Generator generation.Generator
 	// History is optional: when nil, no sessions are minted and turns are
 	// not persisted.
 	History historyStore
@@ -29,7 +29,7 @@ type DependenciesConfig struct {
 	// rewritten into standalone search queries against the session's recent
 	// turns before retrieval. Best-effort — failures fall back to the raw
 	// query.
-	Rewriter rewriter.Rewriter
+	Rewriter rewriting.Rewriter
 	// RewriteTurns caps how many prior turns the rewriter sees
 	// (<= 0 → defaultRewriteTurns).
 	RewriteTurns int
@@ -51,10 +51,10 @@ type DependenciesConfig struct {
 
 type dependencies struct {
 	searcher         search.Retriever
-	generator        generator.Generator
+	generator        generation.Generator
 	history          historyStore
 	mutations        *historyMutations
-	rewriter         rewriter.Rewriter
+	rewriter         rewriting.Rewriter
 	rewriteTurns     int
 	maxContextTokens int
 	persistTimeout   time.Duration
@@ -71,6 +71,8 @@ type dependencies struct {
 
 var _ Chat = (*dependencies)(nil)
 
+// NewDependencies constructs the Chat lifecycle over retrieval and optional
+// generation, history, and rewriting capabilities.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	rewriteTurns := cfg.RewriteTurns
 	if rewriteTurns <= 0 {
@@ -94,7 +96,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		searcher:         cfg.Searcher,
 		generator:        cfg.Generator,
 		history:          cfg.History,
-		mutations:        newHistoryMutations(),
+		mutations:        newHistoryMutations(cfg.History),
 		rewriter:         cfg.Rewriter,
 		rewriteTurns:     rewriteTurns,
 		maxContextTokens: maxContextTokens,

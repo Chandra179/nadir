@@ -9,17 +9,10 @@ import (
 	"strings"
 	"time"
 
-	ingest "nadir/internal/knowledge/indexing"
 	"nadir/internal/platform/observability"
 
 	"go.uber.org/zap"
 )
-
-type Config struct {
-	Addr           string
-	RequestTimeout time.Duration
-	Log            *zap.Logger
-}
 
 // Converter adapts the Docling HTTP service to Knowledge's Document intake
 // seam. The original source identity is passed through unchanged for
@@ -30,9 +23,8 @@ type Converter struct {
 	log    *zap.Logger
 }
 
-var _ ingest.DocumentConverter = (*Converter)(nil)
-
-func New(cfg Config) *Converter {
+// NewDependencies constructs a Docling HTTP Adapter.
+func NewDependencies(cfg DependenciesConfig) *Converter {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {
 		timeout = 120 * time.Second

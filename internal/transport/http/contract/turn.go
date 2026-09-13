@@ -9,6 +9,7 @@ import (
 	"nadir/internal/retrieval/search"
 )
 
+// TurnResponse is the public JSON representation of a live or persisted turn.
 type TurnResponse struct {
 	Error          string           `json:"error,omitempty"`
 	Query          string           `json:"query"`
@@ -31,6 +32,7 @@ type TurnResponse struct {
 	Streaming      bool             `json:"streaming"`
 }
 
+// ResultResponse is the public JSON representation of one retrieved chunk.
 type ResultResponse struct {
 	FilePath  string  `json:"file_path"`
 	Header    string  `json:"header,omitempty"`

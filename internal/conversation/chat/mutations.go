@@ -29,15 +29,17 @@ type trackedGeneration struct {
 // operations. It serializes the mutation check with the underlying history
 // call, so a delete cannot race an append after the check has passed.
 type historyMutations struct {
-	mu sync.Mutex
+	history historyStore
+	mu      sync.Mutex
 
 	globalRevision   uint64
 	sessionRevisions map[string]uint64
 	active           map[string]trackedGeneration
 }
 
-func newHistoryMutations() *historyMutations {
+func newHistoryMutations(history historyStore) *historyMutations {
 	return &historyMutations{
+		history:          history,
 		sessionRevisions: make(map[string]uint64),
 		active:           make(map[string]trackedGeneration),
 	}
@@ -66,25 +68,25 @@ func (m *historyMutations) currentLocked(sessionID string) historyMutation {
 	}
 }
 
-func (m *historyMutations) createSession(ctx context.Context, h historyStore, title string) (history.Session, historyMutation, error) {
+func (m *historyMutations) createSession(ctx context.Context, title string) (history.Session, historyMutation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	session, err := h.CreateSession(ctx, title)
+	session, err := m.history.CreateSession(ctx, title)
 	if err != nil {
 		return history.Session{}, historyMutation{}, err
 	}
 	return session, m.currentLocked(session.ID), nil
 }
 
-func (m *historyMutations) prepareEdit(ctx context.Context, h historyStore, sessionID string, beforeSequence int) (historyMutation, error) {
+func (m *historyMutations) prepareEdit(ctx context.Context, sessionID string, beforeSequence int) (historyMutation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Keep the lock through truncation. Existing appends either land before
 	// the prune (and are removed when they are in the edited tail) or wait and
 	// observe the new revision after the prune succeeds.
-	if err := h.TruncateSession(ctx, sessionID, beforeSequence); err != nil {
+	if err := m.history.TruncateSession(ctx, sessionID, beforeSequence); err != nil {
 		return historyMutation{}, err
 	}
 	m.sessionRevisions[sessionID]++
@@ -92,16 +94,16 @@ func (m *historyMutations) prepareEdit(ctx context.Context, h historyStore, sess
 	return m.currentLocked(sessionID), nil
 }
 
-func (m *historyMutations) append(ctx context.Context, h historyStore, token historyMutation, turn history.Turn, firstTurnTitle string) error {
+func (m *historyMutations) append(ctx context.Context, token historyMutation, turn history.Turn, firstTurnTitle string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.currentLocked(token.sessionID).equals(token) {
 		return errStaleHistoryMutation
 	}
-	return h.AppendTurn(ctx, token.sessionID, turn, firstTurnTitle)
+	return m.history.AppendTurn(ctx, token.sessionID, turn, firstTurnTitle)
 }
 
-func (m *historyMutations) deleteSession(ctx context.Context, h historyStore, sessionID string) error {
+func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -109,10 +111,10 @@ func (m *historyMutations) deleteSession(ctx context.Context, h historyStore, se
 	// detached saves remain invalid and a retry cannot resurrect deleted data.
 	m.sessionRevisions[sessionID]++
 	m.cancelSessionLocked(sessionID)
-	return h.DeleteSession(ctx, sessionID)
+	return m.history.DeleteSession(ctx, sessionID)
 }
 
-func (m *historyMutations) deleteAll(ctx context.Context, h historyStore) error {
+func (m *historyMutations) deleteAll(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -121,7 +123,7 @@ func (m *historyMutations) deleteAll(ctx context.Context, h historyStore) error 
 		generation.stream.cancelGeneration()
 		delete(m.active, id)
 	}
-	return h.DeleteAllSessions(ctx)
+	return m.history.DeleteAllSessions(ctx)
 }
 
 // cancelAll cancels every generation that is tied to a persisted session. It

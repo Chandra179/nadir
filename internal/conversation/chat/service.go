@@ -48,7 +48,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 			return turn
 		}
 		var err error
-		mutation, err = d.mutations.prepareEdit(ctx, d.history, req.SessionID, req.EditSequence)
+		mutation, err = d.mutations.prepareEdit(ctx, req.SessionID, req.EditSequence)
 		if err != nil {
 			d.log.Warn("chat edit prune failed",
 				zap.String("session_id", req.SessionID),
@@ -166,7 +166,7 @@ func (d *dependencies) DeleteSession(ctx context.Context, sessionID string) erro
 	if d.history == nil {
 		return errors.New("chat history is disabled")
 	}
-	return d.mutations.deleteSession(ctx, d.history, sessionID)
+	return d.mutations.deleteSession(ctx, sessionID)
 }
 
 // DeleteAllSessions removes every conversation through the chat lifecycle
@@ -175,7 +175,7 @@ func (d *dependencies) DeleteAllSessions(ctx context.Context) error {
 	if d.history == nil {
 		return errors.New("chat history is disabled")
 	}
-	return d.mutations.deleteAll(ctx, d.history)
+	return d.mutations.deleteAll(ctx)
 }
 
 // Drain stops active generation and waits for generation supervisors and
@@ -247,7 +247,7 @@ func (d *dependencies) beginDrain() <-chan struct{} {
 // consumeGeneration drains one in-flight answer: it maps the generator's
 // typed events onto the turn's event log and persists the final turn when
 // the stream ends. Runs on its own goroutine — no HTTP request owns this.
-func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generator.Event, started time.Time) {
+func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generation.Event, started time.Time) {
 	defer func() {
 		d.mutations.unregisterGeneration(turn.ID)
 		stream.finish()
@@ -255,13 +255,17 @@ func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn T
 
 	var answer strings.Builder
 	for ev := range events {
-		switch e := ev.(type) {
-		case generator.TokenEvent:
-			answer.WriteString(e.Text)
-			stream.publish(EventToken, e.Text)
-		case generator.ErrorEvent:
-			turn.GenerateError = "Answer generation failed: " + e.Err.Error()
-		case generator.DoneEvent:
+		switch ev.Kind {
+		case generation.EventToken:
+			answer.WriteString(ev.Text)
+			stream.publish(EventToken, ev.Text)
+		case generation.EventError:
+			if ev.Err != nil {
+				turn.GenerateError = "Answer generation failed: " + ev.Err.Error()
+			} else {
+				turn.GenerateError = "Answer generation failed"
+			}
+		case generation.EventDone:
 		}
 	}
 	if turn.GenerateError != "" {
@@ -304,9 +308,9 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 			zap.String("session_id", sessionID), zap.Error(err))
 		return query
 	}
-	prior := make([]rewriter.Turn, 0, len(turns))
+	prior := make([]rewriting.Turn, 0, len(turns))
 	for _, t := range turns {
-		prior = append(prior, rewriter.Turn{Query: t.Query, Answer: t.Answer})
+		prior = append(prior, rewriting.Turn{Query: t.Query, Answer: t.Answer})
 	}
 	if len(prior) == 0 {
 		return query
@@ -333,7 +337,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 // Best-effort: failures are logged and return "" so the turn proceeds
 // without a session.
 func (d *dependencies) mintSession(ctx context.Context, query string) (string, historyMutation) {
-	session, mutation, err := d.mutations.createSession(ctx, d.history, query)
+	session, mutation, err := d.mutations.createSession(ctx, query)
 	if err != nil {
 		d.log.Warn("chat create session failed", zap.String("query", query), zap.Error(err))
 		return "", historyMutation{}
@@ -367,7 +371,7 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 	}
 	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.persistTimeout)
 	defer cancel()
-	return d.mutations.append(cctx, d.history, mutation, ht, req.Query)
+	return d.mutations.append(cctx, mutation, ht, req.Query)
 }
 
 // persistStart keeps an edited turn together with its prune before the UI

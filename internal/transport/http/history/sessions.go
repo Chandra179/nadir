@@ -11,6 +11,7 @@ import (
 	"nadir/internal/transport/http/contract"
 )
 
+// SessionResponse is the public JSON representation of a chat session.
 type SessionResponse struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
@@ -19,11 +20,13 @@ type SessionResponse struct {
 	TurnCount int    `json:"turn_count"`
 }
 
+// SessionsResponse is the sidebar session-list response.
 type SessionsResponse struct {
 	Enabled  bool              `json:"enabled"`
 	Sessions []SessionResponse `json:"sessions"`
 }
 
+// SessionDetailResponse combines one session with its persisted turns.
 type SessionDetailResponse struct {
 	Session SessionResponse         `json:"session"`
 	Turns   []contract.TurnResponse `json:"turns"`

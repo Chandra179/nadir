@@ -60,6 +60,6 @@ venv/
 /server
 /gen-qrelsresults/
 
-# Python sidecars (services/)
+# Python sidecars (sidecars/)
 __pycache__/
 *.pyc

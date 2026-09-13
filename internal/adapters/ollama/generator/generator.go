@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	conversationgeneration "nadir/internal/conversation/generation"
 )
 
 type ollamaChatRequest struct {
@@ -34,7 +36,7 @@ type ollamaChatChunk struct {
 // goroutine owned by the generator. The channel closes after Done or Error;
 // cancelling ctx stops generation at the next event boundary. The caller
 // must drain or cancel to avoid pinning the feed goroutine.
-func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan Event, error) {
+func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
 	body, _ := json.Marshal(ollamaChatRequest{
 		Model:    g.model,
 		Messages: []ollamaMessage{{Role: "user", Content: prompt}},
@@ -56,14 +58,14 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan Even
 		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
 	}
 
-	events := make(chan Event, 16)
+	events := make(chan conversationgeneration.Event, 16)
 	go feed(ctx, resp.Body, events)
 	return events, nil
 }
 
 // feed parses the Ollama NDJSON stream into events until EOF, error, or a
 // cancelled context. It owns body and closes it.
-func feed(ctx context.Context, body io.ReadCloser, events chan<- Event) {
+func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event) {
 	defer close(events)
 	defer body.Close()
 
@@ -72,16 +74,16 @@ func feed(ctx context.Context, body io.ReadCloser, events chan<- Event) {
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
-			if !emit(ctx, events, TokenEvent{Text: string(buf[:n])}) {
+			if !emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventToken, Text: string(buf[:n])}) {
 				return
 			}
 		}
 		if err == io.EOF {
-			emit(ctx, events, DoneEvent{})
+			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventDone})
 			return
 		}
 		if err != nil {
-			emit(ctx, events, ErrorEvent{Err: err})
+			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventError, Err: err})
 			return
 		}
 	}
@@ -89,7 +91,7 @@ func feed(ctx context.Context, body io.ReadCloser, events chan<- Event) {
 
 // emit delivers one event, giving up if the consumer stops reading or the
 // context is cancelled.
-func emit(ctx context.Context, events chan<- Event, ev Event) bool {
+func emit(ctx context.Context, events chan<- conversationgeneration.Event, ev conversationgeneration.Event) bool {
 	select {
 	case events <- ev:
 		return true

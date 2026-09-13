@@ -29,8 +29,7 @@ type dependencies struct {
 	log    *zap.Logger
 }
 
-var _ Reranker = (*dependencies)(nil)
-
+// NewDependencies constructs the HTTP reranker Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	maxConcurrent := cfg.MaxConcurrent
 	if maxConcurrent <= 0 {

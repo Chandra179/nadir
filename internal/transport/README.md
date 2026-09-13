@@ -16,7 +16,7 @@ business rules.
 
 Add another transport child only for a real protocol such as gRPC or a worker
 consumer with its own lifecycle. Do not duplicate domain logic in a second
-transport. Keep composition in `platform/lifecycle/`.
+transport. Keep composition in `platform/server/`.
 
 ## Verification
 

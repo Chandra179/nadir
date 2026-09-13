@@ -1,29 +1,29 @@
-package eval
+package evaluation
 
 import (
 	"context"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"nadir/internal/retrieval/search"
+	"nadir/mocks"
 )
 
-type fakeSearcher struct {
-	called  int
-	request search.Request
-}
-
-func (f *fakeSearcher) Query(_ context.Context, request search.Request) (search.Result, error) {
-	f.called++
-	f.request = request
-	return search.Result{Chunks: []search.Chunk{
-		{FilePath: "samples/math.md", Text: "The answer is 42."},
-		{FilePath: "samples/other.md", Text: "unrelated"},
-	}}, nil
-}
-
 func TestHarnessBypassesCacheAndAggregatesResults(t *testing.T) {
-	searcher := new(fakeSearcher)
+	searcher := &mocks.MockRetriever{}
+	called := 0
+	var request search.Request
+	searcher.EXPECT().Query(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, got search.Request) {
+			called++
+			request = got
+		}).
+		Return(search.Result{Chunks: []search.Chunk{
+			{FilePath: "samples/math.md", Text: "The answer is 42."},
+			{FilePath: "samples/other.md", Text: "unrelated"},
+		}}, nil).
+		Twice()
 	harness := NewDependencies(DependenciesConfig{Searcher: searcher})
 	report, err := harness.Run(context.Background(), &GoldenSet{Queries: []GoldenQuery{{
 		ID:    "answer",
@@ -36,10 +36,10 @@ func TestHarnessBypassesCacheAndAggregatesResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if searcher.called != 2 {
-		t.Fatalf("Query calls = %d, want 2", searcher.called)
+	if called != 2 {
+		t.Fatalf("Query calls = %d, want 2", called)
 	}
-	if !searcher.request.SkipCache {
+	if !request.SkipCache {
 		t.Fatal("evaluation must bypass semantic cache")
 	}
 	if report.Aggregate.HitRateAtK != 1 || report.Aggregate.MRRAt10 != 1 {

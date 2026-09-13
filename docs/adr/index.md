@@ -29,3 +29,6 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0021](0021-react-typescript-dashboard.md) | Replace server-rendered HTMX/Alpine UI with a React + TypeScript + Tailwind client over versioned JSON/SSE | Superseded by 0023 |
 | [0022](0022-bounded-context-layout.md) | Organize Go code by `cmd/` applications and bounded contexts under `internal/` | Accepted |
 | [0023](0023-local-vite-dashboard.md) | Run the React dashboard with the local Vite toolchain; keep frontend containers out of the supported Compose stack | Accepted |
+| [0024](0024-neutral-content-contracts.md) | Transitional neutral content contract package | Superseded by 0025 |
+| [0025](0025-context-owned-value-contracts.md) | Keep value contracts with their owning context; keep dependency seams private | Accepted |
+| [0026](0026-shared-runtime-composition.md) | Share executable infrastructure composition through one platform Runtime | Accepted |

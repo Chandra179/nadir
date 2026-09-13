@@ -14,11 +14,16 @@ import (
 	domainhistory "nadir/internal/conversation/history"
 )
 
-// The Adapter aliases the Conversation value types so persistence code keeps
-// its existing shape while the domain types remain owned by Conversation.
+// Session is the Conversation session value persisted by this Adapter.
 type Session = domainhistory.Session
+
+// TurnResult is the Conversation result snapshot persisted by this Adapter.
 type TurnResult = domainhistory.TurnResult
+
+// Turn is the Conversation turn value persisted by this Adapter.
 type Turn = domainhistory.Turn
+
+var _ domainhistory.Reader = (*dependencies)(nil)
 
 // TruncateSession replaces the tail of an existing conversation in place.
 // The turn at beforeSequence is removed along with all later turns; the

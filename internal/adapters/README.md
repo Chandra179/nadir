@@ -24,6 +24,6 @@ a genuinely different provider, not for another function in an existing one.
 
 Adapters may depend on domain interfaces and value types, but domains must not
 depend on Adapter implementations. Wire concrete Adapters only from
-`platform/lifecycle`. Keep network calls cancellable and bounded by role
+`platform/server`. Keep network calls cancellable and bounded by role
 configuration. Test protocol decoding, cancellation, non-success responses,
 and malformed provider responses at the Adapter seam.

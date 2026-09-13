@@ -1,4 +1,4 @@
-package ingest
+package indexing
 
 import (
 	"os"

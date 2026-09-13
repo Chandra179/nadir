@@ -1,4 +1,4 @@
-package rewriter
+package rewriting
 
 import "context"
 

@@ -33,11 +33,11 @@ type fakeRewriter struct {
 	rewritten string
 	err       error
 	called    int
-	gotTurns  []rewriter.Turn
+	gotTurns  []rewriting.Turn
 	gotQuery  string
 }
 
-func (f *fakeRewriter) Rewrite(ctx context.Context, turns []rewriter.Turn, query string) (string, error) {
+func (f *fakeRewriter) Rewrite(ctx context.Context, turns []rewriting.Turn, query string) (string, error) {
 	f.called++
 	f.gotTurns = turns
 	f.gotQuery = query
@@ -54,16 +54,16 @@ type fakeGenerator struct {
 	got    string
 }
 
-func (f *fakeGenerator) Generate(ctx context.Context, prompt string) (<-chan generator.Event, error) {
+func (f *fakeGenerator) Generate(ctx context.Context, prompt string) (<-chan generation.Event, error) {
 	f.got = prompt
 	if f.err != nil {
 		return nil, f.err
 	}
-	ch := make(chan generator.Event, len(f.tokens)+1)
+	ch := make(chan generation.Event, len(f.tokens)+1)
 	for _, tk := range f.tokens {
-		ch <- generator.TokenEvent{Text: tk}
+		ch <- generation.Event{Kind: generation.EventToken, Text: tk}
 	}
-	ch <- generator.DoneEvent{}
+	ch <- generation.Event{Kind: generation.EventDone}
 	close(ch)
 	return ch, nil
 }
@@ -571,11 +571,11 @@ type blockingGenerator struct {
 	started chan struct{}
 }
 
-func (b *blockingGenerator) Generate(ctx context.Context, prompt string) (<-chan generator.Event, error) {
+func (b *blockingGenerator) Generate(ctx context.Context, prompt string) (<-chan generation.Event, error) {
 	close(b.started)
-	ch := make(chan generator.Event)
+	ch := make(chan generation.Event)
 	go func() {
-		ch <- generator.TokenEvent{Text: "partial "}
+		ch <- generation.Event{Kind: generation.EventToken, Text: "partial "}
 		<-ctx.Done()
 		close(ch)
 	}()

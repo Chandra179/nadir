@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ReadinessCheck is the public diagnostic for one runtime dependency. Model
-// fields are intentionally optional because infrastructure checks such as
-// Qdrant do not have a model identity to report.
+// ReadinessCheck is the HTTP representation of one dependency's operational
+// state. The platform readiness Module is mapped to this contract by the
+// composition root, keeping HTTP independent of platform policy types.
 type ReadinessCheck struct {
 	Ready       bool   `json:"ready"`
 	Model       string `json:"model,omitempty"`
@@ -21,15 +21,15 @@ type ReadinessCheck struct {
 	Details     string `json:"details,omitempty"`
 }
 
-// ReadinessReport is returned by the readiness endpoint. A service is ready
-// only when every required check is ready.
+// ReadinessReport is the HTTP representation of the complete dependency
+// readiness result.
 type ReadinessReport struct {
 	Ready  bool                      `json:"ready"`
 	Checks map[string]ReadinessCheck `json:"checks"`
 }
 
-// ReadinessFunc lets the composition root aggregate concrete adapter probes
-// without making the HTTP transport depend on infrastructure packages.
+// ReadinessFunc lets the HTTP transport consume a prebuilt platform readiness
+// checker without depending on concrete infrastructure packages.
 type ReadinessFunc func(context.Context) ReadinessReport
 
 func (d *dependencies) readinessHandler(c *gin.Context) {

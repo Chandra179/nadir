@@ -28,6 +28,8 @@ func ValidateDenseCollection(name string, info *qdrant.CollectionInfo, dimension
 	return nil
 }
 
+// HasSparseVector reports whether a collection declares the named sparse
+// vector configuration.
 func HasSparseVector(info *qdrant.CollectionInfo, name string) bool {
 	if info == nil || info.GetConfig() == nil || info.GetConfig().GetParams() == nil {
 		return false

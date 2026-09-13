@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"nadir/internal/adapters/qdrant/shared"
+	"nadir/internal/knowledge/indexing"
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
@@ -41,7 +42,7 @@ func TestQdrantStoreIntegration(t *testing.T) {
 	if err := s.EnsureCollection(ctx, 3); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha", []ScoredChunk{{
+	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha", []indexing.IndexedChunk{{
 		Text:       "integration test document",
 		FilePath:   "integration.md",
 		LineStart:  1,
@@ -59,7 +60,7 @@ func TestQdrantStoreIntegration(t *testing.T) {
 		t.Fatalf("results = %+v, want the inserted integration document", results)
 	}
 
-	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha-v2", []ScoredChunk{{
+	if err := s.ReplaceDocument(ctx, "integration.md", "integration-sha-v2", []indexing.IndexedChunk{{
 		Text:       "replacement document",
 		FilePath:   "integration.md",
 		LineStart:  1,

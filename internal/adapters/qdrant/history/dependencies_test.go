@@ -8,9 +8,17 @@ import (
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"nadir/internal/adapters/qdrant/shared"
 )
 
 const testDimensions = 8
+
+func TestNewDependenciesRequiresSharedClients(t *testing.T) {
+	if _, err := NewDependencies(DependenciesConfig{}); err == nil {
+		t.Fatal("NewDependencies accepted an empty Qdrant client set")
+	}
+}
 
 // fakeEmbedder avoids requiring a running Ollama instance for this test —
 // only Qdrant reachability is exercised. It derives a deterministic vector
@@ -46,7 +54,7 @@ func testDependencies(t *testing.T) *dependencies {
 	}
 
 	deps, err := NewDependencies(DependenciesConfig{
-		Conn:       conn,
+		Clients:    qdrantutil.NewClients(conn),
 		Collection: "chat_history_test",
 		Embedder:   fakeEmbedder{},
 	})

@@ -1,4 +1,4 @@
-package ingest
+package indexing
 
 import (
 	"context"
@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/qdrant/documents"
+	"nadir/internal/embedding"
 	"nadir/internal/knowledge/chunking"
 	"nadir/internal/knowledge/enrichment"
 )
@@ -29,12 +28,12 @@ type fakeChunker struct {
 	text string
 }
 
-func (f *fakeChunker) Chunk(text, filePath string) ([]chunker.Chunk, error) {
+func (f *fakeChunker) Chunk(text, filePath string) ([]chunking.Chunk, error) {
 	f.text = text
-	return []chunker.Chunk{{Text: text, FilePath: filePath, LineStart: 1, ChunkIndex: 0}}, nil
+	return []chunking.Chunk{{Text: text, FilePath: filePath, LineStart: 1, ChunkIndex: 0}}, nil
 }
 
-func (f *fakeChunker) ContextualText(c chunker.Chunk) string { return c.FilePath + "\n" + c.Text }
+func (f *fakeChunker) ContextualText(c chunking.Chunk) string { return c.FilePath + "\n" + c.Text }
 
 type fakeEmbedder struct{}
 
@@ -44,10 +43,10 @@ func (fakeEmbedder) Dimensions() int                                  { return 2
 type fakeStore struct {
 	replacedPath string
 	replacedSHA  string
-	replaced     []store.ScoredChunk
+	replaced     []IndexedChunk
 }
 
-func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA string, chunks []store.ScoredChunk) error {
+func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA string, chunks []IndexedChunk) error {
 	f.replacedPath = filePath
 	f.replacedSHA = sourceSHA
 	f.replaced = append(f.replaced, chunks...)
@@ -57,7 +56,7 @@ func (f *fakeStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
-var _ embedder.Embedder = fakeEmbedder{}
+var _ embedding.Embedder = fakeEmbedder{}
 var _ documentIndexer = (*fakeStore)(nil)
 
 type fakeEnricher struct {
@@ -161,7 +160,7 @@ type serialStore struct {
 	secondOnce  sync.Once
 }
 
-func (s *serialStore) ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error {
+func (s *serialStore) ReplaceDocument(context.Context, string, string, []IndexedChunk) error {
 	active := s.active.Add(1)
 	for {
 		max := s.maxActive.Load()

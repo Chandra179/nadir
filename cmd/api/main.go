@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"nadir/internal/platform/configuration"
-	"nadir/internal/platform/lifecycle"
+	"nadir/internal/platform/server"
 )
 
 // pprofAddr is the dedicated debug listener for external profiling tools.

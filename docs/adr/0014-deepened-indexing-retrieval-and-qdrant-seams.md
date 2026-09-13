@@ -31,6 +31,10 @@ address or model.
   environment override model from ADR-0009 remains unchanged; enabled LLM
   roles do not inherit another role's address or model.
 
+Implementation paths were later reorganized under the bounded-context layout:
+the current packages are `internal/retrieval/search`,
+`internal/knowledge/indexing`, and `internal/adapters/qdrant/shared`.
+
 ## Consequences
 
 - Chat and the HTTP transport no longer need to know storage-specific chunk

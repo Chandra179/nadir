@@ -4,8 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/reranker"
+	"nadir/internal/embedding"
 	"nadir/internal/retrieval/cache"
 
 	"go.uber.org/zap"
@@ -14,9 +13,9 @@ import (
 // DependenciesConfig groups everything needed to construct the search
 // dependencies.
 type DependenciesConfig struct {
-	Embedder embedder.Embedder
+	Embedder embedding.Embedder
 	Store    documentSearcher
-	Reranker reranker.Reranker
+	Reranker reranker
 	// CandidateMul controls how many candidates are fetched before reranking.
 	// It is ignored when Reranker is nil.
 	CandidateMul  int
@@ -33,9 +32,9 @@ type DependenciesConfig struct {
 }
 
 type dependencies struct {
-	embedder               embedder.Embedder
+	embedder               embedding.Embedder
 	store                  documentSearcher
-	reranker               reranker.Reranker
+	reranker               reranker
 	candidateMul           int
 	cache                  cache.SemanticCache
 	queryPrefix            string
@@ -49,6 +48,7 @@ type dependencies struct {
 
 var _ Retriever = (*dependencies)(nil)
 
+// NewDependencies constructs the bounded hybrid Retrieval use case.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	maxQueryChars := cfg.MaxQueryChars
 	if maxQueryChars <= 0 {

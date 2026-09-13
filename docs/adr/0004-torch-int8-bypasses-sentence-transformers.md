@@ -28,7 +28,7 @@ not.
 ## Decision
 
 The `torch-int8` backend does **not** use `CrossEncoder` at all.
-`TorchInt8Reranker` (in `services/reranker/main.py`) is a minimal pair
+`TorchInt8Reranker` (in `sidecars/reranker/main.py`) is a minimal pair
 scorer that owns the whole loop:
 
 ```python

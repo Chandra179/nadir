@@ -1,7 +1,9 @@
-package chunker
+package chunking
 
 import "strings"
 
+// Chunk is one bounded source segment with enough location and window context
+// for indexing and citation rendering.
 type Chunk struct {
 	Text       string
 	WindowText string

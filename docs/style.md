@@ -14,8 +14,15 @@ conventions and [`logging.md`](logging.md) for logging conventions.
   `var _ Interface = (*Type)(nil)` next to the implementation.
 - Accept interfaces at dependency seams when the caller needs substitution;
   do not turn every concrete value into an interface speculatively. Return
-  concrete types from constructors where practical.
+  concrete types from constructors where practical. Each Module should expose
+  at most one primary public behavioural interface. Dependency interfaces
+  belong to the consuming Module and stay private unless they are a stable
+  protocol or are independently consumed by multiple Modules.
 - Avoid mutable package-level globals. Pass dependencies explicitly.
+- Stateful Modules should have one composition constructor named
+  `NewDependencies`. Pure value factories, route registration helpers, and
+  infrastructure functions may use normal `New...` functions when they do not
+  represent a second dependency graph.
 - If a function has more than five related parameters, group them into a
   configuration or request struct.
 - Keep module boundaries aligned with domain ownership, invariants, data

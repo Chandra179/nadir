@@ -1,6 +1,6 @@
 # Middleware
 
-Gin middleware used by the HTTP server. Registered in order via `engine.Use(...)` in `internal/platform/lifecycle/server.go`:
+Gin middleware used by the HTTP server. Registered in order via `engine.Use(...)` in `internal/platform/server/server.go`:
 
 ```
 gin.Recovery → RequestID → Timeout → RequestLog → handler
@@ -42,4 +42,4 @@ Gin's `engine.SetTrustedProxies()` + `c.ClientIP()` handle `X-Forwarded-For` / `
 ## Verification
 
 Run `go test ./internal/platform/httpmiddleware` and verify middleware order
-with `go test ./internal/platform/lifecycle` when registration changes.
+with `go test ./internal/platform/server` when registration changes.

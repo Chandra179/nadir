@@ -1,10 +1,10 @@
 package store
 
 import (
+	"fmt"
 	"sync"
 
 	qdrant "github.com/qdrant/go-client/qdrant"
-	"google.golang.org/grpc"
 
 	"nadir/internal/adapters/qdrant/shared"
 )
@@ -15,7 +15,6 @@ const defaultPrefetchMul = 5
 // store. Conn is a shared gRPC connection to Qdrant (the caller dials it
 // once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
-	Conn        *grpc.ClientConn
 	Clients     qdrantutil.Clients
 	Collection  string
 	PrefetchMul int
@@ -32,19 +31,20 @@ type dependencies struct {
 	mu          sync.RWMutex
 }
 
+// NewDependencies constructs a document persistence Adapter over shared
+// Qdrant clients.
 func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	prefetchMul := cfg.PrefetchMul
 	if prefetchMul <= 0 {
 		prefetchMul = defaultPrefetchMul
 	}
 
-	clients := cfg.Clients
-	if clients.Points == nil || clients.Collections == nil {
-		clients = qdrantutil.NewClients(cfg.Conn)
+	if cfg.Clients.Points == nil || cfg.Clients.Collections == nil {
+		return nil, fmt.Errorf("qdrant clients are required")
 	}
 	return &dependencies{
-		points:      clients.Points,
-		collection:  clients.Collections,
+		points:      cfg.Clients.Points,
+		collection:  cfg.Clients.Collections,
 		name:        cfg.Collection,
 		activeAlias: activeAliasName(cfg.Collection),
 		prefetchMul: prefetchMul,

@@ -13,6 +13,7 @@ type Clients struct {
 	Collections qdrant.CollectionsClient
 }
 
+// NewClients creates the Qdrant client set over an existing gRPC connection.
 func NewClients(conn *grpc.ClientConn) Clients {
 	return Clients{
 		Points:      qdrant.NewPointsClient(conn),

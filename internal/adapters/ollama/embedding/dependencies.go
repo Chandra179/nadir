@@ -1,12 +1,15 @@
-package embedder
+package embedding
 
 import (
 	"net/http"
 	"time"
+
+	"nadir/internal/embedding"
 )
 
 // DependenciesConfig groups everything needed to construct the Ollama
 // embedder.
+// DependenciesConfig groups the Ollama embedding endpoint and vector shape.
 type DependenciesConfig struct {
 	Addr           string
 	Model          string
@@ -22,9 +25,9 @@ type dependencies struct {
 	client     *http.Client
 }
 
-var _ Embedder = (*dependencies)(nil)
-var _ BatchEmbedder = (*dependencies)(nil)
+var _ embedding.Embedder = (*dependencies)(nil)
 
+// NewDependencies constructs an Ollama embedding Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

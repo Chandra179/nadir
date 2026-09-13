@@ -14,6 +14,7 @@ type dependencies struct {
 	logger *zap.Logger
 }
 
+// NewDependencies constructs the HTTP middleware dependencies.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{logger: cfg.Logger}
 }

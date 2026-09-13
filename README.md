@@ -284,8 +284,8 @@ For host-side development, start the sidecar and enable it in
 `config/config.yaml`:
 
 ```bash
-pip install -r services/docling/requirements.txt   # one-time: install Python deps
-python services/docling/main.py                    # HTTP sidecar on :5003
+pip install -r sidecars/document-converter/requirements.txt   # one-time: install Python deps
+python sidecars/document-converter/main.py                    # HTTP sidecar on :5003
 curl -X POST localhost:8100/api/v1/documents                 # ingests .md and .pdf sources
 ```
 

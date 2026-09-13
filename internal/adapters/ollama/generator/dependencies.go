@@ -7,8 +7,7 @@ import (
 	conversationgeneration "nadir/internal/conversation/generation"
 )
 
-// DependenciesConfig groups everything needed to construct the Ollama
-// answer generator.
+// DependenciesConfig groups the Ollama generation endpoint and timeout.
 type DependenciesConfig struct {
 	Addr           string
 	Model          string
@@ -24,6 +23,7 @@ type dependencies struct {
 
 var _ conversationgeneration.Generator = (*dependencies)(nil)
 
+// NewDependencies constructs an Ollama generation Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

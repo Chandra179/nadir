@@ -1,4 +1,4 @@
-package ingest
+package indexing
 
 import (
 	"context"
@@ -10,8 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/qdrant/documents"
 	"nadir/internal/knowledge/chunking"
 	"nadir/internal/platform/observability"
 
@@ -141,7 +139,7 @@ func contentSHA(data []byte) string {
 type indexPlan struct {
 	filePath  string
 	sourceSHA string
-	chunks    []store.ScoredChunk
+	chunks    []IndexedChunk
 }
 
 // indexFile is the indexing pass seam for one Document. Planning contains
@@ -185,9 +183,9 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 		return indexPlan{}, fmt.Errorf("embed %s: %w", filePath, err)
 	}
 
-	scored := make([]store.ScoredChunk, 0, len(chunks))
+	indexed := make([]IndexedChunk, 0, len(chunks))
 	for i, c := range chunks {
-		scored = append(scored, store.ScoredChunk{
+		indexed = append(indexed, IndexedChunk{
 			Text:       c.Text,
 			WindowText: c.WindowText,
 			FilePath:   c.FilePath,
@@ -200,11 +198,11 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 		})
 	}
 
-	scored = d.appendHypeSiblings(ctx, scored, filePath, chunks, sourceSHA)
+	indexed = d.appendHypeSiblings(ctx, indexed, filePath, chunks, sourceSHA)
 
 	observability.Stage(d.log, "ingest_plan", "success", started, nil,
-		zap.String("path", filePath), zap.Int("chunks", len(scored)))
-	return indexPlan{filePath: filePath, sourceSHA: sourceSHA, chunks: scored}, nil
+		zap.String("path", filePath), zap.Int("chunks", len(indexed)))
+	return indexPlan{filePath: filePath, sourceSHA: sourceSHA, chunks: indexed}, nil
 }
 
 func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
@@ -244,7 +242,7 @@ func (d *dependencies) clearSemanticCache(ctx context.Context, changed bool) {
 // contextualText fronts the chunk's contextual text with an LLM-written
 // situational intro when contextual retrieval is enabled. Best-effort:
 // generation failures (or empty intros) fall back to the plain text.
-func (d *dependencies) contextualText(ctx context.Context, docText string, c chunker.Chunk, base string) string {
+	func (d *dependencies) contextualText(ctx context.Context, docText string, c chunking.Chunk, base string) string {
 	if !d.contextual || d.enrich == nil {
 		return base
 	}
@@ -265,27 +263,27 @@ type hypeSibling struct {
 	question  string
 }
 
-// appendHypeSiblings extends scored with HyPE sibling points when HyPE is
+// appendHypeSiblings extends indexed chunks with HyPE sibling points when HyPE is
 // enabled. Best-effort: generation/embedding failures index the file
 // without hype points.
-func (d *dependencies) appendHypeSiblings(ctx context.Context, scored []store.ScoredChunk, filePath string, chunks []chunker.Chunk, sourceSHA string) []store.ScoredChunk {
+func (d *dependencies) appendHypeSiblings(ctx context.Context, indexed []IndexedChunk, filePath string, chunks []chunking.Chunk, sourceSHA string) []IndexedChunk {
 	if !d.hypeEnabled || d.enrich == nil || d.hypeQuestions <= 0 {
-		return scored
+		return indexed
 	}
 	siblings, err := d.hypeSiblings(ctx, filePath, chunks, sourceSHA)
 	if err != nil {
 		d.log.Warn("HyPE question embedding failed; indexing without hype points",
 			zap.String("path", filePath), zap.Error(err))
-		return scored
+		return indexed
 	}
-	return append(scored, siblings...)
+	return append(indexed, siblings...)
 }
 
 // hypeSiblings generates hypothetical questions per chunk, embeds them in
-// one batched call, and returns sibling ScoredChunks carrying the parent's
+// one batched call, and returns sibling IndexedChunks carrying the parent's
 // identity fields (so search-side Key() dedup collapses them onto the
 // parent) plus their own hype marker for unique point IDs.
-func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks []chunker.Chunk, sourceSHA string) ([]store.ScoredChunk, error) {
+func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks []chunking.Chunk, sourceSHA string) ([]IndexedChunk, error) {
 	var refs []hypeSibling
 	for i, c := range chunks {
 		qs, err := d.enrich.HypotheticalQuestions(ctx, c.Header, c.Text, d.hypeQuestions)
@@ -311,13 +309,13 @@ func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks
 		return nil, err
 	}
 
-	out := make([]store.ScoredChunk, 0, len(refs))
+	out := make([]IndexedChunk, 0, len(refs))
 	perParent := make(map[int]int)
 	for j, r := range refs {
 		c := chunks[r.parentIdx]
 		idx := perParent[r.parentIdx]
 		perParent[r.parentIdx] = idx + 1
-		out = append(out, store.ScoredChunk{
+		out = append(out, IndexedChunk{
 			Text:         c.Text,
 			WindowText:   c.WindowText,
 			FilePath:     c.FilePath,
@@ -344,7 +342,7 @@ func (d *dependencies) embedWithRetry(ctx context.Context, inputs []string) ([][
 		}
 		observability.Stage(d.log, "document_embedding", outcome, started, err, zap.Int("inputs", len(inputs)))
 	}
-	if be, ok := d.embedder.(embedder.BatchEmbedder); ok {
+	if be, ok := d.embedder.(batchEmbedder); ok {
 		vecs := make([][]float32, 0, len(inputs))
 		for start := 0; start < len(inputs); start += d.embedBatchSize {
 			end := min(start+d.embedBatchSize, len(inputs))

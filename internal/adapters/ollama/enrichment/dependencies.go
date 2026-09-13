@@ -7,8 +7,8 @@ import (
 	knowledgeenrichment "nadir/internal/knowledge/enrichment"
 )
 
-// DependenciesConfig groups everything needed to construct the enrichment
-// client.
+// DependenciesConfig groups the role-specific Ollama endpoints used for
+// index-time enrichment.
 type DependenciesConfig struct {
 	HypeAddr        string        // Ollama base addr for HyPE
 	HypeModel       string        // instruct LLM used for HyPE
@@ -28,6 +28,7 @@ type dependencies struct {
 
 var _ knowledgeenrichment.Enricher = (*dependencies)(nil)
 
+// NewDependencies constructs an Ollama enrichment Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {

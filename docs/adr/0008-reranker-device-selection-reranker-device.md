@@ -25,7 +25,7 @@ has an NVIDIA GPU (RTX 4050) already used by Ollama. Constraints discovered:
   `CrossEncoder(device="cuda")` regardless of `RERANKER_BACKEND`, logging a
   notice that the int8 routes are CPU-only.
 
-Packaging: `services/reranker/Dockerfile` takes a `GPU` build arg choosing
+Packaging: `sidecars/reranker/Dockerfile` takes a `GPU` build arg choosing
 `requirements-gpu.txt` (CUDA torch) vs `requirements-cpu.txt`. The base
 	`deploy/compose/docker-compose.yml` is CPU-safe and has no NVIDIA reservation, so it works on
 Linux, Windows Docker Desktop, and macOS. `deploy/compose/docker-compose.gpu.yml` is an

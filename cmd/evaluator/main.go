@@ -17,31 +17,14 @@ import (
 	"strings"
 	"time"
 
-	"nadir/internal/adapters/docling"
-	"nadir/internal/adapters/ollama/embedding"
-	ollamaenrichment "nadir/internal/adapters/ollama/enrichment"
-	"nadir/internal/adapters/qdrant/documents"
-	"nadir/internal/adapters/qdrant/shared"
-	"nadir/internal/adapters/reranker"
 	"nadir/internal/evaluation"
-	"nadir/internal/knowledge/chunking"
-	"nadir/internal/knowledge/enrichment"
 	"nadir/internal/knowledge/indexing"
 	"nadir/internal/platform/configuration"
 	"nadir/internal/platform/logging"
-	"nadir/internal/retrieval/search"
+	"nadir/internal/platform/runtime"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
-
-// ingestStore is the narrow Document Store capability needed by the
-// development indexing pass. Retrieval and reset are separate concerns.
-type ingestStore interface {
-	GetAllFileSHAs(context.Context) (map[string]string, error)
-	ReplaceDocument(context.Context, string, string, []store.ScoredChunk) error
-}
 
 func main() {
 	configPath := flag.String("config", "config/config.yaml", "path to config file")
@@ -71,67 +54,28 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 	defer log.Sync()
 
 	ctx := context.Background()
-	conn, err := grpc.NewClient(cfg.Qdrant.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return fmt.Errorf("qdrant dial: %w", err)
-	}
-	defer conn.Close()
-	clients := qdrantutil.NewClients(conn)
-
-	st, err := store.NewDependencies(store.DependenciesConfig{
-		Clients:     clients,
-		Collection:  cfg.Qdrant.Collection,
-		PrefetchMul: cfg.Qdrant.PrefetchMul,
+	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{
+		DisableReranker:      noRerank,
+		DisableSemanticCache: true,
 	})
 	if err != nil {
-		return fmt.Errorf("qdrant init: %w", err)
+		return fmt.Errorf("shared runtime: %w", err)
 	}
-	emb := embedder.NewDependencies(embedder.DependenciesConfig{
-		Addr:           cfg.Embedder.OllamaAddr,
-		Model:          cfg.Embedder.Model,
-		Dimensions:     cfg.Embedder.Dimensions,
-		RequestTimeout: cfg.Embedder.RequestTimeout,
-	})
-	if err := st.EnsureCollection(ctx, emb.Dimensions()); err != nil {
-		return fmt.Errorf("ensure collection: %w", err)
-	}
+	defer func() { _ = graph.Close() }()
 
-	stats, err := st.Stats(ctx)
+	stats, err := graph.Stats(ctx)
 	if err != nil {
 		return fmt.Errorf("collection stats: %w", err)
 	}
 	if stats.Chunks == 0 || ensureIngest {
-		if err := ensureIngested(ctx, cfg, st, emb, log); err != nil {
+		if err := ensureIngested(ctx, cfg, graph.Ingest, log); err != nil {
 			return err
 		}
 	}
 
-	var searchReranker reranker.Reranker
 	rerankEnabled := cfg.Reranker.Enabled && !noRerank
-	if rerankEnabled {
-		searchReranker = reranker.NewDependencies(reranker.DependenciesConfig{
-			Addr:           cfg.Reranker.Addr,
-			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
-			RequestTimeout: cfg.Reranker.RequestTimeout,
-			Log:            log,
-		})
-	}
 
-	searcher := search.NewDependencies(search.DependenciesConfig{
-		Embedder:               emb,
-		Store:                  st,
-		Reranker:               searchReranker,
-		CandidateMul:           cfg.Reranker.CandidateMul,
-		QueryPrefix:            cfg.Embedder.QueryPrefix,
-		MaxQueryChars:          cfg.Search.MaxQueryChars,
-		MaxFragments:           cfg.Search.MaxFragments,
-		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
-		MaxTopK:                cfg.Search.MaxTopK,
-		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
-		Log:                    log,
-	})
-
-	golden, err := eval.LoadGoldenSet(goldenPath)
+	golden, err := evaluation.LoadGoldenSet(goldenPath)
 	if err != nil {
 		return err
 	}
@@ -142,8 +86,8 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 		topK = cfg.Search.MaxTopK
 	}
 
-	report, err := eval.NewDependencies(eval.DependenciesConfig{
-		Searcher: searcher,
+	report, err := evaluation.NewDependencies(evaluation.DependenciesConfig{
+		Searcher: graph.Searcher,
 		Log:      log,
 	}).Run(ctx, golden, topK, runs)
 	if err != nil {
@@ -160,18 +104,18 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 			return fmt.Errorf("create report directory: %w", err)
 		}
 	}
-	if err := eval.WriteReport(reportPath, report); err != nil {
+	if err := evaluation.WriteReport(reportPath, report); err != nil {
 		return err
 	}
 	fmt.Println("\nreport written to", reportPath)
 	return nil
 }
 
-func ensureIngested(ctx context.Context, cfg *config.Config, st ingestStore, emb embedder.Embedder, log *zap.Logger) error {
+func ensureIngested(ctx context.Context, cfg *config.Config, ing indexing.Ingest, log *zap.Logger) error {
 	if len(cfg.Source.Paths) == 0 {
 		return fmt.Errorf("collection is empty or --ensure-ingest was requested, but source.paths has no directories")
 	}
-	files, err := ingest.DiscoverFiles(cfg.Source.Paths, cfg.Source.IgnorePatterns, cfg.Ingest.MaxFileBytes)
+	files, err := indexing.DiscoverFiles(cfg.Source.Paths, cfg.Source.IgnorePatterns, cfg.Ingest.MaxFileBytes)
 	if err != nil {
 		return fmt.Errorf("discover source files: %w", err)
 	}
@@ -179,50 +123,8 @@ func ensureIngested(ctx context.Context, cfg *config.Config, st ingestStore, emb
 		return fmt.Errorf("no supported source files found under %v", cfg.Source.Paths)
 	}
 
-	chunkr := chunker.NewDependencies(chunker.DependenciesConfig{
-		Provider:     cfg.Chunker.Provider,
-		ChunkSize:    cfg.Chunker.ChunkSize,
-		ChunkOverlap: cfg.Chunker.ChunkOverlap,
-		WindowSize:   cfg.Chunker.WindowSize,
-	})
-	var enricher enrichment.Enricher
-	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
-		enricher = ollamaenrichment.NewDependencies(ollamaenrichment.DependenciesConfig{
-			HypeAddr:        cfg.Enrichment.Hype.OllamaAddr,
-			HypeModel:       cfg.Enrichment.Hype.Model,
-			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
-			ContextualModel: cfg.Enrichment.Contextual.Model,
-			RequestTimeout:  cfg.Enrichment.RequestTimeout,
-		})
-	}
-	var converter ingest.DocumentConverter
-	if cfg.Docling.Enabled {
-		converter = docling.New(docling.Config{Addr: cfg.Docling.Addr, RequestTimeout: cfg.Docling.RequestTimeout, Log: log})
-	}
-	deps := ingest.NewDependencies(ingest.DependenciesConfig{
-		Chunker:           chunkr,
-		Embedder:          emb,
-		Store:             st,
-		Enricher:          enricher,
-		DocumentConverter: converter,
-		HypeEnabled:       cfg.Enrichment.Hype.Enabled,
-		HypeQuestions:     cfg.Enrichment.Hype.QuestionsPerChunk,
-		ContextualEnabled: cfg.Enrichment.Contextual.Enabled,
-		Retry: ingest.RetryConfig{
-			MaxAttempts:     cfg.Ingest.MaxAttempts,
-			InitialInterval: cfg.Ingest.InitialInterval,
-			MaxInterval:     cfg.Ingest.MaxInterval,
-			Multiplier:      cfg.Ingest.Multiplier,
-		},
-		Workers:          cfg.Ingest.Workers,
-		MaxFileBytes:     cfg.Ingest.MaxFileBytes,
-		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
-		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
-		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
-		Log:              log,
-	})
 	log.Info("ingesting source files before evaluation", zap.Int("files", len(files)), zap.Strings("roots", cfg.Source.Paths))
-	result, err := deps.Run(ctx, files)
+	result, err := ing.Run(ctx, files)
 	if err != nil {
 		return fmt.Errorf("ingest: %w", err)
 	}
@@ -230,7 +132,7 @@ func ensureIngested(ctx context.Context, cfg *config.Config, st ingestStore, emb
 	return nil
 }
 
-func printReport(report *eval.Report) {
+func printReport(report *evaluation.Report) {
 	fmt.Printf("\n%-28s %-6s %-10s %-8s\n", "QUERY", "RANK", "FOUND", "MS")
 	fmt.Println(strings.Repeat("-", 56))
 	for _, query := range report.PerQuery {

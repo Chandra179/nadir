@@ -36,7 +36,7 @@ go run ./cmd/evaluator --no-rerank --runs 3
 
 ## Architecture
 
-The API binary is `cmd/api/main.go`; the evaluator is `cmd/evaluator/main.go`. Composition and lifecycle wiring live in `internal/platform/lifecycle/server.go`; HTTP handlers and route registration live in `internal/transport/http/`.
+The API binary is `cmd/api/main.go`; the evaluator is `cmd/evaluator/main.go`. Shared retrieval/indexing composition lives in `internal/platform/runtime/`; HTTP process lifecycle and feature wiring live in `internal/platform/server/server.go`; HTTP handlers and route registration live in `internal/transport/http/`.
 
 ```
 POST /api/v1/documents → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
@@ -64,22 +64,22 @@ GET  /api/v1/health → 200
 - `adapters/ollama/` — embedding, enrichment, generation, and rewriting
   Adapters, each with explicit role-specific configuration.
 - `adapters/reranker/` — cross-encoder sidecar Adapter.
-- `platform/` — configuration, logging, observability, HTTP middleware, and
-  process lifecycle/composition.
+- `platform/` — configuration, logging, observability, HTTP middleware, shared
+  runtime composition, and process lifecycle.
 
 The React/TypeScript/Tailwind client lives in `web/dashboard`; it is a separate
 Node/Vite application run with `npm run dev`. Compose runs the backend and
 sidecars only; a production static host may serve the built dashboard.
-Python sidecars remain under `services/` because they are separately deployed
+Python sidecars remain under `sidecars/` because they are separately deployed
 processes.
 
-**`services/`** — Python sidecars (each has its own Dockerfile): `reranker/`
-(:5002) and optional `docling/` (:5003, PDF→Markdown HTTP intake).
+**`sidecars/`** — Python sidecars (each has its own Dockerfile): `reranker/`
+(:5002) and optional `document-converter/` (:5003, PDF→Markdown HTTP intake).
 
 ## Key rules
 
 - Domain contexts must NOT import `internal/transport/http/`,
-  `internal/platform/lifecycle/`, `internal/platform/httpmiddleware/`, or
+  `internal/platform/server/`, `internal/platform/httpmiddleware/`, or
   frontend code.
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active

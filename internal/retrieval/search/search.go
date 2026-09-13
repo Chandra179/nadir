@@ -9,16 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"nadir/internal/adapters/ollama/embedding"
-	"nadir/internal/adapters/qdrant/documents"
 	"nadir/internal/platform/observability"
+	semanticcache "nadir/internal/retrieval/cache"
 
 	"go.uber.org/zap"
 )
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *dependencies) search(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) search(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -42,7 +41,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		observability.Stage(s.log, "retrieval", outcome, started, err, fields...)
 	}
 	query, keyword, topK := request.Query, request.Keyword, request.TopK
-	filter := toStoreFilter(request.Filter)
+	filter := request.Filter
 	if keyword == "" {
 		if err := s.validateQuery(query, topK); err != nil {
 			finish("error", err)
@@ -87,7 +86,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
 		go func() {
 			cacheStarted := time.Now()
-			err := s.cache.Set(context.Background(), query, chunks)
+			err := s.cache.Set(context.Background(), query, toCacheCandidates(chunks))
 			outcome := "success"
 			if err != nil {
 				outcome = "error"
@@ -101,14 +100,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 	return Result{Chunks: fromStoreChunks(chunks)}, nil
 }
 
-func toStoreFilter(filter *Filter) *store.SearchFilter {
-	if filter == nil {
-		return nil
-	}
-	return &store.SearchFilter{FilePath: filter.FilePath, Header: filter.Header, SourceSHA: filter.SourceSHA}
-}
-
-func fromStoreChunks(chunks []store.ScoredChunk) []Chunk {
+func fromStoreChunks(chunks []SearchCandidate) []Chunk {
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -131,7 +123,7 @@ func fromStoreChunks(chunks []store.ScoredChunk) []Chunk {
 // getCached consults the semantic cache unless the caller asked to skip it.
 // Returns false on miss or cache error so lookups stay best-effort; hits
 // are truncated to topK to match a fresh search's result size.
-func (s *dependencies) getCached(ctx context.Context, query string, topK int, filter *store.SearchFilter, skip bool) ([]store.ScoredChunk, bool) {
+func (s *dependencies) getCached(ctx context.Context, query string, topK int, filter *Filter, skip bool) ([]SearchCandidate, bool) {
 	started := time.Now()
 	if s.cache == nil || skip || query == "" || !isEmptyFilter(filter) {
 		return nil, false
@@ -149,14 +141,14 @@ func (s *dependencies) getCached(ctx context.Context, query string, topK int, fi
 		cached = cached[:topK]
 	}
 	observability.Stage(s.log, "cache_read", "hit", started, nil, zap.Int("results", len(cached)))
-	return cached, true
+	return fromCacheCandidates(cached), true
 }
 
-func isEmptyFilter(filter *store.SearchFilter) bool {
+func isEmptyFilter(filter *Filter) bool {
 	return filter == nil || (filter.FilePath == "" && filter.Header == "" && filter.SourceSHA == "")
 }
 
-func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *Filter) ([]SearchCandidate, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -173,7 +165,7 @@ func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK i
 // rerankTopK re-scores candidates with the cross-encoder when configured,
 // keeping the best topK. Best-effort: on reranker failure the original
 // score ordering is retained, but the result count remains bounded.
-func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []store.ScoredChunk, topK int) []store.ScoredChunk {
+func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []SearchCandidate, topK int) []SearchCandidate {
 	if s.reranker == nil || len(chunks) == 0 {
 		return chunks
 	}
@@ -195,7 +187,7 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []st
 	return reranked
 }
 
-func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *store.SearchFilter) ([]store.ScoredChunk, error) {
+func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, error) {
 	fragments := splitFragments(query, s.maxFragments)
 
 	vecs, err := s.embedFragments(ctx, fragments)
@@ -209,7 +201,7 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 	var (
 		mu       sync.Mutex
 		wg       sync.WaitGroup
-		seen     = make(map[string]store.ScoredChunk)
+		seen     = make(map[string]SearchCandidate)
 		firstErr error
 	)
 	sem := make(chan struct{}, s.maxConcurrentFragments)
@@ -241,7 +233,7 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 		return nil, firstErr
 	}
 
-	merged := make([]store.ScoredChunk, 0, len(seen))
+	merged := make([]SearchCandidate, 0, len(seen))
 	for _, c := range seen {
 		merged = append(merged, c)
 	}
@@ -263,7 +255,7 @@ func (s *dependencies) embedFragments(ctx context.Context, fragments []string) (
 			fragments[i] = s.queryPrefix + fragments[i]
 		}
 	}
-	if be, ok := s.embedder.(embedder.BatchEmbedder); ok {
+	if be, ok := s.embedder.(batchEmbedder); ok {
 		vecs, err := be.EmbedBatch(ctx, fragments)
 		outcome := "success"
 		if err != nil {
@@ -288,15 +280,45 @@ func (s *dependencies) embedFragments(ctx context.Context, fragments []string) (
 // capPerFile keeps at most maxPerFile chunks per source file, preserving
 // the input (score-sorted) order, so one document can't crowd out context
 // from other files in the result set.
-func capPerFile(chunks []store.ScoredChunk, maxPerFile int) []store.ScoredChunk {
+func capPerFile(chunks []SearchCandidate, maxPerFile int) []SearchCandidate {
 	counts := make(map[string]int)
-	out := make([]store.ScoredChunk, 0, len(chunks))
+	out := make([]SearchCandidate, 0, len(chunks))
 	for _, c := range chunks {
 		if counts[c.FilePath] >= maxPerFile {
 			continue
 		}
 		counts[c.FilePath]++
 		out = append(out, c)
+	}
+	return out
+}
+
+func toCacheCandidates(candidates []SearchCandidate) []semanticcache.Candidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+	out := make([]semanticcache.Candidate, len(candidates))
+	for i, c := range candidates {
+		out[i] = semanticcache.Candidate{
+			Text: c.Text, WindowText: c.WindowText, FilePath: c.FilePath,
+			Header: c.Header, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
+			SourceSHA: c.SourceSHA, Score: c.Score,
+		}
+	}
+	return out
+}
+
+func fromCacheCandidates(candidates []semanticcache.Candidate) []SearchCandidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+	out := make([]SearchCandidate, len(candidates))
+	for i, c := range candidates {
+		out[i] = SearchCandidate{
+			Text: c.Text, WindowText: c.WindowText, FilePath: c.FilePath,
+			Header: c.Header, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
+			SourceSHA: c.SourceSHA, Score: c.Score,
+		}
 	}
 	return out
 }
