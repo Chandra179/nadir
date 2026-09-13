@@ -32,7 +32,8 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`. Vite proxies `/api/` and the SSE stream to the
-Go API on `localhost:8100`. The repository does not build or run a frontend
+Open `http://localhost:3002`. Set `DASHBOARD_PORT` to choose another available
+port. Vite proxies `/api/` and the SSE stream to the Go API on `localhost:8100`.
+The repository does not build or run a frontend
 container; a production deployment may serve the built `dist/` directory from
 an independently managed static host.

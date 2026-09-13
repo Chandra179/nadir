@@ -23,6 +23,7 @@ export RERANKER_DEVICE="${RERANKER_DEVICE:-cpu}"
 export RERANKER_BACKEND="${RERANKER_BACKEND:-torch}"
 export RERANKER_MAX_CONCURRENT="${RERANKER_MAX_CONCURRENT:-1}"
 export RERANKER_QUEUE_TIMEOUT="${RERANKER_QUEUE_TIMEOUT:-30s}"
+export DASHBOARD_PORT="${DASHBOARD_PORT:-3002}"
 
 # The reranker model travels from config.yaml (reranker.model) through the
 # RERANKER_MODEL env var, to the sidecar however it is hosted.
@@ -64,7 +65,7 @@ curl -sf -X POST localhost:8100/api/v1/documents
 
 echo ""
 echo "Local stack running. Server PID=$SERVER_PID, Reranker PID=$RERANKER_PID"
-echo "  Dashboard: http://localhost:3000 (cd web/dashboard && npm ci && npm run dev)"
+echo "  Dashboard: http://localhost:${DASHBOARD_PORT} (cd web/dashboard && npm ci && npm run dev)"
 echo "  Search: curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{\"query\":\"...\"}'"
 echo "  Stop:   kill $SERVER_PID $RERANKER_PID && docker compose -f deploy/compose/docker-compose.yml stop"
 echo "  (full-Docker reranker needs the NVIDIA container toolkit; see AGENTS.md)"

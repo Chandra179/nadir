@@ -51,7 +51,9 @@ npm ci
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Then open `http://localhost:3002`. Set `DASHBOARD_PORT` if that port is also
+occupied; Vite uses a strict port and will fail clearly instead of silently
+switching to a different URL.
 
 ### 3. Test search
 
@@ -130,7 +132,9 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000` after Vite starts.
+Open `http://localhost:3002` after Vite starts. Set `DASHBOARD_PORT` to choose
+another available port; Vite uses a strict port and will fail clearly if it is
+occupied.
 
 The default source mount is `./samples`. Set `SOURCE_DIR` in `.env` to a
 different host directory. On Apple Silicon, keep the default CPU reranker
