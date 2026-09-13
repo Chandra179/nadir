@@ -24,6 +24,7 @@ type Config struct {
 	Chunker       ChunkerConfig       `yaml:"chunker"`
 	Search        SearchConfig        `yaml:"search"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
+	Inference     InferenceConfig     `yaml:"inference"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Chat          ChatConfig          `yaml:"chat"`
@@ -144,8 +145,32 @@ type RerankerConfig struct {
 	Addr           string        `yaml:"addr"`            // sidecar addr, e.g. http://localhost:5002
 	Model          string        `yaml:"model"`           // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
 	CandidateMul   int           `yaml:"candidate_mul"`   // fetch topK*candidate_mul before reranking (default 3)
-	MaxConcurrent  int           `yaml:"max_concurrent"`  // max concurrent reranker calls (default 10)
 	RequestTimeout time.Duration `yaml:"request_timeout"` // timeout for one sidecar request
+}
+
+// InferenceConfig defines the local model resource profile. It is process-local
+// admission control; it does not coordinate multiple API instances.
+type InferenceConfig struct {
+	Profile  string                 `yaml:"profile"`
+	Ollama   OllamaResourceConfig   `yaml:"ollama"`
+	Reranker RerankerResourceConfig `yaml:"reranker"`
+}
+
+// OllamaResourceConfig bounds all Ollama roles together. Holding the Gate for
+// the full request, including a streaming response, prevents model overlap.
+type OllamaResourceConfig struct {
+	MaxConcurrent int           `yaml:"max_concurrent"`
+	QueueTimeout  time.Duration `yaml:"queue_timeout"`
+	KeepAlive     time.Duration `yaml:"keep_alive"`
+}
+
+// RerankerResourceConfig controls the separate reranker process and its
+// explicit device/backend policy.
+type RerankerResourceConfig struct {
+	MaxConcurrent int           `yaml:"max_concurrent"`
+	QueueTimeout  time.Duration `yaml:"queue_timeout"`
+	Device        string        `yaml:"device"`
+	Backend       string        `yaml:"backend"`
 }
 
 // SemanticCacheConfig controls persistence and matching for cached searches.
@@ -250,6 +275,24 @@ func (c *Config) applyEnv() error {
 		return err
 	}
 	c.envStr(&c.Reranker.Model, "RERANKER_MODEL")
+	c.envStr(&c.Inference.Reranker.Device, "RERANKER_DEVICE")
+	c.envStr(&c.Inference.Reranker.Backend, "RERANKER_BACKEND")
+	if err := c.envInt(&c.Inference.Reranker.MaxConcurrent, "RERANKER_MAX_CONCURRENT"); err != nil {
+		return err
+	}
+	if err := c.envDuration(&c.Inference.Reranker.QueueTimeout, "RERANKER_QUEUE_TIMEOUT"); err != nil {
+		return err
+	}
+	c.envStr(&c.Inference.Profile, "INFERENCE_PROFILE")
+	if err := c.envInt(&c.Inference.Ollama.MaxConcurrent, "INFERENCE_OLLAMA_MAX_CONCURRENT"); err != nil {
+		return err
+	}
+	if err := c.envDuration(&c.Inference.Ollama.QueueTimeout, "INFERENCE_OLLAMA_QUEUE_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := c.envDuration(&c.Inference.Ollama.KeepAlive, "INFERENCE_OLLAMA_KEEP_ALIVE"); err != nil {
+		return err
+	}
 	c.envStr(&c.Middleware.Logger.Level, "LOGGER_LEVEL")
 	if err := c.envFloat32(&c.SemanticCache.Threshold, "SEMANTIC_CACHE_THRESHOLD"); err != nil {
 		return err
@@ -344,6 +387,17 @@ func (c *Config) envInt(dst *int, env string) error {
 	return nil
 }
 
+func (c *Config) envDuration(dst *time.Duration, env string) error {
+	if v := os.Getenv(env); v != "" {
+		d, err := time.ParseDuration(strings.TrimSpace(v))
+		if err != nil {
+			return fmt.Errorf("config: %s must be a duration: %w", env, err)
+		}
+		*dst = d
+	}
+	return nil
+}
+
 func (c *Config) envCSV(dst *[]string, env string) {
 	if v := os.Getenv(env); v != "" {
 		parts := strings.Split(v, ",")
@@ -409,11 +463,32 @@ func (c *Config) applyDefaults() {
 	if c.Reranker.CandidateMul <= 0 {
 		c.Reranker.CandidateMul = 3
 	}
-	if c.Reranker.MaxConcurrent <= 0 {
-		c.Reranker.MaxConcurrent = 10
-	}
 	if c.Reranker.RequestTimeout <= 0 {
 		c.Reranker.RequestTimeout = 30 * time.Second
+	}
+	if strings.TrimSpace(c.Inference.Profile) == "" {
+		c.Inference.Profile = "local"
+	}
+	if c.Inference.Ollama.MaxConcurrent == 0 {
+		c.Inference.Ollama.MaxConcurrent = 1
+	}
+	if c.Inference.Ollama.QueueTimeout == 0 {
+		c.Inference.Ollama.QueueTimeout = 30 * time.Second
+	}
+	if c.Inference.Ollama.KeepAlive == 0 {
+		c.Inference.Ollama.KeepAlive = 5 * time.Minute
+	}
+	if c.Inference.Reranker.MaxConcurrent == 0 {
+		c.Inference.Reranker.MaxConcurrent = 1
+	}
+	if c.Inference.Reranker.QueueTimeout == 0 {
+		c.Inference.Reranker.QueueTimeout = 30 * time.Second
+	}
+	if strings.TrimSpace(c.Inference.Reranker.Device) == "" {
+		c.Inference.Reranker.Device = "cpu"
+	}
+	if strings.TrimSpace(c.Inference.Reranker.Backend) == "" {
+		c.Inference.Reranker.Backend = "torch"
 	}
 	if c.Chat.MaxContextTokens <= 0 {
 		c.Chat.MaxContextTokens = 2800
@@ -487,6 +562,40 @@ func (c *Config) Validate() error {
 	}
 	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Model) == "" {
 		return fmt.Errorf("config: reranker.model must not be empty when reranker.enabled is true")
+	}
+	if c.Inference.Profile != "local" && c.Inference.Profile != "custom" {
+		return fmt.Errorf("config: inference.profile must be local or custom")
+	}
+	if c.Inference.Ollama.MaxConcurrent <= 0 {
+		return fmt.Errorf("config: inference.ollama.max_concurrent must be > 0")
+	}
+	if c.Inference.Ollama.QueueTimeout <= 0 {
+		return fmt.Errorf("config: inference.ollama.queue_timeout must be > 0")
+	}
+	if c.Inference.Ollama.KeepAlive < 0 {
+		return fmt.Errorf("config: inference.ollama.keep_alive must be >= 0")
+	}
+	if c.Inference.Reranker.MaxConcurrent <= 0 {
+		return fmt.Errorf("config: inference.reranker.max_concurrent must be > 0")
+	}
+	if c.Inference.Reranker.QueueTimeout <= 0 {
+		return fmt.Errorf("config: inference.reranker.queue_timeout must be > 0")
+	}
+	switch c.Inference.Reranker.Device {
+	case "cpu", "cuda", "auto":
+	default:
+		return fmt.Errorf("config: inference.reranker.device must be cpu, cuda, or auto")
+	}
+	switch c.Inference.Reranker.Backend {
+	case "onnx", "torch-int8", "openvino", "torch":
+	default:
+		return fmt.Errorf("config: inference.reranker.backend must be onnx, torch-int8, openvino, or torch")
+	}
+	if c.Inference.Profile == "local" && c.Inference.Reranker.Device == "auto" {
+		return fmt.Errorf("config: inference.reranker.device must be explicit for the local profile")
+	}
+	if c.Inference.Reranker.Device == "cuda" && c.Inference.Reranker.Backend != "torch" {
+		return fmt.Errorf("config: inference.reranker.backend must be torch when inference.reranker.device is cuda")
 	}
 	if c.Chat.EventBuffer > 16384 {
 		return fmt.Errorf("config: chat.event_buffer must be <= 16384")

@@ -1,4 +1,8 @@
 services:
+  app:
+    environment:
+      RERANKER_DEVICE: ${RERANKER_DEVICE:-cuda}
+      RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
   reranker:
     build:
       context: ../../sidecars/reranker
@@ -8,6 +12,7 @@ services:
     environment:
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cuda}
       RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
+      RERANKER_MAX_CONCURRENT: ${RERANKER_MAX_CONCURRENT:-1}
     deploy:
       resources:
         reservations:

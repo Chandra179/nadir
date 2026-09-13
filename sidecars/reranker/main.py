@@ -11,7 +11,7 @@ Model paper: "Passage Re-ranking with BERT" (Nogueira & Cho 2019);
 bge-reranker-v2-m3 is a multilingual XLM-RoBERTa-large based cross-encoder.
 
 Inference backend, via RERANKER_BACKEND:
-    onnx       dynamic-int8 ONNX (default). The image bakes an int8 export of
+    onnx       dynamic-int8 ONNX. The image bakes an int8 export of
                the build-time model (quantize.py); a runtime-swapped model
                falls back to fp32 ONNX unless the image is rebuilt.
     torch-int8 PyTorch-native dynamic int8, quantized at startup. No export
@@ -20,11 +20,12 @@ Inference backend, via RERANKER_BACKEND:
     openvino   fp32 OpenVINO (optional extra).
     torch      fp32 PyTorch — the escape hatch and last-resort fallback.
 
-Device, via RERANKER_DEVICE (auto | cpu | cuda, default auto):
+Device, via RERANKER_DEVICE (auto | cpu | cuda, default cpu):
     "auto" picks cuda when torch sees a GPU. Both int8 routes are CPU
     artifacts (AVX2 ONNX export / dynamic int8 quantization), so on cuda
-    every backend serves fp32 torch; use RERANKER_BACKEND=torch for a GPU
-    build explicitly. The CUDA build of torch comes from the GPU image
+    RERANKER_BACKEND=torch is required. Explicit cuda fails readiness when
+    CUDA is unavailable instead of silently falling back to CPU. The CUDA
+    build of torch comes from the GPU image
     variant (deploy/compose/docker-compose.gpu.yml / Dockerfile GPU=1 build arg).
 
 Install:
@@ -43,6 +44,7 @@ API:
 """
 
 import os
+import threading
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -55,8 +57,9 @@ MODEL_NAME = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 # Bound sequence length so CPU inference latency stays predictable regardless
 # of what a swapped-in model advertises as its native context window.
 MAX_LENGTH = int(os.environ.get("RERANKER_MAX_LENGTH", "512"))
-BACKEND = os.environ.get("RERANKER_BACKEND", "onnx")
-DEVICE_SETTING = os.environ.get("RERANKER_DEVICE", "auto")
+BACKEND = os.environ.get("RERANKER_BACKEND", "torch")
+DEVICE_SETTING = os.environ.get("RERANKER_DEVICE", "cpu")
+MAX_CONCURRENT = max(1, int(os.environ.get("RERANKER_MAX_CONCURRENT", "1")))
 # Directory holding the build-time int8 export (see quantize.py).
 QUANTIZED_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
 
@@ -64,6 +67,7 @@ _model: CrossEncoder | None = None
 _load_error: str | None = None
 _loaded_backend: str | None = None
 _loaded_device: str | None = None
+_inference_slots = threading.BoundedSemaphore(MAX_CONCURRENT)
 
 
 def resolve_device() -> str:
@@ -71,15 +75,25 @@ def resolve_device() -> str:
     if DEVICE_SETTING == "cpu":
         return "cpu"
     if DEVICE_SETTING not in ("auto", "cuda"):
-        print(f"unknown RERANKER_DEVICE {DEVICE_SETTING!r}; using auto")
+        raise ValueError(
+            f"unknown RERANKER_DEVICE {DEVICE_SETTING!r}; expected cpu, cuda, or auto"
+        )
     try:
         import torch
 
+        if DEVICE_SETTING == "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "RERANKER_DEVICE=cuda but CUDA is unavailable; choose cpu explicitly"
+                )
+            return "cuda"
         if torch.cuda.is_available():
             return "cuda"
-        print("no CUDA device available (CPU-only torch build or no GPU); using cpu")
+        print("no CUDA device available (CPU-only torch build or no GPU); auto selected cpu")
     except ImportError:
-        print("torch unavailable; using cpu")
+        if DEVICE_SETTING == "cuda":
+            raise RuntimeError("RERANKER_DEVICE=cuda but torch is unavailable")
+        print("torch unavailable; auto selected cpu")
     return "cpu"
 
 
@@ -163,9 +177,8 @@ def load_model() -> CrossEncoder:
     _loaded_device = device
     if device == "cuda":
         if BACKEND != "torch":
-            print(
-                f"RERANKER_DEVICE=cuda: backend {BACKEND!r} is CPU-only "
-                "(int8 exports/quantization are CPU artifacts); serving fp32 torch on cuda"
+            raise ValueError(
+                f"RERANKER_DEVICE=cuda requires RERANKER_BACKEND=torch, got {BACKEND!r}"
             )
         _loaded_backend = "torch"
         return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cuda")
@@ -231,9 +244,20 @@ def rerank(req: RerankRequest) -> RerankResponse:
             status_code=503,
             content={"detail": "reranker model is not ready", "error": _load_error},
         )
-    pairs = [[req.query, passage] for passage in req.passages]
-    scores = _model.predict(pairs).tolist()
-    return RerankResponse(scores=scores)
+    if not _inference_slots.acquire(blocking=False):
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": "reranker inference capacity is busy",
+                "max_concurrent": MAX_CONCURRENT,
+            },
+        )
+    try:
+        pairs = [[req.query, passage] for passage in req.passages]
+        scores = _model.predict(pairs).tolist()
+        return RerankResponse(scores=scores)
+    finally:
+        _inference_slots.release()
 
 
 @app.get("/health")

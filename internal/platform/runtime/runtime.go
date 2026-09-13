@@ -19,6 +19,7 @@ import (
 	"nadir/internal/knowledge/enrichment"
 	"nadir/internal/knowledge/indexing"
 	config "nadir/internal/platform/configuration"
+	"nadir/internal/platform/inference"
 	"nadir/internal/retrieval/cache"
 	"nadir/internal/retrieval/search"
 
@@ -41,6 +42,7 @@ type Options struct {
 // on adapter implementations or storage lifecycle details.
 type Runtime struct {
 	Clients        qdrantutil.Clients
+	OllamaGate     *inference.Gate
 	Embedder       embedding.Embedder
 	Searcher       search.Retriever
 	Ingest         indexing.Ingest
@@ -75,6 +77,19 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 	}()
 
 	clients := qdrantutil.NewClients(conn)
+	ollamaGate := inference.NewGate(
+		cfg.Inference.Ollama.MaxConcurrent,
+		cfg.Inference.Ollama.QueueTimeout,
+	)
+	log.Info("inference resource profile",
+		zap.String("profile", cfg.Inference.Profile),
+		zap.Int("ollama_max_concurrent", cfg.Inference.Ollama.MaxConcurrent),
+		zap.Duration("ollama_queue_timeout", cfg.Inference.Ollama.QueueTimeout),
+		zap.Duration("ollama_keep_alive", cfg.Inference.Ollama.KeepAlive),
+		zap.Int("reranker_max_concurrent", cfg.Inference.Reranker.MaxConcurrent),
+		zap.String("reranker_device", cfg.Inference.Reranker.Device),
+		zap.String("reranker_backend", cfg.Inference.Reranker.Backend),
+	)
 	qdrantHealth := qdrant.NewQdrantClient(conn)
 	store, err := qdrantstore.NewDependencies(qdrantstore.DependenciesConfig{
 		Clients:     clients,
@@ -90,6 +105,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		Model:          cfg.Embedder.Model,
 		Dimensions:     cfg.Embedder.Dimensions,
 		RequestTimeout: cfg.Embedder.RequestTimeout,
+		KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
+		Gate:           ollamaGate,
 	})
 	if err := store.EnsureCollection(ctx, emb.Dimensions()); err != nil {
 		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
@@ -144,9 +161,12 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		rankerAdapter := reranker.NewDependencies(reranker.DependenciesConfig{
 			Addr:           cfg.Reranker.Addr,
 			Model:          cfg.Reranker.Model,
-			MaxConcurrent:  cfg.Reranker.MaxConcurrent,
 			RequestTimeout: cfg.Reranker.RequestTimeout,
-			Log:            log,
+			Gate: inference.NewGate(
+				cfg.Inference.Reranker.MaxConcurrent,
+				cfg.Inference.Reranker.QueueTimeout,
+			),
+			Log: log,
 		})
 		searchConfig.Reranker = rankerAdapter
 		rerankerProbe = rankerAdapter.Probe
@@ -173,6 +193,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
 			ContextualModel: cfg.Enrichment.Contextual.Model,
 			RequestTimeout:  cfg.Enrichment.RequestTimeout,
+			KeepAlive:       cfg.Inference.Ollama.KeepAlive.String(),
+			Gate:            ollamaGate,
 		})
 	}
 
@@ -225,12 +247,13 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 	}
 	closed = true
 	return &Runtime{
-		Clients:  clients,
-		Embedder: emb,
-		Searcher: searcher,
-		Ingest:   ingestService,
-		Reset:    ingestService.DeleteAll,
-		Stats:    store.Stats,
+		Clients:    clients,
+		OllamaGate: ollamaGate,
+		Embedder:   emb,
+		Searcher:   searcher,
+		Ingest:     ingestService,
+		Reset:      ingestService.DeleteAll,
+		Stats:      store.Stats,
 		QdrantHealth: func(ctx context.Context) error {
 			_, err := qdrantHealth.HealthCheck(ctx, &qdrant.HealthCheckRequest{})
 			return err

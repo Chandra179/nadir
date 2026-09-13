@@ -53,8 +53,9 @@ Compose readiness check.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | Hugging Face model to load |
-| `RERANKER_BACKEND` | `onnx` | `onnx`, `torch-int8`, `openvino`, or `torch` |
-| `RERANKER_DEVICE` | `auto` | `auto`, `cpu`, or `cuda` |
+| `RERANKER_BACKEND` | `torch` | `onnx`, `torch-int8`, `openvino`, or `torch` |
+| `RERANKER_DEVICE` | `cpu` | `auto`, `cpu`, or `cuda` |
+| `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous model calls |
 | `RERANKER_MAX_LENGTH` | `512` | Maximum token length per query/passage pair |
 | `RERANKER_QUANTIZED_DIR` | `int8_avx2` | Directory containing an optional baked ONNX model |
 
@@ -67,8 +68,12 @@ require rebuilding the image to use a matching baked quantized model.
 - The base Compose stack is CPU-safe and sets the portable `torch` backend.
 - On CPU, the loader can use a baked int8 ONNX model, fp32 ONNX, torch-int8,
   or fp32 torch depending on the selected backend and available artifacts.
-- With `RERANKER_DEVICE=auto` or `cuda`, a CUDA-capable host uses fp32 torch on
+- With `RERANKER_DEVICE=cuda`, a CUDA-capable host uses fp32 torch on
   the GPU. The int8 routes are CPU artifacts and are not used on CUDA.
+- Explicit `cuda` fails readiness when CUDA is unavailable instead of silently
+  falling back to CPU. `auto` is available only for custom deployments.
+- The local profile uses one CPU reranker call at a time. Requests above that
+  limit receive HTTP `429` instead of accumulating unbounded inference work.
 - The GPU Compose overlay is intended for Linux or Windows WSL2 with the
   NVIDIA Container Toolkit. It adds the NVIDIA device reservation and CUDA
   dependencies.
@@ -84,7 +89,7 @@ environment and start the process:
 ```bash
 venv/bin/pip install -r sidecars/reranker/requirements.txt \
   -r sidecars/reranker/requirements-cpu.txt
-RERANKER_DEVICE=auto RERANKER_BACKEND=torch \
+RERANKER_DEVICE=cpu RERANKER_BACKEND=torch RERANKER_MAX_CONCURRENT=1 \
   venv/bin/python sidecars/reranker/main.py
 ```
 

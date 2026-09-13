@@ -42,10 +42,6 @@ No open P0 items. Completed P0 work is preserved in
 
 ### P1 — Lifecycle and user-visible confidence
 
-- [ ] Define an explicit local inference resource profile that prevents
-      generator, embedder, and reranker GPU contention; bound Ollama residency
-      and parallelism, document CPU-reranker mode, and do not rely on automatic
-      GPU selection as the only policy.
 - [ ] Grow the golden set from 34 sample queries to 100+ real queries with
       distractor pairs, multi-hop cases, and generation-faithfulness labels.
 - [ ] Reconcile removed source files when configured source paths are intended

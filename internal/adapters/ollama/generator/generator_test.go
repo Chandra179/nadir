@@ -2,13 +2,17 @@ package generator
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	conversationgeneration "nadir/internal/conversation/generation"
+	"nadir/internal/platform/inference"
 )
 
 func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
@@ -74,6 +78,75 @@ func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
 	}
 	if got.String() != "hello" || !done {
 		t.Fatalf("stream = %q, done=%v, want hello and done", got.String(), done)
+	}
+}
+
+func TestGenerateSendsKeepAliveAndHoldsGateForStream(t *testing.T) {
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	keepAlive := make(chan string, 2)
+	var requests atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request ollamaChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		keepAlive <- request.KeepAlive
+
+		requestNumber := requests.Add(1)
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Error("test server does not support flushing")
+			return
+		}
+		if requestNumber == 1 {
+			_, _ = fmt.Fprintln(w, `{"message":{"content":"hello"}}`)
+			flusher.Flush()
+			close(firstStarted)
+			<-releaseFirst
+		}
+		_, _ = fmt.Fprintln(w, `{"done":true}`)
+		flusher.Flush()
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{
+		Addr:      srv.URL,
+		Model:     "answer",
+		KeepAlive: "5m0s",
+		Gate:      inference.NewGate(1, 20*time.Millisecond),
+	})
+	first, err := d.Generate(context.Background(), "first")
+	if err != nil {
+		t.Fatalf("first Generate() error = %v", err)
+	}
+	select {
+	case <-firstStarted:
+	case <-time.After(time.Second):
+		t.Fatal("first stream did not start")
+	}
+	if got := <-keepAlive; got != "5m0s" {
+		t.Fatalf("keep_alive = %q, want 5m0s", got)
+	}
+
+	if _, err := d.Generate(context.Background(), "second"); err == nil || !strings.Contains(err.Error(), "capacity") {
+		t.Fatalf("second Generate() error = %v, want bounded capacity error", err)
+	}
+
+	close(releaseFirst)
+	for range first {
+	}
+
+	second, err := d.Generate(context.Background(), "after release")
+	if err != nil {
+		t.Fatalf("Generate() after stream release error = %v", err)
+	}
+	for range second {
+	}
+	if got := <-keepAlive; got != "5m0s" {
+		t.Fatalf("second keep_alive = %q, want 5m0s", got)
 	}
 }
 

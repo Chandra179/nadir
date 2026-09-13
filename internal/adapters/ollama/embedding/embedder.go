@@ -27,7 +27,20 @@ func (e *dependencies) Embed(ctx context.Context, text string) ([]float32, error
 }
 
 func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	body, _ := json.Marshal(map[string]any{"model": e.model, "input": texts})
+	release, err := e.gate.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ollama embed admission: %w", err)
+	}
+	defer release()
+
+	payload := map[string]any{"model": e.model, "input": texts}
+	if e.keepAlive != "" {
+		payload["keep_alive"] = e.keepAlive
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("ollama embed batch encode: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.addr+"/api/embed", bytes.NewReader(body))
 	if err != nil {
 		return nil, err

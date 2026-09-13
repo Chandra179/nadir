@@ -124,6 +124,10 @@ JSON reports.
 
 ## Completed P1 work
 
+- Defined the explicit local inference resource profile: one shared Ollama
+  admission Gate with bounded queueing and request-level model keep-alive,
+  plus one explicit CPU reranker operation with sidecar-level admission. GPU
+  reranking requires an explicit `cuda` device and `torch` backend.
 - Made Chat shutdown drainable: active generations are cancelled, generation
   supervisors are awaited, and detached history writes finish before shared
   resources close. A shutdown timeout is surfaced to the lifecycle logger.

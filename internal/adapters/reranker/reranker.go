@@ -31,10 +31,17 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search
 		return chunks, nil
 	}
 
-	select {
-	case r.sem <- struct{}{}:
-		defer func() { <-r.sem }()
-	case <-ctx.Done():
+	release, err := r.gate.Acquire(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			observability.Stage(r.log, "reranking", "canceled", started, ctx.Err(), zap.Int("candidates", len(chunks)))
+			return chunks, nil
+		}
+		observability.Stage(r.log, "reranking", "capacity", started, err, zap.Int("candidates", len(chunks)))
+		return nil, err
+	}
+	defer release()
+	if ctx.Err() != nil {
 		observability.Stage(r.log, "reranking", "canceled", started, ctx.Err(), zap.Int("candidates", len(chunks)))
 		return chunks, nil
 	}
@@ -48,7 +55,11 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search
 		passages[i] = text
 	}
 
-	body, _ := json.Marshal(rerankRequest{Query: query, Passages: passages})
+	body, err := json.Marshal(rerankRequest{Query: query, Passages: passages})
+	if err != nil {
+		observability.Stage(r.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
+		return nil, fmt.Errorf("reranker encode request: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.addr+"/rerank", bytes.NewReader(body))
 	if err != nil {
 		observability.Stage(r.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))

@@ -61,8 +61,24 @@ reranker:
   addr: "http://localhost:5002"
   model: "BAAI/bge-reranker-v2-m3" # swappable sidecar cross-encoder (env RERANKER_MODEL overrides); revert to cross-encoder/ms-marco-MiniLM-L-6-v2 for the tiny/fast baseline
   candidate_mul: 4     # fetch topK*4 candidates before reranking (more headroom for the reranker to reorder)
-  max_concurrent: 10   # max concurrent reranker calls to sidecar
   request_timeout: 30s
+
+# Local inference profile. All Ollama roles share one process-local gate so
+# embedding, rewriting, enrichment, and streaming generation cannot contend
+# for the same GPU at once. The reranker is explicit CPU by default for
+# portable laptop operation; use the GPU Compose override with device=cuda
+# only when Ollama and the reranker have a measured hardware budget.
+inference:
+  profile: "local"
+  ollama:
+    max_concurrent: 1
+    queue_timeout: 30s
+    keep_alive: 5m
+  reranker:
+    max_concurrent: 1
+    queue_timeout: 30s
+    device: "cpu"
+    backend: "torch"
 
 enrichment:
   # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero

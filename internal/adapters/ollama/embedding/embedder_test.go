@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"nadir/internal/platform/inference"
 )
 
 func TestEmbedBatchHTTPContract(t *testing.T) {
@@ -45,6 +47,39 @@ func TestEmbedBatchHTTPContract(t *testing.T) {
 				t.Fatalf("EmbedBatch() error = %v, want %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestEmbedBatchSendsKeepAliveAndUsesGate(t *testing.T) {
+	received := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			KeepAlive string `json:"keep_alive"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		received <- request.KeepAlive
+		_, _ = w.Write([]byte(`{"embeddings":[[1,2,3]]}`))
+	}))
+	defer srv.Close()
+
+	d := NewDependencies(DependenciesConfig{
+		Addr:      srv.URL,
+		Model:     "embed",
+		KeepAlive: "5m0s",
+		Gate:      inference.NewGate(1, time.Second),
+	})
+	if _, err := d.EmbedBatch(context.Background(), []string{"one"}); err != nil {
+		t.Fatalf("EmbedBatch() error = %v", err)
+	}
+	select {
+	case got := <-received:
+		if got != "5m0s" {
+			t.Fatalf("keep_alive = %q, want 5m0s", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server did not receive embedding request")
 	}
 }
 

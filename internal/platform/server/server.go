@@ -54,6 +54,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			Addr:           generatorEndpoint.Addr,
 			Model:          generatorEndpoint.Model,
 			RequestTimeout: cfg.Generator.RequestTimeout,
+			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
+			Gate:           graph.OllamaGate,
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),
@@ -121,6 +123,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 				Addr:           rewriteEndpoint.Addr,
 				Model:          rewriteEndpoint.Model,
 				RequestTimeout: cfg.Rewriter.RequestTimeout,
+				KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
+				Gate:           graph.OllamaGate,
 			})
 			log.Info("conversational query rewriting enabled",
 				zap.String("model", rewriteEndpoint.Model),

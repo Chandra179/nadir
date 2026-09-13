@@ -11,6 +11,19 @@ COMPOSE=(docker compose -f deploy/compose/docker-compose.yml)
 # addrs come from config/config.yaml (already localhost for host-side server);
 # only override here if you need something config.yaml doesn't already have.
 
+# The local profile is deliberately explicit: one shared Ollama operation and
+# one CPU reranker operation at a time. Override these values only after
+# measuring the available hardware (for example, RERANKER_DEVICE=cuda on a
+# CUDA host with a matching GPU Compose/toolchain).
+export INFERENCE_PROFILE="${INFERENCE_PROFILE:-local}"
+export INFERENCE_OLLAMA_MAX_CONCURRENT="${INFERENCE_OLLAMA_MAX_CONCURRENT:-1}"
+export INFERENCE_OLLAMA_QUEUE_TIMEOUT="${INFERENCE_OLLAMA_QUEUE_TIMEOUT:-30s}"
+export INFERENCE_OLLAMA_KEEP_ALIVE="${INFERENCE_OLLAMA_KEEP_ALIVE:-5m}"
+export RERANKER_DEVICE="${RERANKER_DEVICE:-cpu}"
+export RERANKER_BACKEND="${RERANKER_BACKEND:-torch}"
+export RERANKER_MAX_CONCURRENT="${RERANKER_MAX_CONCURRENT:-1}"
+export RERANKER_QUEUE_TIMEOUT="${RERANKER_QUEUE_TIMEOUT:-30s}"
+
 # The reranker model travels from config.yaml (reranker.model) through the
 # RERANKER_MODEL env var, to the sidecar however it is hosted.
 RERANKER_MODEL="$(awk '/^reranker:/{f=1; next} f && /^[^ ]/{f=0} f && /model:/{gsub(/[\"'"'"']/, ""); sub(/#.*/, "", $2); print $2; exit}' config/config.yaml)"
@@ -28,8 +41,8 @@ echo "==> Killing any process on :5002, :8100 and :6063..."
 kill $(lsof -ti :5002,8100,6063 2>/dev/null) 2>/dev/null || true
 sleep 1
 
-echo "==> Starting reranker sidecar (repo venv, host GPU)..."
-RERANKER_DEVICE=auto venv/bin/python sidecars/reranker/main.py &
+echo "==> Starting reranker sidecar (repo venv, device=$RERANKER_DEVICE, backend=$RERANKER_BACKEND)..."
+venv/bin/python sidecars/reranker/main.py &
 RERANKER_PID=$!
 trap 'kill $RERANKER_PID 2>/dev/null || true' EXIT
 

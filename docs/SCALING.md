@@ -65,6 +65,14 @@ Apple Silicon uses the CPU reranker while Ollama may use host Metal
 acceleration. These deployment choices affect latency and capacity, but do not
 change the consistency model.
 
+The shipped local resource profile is conservative and explicit: all Ollama
+roles share one process-local execution slot, queued model work waits at most
+30 seconds, and each request sends a five-minute `keep_alive` value. The
+reranker has one process-local execution slot and defaults to an explicit CPU
+`torch` backend. This prevents overlapping model work inside one API process;
+it cannot limit an independently managed Ollama daemon or coordinate multiple
+API instances.
+
 ## Domain invariants
 
 These are the properties that must remain true as implementations change.
@@ -92,8 +100,9 @@ event ownership needed to satisfy all of them across multiple processes.
 |---|---|---|
 | HTTP requests | Handled concurrently by the Go HTTP server | No global admission control or rate limit |
 | Retrieval fragments | Up to the configured fragment limit per request, with bounded parallel fragment searches | The limit is per process and per request; many clients multiply the load |
-| Embeddings | Ingest batches requests and uses bounded file workers | Search and ingest share the external embedder without a global budget |
-| Reranking | A per-process semaphore bounds concurrent sidecar calls | Multiple application instances multiply sidecar pressure |
+| Embeddings | Ingest batches requests and uses bounded file workers; all Ollama calls share the local inference Gate | The Gate is per process; multiple application instances multiply embedder pressure |
+| Reranking | A per-process Gate and sidecar semaphore bound concurrent calls | Multiple application instances multiply sidecar pressure |
+| Generation | The shared Ollama Gate is held for the complete streaming response | A second generation waits or is rejected locally; there is no global model-serving budget |
 | Document replacement | New versions are staged inactive, then activated and old versions cleaned | Concurrent replacements for one source identity are not ordered or fenced |
 | Indexing pass | One process serializes complete passes and coordinates them with reset | The gate is process-local; distributed workers still need leases/fencing |
 | Chat event log | Bounded, insertion-ordered, replayable in-process streams | Turn IDs and event cursors exist only on the owning process |
@@ -238,7 +247,7 @@ restart decisions.
 
 ### Global resource admission
 
-Most limits are local to one request or one process. Without a global budget,
+Most limits, including the new inference Gate, are local to one request or one process. Without a global budget,
 replicas or a burst of clients can overload Qdrant, Ollama, or the reranker.
 Production operation needs explicit policies for request rate, concurrent
 Retrieval, generation slots, embedding work, Indexing jobs, and per-backend
@@ -414,7 +423,7 @@ matter to the domain, not only generic HTTP request counts.
 
 ### Before any horizontal deployment
 
-1. Add drainable Chat persistence and generation shutdown.
+1. Prove drainable Chat persistence and generation shutdown with dependency-backed tests and durable retry state.
 2. Expand HTTP smoke tests with dependency-backed failure cases, readiness
    checks, protected profiling, and basic
    admission/rate limits for expensive and destructive operations.

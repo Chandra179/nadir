@@ -32,3 +32,4 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0024](0024-neutral-content-contracts.md) | Transitional neutral content contract package | Superseded by 0025 |
 | [0025](0025-context-owned-value-contracts.md) | Keep value contracts with their owning context; keep dependency seams private | Accepted |
 | [0026](0026-shared-runtime-composition.md) | Share executable infrastructure composition through one platform Runtime | Accepted |
+| [0027](0027-local-inference-resource-profile.md) | Explicit local Ollama/reranker admission, residency, and device policy | Accepted |

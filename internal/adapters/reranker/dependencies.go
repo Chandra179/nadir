@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"nadir/internal/platform/inference"
+
 	"go.uber.org/zap"
 )
 
@@ -16,8 +18,8 @@ import (
 type DependenciesConfig struct {
 	Addr           string
 	Model          string
-	MaxConcurrent  int
 	RequestTimeout time.Duration
+	Gate           *inference.Gate
 	Log            *zap.Logger
 }
 
@@ -25,16 +27,12 @@ type dependencies struct {
 	addr   string
 	model  string
 	client *http.Client
-	sem    chan struct{}
+	gate   *inference.Gate
 	log    *zap.Logger
 }
 
 // NewDependencies constructs the HTTP reranker Adapter.
 func NewDependencies(cfg DependenciesConfig) *dependencies {
-	maxConcurrent := cfg.MaxConcurrent
-	if maxConcurrent <= 0 {
-		maxConcurrent = 10
-	}
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -43,11 +41,15 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	gate := cfg.Gate
+	if gate == nil {
+		gate = inference.NewGate(1, 30*time.Second)
+	}
 	return &dependencies{
 		addr:   cfg.Addr,
 		model:  cfg.Model,
 		client: &http.Client{Timeout: timeout},
-		sem:    make(chan struct{}, maxConcurrent),
+		gate:   gate,
 		log:    log,
 	}
 }

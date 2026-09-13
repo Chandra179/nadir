@@ -22,6 +22,10 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Qdrant.TopK <= 0 || cfg.Embedder.Model == "" {
 		t.Fatalf("shipped config must validate into a usable state, got %+v", cfg)
 	}
+	if cfg.Inference.Profile != "local" || cfg.Inference.Ollama.MaxConcurrent != 1 ||
+		cfg.Inference.Reranker.Device != "cpu" || cfg.Inference.Reranker.MaxConcurrent != 1 {
+		t.Fatalf("shipped config must use the conservative local inference profile, got %+v", cfg.Inference)
+	}
 }
 
 func TestApplyEnvOverrides(t *testing.T) {
@@ -30,6 +34,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("SEMANTIC_CACHE_THRESHOLD", "0.95")
 	t.Setenv("REWRITE_ENABLED", "true")
 	t.Setenv("SOURCE_PATHS", "/app/source, /app/extra")
+	t.Setenv("INFERENCE_OLLAMA_MAX_CONCURRENT", "2")
+	t.Setenv("INFERENCE_OLLAMA_KEEP_ALIVE", "90s")
+	t.Setenv("RERANKER_DEVICE", "cuda")
 
 	var cfg Config
 	if err := cfg.applyEnv(); err != nil {
@@ -51,6 +58,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if len(cfg.Source.Paths) != 2 || cfg.Source.Paths[0] != "/app/source" || cfg.Source.Paths[1] != "/app/extra" {
 		t.Fatalf("Source.Paths = %#v, want two trimmed paths", cfg.Source.Paths)
 	}
+	if cfg.Inference.Ollama.MaxConcurrent != 2 || cfg.Inference.Ollama.KeepAlive != 90*time.Second {
+		t.Fatalf("Ollama resource overrides = %+v, want max=2 and keep_alive=90s", cfg.Inference.Ollama)
+	}
+	if cfg.Inference.Reranker.Device != "cuda" {
+		t.Fatalf("Reranker.Device = %q, want cuda", cfg.Inference.Reranker.Device)
+	}
 }
 
 func TestApplyEnvRejectsMalformedValues(t *testing.T) {
@@ -63,6 +76,7 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "float", env: "SEMANTIC_CACHE_THRESHOLD", value: "high"},
 		{name: "non-finite float", env: "SEMANTIC_CACHE_THRESHOLD", value: "NaN"},
 		{name: "int", env: "REWRITE_TURNS", value: "many"},
+		{name: "duration", env: "INFERENCE_OLLAMA_KEEP_ALIVE", value: "soon"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.env, tt.value)
@@ -93,8 +107,24 @@ func TestValidateCentralizesProductionDefaults(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.HTTP.StartupTimeout != 30*time.Second || cfg.Search.MaxTopK != 50 || cfg.Reranker.CandidateMul != 3 {
+	if cfg.HTTP.StartupTimeout != 30*time.Second || cfg.Search.MaxTopK != 50 || cfg.Reranker.CandidateMul != 3 ||
+		cfg.Inference.Ollama.MaxConcurrent != 1 || cfg.Inference.Reranker.Device != "cpu" {
 		t.Fatalf("defaults not applied centrally: %+v", cfg)
+	}
+}
+
+func TestValidateRejectsImplicitLocalRerankerDevice(t *testing.T) {
+	cfg := Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+		Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+		Inference: InferenceConfig{
+			Profile:  "local",
+			Reranker: RerankerResourceConfig{Device: "auto"},
+		},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "device must be explicit") {
+		t.Fatalf("Validate() error = %v, want explicit local device error", err)
 	}
 }
 

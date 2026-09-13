@@ -13,7 +13,7 @@ go build ./cmd/api
 # Vendor deps (NOT committed — gitignored; run after adding imports)
 go mod tidy && go mod vendor
 
-# Dev: Qdrant (Docker) + reranker (repo venv, host GPU) + server + auto-ingest
+# Dev: Qdrant (Docker) + reranker (repo venv, explicit local device) + server + auto-ingest
 ./scripts/local.sh               # addrs come from config/config.yaml (localhost)
 
 # Run standalone (config/config.yaml, .env sourced)
@@ -83,7 +83,7 @@ processes.
   frontend code.
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active
-- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `RERANKER_DEVICE`, `RERANKER_BACKEND`, `RERANKER_MAX_CONCURRENT`, `RERANKER_QUEUE_TIMEOUT`, `INFERENCE_PROFILE`, `INFERENCE_OLLAMA_MAX_CONCURRENT`, `INFERENCE_OLLAMA_QUEUE_TIMEOUT`, `INFERENCE_OLLAMA_KEEP_ALIVE`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
@@ -105,7 +105,7 @@ processes.
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
-Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The reranker cross-encoder is swappable via `reranker.model` (env `RERANKER_MODEL`; sidecar reloads it on restart) and supports `RERANKER_BACKEND` (`onnx`, `torch-int8`, or `torch`). The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host (`RERANKER_DEVICE=auto`, like Ollama) and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
+Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The default `inference.profile: local` shares one Ollama Gate across embedding, rewriting, enrichment, and streaming generation, uses a finite `keep_alive`, and limits the reranker to one explicit CPU operation. Set `RERANKER_DEVICE=cuda` and `RERANKER_BACKEND=torch` only with the GPU Compose override and a measured hardware budget; `auto` is reserved for `inference.profile: custom`. The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host with the explicit local CPU profile and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
 
 ## Sample data
 

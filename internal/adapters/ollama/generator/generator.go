@@ -17,9 +17,10 @@ import (
 )
 
 type ollamaChatRequest struct {
-	Model    string          `json:"model"`
-	Messages []ollamaMessage `json:"messages"`
-	Stream   bool            `json:"stream"`
+	Model     string          `json:"model"`
+	Messages  []ollamaMessage `json:"messages"`
+	Stream    bool            `json:"stream"`
+	KeepAlive string          `json:"keep_alive,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -37,37 +38,51 @@ type ollamaChatChunk struct {
 // cancelling ctx stops generation at the next event boundary. The caller
 // must drain or cancel to avoid pinning the feed goroutine.
 func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
-	body, _ := json.Marshal(ollamaChatRequest{
-		Model:    g.model,
-		Messages: []ollamaMessage{{Role: "user", Content: prompt}},
-		Stream:   true,
+	release, err := g.gate.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("generator admission: %w", err)
+	}
+
+	body, err := json.Marshal(ollamaChatRequest{
+		Model:     g.model,
+		Messages:  []ollamaMessage{{Role: "user", Content: prompt}},
+		Stream:    true,
+		KeepAlive: g.keepAlive,
 	})
+	if err != nil {
+		release()
+		return nil, fmt.Errorf("generator encode request: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.addr+"/api/chat", bytes.NewReader(body))
 	if err != nil {
+		release()
 		return nil, fmt.Errorf("generator build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := g.client.Do(req)
 	if err != nil {
+		release()
 		return nil, fmt.Errorf("generator request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
+		release()
 		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
 	}
 
 	events := make(chan conversationgeneration.Event, 16)
-	go feed(ctx, resp.Body, events)
+	go feed(ctx, resp.Body, events, release)
 	return events, nil
 }
 
 // feed parses the Ollama NDJSON stream into events until EOF, error, or a
 // cancelled context. It owns body and closes it.
-func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event) {
-	defer close(events)
+func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event, release func()) {
+	defer release()
 	defer body.Close()
+	defer close(events)
 
 	reader := &ollamaTokenReader{body: body, scanner: bufio.NewScanner(body)}
 	buf := make([]byte, 4096)

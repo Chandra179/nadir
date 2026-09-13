@@ -173,6 +173,12 @@ of every knob, open `config/config.yaml`.
 | `SOURCE_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
 | `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
 | `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
+| `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous reranker inferences |
+| `RERANKER_QUEUE_TIMEOUT` | `30s` | Maximum time waiting for a reranker slot |
+| `INFERENCE_PROFILE` | `local` | `local` requires an explicit reranker device; `custom` permits `auto` |
+| `INFERENCE_OLLAMA_MAX_CONCURRENT` | `1` | Shared local limit across all Ollama roles |
+| `INFERENCE_OLLAMA_QUEUE_TIMEOUT` | `30s` | Maximum time waiting for an Ollama slot |
+| `INFERENCE_OLLAMA_KEEP_ALIVE` | `5m` | Ollama model residency after a request is idle |
 | `RERANKER_GPU` | `0` in CPU Compose | Set to `1` only with the GPU Compose override |
 | `DOCLING_ENABLED` | `false` | Enable PDF document intake |
 | `DOCLING_ADDR` | `http://host.docker.internal:5003` in Compose | Docling sidecar address |
@@ -183,6 +189,12 @@ When an LLM role is enabled, its address and model are required explicitly:
 `generator`, `rewriter`, `enrichment.hype`, and `enrichment.contextual` do not
 inherit another role's endpoint or model. Compose supplies explicit role
 environment overrides even when roles share one Ollama server.
+
+The shipped `inference.profile: local` serializes Ollama work across embedding,
+rewriting, enrichment, and streaming generation, and runs one CPU reranker
+operation at a time. This is a process-local safety profile for laptops, not a
+distributed rate limiter. Set an explicit CUDA device and `torch` backend only
+with the GPU Compose override after measuring GPU capacity.
 
 > `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Docker-internal service names and a portable CPU reranker by default.
 

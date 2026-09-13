@@ -64,7 +64,13 @@ func (d *dependencies) ContextualIntro(ctx context.Context, documentExcerpt, chu
 // chat posts a non-streaming chat request to Ollama and returns the
 // assistant message content.
 func (d *dependencies) chat(ctx context.Context, addr, model, system, user string) (string, error) {
-	body, err := json.Marshal(map[string]any{
+	release, err := d.gate.Acquire(ctx)
+	if err != nil {
+		return "", fmt.Errorf("enrichment admission: %w", err)
+	}
+	defer release()
+
+	payload := map[string]any{
 		"model": model,
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
@@ -74,7 +80,11 @@ func (d *dependencies) chat(ctx context.Context, addr, model, system, user strin
 		"options": map[string]any{
 			"temperature": 0.2,
 		},
-	})
+	}
+	if d.keepAlive != "" {
+		payload["keep_alive"] = d.keepAlive
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("enrichment: marshal request: %w", err)
 	}

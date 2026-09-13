@@ -88,7 +88,7 @@ func cleanQuery(out string) string {
 // assistant message content. Temperature 0 keeps rewrites deterministic —
 // drift here silently changes what gets searched.
 func (d *dependencies) chat(ctx context.Context, system, user string) (string, error) {
-	body, err := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"model": d.model,
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
@@ -98,7 +98,16 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 		"options": map[string]any{
 			"temperature": 0,
 		},
-	})
+	}
+	if d.keepAlive != "" {
+		payload["keep_alive"] = d.keepAlive
+	}
+	release, err := d.gate.Acquire(ctx)
+	if err != nil {
+		return "", fmt.Errorf("rewriter admission: %w", err)
+	}
+	defer release()
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("rewriter: marshal request: %w", err)
 	}
