@@ -21,9 +21,11 @@ generation-faithfulness label. Queries may also declare evidence distractors;
 the evaluator reports the fraction of queries where a distractor enters the
 top-k result set. Relevant evidence remains the source of Retrieval metrics.
 
-The committed fixture is 109 curated queries over the sample corpus. It is a
-development regression fixture, not a substitute for consent-safe production
-query collection or expert judgments.
+The committed fixture is 133 expert-authored synthetic user-intent queries
+over the sample corpus. Top-level metadata records its provenance and makes
+clear that it contains no production user data. It is a development regression
+fixture, not a substitute for consent-safe production query collection or
+independent expert review.
 
 ## Consequences
 

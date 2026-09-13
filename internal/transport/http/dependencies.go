@@ -34,6 +34,7 @@ type DependenciesConfig struct {
 	MaxTopK              int
 	SourcePaths          []string
 	SourceIgnorePatterns []string
+	SourceMode           string
 	MaxSourceFileBytes   int64
 	MaxUploadBytes       int64
 	Readiness            ReadinessFunc
@@ -47,6 +48,7 @@ type dependencies struct {
 	topK                 int
 	sourcePaths          []string
 	sourceIgnorePatterns []string
+	sourceMode           string
 	maxSourceFileBytes   int64
 	maxUploadBytes       int64
 	readiness            ReadinessFunc
@@ -80,6 +82,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		topK:                 topK,
 		sourcePaths:          cfg.SourcePaths,
 		sourceIgnorePatterns: cfg.SourceIgnorePatterns,
+		sourceMode:           cfg.SourceMode,
 		maxSourceFileBytes:   cfg.MaxSourceFileBytes,
 		maxUploadBytes:       cfg.MaxUploadBytes,
 		readiness:            cfg.Readiness,

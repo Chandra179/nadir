@@ -11,6 +11,7 @@ import (
 type documentIndexer interface {
 	GetAllFileSHAs(ctx context.Context) (map[string]string, error)
 	ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []IndexedChunk) error
+	DeleteDocument(ctx context.Context, filePath string) error
 }
 
 type cacheInvalidator interface {

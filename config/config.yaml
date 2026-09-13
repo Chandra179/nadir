@@ -7,12 +7,19 @@ http:
   shutdown_timeout: 10s
   readiness_timeout: 15s
 
+# Diagnostic pprof endpoints are opt-in and loopback-only. Use an SSH tunnel
+# or an equivalent protected local access path when profiling a remote host.
+profiling:
+  enabled: false
+  addr: "127.0.0.1:6063"
+
 middleware:
   timeout: 30s
   logger:
     level: dev  # dev | prod
 
 source:
+  mode: "upload-only"       # upload-only | mirror; mirror removes missing files under source.paths
   paths:
     - "samples"
   ignore_patterns: []

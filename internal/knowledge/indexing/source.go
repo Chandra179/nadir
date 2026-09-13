@@ -103,6 +103,51 @@ func expandHome(p string) (string, error) {
 	return filepath.Clean(p), nil
 }
 
+func normalizeSourceRoots(roots []string) ([]string, error) {
+	normalized := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		path, err := normalizeSourcePath(root)
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := seen[path]; exists {
+			continue
+		}
+		seen[path] = struct{}{}
+		normalized = append(normalized, path)
+	}
+	return normalized, nil
+}
+
+func normalizeSourcePath(raw string) (string, error) {
+	path, err := expandHome(strings.TrimSpace(raw))
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", fmt.Errorf("source path must not be empty")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve source path %q: %w", raw, err)
+	}
+	return filepath.Clean(absolute), nil
+}
+
+func withinAnySourceRoot(filePath string, roots []string) bool {
+	for _, root := range roots {
+		relative, err := filepath.Rel(root, filePath)
+		if err != nil {
+			continue
+		}
+		if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+			return true
+		}
+	}
+	return false
+}
+
 func matchesIgnore(rel, base string, patterns []string) bool {
 	rel = filepath.ToSlash(rel)
 	for _, raw := range patterns {

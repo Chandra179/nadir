@@ -52,6 +52,7 @@ web/dashboard/node_modules/
 web/dashboard/node_modules/
 web/dashboard/dist/
 web/dashboard/.vite-cache/
+web/dashboard/test-results/
 venv/
 
 # compiled binaries

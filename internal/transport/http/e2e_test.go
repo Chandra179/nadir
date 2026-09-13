@@ -21,9 +21,18 @@ import (
 
 type e2eIngest struct{ files []indexing.UploadFile }
 
-func (f *e2eIngest) Run(_ context.Context, files []indexing.UploadFile) (indexing.Result, error) {
+func (f *e2eIngest) Run(_ context.Context, files []indexing.UploadFile, _ indexing.RunOptions) (indexing.Result, error) {
 	f.files = append([]indexing.UploadFile(nil), files...)
 	return indexing.Result{Processed: len(files)}, nil
+}
+
+type sourceMirrorIngest struct {
+	options indexing.RunOptions
+}
+
+func (f *sourceMirrorIngest) Run(_ context.Context, _ []indexing.UploadFile, options indexing.RunOptions) (indexing.Result, error) {
+	f.options = options
+	return indexing.Result{Removed: 2}, nil
 }
 
 type e2eStore struct{ resetCalls int }
@@ -243,6 +252,33 @@ func TestReadinessReturnsServiceUnavailableWithFailedCheck(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("liveness status = %d, want %d while readiness is failing", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestConfiguredMirrorPassesExplicitSourceOptionsAndReportsRemoved(t *testing.T) {
+	mirror := &sourceMirrorIngest{}
+	root := t.TempDir()
+	server := startE2EServer(t, NewDependencies(DependenciesConfig{
+		Ingest: mirror, SourcePaths: []string{root}, SourceMode: "mirror",
+	}))
+	client := &http.Client{Transport: handlerTransport{handler: server.handler}}
+
+	resp, err := client.Post(server.URL+RouteDocuments, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Removed int `json:"removed"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || body.Removed != 2 {
+		t.Fatalf("mirror response = %d/%+v, want removed count", resp.StatusCode, body)
+	}
+	if !mirror.options.MirrorSources || len(mirror.options.SourceRoots) != 1 || mirror.options.SourceRoots[0] != root {
+		t.Fatalf("mirror options = %+v, want explicit configured source root", mirror.options)
 	}
 }
 

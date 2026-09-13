@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,11 +21,11 @@ import (
 // Run performs one indexing pass: deduplication and document intake happen
 // before each source file enters the ordered chunk → enrich → embed → replace
 // pipeline on a bounded worker set.
-func (d *dependencies) Run(ctx context.Context, files []UploadFile) (Result, error) {
-	return d.run(ctx, files)
+func (d *dependencies) Run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
+	return d.run(ctx, files, options)
 }
 
-func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, error) {
+func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
 	// A single process must not let two passes plan against the same SHA
 	// snapshot and then commit in completion order. Distributed workers need a
 	// lease/fencing token later; this lock provides the explicit single-node
@@ -108,17 +109,78 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile) (Result, err
 		}(f, sha)
 	}
 	wg.Wait()
-	d.clearSemanticCache(ctx, processed.Load() > 0)
+	removed := 0
+	var reconcileErr error
+	if options.MirrorSources && failed.Load() == 0 {
+		removed, reconcileErr = d.reconcileSources(ctx, files, options.SourceRoots, storedSHAs)
+	} else if options.MirrorSources && failed.Load() > 0 {
+		d.log.Warn("source reconciliation skipped because indexing failed",
+			zap.Int64("failed", failed.Load()))
+	}
+	d.clearSemanticCache(ctx, processed.Load() > 0 || removed > 0)
 
 	result := Result{
 		Processed: int(processed.Load()),
 		Skipped:   int(skipped.Load()),
 		Failed:    int(failed.Load()),
+		Removed:   removed,
 	}
 	observability.Stage(d.log, "ingest", "success", started, nil,
 		zap.Int("files", len(files)), zap.Int("processed", result.Processed),
-		zap.Int("skipped", result.Skipped), zap.Int("failed", result.Failed))
+		zap.Int("skipped", result.Skipped), zap.Int("failed", result.Failed),
+		zap.Int("removed", result.Removed))
+	if reconcileErr != nil {
+		return result, reconcileErr
+	}
 	return result, nil
+}
+
+// reconcileSources removes active Documents that belong to the configured
+// source roots but were absent from a successful source sweep. It is run only
+// after all discovered files have been indexed successfully, so a transient
+// read, conversion, or embedding failure cannot turn into data loss.
+func (d *dependencies) reconcileSources(ctx context.Context, files []UploadFile, roots []string, stored map[string]string) (int, error) {
+	normalizedRoots, err := normalizeSourceRoots(roots)
+	if err != nil {
+		return 0, err
+	}
+	if len(normalizedRoots) == 0 {
+		return 0, fmt.Errorf("source mirroring requires at least one source root")
+	}
+
+	desired := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		normalized, err := normalizeSourcePath(file.Name)
+		if err != nil {
+			return 0, err
+		}
+		desired[normalized] = struct{}{}
+	}
+
+	paths := make([]string, 0, len(stored))
+	for filePath := range stored {
+		paths = append(paths, filePath)
+	}
+	sort.Strings(paths)
+
+	removed := 0
+	for _, filePath := range paths {
+		normalized, err := normalizeSourcePath(filePath)
+		if err != nil {
+			return removed, err
+		}
+		if !withinAnySourceRoot(normalized, normalizedRoots) {
+			continue
+		}
+		if _, present := desired[normalized]; present {
+			continue
+		}
+		if err := d.store.DeleteDocument(ctx, filePath); err != nil {
+			return removed, fmt.Errorf("remove missing source %q: %w", filePath, err)
+		}
+		removed++
+	}
+	return removed, nil
 }
 
 func isSupportedSource(name string) bool {
@@ -242,7 +304,7 @@ func (d *dependencies) clearSemanticCache(ctx context.Context, changed bool) {
 // contextualText fronts the chunk's contextual text with an LLM-written
 // situational intro when contextual retrieval is enabled. Best-effort:
 // generation failures (or empty intros) fall back to the plain text.
-	func (d *dependencies) contextualText(ctx context.Context, docText string, c chunking.Chunk, base string) string {
+func (d *dependencies) contextualText(ctx context.Context, docText string, c chunking.Chunk, base string) string {
 	if !d.contextual || d.enrich == nil {
 		return base
 	}

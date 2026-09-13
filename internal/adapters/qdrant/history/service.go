@@ -342,6 +342,7 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 	}
 	return map[string]*qdrant.Value{
 		"doc_type":        qdrantutil.StringValue(docTypeTurn),
+		"turn_id":         qdrantutil.StringValue(turn.ID),
 		"session_id":      qdrantutil.StringValue(sessionID),
 		"sequence":        qdrantutil.IntValue(int64(sequence)),
 		"created_at":      qdrantutil.IntValue(now.UnixMilli()),
@@ -387,8 +388,15 @@ func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
 			return Turn{}, fmt.Errorf("history: decode attached files: %w", err)
 		}
 	}
+	turnID := qdrantutil.StringFromPayload(p, "turn_id")
+	if turnID == "" {
+		// Older records predate explicit stream IDs. The point ID remains a
+		// stable identity for history display, even though it cannot be used
+		// to reconnect to an event stream that no longer exists.
+		turnID = id
+	}
 	return Turn{
-		ID:             id,
+		ID:             turnID,
 		SessionID:      qdrantutil.StringFromPayload(p, "session_id"),
 		Sequence:       int(qdrantutil.IntFromPayload(p, "sequence")),
 		CreatedAt:      time.UnixMilli(qdrantutil.IntFromPayload(p, "created_at")).UTC(),

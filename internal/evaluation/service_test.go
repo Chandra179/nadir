@@ -105,9 +105,38 @@ func TestActiveGoldenFixtureIsAnnotated(t *testing.T) {
 	if len(golden.Queries) < 100 {
 		t.Fatalf("query count = %d, want at least 100", len(golden.Queries))
 	}
+	if golden.Metadata.Dataset != "expert-authored-synthetic-user-intent" {
+		t.Fatalf("dataset = %q, want expert-authored synthetic fixture", golden.Metadata.Dataset)
+	}
+	if golden.Metadata.ReleaseGate {
+		t.Fatal("synthetic fixture must not be marked as a production release gate")
+	}
 	for _, query := range golden.Queries {
 		if len(query.Distractors) == 0 {
 			t.Errorf("query %q has no distractor annotation", query.ID)
 		}
+	}
+}
+
+func TestSyntheticGoldenFixtureCannotPassReleaseGate(t *testing.T) {
+	golden := &GoldenSet{
+		SchemaVersion: 2,
+		Metadata: GoldenSetMetadata{
+			Dataset:     "expert-authored-synthetic-user-intent",
+			Consent:     "not-applicable-no-production-user-data",
+			Judgment:    "single-expert",
+			ReleaseGate: true,
+		},
+		Queries: make([]GoldenQuery, 100),
+	}
+	for i := range golden.Queries {
+		golden.Queries[i] = GoldenQuery{
+			ID: "q-" + string(rune('a'+i%26)), Query: "query", Type: QueryTypeFactoid,
+			FaithfulnessLabel: FaithfulnessFullySupported, ExpectedAnswer: "answer",
+			RequiredClaims: []string{"claim"}, Relevant: []RelevantChunk{{File: "doc.md"}},
+		}
+	}
+	if err := golden.ValidateReleaseGate(); err == nil {
+		t.Fatal("synthetic golden fixture passed release gate validation")
 	}
 }

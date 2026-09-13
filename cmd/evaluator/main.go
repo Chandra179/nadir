@@ -6,6 +6,7 @@
 //	go run ./cmd/evaluator [--config config/config.yaml] [--golden test/evaluation/golden.json]
 //	                         [--top-k N] [--no-rerank] [--runs N]
 //	                         [--report path] [--ensure-ingest]
+//	                         [--require-release-gate]
 package main
 
 import (
@@ -19,7 +20,7 @@ import (
 
 	"nadir/internal/evaluation"
 	"nadir/internal/knowledge/indexing"
-	"nadir/internal/platform/configuration"
+	config "nadir/internal/platform/configuration"
 	"nadir/internal/platform/logging"
 	"nadir/internal/platform/runtime"
 
@@ -34,15 +35,16 @@ func main() {
 	runs := flag.Int("runs", 3, "runs per query; latency is reported as the median")
 	reportPath := flag.String("report", "", "output report path (default: test/evaluation/reports/<unix_ts>.json)")
 	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over source.paths before evaluating")
+	requireReleaseGate := flag.Bool("require-release-gate", false, "reject synthetic/unconsented golden sets")
 	flag.Parse()
 
-	if err := run(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest); err != nil {
+	if err := run(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate); err != nil {
 		fmt.Fprintln(os.Stderr, "evaluator:", err)
 		os.Exit(1)
 	}
 }
 
-func run(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest bool) error {
+func run(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate bool) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -52,6 +54,16 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer log.Sync()
+
+	golden, err := evaluation.LoadGoldenSet(goldenPath)
+	if err != nil {
+		return err
+	}
+	if requireReleaseGate {
+		if err := golden.ValidateReleaseGate(); err != nil {
+			return fmt.Errorf("release gate: %w", err)
+		}
+	}
 
 	ctx := context.Background()
 	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{
@@ -75,10 +87,6 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 
 	rerankEnabled := cfg.Reranker.Enabled && !noRerank
 
-	golden, err := evaluation.LoadGoldenSet(goldenPath)
-	if err != nil {
-		return err
-	}
 	if topK <= 0 {
 		topK = cfg.Qdrant.TopK
 	}
@@ -124,7 +132,11 @@ func ensureIngested(ctx context.Context, cfg *config.Config, ing indexing.Ingest
 	}
 
 	log.Info("ingesting source files before evaluation", zap.Int("files", len(files)), zap.Strings("roots", cfg.Source.Paths))
-	result, err := ing.Run(ctx, files)
+	options := indexing.RunOptions{}
+	if cfg.Source.Mode == config.SourceModeMirror {
+		options = indexing.RunOptions{MirrorSources: true, SourceRoots: cfg.Source.Paths}
+	}
+	result, err := ing.Run(ctx, files, options)
 	if err != nil {
 		return fmt.Errorf("ingest: %w", err)
 	}

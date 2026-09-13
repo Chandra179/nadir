@@ -83,6 +83,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		MaxTopK:              cfg.Search.MaxTopK,
 		SourcePaths:          cfg.Source.Paths,
 		SourceIgnorePatterns: cfg.Source.IgnorePatterns,
+		SourceMode:           cfg.Source.Mode,
 		MaxSourceFileBytes:   cfg.Ingest.MaxFileBytes,
 		MaxUploadBytes:       cfg.Ingest.MaxUploadBytes,
 		ReadinessTimeout:     cfg.HTTP.ReadinessTimeout,
@@ -200,28 +201,6 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
 	}
 
-	shutdownDone := make(chan struct{})
-	go func() {
-		defer close(shutdownDone)
-		<-ctx.Done()
-		log.Info("http server shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
-		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Error("http server shutdown error", zap.Error(err))
-		}
-		if err := chatService.Drain(shutdownCtx); err != nil {
-			log.Error("chat lifecycle drain failed", zap.Error(err))
-		}
-	}()
-
 	log.Info("http server starting", zap.String("addr", srv.Addr))
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Error("http server error", zap.Error(err))
-		return fmt.Errorf("http server: %w", err)
-	}
-	if ctx.Err() != nil {
-		<-shutdownDone
-	}
-	return nil
+	return runHTTPServer(ctx, srv, cfg.HTTP.ShutdownTimeout, srv.ListenAndServe, chatService.Drain, log)
 }

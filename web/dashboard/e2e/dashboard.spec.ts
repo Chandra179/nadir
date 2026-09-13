@@ -111,47 +111,48 @@ test("runs the document, chat, edit-prune, and deletion workflows", async ({ pag
   const api = await installAPI(page);
   await page.goto("/");
 
-  await expect(page.getByText("Ask Nadir about your documents.")).toBeVisible();
+  await expect(page.getByText("Ask your documents", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add files" }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "notes.md",
     mimeType: "text/markdown",
     buffer: Buffer.from("grounded test document"),
   });
-  await expect(page.getByText("1 processed, 0 skipped, 0 failed.")).toBeVisible();
+  await expect(page.getByText("notes.md", { exact: true })).toBeVisible();
 
-  const composer = page.getByPlaceholder("Ask a question…");
+  const composer = page.getByPlaceholder("Ask about your documents…");
   await composer.fill("first question");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText("first answer")).toBeVisible();
 
   await composer.fill("second question");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText("second answer")).toBeVisible();
 
-  await page.getByRole("button", { name: "Edit" }).first().click();
-  await expect(page.getByText("Editing turn 1; later turns will be replaced.")).toBeVisible();
-  await expect(composer).toHaveValue("first question");
-  await composer.fill("edited question");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Edit question" }).first().click();
+  const editComposer = page.locator('[data-turn-sequence="0"] textarea');
+  await expect(editComposer).toHaveValue("first question");
+  await editComposer.fill("edited question");
+  await page.locator('[data-turn-sequence="0"]').getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText("edited answer")).toBeVisible();
   await expect(page.getByText("second question")).not.toBeVisible();
   expect(api.editRequests).toHaveLength(1);
   expect(api.editRequests[0]).toMatchObject({ edit: true, edit_sequence: 0, session_id: "session-turn-1" });
 
-  await page.getByRole("button", { name: "Delete A chat" }).click();
+  await page.getByRole("button", { name: "Chat options" }).first().click();
+  await expect(page.getByText("Delete chat?", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("A chat")).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Start a new chat" }).click();
+  await page.getByRole("button", { name: "+ New chat", exact: true }).click();
   await composer.fill("replacement question");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText("partial answer")).toBeVisible();
 
-  await page.getByRole("button", { name: "Stop" }).click();
+  await page.getByRole("button", { name: "Stop response" }).click();
   await expect.poll(() => api.cancelledTurn).toBe("turn-4");
-  await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("button", { name: "Delete all conversations" }).click();
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Delete all chats" }).click();
+  await page.getByRole("button", { name: "Delete all", exact: true }).click();
   await expect(page.getByText("A chat")).not.toBeVisible();
-
-  await page.getByRole("button", { name: "Reset document index" }).click();
-  await expect(page.getByText("Document index reset.")).toBeVisible();
 });

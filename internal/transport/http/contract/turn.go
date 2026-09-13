@@ -78,6 +78,7 @@ func FromHistoryTurn(t history.Turn) TurnResponse {
 		AttachedFiles:  t.AttachedFiles,
 		SessionID:      t.SessionID,
 		Sequence:       t.Sequence,
+		TurnID:         t.ID,
 		TopK:           t.TopK,
 		Generate:       t.Generate,
 		Results:        toHistoryResultResponses(t.Results),

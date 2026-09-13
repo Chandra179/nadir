@@ -242,6 +242,27 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 	return nil
 }
 
+// DeleteDocument removes every stored version for one source identity. A
+// mirror sweep uses this operation only for paths that are inside its
+// configured roots and absent from a successful discovery pass.
+func (s *dependencies) DeleteDocument(ctx context.Context, filePath string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if strings.TrimSpace(filePath) == "" {
+		return fmt.Errorf("document file path is required")
+	}
+	wait := true
+	if _, err := s.points.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: s.activeAlias,
+		Wait:           &wait,
+		Points:         qdrant.NewPointsSelectorFilter(documentPathFilter(filePath)),
+	}); err != nil {
+		return fmt.Errorf("delete document %q: %w", filePath, err)
+	}
+	return nil
+}
+
 // DeleteAll provisions a fresh collection generation (dense + bm25 sparse
 // vectors, payload indexes) and publishes it through the stable active alias.
 // The previous generation is retired only after publication, so a failed
@@ -459,6 +480,10 @@ func staleDocumentFilter(filePath, sourceSHA string) *qdrant.Filter {
 		Must:    []*qdrant.Condition{matchKeywordCondition("file_path", filePath)},
 		MustNot: []*qdrant.Condition{matchKeywordCondition("source_sha", sourceSHA)},
 	}
+}
+
+func documentPathFilter(filePath string) *qdrant.Filter {
+	return &qdrant.Filter{Must: []*qdrant.Condition{matchKeywordCondition("file_path", filePath)}}
 }
 
 func matchKeywordCondition(key, value string) *qdrant.Condition {

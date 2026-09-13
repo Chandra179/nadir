@@ -25,10 +25,16 @@ Edit `config/config.yaml` → `source.paths` to point at your source documents:
 
 ```yaml
 source:
+  mode: "upload-only"     # upload-only | mirror
   paths:
     - "samples"           # ships with sample math docs
     - "~/my-documents"    # your own data
 ```
+
+`upload-only` keeps existing Documents when a source file disappears. Set
+`mode: mirror` when the configured directories are the complete corpus; a
+successful source sweep then removes indexed files missing from those
+directories. Multipart uploads never trigger mirror deletion.
 
 ### 2. Start everything
 
@@ -74,6 +80,10 @@ curl -X POST localhost:8100/api/v1/turns \
 The server reads Markdown and, when Docling is enabled, PDF source files from
 directories listed in `config.yaml` → `source.paths`. Each source path is
 walked recursively; files matching `source.ignore_patterns` are skipped.
+Source handling is controlled by `source.mode`: `upload-only` retains indexed
+files that are no longer present, while `mirror` removes missing files after a
+fully successful sweep. A failed conversion or embedding pass never triggers
+destructive reconciliation.
 
 A sample set is included at `samples/` (4 math files). To use your own data:
 
@@ -170,6 +180,7 @@ of every knob, open `config/config.yaml`.
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 | `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
 | `SOURCE_PATHS` | — | Comma-separated source paths; Compose normally sets this to `/app/source` |
+| `SOURCE_MODE` | `upload-only` | `upload-only` retains removed files; `mirror` reconciles configured source roots |
 | `SOURCE_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
 | `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
 | `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
@@ -273,8 +284,9 @@ go run ./cmd/evaluator --no-rerank --runs 3
 go run ./cmd/evaluator --ensure-ingest --report test/evaluation/reports/local.json
 ```
 
-The active golden set contains 109 annotated sample-derived queries with
-direct, comparison, multi-hop, and distractor cases. Historical reports still
+The active golden set contains 133 expert-authored synthetic user-intent
+queries with direct, comparison, multi-hop, and distractor cases. Its metadata
+records that it contains no production user data. Historical reports still
 contain the original 34-query measurements, so the fixture is a Retrieval
 regression tool rather than evidence that generated answers are faithful.
 Collect consent-safe production queries and add generation-quality evaluation

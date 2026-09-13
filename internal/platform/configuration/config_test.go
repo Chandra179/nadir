@@ -22,6 +22,9 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Qdrant.TopK <= 0 || cfg.Embedder.Model == "" {
 		t.Fatalf("shipped config must validate into a usable state, got %+v", cfg)
 	}
+	if cfg.Source.Mode != SourceModeUploadOnly {
+		t.Fatalf("shipped config source mode = %q, want %q", cfg.Source.Mode, SourceModeUploadOnly)
+	}
 	if cfg.Inference.Profile != "local" || cfg.Inference.Ollama.MaxConcurrent != 1 ||
 		cfg.Inference.Reranker.Device != "cpu" || cfg.Inference.Reranker.MaxConcurrent != 1 {
 		t.Fatalf("shipped config must use the conservative local inference profile, got %+v", cfg.Inference)
@@ -34,6 +37,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("SEMANTIC_CACHE_THRESHOLD", "0.95")
 	t.Setenv("REWRITE_ENABLED", "true")
 	t.Setenv("SOURCE_PATHS", "/app/source, /app/extra")
+	t.Setenv("SOURCE_MODE", "mirror")
 	t.Setenv("INFERENCE_OLLAMA_MAX_CONCURRENT", "2")
 	t.Setenv("INFERENCE_OLLAMA_KEEP_ALIVE", "90s")
 	t.Setenv("RERANKER_DEVICE", "cuda")
@@ -57,6 +61,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if len(cfg.Source.Paths) != 2 || cfg.Source.Paths[0] != "/app/source" || cfg.Source.Paths[1] != "/app/extra" {
 		t.Fatalf("Source.Paths = %#v, want two trimmed paths", cfg.Source.Paths)
+	}
+	if cfg.Source.Mode != SourceModeMirror {
+		t.Fatalf("Source.Mode = %q, want mirror", cfg.Source.Mode)
 	}
 	if cfg.Inference.Ollama.MaxConcurrent != 2 || cfg.Inference.Ollama.KeepAlive != 90*time.Second {
 		t.Fatalf("Ollama resource overrides = %+v, want max=2 and keep_alive=90s", cfg.Inference.Ollama)
@@ -125,6 +132,40 @@ func TestValidateRejectsImplicitLocalRerankerDevice(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "device must be explicit") {
 		t.Fatalf("Validate() error = %v, want explicit local device error", err)
+	}
+}
+
+func TestValidateRejectsInvalidSourceMode(t *testing.T) {
+	cfg := Config{Source: SourceConfig{Mode: "delete-everything"}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "source.mode") {
+		t.Fatalf("Validate() error = %v, want source mode validation error", err)
+	}
+}
+
+func TestValidateRequiresRootsForMirroredSources(t *testing.T) {
+	cfg := Config{Source: SourceConfig{Mode: SourceModeMirror}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "source.paths") {
+		t.Fatalf("Validate() error = %v, want mirrored source root validation error", err)
+	}
+}
+
+func TestProfilingIsDisabledByDefaultAndLoopbackOnlyWhenEnabled(t *testing.T) {
+	cfg := Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+		Embedder: EmbedderConfig{Provider: "ollama", OllamaAddr: "http://ollama:11434", Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Profiling.Enabled || cfg.Profiling.Addr != "127.0.0.1:6063" {
+		t.Fatalf("profiling defaults = %+v, want disabled loopback listener", cfg.Profiling)
+	}
+
+	cfg.Profiling.Enabled = true
+	cfg.Profiling.Addr = "0.0.0.0:6063"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "profiling.addr") {
+		t.Fatalf("Validate() error = %v, want public profiling address rejection", err)
 	}
 }
 

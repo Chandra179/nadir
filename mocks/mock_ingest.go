@@ -22,9 +22,9 @@ func (_m *MockIngest) EXPECT() *MockIngest_Expecter {
 	return &MockIngest_Expecter{mock: &_m.Mock}
 }
 
-// Run provides a mock function with given fields: ctx, files
-func (_m *MockIngest) Run(ctx context.Context, files []indexing.UploadFile) (indexing.Result, error) {
-	ret := _m.Called(ctx, files)
+// Run provides a mock function with given fields: ctx, files, options
+func (_m *MockIngest) Run(ctx context.Context, files []indexing.UploadFile, options indexing.RunOptions) (indexing.Result, error) {
+	ret := _m.Called(ctx, files, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Run")
@@ -32,17 +32,17 @@ func (_m *MockIngest) Run(ctx context.Context, files []indexing.UploadFile) (ind
 
 	var r0 indexing.Result
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []indexing.UploadFile) (indexing.Result, error)); ok {
-		return rf(ctx, files)
+	if rf, ok := ret.Get(0).(func(context.Context, []indexing.UploadFile, indexing.RunOptions) (indexing.Result, error)); ok {
+		return rf(ctx, files, options)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []indexing.UploadFile) indexing.Result); ok {
-		r0 = rf(ctx, files)
+	if rf, ok := ret.Get(0).(func(context.Context, []indexing.UploadFile, indexing.RunOptions) indexing.Result); ok {
+		r0 = rf(ctx, files, options)
 	} else {
 		r0 = ret.Get(0).(indexing.Result)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []indexing.UploadFile) error); ok {
-		r1 = rf(ctx, files)
+	if rf, ok := ret.Get(1).(func(context.Context, []indexing.UploadFile, indexing.RunOptions) error); ok {
+		r1 = rf(ctx, files, options)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -58,13 +58,14 @@ type MockIngest_Run_Call struct {
 // Run is a helper method to define mock.On call
 //   - ctx context.Context
 //   - files []indexing.UploadFile
-func (_e *MockIngest_Expecter) Run(ctx interface{}, files interface{}) *MockIngest_Run_Call {
-	return &MockIngest_Run_Call{Call: _e.mock.On("Run", ctx, files)}
+//   - options indexing.RunOptions
+func (_e *MockIngest_Expecter) Run(ctx interface{}, files interface{}, options interface{}) *MockIngest_Run_Call {
+	return &MockIngest_Run_Call{Call: _e.mock.On("Run", ctx, files, options)}
 }
 
-func (_c *MockIngest_Run_Call) Run(run func(ctx context.Context, files []indexing.UploadFile)) *MockIngest_Run_Call {
+func (_c *MockIngest_Run_Call) Run(run func(ctx context.Context, files []indexing.UploadFile, options indexing.RunOptions)) *MockIngest_Run_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]indexing.UploadFile))
+		run(args[0].(context.Context), args[1].([]indexing.UploadFile), args[2].(indexing.RunOptions))
 	})
 	return _c
 }
@@ -74,7 +75,7 @@ func (_c *MockIngest_Run_Call) Return(_a0 indexing.Result, _a1 error) *MockInges
 	return _c
 }
 
-func (_c *MockIngest_Run_Call) RunAndReturn(run func(context.Context, []indexing.UploadFile) (indexing.Result, error)) *MockIngest_Run_Call {
+func (_c *MockIngest_Run_Call) RunAndReturn(run func(context.Context, []indexing.UploadFile, indexing.RunOptions) (indexing.Result, error)) *MockIngest_Run_Call {
 	_c.Call.Return(run)
 	return _c
 }

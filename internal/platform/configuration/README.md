@@ -9,5 +9,9 @@ Ollama roles, gives queued model work a finite wait, and sends an explicit
 `keep_alive` value on every Ollama request. The nested reranker resource
 settings choose an explicit device/backend and cap sidecar concurrency.
 
+Profiling is disabled by default. When enabled, validation requires a
+loopback-only `profiling.addr`; remote diagnostics should use a protected
+local path such as an SSH tunnel.
+
 Change here for a config key, environment mapping, default, or validation
 rule. Verify with `go test ./internal/platform/configuration`.

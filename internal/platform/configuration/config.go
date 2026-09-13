@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 // environment overrides.
 type Config struct {
 	HTTP          HTTPConfig          `yaml:"http"`
+	Profiling     ProfilingConfig     `yaml:"profiling"`
 	Middleware    MiddlewareConfig    `yaml:"middleware"`
 	Source        SourceConfig        `yaml:"source"`
 	Ingest        IngestConfig        `yaml:"ingest"`
@@ -56,6 +58,14 @@ type HTTPConfig struct {
 	ReadinessTimeout time.Duration `yaml:"readiness_timeout"`
 }
 
+// ProfilingConfig controls the optional local pprof listener. Profiling is
+// disabled by default and, when enabled, must bind to loopback so diagnostic
+// endpoints are not exposed as part of the API surface.
+type ProfilingConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Addr    string `yaml:"addr"`
+}
+
 // MiddlewareConfig controls cross-cutting HTTP middleware.
 type MiddlewareConfig struct {
 	Timeout time.Duration `yaml:"timeout"`
@@ -71,7 +81,13 @@ type LoggerConfig struct {
 type SourceConfig struct {
 	Paths          []string `yaml:"paths"`
 	IgnorePatterns []string `yaml:"ignore_patterns"`
+	Mode           string   `yaml:"mode"` // upload-only | mirror
 }
+
+const (
+	SourceModeUploadOnly = "upload-only"
+	SourceModeMirror     = "mirror"
+)
 
 // DoclingConfig controls optional PDF document intake through the Docling
 // sidecar. The sidecar is not needed for Markdown-only deployments.
@@ -263,6 +279,10 @@ func Load(path string) (*Config, error) {
 // Env vars take precedence over config.yaml values.
 func (c *Config) applyEnv() error {
 	c.envStr(&c.Qdrant.Addr, "QDRANT_ADDR")
+	if err := c.envBool(&c.Profiling.Enabled, "PROFILING_ENABLED"); err != nil {
+		return err
+	}
+	c.envStr(&c.Profiling.Addr, "PROFILING_ADDR")
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
@@ -270,6 +290,7 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
 	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
+	c.envStr(&c.Source.Mode, "SOURCE_MODE")
 	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
 	if err := c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED"); err != nil {
 		return err
@@ -415,6 +436,12 @@ func (c *Config) envCSV(dst *[]string, env string) {
 // still retain defensive defaults for direct unit tests, but a loaded Config
 // always gets its runtime defaults here before validation and composition.
 func (c *Config) applyDefaults() {
+	if strings.TrimSpace(c.Profiling.Addr) == "" {
+		c.Profiling.Addr = "127.0.0.1:6063"
+	}
+	if strings.TrimSpace(c.Source.Mode) == "" {
+		c.Source.Mode = SourceModeUploadOnly
+	}
 	if c.HTTP.StartupTimeout <= 0 {
 		c.HTTP.StartupTimeout = 30 * time.Second
 	}
@@ -533,6 +560,18 @@ func (c *Config) applyDefaults() {
 
 func (c *Config) Validate() error {
 	c.applyDefaults()
+	if c.Profiling.Enabled && !isLoopbackAddr(c.Profiling.Addr) {
+		return fmt.Errorf("config: profiling.addr must bind to loopback when profiling.enabled is true")
+	}
+	switch c.Source.Mode {
+	case SourceModeUploadOnly:
+	case SourceModeMirror:
+		if len(c.Source.Paths) == 0 {
+			return fmt.Errorf("config: source.paths must not be empty when source.mode is mirror")
+		}
+	default:
+		return fmt.Errorf("config: source.mode must be upload-only or mirror")
+	}
 	if c.Embedder.Model == "" {
 		return fmt.Errorf("config: embedder.model must not be empty")
 	}
@@ -643,4 +682,16 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("config: docling.addr must not be empty when docling.enabled is true")
 	}
 	return nil
+}
+
+func isLoopbackAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(addr))
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

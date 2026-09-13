@@ -11,8 +11,9 @@ require focused regression tests and production evidence.
 ## Current evaluation baseline
 
 Historical reports use the original 34-query golden set over `samples/`, with
-`top_k=5`. The active fixture now contains 109 annotated sample-derived
-queries. Both remain regression fixtures, not evidence that generated answers
+`top_k=5`. The active fixture now contains 133 expert-authored synthetic
+user-intent queries over the sample corpus. Both remain regression fixtures,
+not evidence that generated answers
 are faithful or that the system is ready for production-scale quality
 decisions.
 
@@ -47,19 +48,32 @@ No open P0 items. Completed P0 work is preserved in
 - [x] Expand the committed fixture from 34 to 109 annotated queries with
       distractor pairs, multi-hop cases, expected answers, required claims,
       and generation-faithfulness labels.
+- [x] Add 24 additional expert-authored synthetic user-intent queries with
+      realistic paraphrases, cross-topic requests, and explicit provenance;
+      this fixture uses no production user data and is not a release gate.
 - [ ] Replace the sample-derived fixture with 100+ production-user queries;
       obtain consent-safe query samples, expert relevance judgments, and
       generation-faithfulness labels before using the set as a release gate.
-- [ ] Reconcile removed source files when configured source paths are intended
+      `cmd/evaluator --require-release-gate` now rejects synthetic or
+      unconsented fixtures; collecting the actual telemetry remains an
+      external product/privacy task.
+- [x] Reconcile removed source files when configured source paths are intended
       to mirror the corpus; retain source versions when ingest is upload-only.
-- [ ] Add integration restart/shutdown tests for the HTTP server and external
+      `source.mode: mirror` is explicit and skips destructive reconciliation
+      when any discovered file fails indexing.
+- [x] Add integration restart/shutdown tests for the HTTP server and external
       history store, proving active Chat generation and pending history
       persistence either drain within the shutdown budget or report a durable
-      retry state; unit drain coverage now exists.
-- [ ] Secure or disable the always-on profiling listener and document the
-      protected operational access path.
-- [ ] Add dependency-backed browser coverage for session replay/reconnect and
+      retry state; `go test -tags integration ./internal/platform/server`
+      exercises the Qdrant-backed restart path when `QDRANT_ADDR` is set.
+- [x] Secure or disable the always-on profiling listener and document the
+      protected operational access path. Profiling is disabled by default and
+      loopback-only when explicitly enabled.
+- [x] Add dependency-backed browser coverage for session replay/reconnect and
       full-service flows against Qdrant, Ollama, reranking, and Docling.
+      `E2E_LIVE=1 npm run e2e:live` runs the Qdrant/Ollama flow and
+      `E2E_LIVE=1 E2E_PDF=1 npm run e2e:live` adds Docling PDF intake; the
+      suite is intentionally opt-in because it mutates a configured corpus.
 
 ### P2 — Production measurements and maintainability
 

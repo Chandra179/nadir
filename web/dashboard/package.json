@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run --configLoader runner",
     "e2e": "playwright test",
+    "e2e:live": "playwright test e2e/live.spec.ts",
     "preview": "vite preview"
   },
   "dependencies": {

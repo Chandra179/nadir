@@ -2,6 +2,8 @@ package indexing
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -44,6 +46,9 @@ type fakeStore struct {
 	replacedPath string
 	replacedSHA  string
 	replaced     []IndexedChunk
+	stored       map[string]string
+	deleted      []string
+	deleteErr    error
 }
 
 func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA string, chunks []IndexedChunk) error {
@@ -53,7 +58,18 @@ func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA strin
 	return nil
 }
 func (f *fakeStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
-	return map[string]string{}, nil
+	shas := make(map[string]string, len(f.stored))
+	for path, sha := range f.stored {
+		shas[path] = sha
+	}
+	return shas, nil
+}
+func (f *fakeStore) DeleteDocument(_ context.Context, filePath string) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	f.deleted = append(f.deleted, filePath)
+	return nil
 }
 
 var _ embedding.Embedder = fakeEmbedder{}
@@ -89,7 +105,7 @@ func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 		Log:               zap.NewNop(),
 	})
 
-	result, err := d.Run(context.Background(), []UploadFile{{Name: "report.pdf", Data: []byte("pdf bytes")}})
+	result, err := d.Run(context.Background(), []UploadFile{{Name: "report.pdf", Data: []byte("pdf bytes")}}, RunOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,6 +117,90 @@ func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 	}
 	if storeFake.replacedPath != "report.pdf" || storeFake.replacedSHA == "" || len(storeFake.replaced) != 1 || storeFake.replaced[0].FilePath != "report.pdf" {
 		t.Fatalf("source identity was not preserved: path=%q sha=%q chunks=%+v", storeFake.replacedPath, storeFake.replacedSHA, storeFake.replaced)
+	}
+}
+
+func TestRunMirrorsConfiguredSourcesAndKeepsOutsideDocuments(t *testing.T) {
+	root := t.TempDir()
+	keep := filepath.Join(root, "keep.md")
+	newFile := filepath.Join(root, "new.md")
+	outside := filepath.Join(t.TempDir(), "uploaded.md")
+	storeFake := &fakeStore{stored: map[string]string{
+		keep:                              contentSHA([]byte("keep")),
+		filepath.Join(root, "removed.md"): "old-sha",
+		outside:                           "upload-sha",
+	}}
+	d := NewDependencies(DependenciesConfig{
+		Chunker:  &fakeChunker{},
+		Embedder: fakeEmbedder{},
+		Store:    storeFake,
+		Workers:  1,
+		Log:      zap.NewNop(),
+	})
+
+	result, err := d.Run(context.Background(), []UploadFile{
+		{Name: keep, Data: []byte("keep")},
+		{Name: newFile, Data: []byte("new")},
+	}, RunOptions{MirrorSources: true, SourceRoots: []string{root}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Processed != 1 || result.Skipped != 1 || result.Removed != 1 || result.Failed != 0 {
+		t.Fatalf("mirror result = %+v, want one processed, one skipped, and one removed", result)
+	}
+	if len(storeFake.deleted) != 1 || storeFake.deleted[0] != filepath.Join(root, "removed.md") {
+		t.Fatalf("deleted paths = %v, want only the missing path inside the source root", storeFake.deleted)
+	}
+}
+
+func TestRunMirroringEmptySourceRemovesAllDocumentsInRoot(t *testing.T) {
+	root := t.TempDir()
+	removed := filepath.Join(root, "removed.md")
+	storeFake := &fakeStore{stored: map[string]string{removed: "old-sha"}}
+	d := NewDependencies(DependenciesConfig{
+		Chunker:  &fakeChunker{},
+		Embedder: fakeEmbedder{},
+		Store:    storeFake,
+		Log:      zap.NewNop(),
+	})
+
+	result, err := d.Run(context.Background(), nil, RunOptions{MirrorSources: true, SourceRoots: []string{root}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Removed != 1 || len(storeFake.deleted) != 1 || storeFake.deleted[0] != removed {
+		t.Fatalf("empty mirror result = %+v deleted=%v, want the root document removed", result, storeFake.deleted)
+	}
+}
+
+type failingEmbedder struct{}
+
+func (failingEmbedder) Embed(context.Context, string) ([]float32, error) {
+	return nil, errors.New("embedder unavailable")
+}
+func (failingEmbedder) Dimensions() int { return 2 }
+
+func TestRunSkipsSourceReconciliationWhenIndexingFails(t *testing.T) {
+	root := t.TempDir()
+	storeFake := &fakeStore{stored: map[string]string{filepath.Join(root, "removed.md"): "old-sha"}}
+	d := NewDependencies(DependenciesConfig{
+		Chunker:  &fakeChunker{},
+		Embedder: failingEmbedder{},
+		Store:    storeFake,
+		Workers:  1,
+		Retry:    RetryConfig{MaxAttempts: 0},
+		Log:      zap.NewNop(),
+	})
+
+	result, err := d.Run(context.Background(), []UploadFile{{Name: filepath.Join(root, "new.md"), Data: []byte("new")}}, RunOptions{
+		MirrorSources: true,
+		SourceRoots:   []string{root},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Failed != 1 || result.Removed != 0 || len(storeFake.deleted) != 0 {
+		t.Fatalf("failed mirror result = %+v deleted=%v, want no destructive reconciliation", result, storeFake.deleted)
 	}
 }
 
@@ -180,6 +280,7 @@ func (s *serialStore) GetAllFileSHAs(context.Context) (map[string]string, error)
 	}
 	return map[string]string{}, nil
 }
+func (s *serialStore) DeleteDocument(context.Context, string) error { return nil }
 
 var _ documentIndexer = (*serialStore)(nil)
 
@@ -199,7 +300,7 @@ func TestRunSerializesOverlappingIndexingPasses(t *testing.T) {
 
 	firstDone := make(chan struct{})
 	go func() {
-		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("first")}})
+		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("first")}}, RunOptions{})
 		close(firstDone)
 	}()
 	select {
@@ -210,7 +311,7 @@ func TestRunSerializesOverlappingIndexingPasses(t *testing.T) {
 
 	secondDone := make(chan struct{})
 	go func() {
-		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("second")}})
+		_, _ = d.Run(context.Background(), []UploadFile{{Name: "same.md", Data: []byte("second")}}, RunOptions{})
 		close(secondDone)
 	}()
 	select {

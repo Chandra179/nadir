@@ -10,12 +10,14 @@ import (
 	"go.uber.org/zap"
 
 	"nadir/internal/knowledge/indexing"
+	config "nadir/internal/platform/configuration"
 )
 
 type ingestResponse struct {
 	Processed int      `json:"processed"`
 	Skipped   int      `json:"skipped"`
 	Failed    int      `json:"failed"`
+	Removed   int      `json:"removed"`
 	Names     []string `json:"names,omitempty"`
 	Error     string   `json:"error,omitempty"`
 }
@@ -66,6 +68,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 			}
 		}
 	}
+	fromConfiguredSources := len(files) == 0
 	if len(files) == 0 {
 		if len(d.sourcePaths) == 0 {
 			d.respondIngestError(c, http.StatusBadRequest, "no files provided")
@@ -77,7 +80,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 			d.respondIngestError(c, http.StatusBadRequest, err.Error())
 			return
 		}
-		if len(files) == 0 {
+		if len(files) == 0 && d.sourceMode != config.SourceModeMirror {
 			d.respondIngestError(c, http.StatusBadRequest, "no supported documents found in configured sources")
 			return
 		}
@@ -87,7 +90,11 @@ func (d *dependencies) Ingest(c *gin.Context) {
 		}
 	}
 
-	result, err := d.ingest.Run(ctx, files)
+	options := indexing.RunOptions{}
+	if fromConfiguredSources && d.sourceMode == config.SourceModeMirror {
+		options = indexing.RunOptions{MirrorSources: true, SourceRoots: d.sourcePaths}
+	}
+	result, err := d.ingest.Run(ctx, files, options)
 	if err != nil {
 		d.log.Error("ingest run failed", zap.Int("files", len(files)), zap.Error(err))
 		d.respondIngestError(c, http.StatusInternalServerError, err.Error())
@@ -98,6 +105,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 		Processed: result.Processed,
 		Skipped:   result.Skipped,
 		Failed:    result.Failed,
+		Removed:   result.Removed,
 		Names:     names,
 	})
 }

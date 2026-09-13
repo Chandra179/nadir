@@ -11,6 +11,7 @@ assembles the HTTP process around it.
 | Shared Qdrant/embed/index/search graph | `runtime/` | `adapters/`, bounded contexts |
 | Local model admission and resource profile | `inference/` | `runtime/`, Ollama and reranker Adapters |
 | HTTP startup, shutdown, and dependency injection | `server/` | `runtime/`, chat, history, transport |
+| Optional loopback-only pprof diagnostics | `profiling/` | `configuration/` |
 | Request IDs, timeout, recovery, request logs | `httpmiddleware/` | `transport/http/` |
 | Logger construction or stage labels | `logging/`, `observability/` | affected operation |
 

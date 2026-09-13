@@ -195,8 +195,10 @@ stale plans.
 The current source model also reads local paths. Multiple instances need the
 same source bytes and stable source identities; host-specific paths or
 different bind mounts can otherwise create duplicate Documents or inconsistent
-SHA observations. Removed source files are not reconciled by a normal ingest
-sweep today, so a shared manifest must define deletion semantics as well.
+SHA observations. Source deletion is now an explicit single-node policy:
+`source.mode: upload-only` retains removed files, while `source.mode: mirror`
+deletes missing files only after a successful sweep. Distributed indexing still
+needs a shared manifest to make deletion ownership and ordering authoritative.
 
 ## Important single-node consistency gaps
 
@@ -244,6 +246,15 @@ and checks the enabled reranker sidecar's loaded model and runtime. It returns
 HTTP 503 with per-dependency diagnostics until all required checks pass. A
 deployment should route traffic only to ready instances and use liveness for
 restart decisions.
+
+### Profiling access
+
+The shipped API does not start a profiling listener. `profiling.enabled` is
+false by default; if an operator enables it, configuration validation permits
+only a loopback address. Remote operators should use a protected local access
+path such as `ssh -L 6063:127.0.0.1:6063 host` and inspect
+`http://127.0.0.1:6063/debug/pprof/`. Profiling is never bound to a public
+interface and is stopped with the API process.
 
 ### Global resource admission
 
