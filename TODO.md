@@ -10,9 +10,11 @@ require focused regression tests and production evidence.
 
 ## Current evaluation baseline
 
-The current results use a 34-query golden set over `samples/`, with `top_k=5`.
-This is a regression fixture, not evidence that generated answers are faithful
-or that the system is ready for production-scale quality decisions.
+Historical reports use the original 34-query golden set over `samples/`, with
+`top_k=5`. The active fixture now contains 109 annotated sample-derived
+queries. Both remain regression fixtures, not evidence that generated answers
+are faithful or that the system is ready for production-scale quality
+decisions.
 
 | Stage | HitRate@5 | MRR@10 | nDCG@5 | p50 latency |
 |---|---:|---:|---:|---:|
@@ -42,8 +44,12 @@ No open P0 items. Completed P0 work is preserved in
 
 ### P1 — Lifecycle and user-visible confidence
 
-- [ ] Grow the golden set from 34 sample queries to 100+ real queries with
-      distractor pairs, multi-hop cases, and generation-faithfulness labels.
+- [x] Expand the committed fixture from 34 to 109 annotated queries with
+      distractor pairs, multi-hop cases, expected answers, required claims,
+      and generation-faithfulness labels.
+- [ ] Replace the sample-derived fixture with 100+ production-user queries;
+      obtain consent-safe query samples, expert relevance judgments, and
+      generation-faithfulness labels before using the set as a release gate.
 - [ ] Reconcile removed source files when configured source paths are intended
       to mirror the corpus; retain source versions when ingest is upload-only.
 - [ ] Add integration restart/shutdown tests for the HTTP server and external
@@ -62,7 +68,7 @@ No open P0 items. Completed P0 work is preserved in
 - [ ] Finish the reranker benchmark on representative hardware. Compare the
       current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
       MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
-      VRAM, startup time, and throughput; the 34-query toy set is not
+      VRAM, startup time, and throughput; the sample-derived set is not
       sufficient for a production default.
 - [ ] Benchmark EmbeddingGemma 300M quantized against the current Nomic
       embedder on the same corpus and golden set. Treat prompt-format changes,

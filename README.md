@@ -273,10 +273,12 @@ go run ./cmd/evaluator --no-rerank --runs 3
 go run ./cmd/evaluator --ensure-ingest --report test/evaluation/reports/local.json
 ```
 
-The default golden set is intentionally small and is a Retrieval regression
-fixture, not evidence that generated answers are faithful. Expand it with
-real Documents and add generation-quality evaluation before treating a score
-as a production release gate.
+The active golden set contains 109 annotated sample-derived queries with
+direct, comparison, multi-hop, and distractor cases. Historical reports still
+contain the original 34-query measurements, so the fixture is a Retrieval
+regression tool rather than evidence that generated answers are faithful.
+Collect consent-safe production queries and add generation-quality evaluation
+before treating a score as a production release gate.
 
 ## PDF ingestion
 

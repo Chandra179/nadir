@@ -33,3 +33,4 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0025](0025-context-owned-value-contracts.md) | Keep value contracts with their owning context; keep dependency seams private | Accepted |
 | [0026](0026-shared-runtime-composition.md) | Share executable infrastructure composition through one platform Runtime | Accepted |
 | [0027](0027-local-inference-resource-profile.md) | Explicit local Ollama/reranker admission, residency, and device policy | Accepted |
+| [0028](0028-annotated-retrieval-golden-set.md) | Version the Retrieval fixture with query types, evidence distractors, and generation-faithfulness annotations | Accepted |

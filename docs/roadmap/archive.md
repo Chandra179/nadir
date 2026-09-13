@@ -21,6 +21,10 @@ The reports are retained under `test/evaluation/reports/`. The small golden set
 and reranker latency are still active constraints; follow-up work remains in
 `TODO.md`.
 
+The fixture was later expanded to 109 schema-versioned, sample-derived cases
+with query types, expected answers, required claims, distractors, and
+faithfulness labels. Production-query collection remains an active P1 task.
+
 The repeatable evaluator loads the golden set, bypasses semantic cache for
 comparability, supports reranker control, repeats latency samples, and writes
 JSON reports.

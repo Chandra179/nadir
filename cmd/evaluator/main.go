@@ -148,6 +148,7 @@ func printReport(report *evaluation.Report) {
 	fmt.Printf("Recall@%d       %.3f\n", aggregate.TopK, aggregate.RecallAtK)
 	fmt.Printf("MRR@10         %.3f\n", aggregate.MRRAt10)
 	fmt.Printf("nDCG@%d         %.3f\n", aggregate.TopK, aggregate.NDCGAtK)
+	fmt.Printf("distractor@%d  %.3f\n", aggregate.TopK, aggregate.DistractorHitRateAtK)
 	fmt.Printf("latency p50/p95  %.1fms / %.1fms\n", aggregate.P50LatMS, aggregate.P95LatMS)
 	fmt.Printf("queries=%d reranker=%v top_k=%d\n", aggregate.Queries, report.Rerank, aggregate.TopK)
 }

@@ -39,10 +39,12 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 	}
 	for _, goldenQuery := range golden.Queries {
 		result := QueryResult{
-			ID:          goldenQuery.ID,
-			Query:       goldenQuery.Query,
-			NumRelevant: len(goldenQuery.Relevant),
-			Latencies:   make([]float64, 0, runs),
+			ID:                goldenQuery.ID,
+			Query:             goldenQuery.Query,
+			Type:              goldenQuery.Type,
+			FaithfulnessLabel: goldenQuery.FaithfulnessLabel,
+			NumRelevant:       len(goldenQuery.Relevant),
+			Latencies:         make([]float64, 0, runs),
 		}
 		var chunks []search.Chunk
 		for run := 0; run < runs; run++ {
@@ -60,7 +62,7 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 			chunks = searchResult.Chunks
 		}
 		result.LatencyMS = Percentile(result.Latencies, 50)
-		result.Hits, result.FirstHitRank, result.RelevantFound = scoreResults(chunks, goldenQuery.Relevant)
+		result.Hits, result.FirstHitRank, result.RelevantFound, result.DistractorHits = scoreResults(chunks, goldenQuery.Relevant, goldenQuery.Distractors)
 		report.PerQuery = append(report.PerQuery, result)
 		h.log.Debug("evaluation query completed",
 			zap.String("id", goldenQuery.ID),
@@ -72,21 +74,25 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 	return report, nil
 }
 
-func scoreResults(chunks []search.Chunk, relevant []RelevantChunk) ([]bool, int, int) {
+func scoreResults(chunks []search.Chunk, relevant, distractors []RelevantChunk) ([]bool, int, int, int) {
 	hits := make([]bool, len(chunks))
 	found := make(map[int]struct{}, len(relevant))
 	firstRank := 0
+	distractorHits := 0
 	for position, chunk := range chunks {
 		matched := MatchedRelevant(chunk, relevant)
 		for _, index := range matched {
 			found[index] = struct{}{}
 		}
 		hits[position] = len(matched) > 0
+		if len(matched) == 0 && len(MatchedDistractors(chunk, distractors)) > 0 {
+			distractorHits++
+		}
 		if firstRank == 0 && hits[position] {
 			firstRank = position + 1
 		}
 	}
-	return hits, firstRank, len(found)
+	return hits, firstRank, len(found), distractorHits
 }
 
 func aggregate(results []QueryResult, topK int) Aggregate {
@@ -96,12 +102,16 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 	total := make([]int, 0, len(results))
 	hitLists := make([][]bool, 0, len(results))
 	latencies := make([]float64, 0, len(results))
+	distractorQueries := 0
 	for _, result := range results {
 		firstRanks = append(firstRanks, result.FirstHitRank)
 		found = append(found, result.RelevantFound)
 		total = append(total, result.NumRelevant)
 		hitLists = append(hitLists, result.Hits)
 		latencies = append(latencies, result.LatencyMS)
+		if result.DistractorHits > 0 {
+			distractorQueries++
+		}
 	}
 	aggregate.HitRateAtK = HitRate(firstRanks)
 	aggregate.RecallAtK = Recall(found, total)
@@ -109,6 +119,9 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 	aggregate.NDCGAtK = MeanNDCG(hitLists, total, topK)
 	aggregate.P50LatMS = Percentile(latencies, 50)
 	aggregate.P95LatMS = Percentile(latencies, 95)
+	if len(results) > 0 {
+		aggregate.DistractorHitRateAtK = float64(distractorQueries) / float64(len(results))
+	}
 	return aggregate
 }
 

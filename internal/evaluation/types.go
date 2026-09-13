@@ -19,16 +19,47 @@ type RelevantChunk struct {
 	Contains string `json:"contains"`
 }
 
-// GoldenQuery defines one evaluation query and its relevant source matches.
+// QueryType describes the evidence shape of a golden query.
+type QueryType string
+
+const (
+	QueryTypeFactoid    QueryType = "factoid"
+	QueryTypeFormula    QueryType = "formula"
+	QueryTypeProcedure  QueryType = "procedure"
+	QueryTypeComparison QueryType = "comparison"
+	QueryTypeMultiHop   QueryType = "multi_hop"
+)
+
+// FaithfulnessLabel records the expected support relationship between an
+// answer and the indexed evidence. It is an annotation for the generation
+// evaluator; retrieval scoring still uses Relevant and Distractors.
+type FaithfulnessLabel string
+
+const (
+	FaithfulnessFullySupported FaithfulnessLabel = "fully_supported"
+	FaithfulnessPartially      FaithfulnessLabel = "partially_supported"
+	FaithfulnessUnsupported    FaithfulnessLabel = "unsupported"
+)
+
+// GoldenQuery defines one evaluation query, its evidence, and its answer
+// annotation. ExpectedAnswer and RequiredClaims make the set useful for a
+// later generation-faithfulness evaluator without coupling this package to a
+// judge model.
 type GoldenQuery struct {
-	ID       string          `json:"id"`
-	Query    string          `json:"query"`
-	Relevant []RelevantChunk `json:"relevant"`
+	ID                string            `json:"id"`
+	Query             string            `json:"query"`
+	Type              QueryType         `json:"type"`
+	FaithfulnessLabel FaithfulnessLabel `json:"faithfulness_label"`
+	ExpectedAnswer    string            `json:"expected_answer"`
+	RequiredClaims    []string          `json:"required_claims"`
+	Relevant          []RelevantChunk   `json:"relevant"`
+	Distractors       []RelevantChunk   `json:"distractors,omitempty"`
 }
 
 // GoldenSet is the complete collection of evaluation queries.
 type GoldenSet struct {
-	Queries []GoldenQuery `json:"queries"`
+	SchemaVersion int           `json:"schema_version"`
+	Queries       []GoldenQuery `json:"queries"`
 }
 
 // LoadGoldenSet reads and validates a golden query set from JSON.
@@ -44,6 +75,9 @@ func LoadGoldenSet(path string) (*GoldenSet, error) {
 	if len(gs.Queries) == 0 {
 		return nil, fmt.Errorf("golden set %s has no queries", path)
 	}
+	if gs.SchemaVersion > 2 {
+		return nil, fmt.Errorf("golden set %s uses unsupported schema version %d", path, gs.SchemaVersion)
+	}
 	seenIDs := make(map[string]struct{}, len(gs.Queries))
 	for i, q := range gs.Queries {
 		if strings.TrimSpace(q.ID) == "" {
@@ -56,21 +90,77 @@ func LoadGoldenSet(path string) (*GoldenSet, error) {
 		if strings.TrimSpace(q.Query) == "" || len(q.Relevant) == 0 {
 			return nil, fmt.Errorf("golden set query #%d (%q) needs a query and at least one relevant entry", i+1, q.ID)
 		}
+		if gs.SchemaVersion >= 2 {
+			if !validQueryType(q.Type) {
+				return nil, fmt.Errorf("golden set query %q has invalid type %q", q.ID, q.Type)
+			}
+			if !validFaithfulnessLabel(q.FaithfulnessLabel) {
+				return nil, fmt.Errorf("golden set query %q has invalid faithfulness label %q", q.ID, q.FaithfulnessLabel)
+			}
+			if strings.TrimSpace(q.ExpectedAnswer) == "" || len(q.RequiredClaims) == 0 {
+				return nil, fmt.Errorf("golden set query %q needs an expected answer and at least one required claim", q.ID)
+			}
+			for claimIndex, claim := range q.RequiredClaims {
+				if strings.TrimSpace(claim) == "" {
+					return nil, fmt.Errorf("golden set query %q required claim #%d is empty", q.ID, claimIndex+1)
+				}
+			}
+		}
 		for j, relevant := range q.Relevant {
-			if strings.TrimSpace(relevant.File) == "" && strings.TrimSpace(relevant.Contains) == "" {
-				return nil, fmt.Errorf("golden set query %q relevant entry #%d needs file or contains", q.ID, j+1)
+			if err := validateMatch(q.ID, "relevant", j, relevant); err != nil {
+				return nil, err
+			}
+		}
+		for j, distractor := range q.Distractors {
+			if err := validateMatch(q.ID, "distractor", j, distractor); err != nil {
+				return nil, err
 			}
 		}
 	}
 	return &gs, nil
 }
 
+func validateMatch(queryID, kind string, index int, match RelevantChunk) error {
+	if strings.TrimSpace(match.File) == "" && strings.TrimSpace(match.Contains) == "" {
+		return fmt.Errorf("golden set query %q %s entry #%d needs file or contains", queryID, kind, index+1)
+	}
+	return nil
+}
+
+func validQueryType(value QueryType) bool {
+	switch value {
+	case QueryTypeFactoid, QueryTypeFormula, QueryTypeProcedure, QueryTypeComparison, QueryTypeMultiHop:
+		return true
+	default:
+		return false
+	}
+}
+
+func validFaithfulnessLabel(value FaithfulnessLabel) bool {
+	switch value {
+	case FaithfulnessFullySupported, FaithfulnessPartially, FaithfulnessUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // MatchedRelevant returns the indices of golden entries matched by chunk.
 func MatchedRelevant(chunk search.Chunk, relevant []RelevantChunk) []int {
+	return matchedEntries(chunk, relevant)
+}
+
+// MatchedDistractors returns the indices of distractor annotations matched by
+// a chunk. It uses the same host/container path matching rules as relevance.
+func MatchedDistractors(chunk search.Chunk, distractors []RelevantChunk) []int {
+	return matchedEntries(chunk, distractors)
+}
+
+func matchedEntries(chunk search.Chunk, entries []RelevantChunk) []int {
 	haystack := strings.ToLower(chunk.Text + "\n" + chunk.WindowText)
 	filePath := strings.ToLower(chunk.FilePath)
-	matched := make([]int, 0, len(relevant))
-	for i, want := range relevant {
+	matched := make([]int, 0, len(entries))
+	for i, want := range entries {
 		if want.File != "" && !matchesFile(filePath, want.File) {
 			continue
 		}
@@ -90,14 +180,17 @@ func matchesFile(actual, expected string) bool {
 
 // QueryResult records retrieval quality and latency for one golden query.
 type QueryResult struct {
-	ID            string    `json:"id"`
-	Query         string    `json:"query"`
-	NumRelevant   int       `json:"num_relevant"`
-	Hits          []bool    `json:"hits"`
-	FirstHitRank  int       `json:"first_hit_rank"`
-	RelevantFound int       `json:"relevant_found"`
-	LatencyMS     float64   `json:"latency_ms"`
-	Latencies     []float64 `json:"latencies"`
+	ID                string            `json:"id"`
+	Query             string            `json:"query"`
+	Type              QueryType         `json:"type,omitempty"`
+	FaithfulnessLabel FaithfulnessLabel `json:"faithfulness_label,omitempty"`
+	NumRelevant       int               `json:"num_relevant"`
+	Hits              []bool            `json:"hits"`
+	FirstHitRank      int               `json:"first_hit_rank"`
+	RelevantFound     int               `json:"relevant_found"`
+	DistractorHits    int               `json:"distractor_hits,omitempty"`
+	LatencyMS         float64           `json:"latency_ms"`
+	Latencies         []float64         `json:"latencies"`
 }
 
 // Aggregate contains quality and latency metrics across a golden set.
@@ -108,8 +201,11 @@ type Aggregate struct {
 	RecallAtK  float64 `json:"recall_at_k"`
 	MRRAt10    float64 `json:"mrr_at_10"`
 	NDCGAtK    float64 `json:"ndcg_at_k"`
-	P50LatMS   float64 `json:"p50_latency_ms"`
-	P95LatMS   float64 `json:"p95_latency_ms"`
+	// DistractorHitRateAtK is the fraction of queries with at least one
+	// annotated distractor in the top-k results.
+	DistractorHitRateAtK float64 `json:"distractor_hit_rate_at_k,omitempty"`
+	P50LatMS             float64 `json:"p50_latency_ms"`
+	P95LatMS             float64 `json:"p95_latency_ms"`
 }
 
 // Report is the persisted evaluation result for one evaluator run.
