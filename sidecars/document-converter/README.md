@@ -82,3 +82,28 @@ With Docker Compose, start this optional process with:
 docker compose -f deploy/compose/docker-compose.yml \
   --profile pdf up -d --build docling
 ```
+
+## Benchmarking
+
+Use the standard-library benchmark from the repository root with a
+representative, consent-safe PDF corpus. It checks sidecar health, performs a
+warmup, measures each conversion, records failures and request timeouts, and
+reports p50/p95 latency. Add `--pid` for a host process or `--container` for a
+Docker container to sample resident memory during each request:
+
+```bash
+python scripts/benchmark_docling.py \
+  --input-dir ./pdfs/benchmark \
+  --endpoint http://127.0.0.1:5003/convert \
+  --pid <docling-pid> \
+  --runs 3 \
+  --json-out test/evaluation/reports/docling-benchmark.json
+```
+
+For Compose, obtain the container ID with
+`docker compose -f deploy/compose/docker-compose.yml ps -q docling` and pass
+it to `--container`. The benchmark stores document paths and measurements, not
+PDF contents. Do not use private or identifiable documents without the
+appropriate consent and redaction process. Memory is sampled periodically, so
+very short-lived peaks may not be observed; use container-level limits and
+multiple representative runs when setting an operational budget.

@@ -79,6 +79,10 @@ No open P0 items. Completed P0 work is preserved in
 
 - [ ] Measure PDF document-intake latency, memory, timeout, and failure
       behavior against real documents in a production-like environment.
+      `scripts/benchmark_docling.py` now provides a repeatable health-checked
+      benchmark with p50/p95 latency, per-document failures/timeouts, and
+      optional PID/Docker RSS sampling; the live run remains pending a
+      representative consent-safe PDF corpus and running Docling service.
 - [ ] Finish the reranker benchmark on representative hardware. Compare the
       current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
       MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
