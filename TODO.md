@@ -77,17 +77,29 @@ No open P0 items. Completed P0 work is preserved in
 
 ### P2 — Production measurements and maintainability
 
-- [ ] Measure PDF document-intake latency, memory, timeout, and failure
-      behavior against real documents in a production-like environment.
-      `scripts/benchmark_docling.py` now provides a repeatable health-checked
-      benchmark with p50/p95 latency, per-document failures/timeouts, and
-      optional PID/Docker RSS sampling; the live run remains pending a
-      representative consent-safe PDF corpus and running Docling service.
+- [x] Add a repeatable Docling benchmark harness with health checks,
+      per-document failures/timeouts, p50/p95 latency, and optional PID/Docker
+      RSS sampling. Implemented by `scripts/benchmark_docling.py`.
+- [x] Run the Docling benchmark against a consent-safe baseline PDF corpus in
+      a production-like local process and record latency, memory, timeout, and
+      failure evidence in
+      [`test/evaluation/reports/docling-system-corpus-20260913.json`](test/evaluation/reports/docling-system-corpus-20260913.json).
+      The six-document corpus was measured with three runs per document, a
+      120-second request timeout, and RSS sampling: 18/18 successes, 0
+      failures, 0 timeouts, p50 2.616s, p95 25.939s, and peak RSS 3,522,351,104
+      bytes (~3.28 GiB). The run used the installed repository `venv` because
+      the Docker build could not resolve PyPI; it is therefore a local process
+      baseline, not a container/cgroup capacity result.
 - [ ] Finish the reranker benchmark on representative hardware. Compare the
       current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
       MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
       VRAM, startup time, and throughput; the sample-derived set is not
-      sufficient for a production default.
+      sufficient for a production default. `scripts/benchmark_reranker.py`
+      now provides a health-checked direct benchmark with graded ranking
+      metrics, p50/p95 latency, sequential throughput, failures/timeouts, and
+      optional PID/Docker RSS plus process-specific `nvidia-smi` VRAM sampling;
+      the profile comparison remains pending a consent-safe judged corpus and
+      representative hardware runs.
 - [ ] Benchmark EmbeddingGemma 300M quantized against the current Nomic
       embedder on the same corpus and golden set. Treat prompt-format changes,
       vector dimensions, index size, RAM/VRAM, and a full reindex as part of

@@ -105,5 +105,65 @@ Check readiness with:
 curl http://localhost:5002/health
 ```
 
+## Benchmarking model and backend profiles
+
+`scripts/benchmark_reranker.py` measures the running sidecar with a
+consent-safe JSON corpus. Each query supplies candidate passages and an expert
+relevance grade (`0` means non-relevant; positive grades are relevant). The
+report contains HitRate@k, Recall@k, MRR@10, graded nDCG@k, p50/p95 latency,
+sequential throughput, per-request failures/timeouts, and optional RSS/VRAM
+samples. The health response records the exact loaded model, backend, and
+device so reports from different profiles are comparable.
+
+Example dataset:
+
+```json
+{
+  "schema_version": 1,
+  "metadata": {"provenance": "consent-safe expert judgments"},
+  "queries": [
+    {
+      "id": "q-001",
+      "query": "what is the secant formula?",
+      "candidates": [
+        {"text": "The secant formula is ...", "relevance": 2},
+        {"text": "An unrelated passage ...", "relevance": 0}
+      ]
+    }
+  ]
+}
+```
+
+Run one profile from the repository root:
+
+```bash
+python scripts/benchmark_reranker.py \
+  --dataset ./reranker-benchmark.json \
+  --endpoint http://127.0.0.1:5002/rerank \
+  --pid <sidecar-pid> \
+  --runs 3 \
+  --json-out test/evaluation/reports/reranker-bge-cpu.json
+```
+
+For Compose, replace `--pid` with `--container "$(docker compose -f
+deploy/compose/docker-compose.yml ps -q reranker)"`. For a CUDA process, add
+`--gpu-pid` to sample process VRAM through `nvidia-smi`. Repeat the command
+after changing `RERANKER_MODEL`, `RERANKER_BACKEND`, or
+`RERANKER_DEVICE`; do not compare reports unless their corpus, candidate
+lists, runs, and hardware are the same. The health probe measures readiness,
+not process startup; measure container startup separately when completing the
+production comparison.
+
+The direct benchmark isolates reranker behavior. Run the full evaluator as
+well to measure end-to-end Retrieval quality and dependency latency:
+
+```bash
+go run ./cmd/evaluator --runs 3
+go run ./cmd/evaluator --no-rerank --runs 3
+```
+
+The benchmark harness and unit tests use only the Python standard library;
+they do not download models or create synthetic production evidence.
+
 The repository launcher `./scripts/local.sh` starts this sidecar from the
 project virtual environment and starts Qdrant and the Go API separately.
