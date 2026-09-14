@@ -285,7 +285,13 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Profiling.Addr, "PROFILING_ADDR")
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
+	c.envStr(&c.Embedder.Model, "EMBEDDER_MODEL")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
+	if err := c.envInt(&c.Embedder.Dimensions, "EMBEDDER_DIMENSIONS"); err != nil {
+		return err
+	}
+	c.envStr(&c.Embedder.QueryPrefix, "EMBEDDER_QUERY_PREFIX")
+	c.envStr(&c.Embedder.DocumentPrefix, "EMBEDDER_DOCUMENT_PREFIX")
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")

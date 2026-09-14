@@ -9,6 +9,10 @@ services:
       QDRANT_ADDR: ${DOCKER_QDRANT_ADDR:-qdrant:6334}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks}
       OLLAMA_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
+      EMBEDDER_MODEL: ${EMBEDDER_MODEL:-nomic-embed-text}
+      EMBEDDER_DIMENSIONS: ${EMBEDDER_DIMENSIONS:-768}
+      EMBEDDER_QUERY_PREFIX: "${EMBEDDER_QUERY_PREFIX:-search_query: }"
+      EMBEDDER_DOCUMENT_PREFIX: "${EMBEDDER_DOCUMENT_PREFIX:-search_document: }"
       GENERATOR_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}
       GENERATOR_MODEL: ${GENERATOR_MODEL:-gemma3:1b}
       REWRITE_ADDR: ${DOCKER_OLLAMA_ADDR:-http://host.docker.internal:11434}

@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-09-14",
+  "experiment": "embeddinggemma-300m-q8-vs-nomic-embed-text",
+  "purpose": "Isolated dense-embedder comparison over the same corpus and golden set.",
+  "corpus": {
+    "source": "samples",
+    "documents": 4,
+    "indexed_points": 29,
+    "golden_set": "test/evaluation/golden.json",
+    "golden_queries": 133,
+    "release_gate": false,
+    "provenance": "expert-authored synthetic regression fixture; no production user data"
+  },
+  "method": {
+    "retrieval": "hybrid dense plus BM25 with Qdrant RRF",
+    "reranker": "disabled to isolate embedder effects",
+    "runs_per_query": 1,
+    "full_reindex": true,
+    "distance": "Cosine",
+    "qdrant_collection_isolation": true
+  },
+  "arms": [
+    {
+      "name": "nomic-control",
+      "model": "nomic-embed-text:latest",
+      "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "query_prefix": "search_query: ",
+      "document_prefix": "search_document: ",
+      "dimensions": 768,
+      "qdrant_collection": "embedexp_nomic_20260914",
+      "reindex": {"processed": 4, "skipped": 0, "failed": 0, "ingest_seconds": 2.464},
+      "quality": {
+        "hit_rate_at_5": 0.789,
+        "recall_at_5": 0.773,
+        "mrr_at_10": 0.637,
+        "ndcg_at_5": 0.662,
+        "distractor_hit_rate_at_5": 0.256
+      },
+      "latency_ms": {"p50": 26.9, "p95": 49.2},
+      "resource_sample": {
+        "ollama_size_bytes": 595142656,
+        "ollama_size_vram_bytes": 595142656,
+        "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+        "gpu_memory_used_snapshot_bytes": 669778944,
+        "qdrant_collection_storage_bytes": 1007828377
+      },
+      "evaluator_report": "embedder-nomic-20260914.json"
+    },
+    {
+      "name": "embeddinggemma-candidate",
+      "model": "embeddinggemma-300m-q8:latest",
+      "ollama_digest": "267e44b13da41540fac617a517b1712fe58fde2ecd268ace4a9e072297c81011",
+      "gguf_sha256": "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
+      "query_prefix": "task: search result | query: ",
+      "document_prefix": "title: none | text: ",
+      "dimensions": 768,
+      "qdrant_collection": "embedexp_embeddinggemma_20260914",
+      "reindex": {"processed": 4, "skipped": 0, "failed": 0, "ingest_seconds": 0.976},
+      "quality": {
+        "hit_rate_at_5": 0.932,
+        "recall_at_5": 0.919,
+        "mrr_at_10": 0.735,
+        "ndcg_at_5": 0.776,
+        "distractor_hit_rate_at_5": 0.263
+      },
+      "latency_ms": {"p50": 97.8, "p95": 117.7},
+      "resource_sample": {
+        "ollama_size_bytes": 397544448,
+        "ollama_size_vram_bytes": 397544448,
+        "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+        "gpu_memory_used_snapshot_bytes": 560988160,
+        "qdrant_collection_storage_bytes": 1007828464
+      },
+      "evaluator_report": "embedder-embeddinggemma-20260914.json"
+    }
+  ],
+  "decision": {
+    "default_changed": false,
+    "reason": "EmbeddingGemma improved this synthetic fixture but increased p50 query latency by 70.9 ms and p95 by 68.5 ms. The fixture is not release-gated production evidence.",
+    "next_step": "Repeat on a consented, expert-judged release-gate corpus and representative hardware before changing the default."
+  }
+}

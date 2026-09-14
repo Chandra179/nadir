@@ -15,10 +15,64 @@ from benchmark_reranker import (
     percentile,
     ranking_metrics,
     rerank,
+    validate_release_gate,
 )
 
 
 class BenchmarkRerankerTest(unittest.TestCase):
+    def test_golden_fixture_resolves_relevant_and_distractor_passages(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "calculus.md").write_text(
+                "# Calculus\n\nPower Rule\nIf f(x) = x^n, then f'(x) = n · x^(n-1)\n",
+                encoding="utf-8",
+            )
+            (root / "other.md").write_text("An unrelated passage\n", encoding="utf-8")
+            path = root / "golden.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "metadata": {"dataset": "expert-authored-synthetic-user-intent"},
+                        "queries": [
+                            {
+                                "id": "q1",
+                                "query": "power rule",
+                                "relevant": [{"file": "calculus.md", "contains": "power rule"}],
+                                "distractors": [{"file": "other.md"}],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata, queries = load_dataset(path, corpus_dir=root)
+        self.assertEqual(metadata["metadata"]["benchmark_adapter"], "golden-relevance-annotations")
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(len(queries[0].candidates), 2)
+        self.assertEqual(sorted(candidate.relevance for candidate in queries[0].candidates), [0, 2])
+
+    def test_golden_fixture_requires_corpus_directory(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "golden.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "queries": [
+                            {
+                                "id": "q1",
+                                "query": "question",
+                                "relevant": [{"file": "a.md"}],
+                                "distractors": [{"file": "b.md"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "corpus-dir"):
+                load_dataset(path)
+
     def test_dataset_requires_positive_relevance(self):
         with TemporaryDirectory() as directory:
             path = Path(directory) / "dataset.json"
@@ -38,6 +92,45 @@ class BenchmarkRerankerTest(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "positive relevance"):
                 load_dataset(path)
+
+    def test_release_gate_rejects_synthetic_fixture(self):
+        with self.assertRaisesRegex(ValueError, "consented production dataset"):
+            validate_release_gate(
+                {
+                    "metadata": {
+                        "dataset": "expert-authored-synthetic-user-intent",
+                        "provenance": "repository fixture",
+                        "consent": "not-applicable-no-production-user-data",
+                        "judgment": "expert-authored",
+                        "release_gate": True,
+                    },
+                    "queries": [{}] * 100,
+                }
+            )
+
+    def test_release_gate_accepts_complete_production_metadata(self):
+        queries = [
+            {
+                "id": f"q-{index}",
+                "expected_answer": "answer",
+                "required_claims": ["claim"],
+                "faithfulness_label": "fully_supported",
+                "candidates": [{"text": "passage", "relevance": 2}],
+            }
+            for index in range(100)
+        ]
+        validate_release_gate(
+            {
+                "metadata": {
+                    "dataset": "production-user-query-sample-2026-q3",
+                    "provenance": "consent-safe telemetry export",
+                    "consent": "user opt-in and retention policy",
+                    "judgment": "two expert reviewers with adjudication",
+                    "release_gate": True,
+                },
+                "queries": queries,
+            }
+        )
 
     def test_ranking_metrics_are_stable_for_score_ties(self):
         query = QueryCase(

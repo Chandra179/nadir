@@ -24,7 +24,9 @@ and reranker latency are still active constraints; follow-up work remains in
 The fixture was later expanded to 133 schema-versioned, expert-authored
 synthetic user-intent cases with query types, expected answers, required
 claims, distractors, faithfulness labels, and provenance metadata. Production-
-query collection remains an active P1 task.
+query collection remains an external evidence prerequisite rather than an
+unfinished repository implementation task. The evaluator and benchmark reject
+synthetic fixtures when release-gate mode is requested.
 
 The repeatable evaluator loads the golden set, bypasses semantic cache for
 comparability, supports reranker control, repeats latency samples, and writes
@@ -146,3 +148,11 @@ JSON reports.
 Distributed leases, fencing, shared event storage, and cross-instance ordering
 remain deliberately open work. See [`SCALING.md`](../SCALING.md) and the active
 backlog.
+
+## Archived P1 scope — 2026-09-14
+
+The P1 lifecycle, user-visible correctness, browser coverage, shutdown,
+readiness, evaluation-safeguard, and document-intake work is complete and is
+archived here. Production-quality release evidence still requires the product
+and privacy process to provide consent-safe queries and expert judgments; the
+repository does not fabricate that evidence.

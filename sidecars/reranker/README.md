@@ -145,6 +145,39 @@ python scripts/benchmark_reranker.py \
   --json-out test/evaluation/reports/reranker-bge-cpu.json
 ```
 
+The committed Retrieval fixture can be benchmarked directly without creating a
+second copy of its annotations. The adapter resolves each `relevant` and
+`distractors` entry from `test/evaluation/golden.json` into passages from the
+sample corpus:
+
+```bash
+python scripts/benchmark_reranker.py \
+  --dataset test/evaluation/golden.json \
+  --corpus-dir samples \
+  --endpoint http://127.0.0.1:5002/rerank \
+  --pid <sidecar-pid> \
+  --runs 1 \
+  --json-out test/evaluation/reports/reranker-bge-m3-golden.json
+```
+
+This is a repeatable synthetic-corpus baseline, not a production release
+gate. Use the same golden fixture and corpus for every profile so quality and
+resource measurements remain comparable.
+
+For a production comparison, require the release-gate metadata and full
+judgment set. This rejects the committed synthetic fixture and refuses to
+truncate the dataset:
+
+```bash
+python scripts/benchmark_reranker.py \
+  --dataset /path/to/production-golden.json \
+  --corpus-dir /path/to/production-corpus \
+  --require-release-gate \
+  --endpoint http://127.0.0.1:5002/rerank \
+  --runs 3 \
+  --json-out test/evaluation/reports/reranker-production-bge.json
+```
+
 For Compose, replace `--pid` with `--container "$(docker compose -f
 deploy/compose/docker-compose.yml ps -q reranker)"`. For a CUDA process, add
 `--gpu-pid` to sample process VRAM through `nvidia-smi`. Repeat the command

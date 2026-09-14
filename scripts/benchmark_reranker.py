@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Benchmark a running Nadir reranker sidecar.
 
-The input dataset contains query/candidate passages and expert relevance
-grades. The benchmark measures the sidecar directly, so it can compare model
-and backend profiles without changing the API or the Retrieval evaluator.
+    The input dataset contains query/candidate passages and expert relevance
+    grades. The existing Retrieval golden fixture can also be supplied with
+    --corpus-dir; its relevant and distractor annotations are resolved into
+    candidate passages from that directory. The benchmark measures the sidecar
+    directly, so it can compare model and backend profiles without changing the
+    API or the Retrieval evaluator.
 Quality is calculated from the returned scores; latency and resource samples
 are recorded for every measured request.
 
@@ -287,15 +290,153 @@ def read_limited(response: object, max_bytes: int) -> bytes:
     return body
 
 
-def load_dataset(path: Path, max_queries: int | None = None) -> tuple[dict[str, object], list[QueryCase]]:
-    """Load and validate a reranker dataset."""
+def _corpus_file(corpus_dir: Path, file_name: str) -> Path:
+    root = corpus_dir.resolve()
+    candidate = (root / file_name).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise ValueError(f"corpus file escapes corpus directory: {file_name!r}")
+    if not candidate.is_file():
+        raise ValueError(f"corpus file does not exist: {file_name!r}")
+    return candidate
+
+
+def _annotated_passage(corpus_dir: Path, annotation: object, query_id: str, index: int) -> tuple[str, str]:
+    if not isinstance(annotation, dict):
+        raise ValueError(f"golden query {query_id!r} annotation #{index} must be an object")
+    file_name = str(annotation.get("file", "")).strip()
+    if not file_name:
+        raise ValueError(f"golden query {query_id!r} annotation #{index} needs a file")
+    source = _corpus_file(corpus_dir, file_name)
+    text = source.read_text(encoding="utf-8")
+    marker = annotation.get("contains")
+    if marker is None:
+        passage = text.strip()
+    else:
+        marker = str(marker).strip()
+        if not marker:
+            raise ValueError(f"golden query {query_id!r} annotation #{index} has an empty contains marker")
+        lines = text.splitlines()
+        folded_marker = marker.casefold()
+        match = next(
+            (line_index for line_index, line in enumerate(lines) if folded_marker in line.casefold()),
+            None,
+        )
+        if match is None:
+            raise ValueError(
+                f"golden query {query_id!r} marker {marker!r} was not found in {file_name!r}"
+            )
+        start = max(0, match - 1)
+        end = min(len(lines), match + 2)
+        passage = "\n".join(lines[start:end]).strip()
+    if not passage:
+        raise ValueError(f"golden query {query_id!r} annotation #{index} resolves to empty text")
+    return file_name, passage
+
+
+def _load_golden_dataset(
+    raw: dict[str, object], raw_queries: list[object], corpus_dir: Path
+) -> tuple[dict[str, object], list[QueryCase]]:
+    """Resolve Retrieval golden annotations into the direct benchmark format."""
+
+    metadata = raw.get("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    enriched = dict(raw)
+    enriched["metadata"] = {
+        **metadata,
+        "benchmark_adapter": "golden-relevance-annotations",
+        "benchmark_corpus_dir": str(corpus_dir),
+    }
+    queries: list[QueryCase] = []
+    seen_ids: set[str] = set()
+    for query_index, raw_query in enumerate(raw_queries, start=1):
+        if not isinstance(raw_query, dict):
+            raise ValueError(f"golden query #{query_index} must be an object")
+        query_id = str(raw_query.get("id", "")).strip()
+        query = str(raw_query.get("query", "")).strip()
+        if not query_id or not query:
+            raise ValueError(f"golden query #{query_index} needs a non-empty id and query")
+        if query_id in seen_ids:
+            raise ValueError(f"dataset query {query_id!r} is duplicated")
+        seen_ids.add(query_id)
+        candidates_by_text: dict[str, tuple[str, int]] = {}
+        for field, relevance in (("relevant", 2), ("distractors", 0)):
+            annotations = raw_query.get(field)
+            if not isinstance(annotations, list) or not annotations:
+                raise ValueError(f"golden query {query_id!r} needs a non-empty {field} array")
+            for annotation_index, annotation in enumerate(annotations, start=1):
+                file_name, passage = _annotated_passage(
+                    corpus_dir, annotation, query_id, annotation_index
+                )
+                existing = candidates_by_text.get(passage)
+                if existing is None or relevance > existing[1]:
+                    candidates_by_text[passage] = (file_name, relevance)
+        candidates = tuple(
+            Candidate(text=passage, relevance=relevance)
+            for passage, (_file_name, relevance) in candidates_by_text.items()
+        )
+        if not candidates or not any(candidate.relevance > 0 for candidate in candidates):
+            raise ValueError(f"golden query {query_id!r} needs at least one positive relevance grade")
+        queries.append(QueryCase(query_id, query, candidates))
+    return enriched, queries
+
+
+def validate_release_gate(raw: dict[str, object]) -> None:
+    """Require production evidence before a benchmark can be a release gate."""
+
+    metadata = raw.get("metadata")
+    if not isinstance(metadata, dict):
+        raise ValueError("release gate requires metadata")
+    if not bool(metadata.get("release_gate")):
+        raise ValueError("release gate requires metadata.release_gate=true")
+    dataset = str(metadata.get("dataset", "")).strip()
+    if not dataset or "synthetic" in dataset.casefold():
+        raise ValueError("release gate requires a consented production dataset")
+    for field in ("provenance", "consent", "judgment"):
+        if not str(metadata.get(field, "")).strip():
+            raise ValueError(f"release gate requires metadata.{field}")
+    consent = str(metadata.get("consent", "")).strip().casefold()
+    if consent == "not-applicable-no-production-user-data" or "without consent" in consent:
+        raise ValueError("release gate requires consent metadata for production queries")
+
+    queries = raw.get("queries")
+    if not isinstance(queries, list) or len(queries) < 100:
+        count = len(queries) if isinstance(queries, list) else 0
+        raise ValueError(f"release gate requires at least 100 queries, got {count}")
+    for index, query in enumerate(queries, start=1):
+        if not isinstance(query, dict):
+            raise ValueError(f"release gate query #{index} must be an object")
+        query_id = str(query.get("id", "")).strip() or f"#{index}"
+        if not str(query.get("expected_answer", "")).strip():
+            raise ValueError(f"release gate query {query_id!r} needs expected_answer")
+        claims = query.get("required_claims")
+        if not isinstance(claims, list) or not any(str(claim).strip() for claim in claims):
+            raise ValueError(f"release gate query {query_id!r} needs required_claims")
+        if not str(query.get("faithfulness_label", "")).strip():
+            raise ValueError(f"release gate query {query_id!r} needs faithfulness_label")
+
+
+def load_dataset(
+    path: Path,
+    max_queries: int | None = None,
+    corpus_dir: Path | None = None,
+    require_release_gate: bool = False,
+) -> tuple[dict[str, object], list[QueryCase]]:
+    """Load a direct dataset or resolve a Retrieval golden fixture."""
 
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("dataset root must be an object")
+    if require_release_gate:
+        validate_release_gate(raw)
     raw_queries = raw.get("queries")
     if not isinstance(raw_queries, list) or not raw_queries:
         raise ValueError("dataset must contain a non-empty queries array")
+    if any(isinstance(query, dict) and ("relevant" in query or "distractors" in query) for query in raw_queries):
+        if corpus_dir is None:
+            raise ValueError("golden dataset requires --corpus-dir")
+        raw, queries = _load_golden_dataset(raw, raw_queries, corpus_dir)
+        return raw, queries[:max_queries] if max_queries is not None else queries
     queries: list[QueryCase] = []
     seen_ids: set[str] = set()
     for index, raw_query in enumerate(raw_queries, start=1):
@@ -577,13 +718,28 @@ def build_report(
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--dataset", type=Path, required=True, help="JSON dataset with query candidates and relevance grades")
+    result.add_argument(
+        "--dataset",
+        type=Path,
+        required=True,
+        help="JSON dataset with query candidates, or a golden fixture with --corpus-dir",
+    )
+    result.add_argument(
+        "--corpus-dir",
+        type=Path,
+        help="source corpus directory for resolving golden.json relevant/distractor annotations",
+    )
     result.add_argument("--endpoint", default=DEFAULT_ENDPOINT, help=f"reranker URL (default: {DEFAULT_ENDPOINT})")
     result.add_argument("--health-url", default=DEFAULT_HEALTH_URL, help=f"health URL (default: {DEFAULT_HEALTH_URL})")
     result.add_argument("--runs", type=int, default=3, help="measured runs per query (default: 3)")
     result.add_argument("--warmup-runs", type=int, default=1, help="warmup runs using the first query (default: 1)")
     result.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS, help="per-request timeout in seconds")
     result.add_argument("--max-queries", type=int, help="measure at most this many queries")
+    result.add_argument(
+        "--require-release-gate",
+        action="store_true",
+        help="reject synthetic/incomplete datasets and require production judgment metadata",
+    )
     result.add_argument("--top-k", type=int, default=5, help="ranking cutoff for quality metrics (default: 5)")
     result.add_argument("--max-response-bytes", type=int, default=DEFAULT_MAX_RESPONSE_BYTES, help="reject larger responses")
     memory = result.add_mutually_exclusive_group()
@@ -606,6 +762,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--timeout must be greater than 0")
     if args.max_queries is not None and args.max_queries < 1:
         raise ValueError("--max-queries must be at least 1")
+    if args.require_release_gate and args.max_queries is not None:
+        raise ValueError("--max-queries cannot be used with --require-release-gate")
     if args.top_k < 1:
         raise ValueError("--top-k must be at least 1")
     if args.max_response_bytes < 1:
@@ -618,7 +776,12 @@ def main() -> int:
     args = parser().parse_args()
     try:
         validate_args(args)
-        dataset, queries = load_dataset(args.dataset, args.max_queries)
+        dataset, queries = load_dataset(
+            args.dataset,
+            args.max_queries,
+            args.corpus_dir,
+            args.require_release_gate,
+        )
         health_started = time.perf_counter()
         health = health_check(args.health_url, min(args.timeout, 10.0))
         health_latency_ms = (time.perf_counter() - health_started) * 1000

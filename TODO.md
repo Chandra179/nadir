@@ -45,35 +45,11 @@ No open P0 items. Completed P0 work is preserved in
 
 ### P1 — Lifecycle and user-visible confidence
 
-- [x] Expand the committed fixture from 34 to 109 annotated queries with
-      distractor pairs, multi-hop cases, expected answers, required claims,
-      and generation-faithfulness labels.
-- [x] Add 24 additional expert-authored synthetic user-intent queries with
-      realistic paraphrases, cross-topic requests, and explicit provenance;
-      this fixture uses no production user data and is not a release gate.
-- [ ] Replace the sample-derived fixture with 100+ production-user queries;
-      obtain consent-safe query samples, expert relevance judgments, and
-      generation-faithfulness labels before using the set as a release gate.
-      `cmd/evaluator --require-release-gate` now rejects synthetic or
-      unconsented fixtures; collecting the actual telemetry remains an
-      external product/privacy task.
-- [x] Reconcile removed source files when configured source paths are intended
-      to mirror the corpus; retain source versions when ingest is upload-only.
-      `source.mode: mirror` is explicit and skips destructive reconciliation
-      when any discovered file fails indexing.
-- [x] Add integration restart/shutdown tests for the HTTP server and external
-      history store, proving active Chat generation and pending history
-      persistence either drain within the shutdown budget or report a durable
-      retry state; `go test -tags integration ./internal/platform/server`
-      exercises the Qdrant-backed restart path when `QDRANT_ADDR` is set.
-- [x] Secure or disable the always-on profiling listener and document the
-      protected operational access path. Profiling is disabled by default and
-      loopback-only when explicitly enabled.
-- [x] Add dependency-backed browser coverage for session replay/reconnect and
-      full-service flows against Qdrant, Ollama, reranking, and Docling.
-      `E2E_LIVE=1 npm run e2e:live` runs the Qdrant/Ollama flow and
-      `E2E_LIVE=1 E2E_PDF=1 npm run e2e:live` adds Docling PDF intake; the
-      suite is intentionally opt-in because it mutates a configured corpus.
+Archived as complete. See
+[`docs/roadmap/archive.md`](docs/roadmap/archive.md#archived-p1-scope--2026-09-14).
+The committed synthetic fixture remains a regression fixture; consent-safe
+production data and expert judgments are external release evidence, not
+fabricated repository content.
 
 ### P2 — Production measurements and maintainability
 
@@ -90,7 +66,7 @@ No open P0 items. Completed P0 work is preserved in
       bytes (~3.28 GiB). The run used the installed repository `venv` because
       the Docker build could not resolve PyPI; it is therefore a local process
       baseline, not a container/cgroup capacity result.
-- [ ] Finish the reranker benchmark on representative hardware. Compare the
+- [ ] Complete the representative-hardware reranker comparison. Compare the
       current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
       MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
       VRAM, startup time, and throughput; the sample-derived set is not
@@ -98,12 +74,51 @@ No open P0 items. Completed P0 work is preserved in
       now provides a health-checked direct benchmark with graded ranking
       metrics, p50/p95 latency, sequential throughput, failures/timeouts, and
       optional PID/Docker RSS plus process-specific `nvidia-smi` VRAM sampling;
-      the profile comparison remains pending a consent-safe judged corpus and
-      representative hardware runs.
-- [ ] Benchmark EmbeddingGemma 300M quantized against the current Nomic
-      embedder on the same corpus and golden set. Treat prompt-format changes,
-      vector dimensions, index size, RAM/VRAM, and a full reindex as part of
-      the experiment; do not change the default embedder without evidence.
+      it can resolve the existing golden fixture with `--corpus-dir` and now
+      supports `--require-release-gate` to reject synthetic or incomplete
+      production evidence. A local
+      synthetic-corpus baseline is recorded for BGE v2 M3 CPU
+      ([report](test/evaluation/reports/reranker-bge-m3-golden-20260914.json))
+      and MiniLM L6 CPU
+      ([report](test/evaluation/reports/reranker-minilm-l6-golden-20260914.json)):
+      both completed 133/133 queries with no timeouts. The full comparison
+      remains pending a consent-safe judged corpus, GTE multilingual weights,
+      an ONNX runtime with Optimum, GPU measurements, and representative
+      hardware runs. The generated 133-query fixture was also exercised
+      end-to-end against Qdrant and Ollama: the no-reranker baseline reached
+      HitRate@5 0.789, Recall@5 0.773, MRR@10 0.641, nDCG@5 0.665 at p50/p95
+      28.2/45.3ms; BGE v2 M3 on the RTX 4050 reached 0.805/0.781/0.686/0.695
+      at p50/p95 165.2/253.6ms. Reports:
+      [baseline](test/evaluation/reports/e2e-generated-golden-20260914.json),
+      [BGE GPU](test/evaluation/reports/e2e-generated-golden-bge-cuda-20260914.json).
+      These are engineering-generated synthetic regression results, not
+      production-user evidence; the direct reranker GPU run measured peak RSS
+      ~1.39 GiB and peak VRAM ~2.39 GiB with no failures or timeouts
+      ([report](test/evaluation/reports/reranker-bge-m3-golden-cuda-20260914.json)).
+- [x] Add a release-gate safety mode to the reranker benchmark. It validates
+      production provenance, consent, expert judgment, 100+ queries, and
+      generation annotations before a report can be used for a release
+      comparison; it never changes the default synthetic regression path.
+- [x] Benchmark EmbeddingGemma 300M quantized against the current Nomic
+      embedder on the same corpus and golden set. The isolated experiment used
+      four sample documents, 133 golden queries, hybrid dense+BM25 RRF, one run
+      per query, separate Qdrant collections, and a full reindex for both arms.
+      Nomic used `search_query: ` / `search_document: `; EmbeddingGemma used
+      its retrieval prompts `task: search result | query: ` /
+      `title: none | text: `. Both produced 768-dimensional vectors and 29
+      indexed points. Nomic scored HitRate@5 0.789, Recall@5 0.773, MRR@10
+      0.637, nDCG@5 0.662 at p50/p95 26.9/49.2ms. EmbeddingGemma scored
+      0.932/0.919/0.735/0.776 at 97.8/117.7ms, with a slightly higher
+      distractor rate (0.263 vs 0.256). Ollama reported 595,142,656 bytes of
+      model VRAM for Nomic versus 397,544,448 for EmbeddingGemma; Qdrant
+      collection storage was effectively unchanged at 1,007,828,377 versus
+      1,007,828,464 bytes. The full evidence summary is in
+      [`test/evaluation/reports/embedder-comparison-20260914.json`](test/evaluation/reports/embedder-comparison-20260914.json), with raw reports in
+      [`embedder-nomic-20260914.json`](test/evaluation/reports/embedder-nomic-20260914.json)
+      and [`embedder-embeddinggemma-20260914.json`](test/evaluation/reports/embedder-embeddinggemma-20260914.json).
+      This is an engineering-generated synthetic regression result, not
+      consented production evidence; the default remains Nomic pending a
+      release-gated judged corpus and representative hardware run.
 - [ ] Add confidence-gated adaptive reranking: return the hybrid RRF result
       for high-confidence queries and invoke a reranker only when dense and
       lexical rankings disagree or the top-result margin is weak. Measure

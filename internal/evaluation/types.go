@@ -95,6 +95,9 @@ func (gs *GoldenSet) ValidateReleaseGate() error {
 	if strings.TrimSpace(gs.Metadata.Dataset) == "" || strings.Contains(strings.ToLower(gs.Metadata.Dataset), "synthetic") {
 		return fmt.Errorf("release gate requires a consented production dataset")
 	}
+	if strings.TrimSpace(gs.Metadata.Provenance) == "" {
+		return fmt.Errorf("release gate requires provenance metadata")
+	}
 	consent := strings.ToLower(strings.TrimSpace(gs.Metadata.Consent))
 	if consent == "" || consent == "not-applicable-no-production-user-data" || strings.Contains(consent, "without consent") {
 		return fmt.Errorf("release gate requires consent metadata for production queries")

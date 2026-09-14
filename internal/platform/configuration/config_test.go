@@ -33,6 +33,10 @@ func TestLoadShippedYAML(t *testing.T) {
 
 func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("QDRANT_ADDR", "qdrant:6334")
+	t.Setenv("EMBEDDER_MODEL", "hf.co/ggml-org/embeddinggemma-300M-GGUF:Q8_0")
+	t.Setenv("EMBEDDER_DIMENSIONS", "768")
+	t.Setenv("EMBEDDER_QUERY_PREFIX", "task: search result | query: ")
+	t.Setenv("EMBEDDER_DOCUMENT_PREFIX", "title: none | text: ")
 	t.Setenv("RERANKER_ENABLED", "false") // explicit false still counts as an env override
 	t.Setenv("SEMANTIC_CACHE_THRESHOLD", "0.95")
 	t.Setenv("REWRITE_ENABLED", "true")
@@ -49,6 +53,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 
 	if cfg.Qdrant.Addr != "qdrant:6334" {
 		t.Fatalf("Qdrant.Addr = %q, want qdrant:6334", cfg.Qdrant.Addr)
+	}
+	if cfg.Embedder.Model != "hf.co/ggml-org/embeddinggemma-300M-GGUF:Q8_0" ||
+		cfg.Embedder.Dimensions != 768 ||
+		cfg.Embedder.QueryPrefix != "task: search result | query: " ||
+		cfg.Embedder.DocumentPrefix != "title: none | text: " {
+		t.Fatalf("Embedder overrides = %+v, want explicit model, dimensions, and prompts", cfg.Embedder)
 	}
 	if cfg.Reranker.Enabled {
 		t.Fatal("Reranker.Enabled = true, want false from RERANKER_ENABLED=false")
@@ -84,6 +94,7 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "non-finite float", env: "SEMANTIC_CACHE_THRESHOLD", value: "NaN"},
 		{name: "int", env: "REWRITE_TURNS", value: "many"},
 		{name: "duration", env: "INFERENCE_OLLAMA_KEEP_ALIVE", value: "soon"},
+		{name: "embedder dimensions", env: "EMBEDDER_DIMENSIONS", value: "wide"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.env, tt.value)

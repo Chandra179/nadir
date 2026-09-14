@@ -29,7 +29,10 @@ gate.
 The evaluator keeps that boundary explicit. Use `go run ./cmd/evaluator
 --require-release-gate --golden path/to/production-golden.json` only with a
 schema-v2 set whose metadata identifies a consented, non-synthetic production
-dataset, records expert judgment, and sets `release_gate: true`. The repository
+dataset, records its provenance and expert judgment, and sets
+`release_gate: true`. To review a candidate fixture before starting any
+external dependency, run `go run ./cmd/evaluator --validate-only
+--require-release-gate --golden path/to/production-golden.json`. The repository
 cannot create or approve that production evidence on its own.
 
 ## Verification

@@ -140,3 +140,26 @@ func TestSyntheticGoldenFixtureCannotPassReleaseGate(t *testing.T) {
 		t.Fatal("synthetic golden fixture passed release gate validation")
 	}
 }
+
+func TestReleaseGateRequiresProvenance(t *testing.T) {
+	golden := &GoldenSet{
+		SchemaVersion: 2,
+		Metadata: GoldenSetMetadata{
+			Dataset:     "production-user-queries",
+			Consent:     "consented opt-in sample",
+			Judgment:    "two independent experts",
+			ReleaseGate: true,
+		},
+		Queries: make([]GoldenQuery, 100),
+	}
+	for i := range golden.Queries {
+		golden.Queries[i] = GoldenQuery{
+			ID: "production-" + string(rune('a'+i%26)) + string(rune('0'+i/26)), Query: "query", Type: QueryTypeFactoid,
+			FaithfulnessLabel: FaithfulnessFullySupported, ExpectedAnswer: "answer",
+			RequiredClaims: []string{"claim"}, Relevant: []RelevantChunk{{File: "doc.md"}},
+		}
+	}
+	if err := golden.ValidateReleaseGate(); err == nil {
+		t.Fatal("release gate accepted metadata without provenance")
+	}
+}

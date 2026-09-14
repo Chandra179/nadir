@@ -6,7 +6,7 @@
 //	go run ./cmd/evaluator [--config config/config.yaml] [--golden test/evaluation/golden.json]
 //	                         [--top-k N] [--no-rerank] [--runs N]
 //	                         [--report path] [--ensure-ingest]
-//	                         [--require-release-gate]
+//	                         [--require-release-gate] [--validate-only]
 package main
 
 import (
@@ -36,25 +36,16 @@ func main() {
 	reportPath := flag.String("report", "", "output report path (default: test/evaluation/reports/<unix_ts>.json)")
 	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over source.paths before evaluating")
 	requireReleaseGate := flag.Bool("require-release-gate", false, "reject synthetic/unconsented golden sets")
+	validateOnly := flag.Bool("validate-only", false, "validate the golden set and release-gate metadata without starting external services")
 	flag.Parse()
 
-	if err := run(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate); err != nil {
+	if err := run(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate, *validateOnly); err != nil {
 		fmt.Fprintln(os.Stderr, "evaluator:", err)
 		os.Exit(1)
 	}
 }
 
-func run(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate bool) error {
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	log, err := logger.New("info")
-	if err != nil {
-		return fmt.Errorf("init logger: %w", err)
-	}
-	defer log.Sync()
-
+func run(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool) error {
 	golden, err := evaluation.LoadGoldenSet(goldenPath)
 	if err != nil {
 		return err
@@ -64,6 +55,23 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 			return fmt.Errorf("release gate: %w", err)
 		}
 	}
+	if validateOnly {
+		if !requireReleaseGate {
+			return fmt.Errorf("--validate-only requires --require-release-gate")
+		}
+		fmt.Printf("golden set valid for release-gate review: %d queries (%s)\n", len(golden.Queries), golden.Metadata.Dataset)
+		return nil
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	log, err := logger.New("info")
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	defer log.Sync()
 
 	ctx := context.Background()
 	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{
