@@ -29,6 +29,9 @@ func TestLoadShippedYAML(t *testing.T) {
 		cfg.Inference.Reranker.Device != "cpu" || cfg.Inference.Reranker.MaxConcurrent != 1 {
 		t.Fatalf("shipped config must use the conservative local inference profile, got %+v", cfg.Inference)
 	}
+	if cfg.Reranker.AdaptiveEnabled {
+		t.Fatal("shipped config must keep adaptive reranking opt-in until release-gated quality evidence exists")
+	}
 }
 
 func TestApplyEnvOverrides(t *testing.T) {
@@ -38,6 +41,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("EMBEDDER_QUERY_PREFIX", "task: search result | query: ")
 	t.Setenv("EMBEDDER_DOCUMENT_PREFIX", "title: none | text: ")
 	t.Setenv("RERANKER_ENABLED", "false") // explicit false still counts as an env override
+	t.Setenv("RERANKER_ADAPTIVE_ENABLED", "true")
+	t.Setenv("RERANKER_ADAPTIVE_MARGIN_THRESHOLD", "0.02")
 	t.Setenv("SEMANTIC_CACHE_THRESHOLD", "0.95")
 	t.Setenv("REWRITE_ENABLED", "true")
 	t.Setenv("SOURCE_PATHS", "/app/source, /app/extra")
@@ -62,6 +67,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.Reranker.Enabled {
 		t.Fatal("Reranker.Enabled = true, want false from RERANKER_ENABLED=false")
+	}
+	if !cfg.Reranker.AdaptiveEnabled || cfg.Reranker.AdaptiveMarginThreshold != 0.02 {
+		t.Fatalf("adaptive reranker overrides = %+v, want enabled and threshold 0.02", cfg.Reranker)
 	}
 	if cfg.SemanticCache.Threshold != 0.95 {
 		t.Fatalf("SemanticCache.Threshold = %v, want 0.95", cfg.SemanticCache.Threshold)
@@ -95,6 +103,7 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "int", env: "REWRITE_TURNS", value: "many"},
 		{name: "duration", env: "INFERENCE_OLLAMA_KEEP_ALIVE", value: "soon"},
 		{name: "embedder dimensions", env: "EMBEDDER_DIMENSIONS", value: "wide"},
+		{name: "adaptive margin", env: "RERANKER_ADAPTIVE_MARGIN_THRESHOLD", value: "wide"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.env, tt.value)
@@ -103,6 +112,18 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 				t.Fatalf("applyEnv() error = %v, want malformed %s error", err, tt.env)
 			}
 		})
+	}
+}
+
+func TestValidateRejectsInvalidAdaptiveRerankMargin(t *testing.T) {
+	cfg := Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+		Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+		Reranker: RerankerConfig{AdaptiveMarginThreshold: 1.1},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "adaptive_margin_threshold") {
+		t.Fatalf("Validate() error = %v, want adaptive margin validation error", err)
 	}
 }
 

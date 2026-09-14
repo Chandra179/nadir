@@ -4,5 +4,9 @@ Persists indexed content and serves dense, BM25-style, and hybrid searches.
 It owns Qdrant payloads, collection schema, aliases, point IDs, and protocol
 errors. Indexing and Retrieval own document-version and ranking policy.
 
+The default hybrid path uses one Qdrant RRF query. When adaptive reranking is
+explicitly enabled, the Adapter uses one Qdrant batch request to return the
+fused result plus dense and lexical leg rankings for confidence gating.
+
 Change here for Qdrant schema, payload, search, or reset mechanics. Verify
 with the package tests and Qdrant integration tests for schema changes.

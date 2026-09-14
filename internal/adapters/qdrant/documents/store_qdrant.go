@@ -328,24 +328,44 @@ func toQdrantFilter(conds []*qdrant.Condition) *qdrant.Filter {
 	}
 }
 
-// HybridSearch runs dense and BM25-style sparse legs as Qdrant-native
-// prefetches and fuses them server-side with RRF in a single round trip,
-// rather than issuing two separate queries and re-implementing RRF in Go.
-func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *search.Filter) ([]search.SearchCandidate, error) {
+// HybridSearch runs dense and BM25-style sparse legs plus their Qdrant-native
+// RRF fusion in one batch request. Returning the component rankings lets the
+// Retrieval use case skip the cross-encoder for high-confidence queries while
+// preserving Qdrant's fusion implementation and score ordering.
+func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *search.Filter) (search.HybridSearchResult, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if !s.adaptiveSignals {
+		return s.hybridSearchFused(ctx, vector, query, topK, filter)
+	}
 
 	fetchN := uint64(topK * s.prefetchMul)
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
 	sparseIdx, sparseVal := vectorizeSparse(query)
 
+	denseQuery := &qdrant.QueryPoints{
+		CollectionName: s.activeAlias,
+		Query:          qdrant.NewQueryDense(vector),
+		Filter:         qf,
+		Limit:          &fetchN,
+		WithPayload:    qdrant.NewWithPayload(true),
+	}
+	queries := []*qdrant.QueryPoints{denseQuery}
+	if len(sparseIdx) > 0 {
+		sparseName := sparseVectorName
+		queries = append(queries, &qdrant.QueryPoints{
+			CollectionName: s.activeAlias,
+			Query:          qdrant.NewQuerySparse(sparseIdx, sparseVal),
+			Using:          &sparseName,
+			Filter:         qf,
+			Limit:          &fetchN,
+			WithPayload:    qdrant.NewWithPayload(true),
+		})
+	}
+
 	prefetch := []*qdrant.PrefetchQuery{
-		{
-			Query:  qdrant.NewQueryDense(vector),
-			Filter: qf,
-			Limit:  &fetchN,
-		},
+		{Query: qdrant.NewQueryDense(vector), Filter: qf, Limit: &fetchN},
 	}
 	if len(sparseIdx) > 0 {
 		sparseName := sparseVectorName
@@ -356,7 +376,56 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 			Limit:  &fetchN,
 		})
 	}
+	queries = append(queries, &qdrant.QueryPoints{
+		CollectionName: s.activeAlias,
+		Prefetch:       prefetch,
+		Query:          qdrant.NewQueryFusion(qdrant.Fusion_RRF),
+		Filter:         qf,
+		Limit:          &limit,
+		WithPayload:    qdrant.NewWithPayload(true),
+	})
+	response, err := s.points.QueryBatch(ctx, &qdrant.QueryBatchPoints{
+		CollectionName: s.activeAlias,
+		QueryPoints:    queries,
+	})
+	if err != nil {
+		return search.HybridSearchResult{}, fmt.Errorf("hybrid search: %w", err)
+	}
+	responses := response.GetResult()
+	if len(responses) != len(queries) {
+		return search.HybridSearchResult{}, fmt.Errorf("hybrid search: got %d batch responses, want %d", len(responses), len(queries))
+	}
 
+	result := search.HybridSearchResult{
+		Dense: scoredCandidates(responses[0].GetResult()),
+		Fused: scoredCandidates(responses[len(responses)-1].GetResult()),
+	}
+	if len(sparseIdx) > 0 {
+		result.Lexical = scoredCandidates(responses[1].GetResult())
+	}
+	return result, nil
+}
+
+// hybridSearchFused preserves the normal one-query Qdrant path when adaptive
+// reranking is disabled. Component rankings are only requested when the
+// caller explicitly opts into confidence-gated decisions.
+func (s *dependencies) hybridSearchFused(ctx context.Context, vector []float32, query string, topK int, filter *search.Filter) (search.HybridSearchResult, error) {
+	fetchN := uint64(topK * s.prefetchMul)
+	limit := uint64(topK)
+	qf := toQdrantFilter(buildFilterConditions(filter))
+	sparseIdx, sparseVal := vectorizeSparse(query)
+	prefetch := []*qdrant.PrefetchQuery{
+		{Query: qdrant.NewQueryDense(vector), Filter: qf, Limit: &fetchN},
+	}
+	if len(sparseIdx) > 0 {
+		sparseName := sparseVectorName
+		prefetch = append(prefetch, &qdrant.PrefetchQuery{
+			Query:  qdrant.NewQuerySparse(sparseIdx, sparseVal),
+			Using:  &sparseName,
+			Filter: qf,
+			Limit:  &fetchN,
+		})
+	}
 	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
 		CollectionName: s.activeAlias,
 		Prefetch:       prefetch,
@@ -366,15 +435,18 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("hybrid search: %w", err)
+		return search.HybridSearchResult{}, fmt.Errorf("hybrid search: %w", err)
 	}
+	return search.HybridSearchResult{Fused: scoredCandidates(resp.GetResult())}, nil
+}
 
-	results := make([]search.SearchCandidate, len(resp.Result))
-	for i, r := range resp.Result {
-		results[i] = chunkFromPayload(r.Payload)
-		results[i].Score = r.Score
+func scoredCandidates(points []*qdrant.ScoredPoint) []search.SearchCandidate {
+	results := make([]search.SearchCandidate, len(points))
+	for i, point := range points {
+		results[i] = chunkFromPayload(point.Payload)
+		results[i].Score = point.Score
 	}
-	return results, nil
+	return results
 }
 
 func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *search.Filter) ([]search.SearchCandidate, error) {

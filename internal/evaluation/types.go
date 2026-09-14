@@ -231,17 +231,18 @@ func matchesFile(actual, expected string) bool {
 
 // QueryResult records retrieval quality and latency for one golden query.
 type QueryResult struct {
-	ID                string            `json:"id"`
-	Query             string            `json:"query"`
-	Type              QueryType         `json:"type,omitempty"`
-	FaithfulnessLabel FaithfulnessLabel `json:"faithfulness_label,omitempty"`
-	NumRelevant       int               `json:"num_relevant"`
-	Hits              []bool            `json:"hits"`
-	FirstHitRank      int               `json:"first_hit_rank"`
-	RelevantFound     int               `json:"relevant_found"`
-	DistractorHits    int               `json:"distractor_hits,omitempty"`
-	LatencyMS         float64           `json:"latency_ms"`
-	Latencies         []float64         `json:"latencies"`
+	ID                string                 `json:"id"`
+	Query             string                 `json:"query"`
+	Type              QueryType              `json:"type,omitempty"`
+	FaithfulnessLabel FaithfulnessLabel      `json:"faithfulness_label,omitempty"`
+	NumRelevant       int                    `json:"num_relevant"`
+	Hits              []bool                 `json:"hits"`
+	FirstHitRank      int                    `json:"first_hit_rank"`
+	RelevantFound     int                    `json:"relevant_found"`
+	DistractorHits    int                    `json:"distractor_hits,omitempty"`
+	LatencyMS         float64                `json:"latency_ms"`
+	Latencies         []float64              `json:"latencies"`
+	Rerank            search.RerankTelemetry `json:"rerank"`
 }
 
 // Aggregate contains quality and latency metrics across a golden set.
@@ -254,16 +255,24 @@ type Aggregate struct {
 	NDCGAtK    float64 `json:"ndcg_at_k"`
 	// DistractorHitRateAtK is the fraction of queries with at least one
 	// annotated distractor in the top-k results.
-	DistractorHitRateAtK float64 `json:"distractor_hit_rate_at_k,omitempty"`
-	P50LatMS             float64 `json:"p50_latency_ms"`
-	P95LatMS             float64 `json:"p95_latency_ms"`
+	DistractorHitRateAtK  float64        `json:"distractor_hit_rate_at_k,omitempty"`
+	P50LatMS              float64        `json:"p50_latency_ms"`
+	P95LatMS              float64        `json:"p95_latency_ms"`
+	RerankCoverage        float64        `json:"rerank_coverage"`
+	RerankDependencyCalls int            `json:"rerank_dependency_calls"`
+	RerankCandidateTotal  int            `json:"rerank_candidate_total"`
+	RerankP50LatMS        float64        `json:"rerank_p50_latency_ms"`
+	RerankP95LatMS        float64        `json:"rerank_p95_latency_ms"`
+	RerankErrors          int            `json:"rerank_dependency_errors"`
+	RerankReasons         map[string]int `json:"rerank_reasons,omitempty"`
 }
 
 // Report is the persisted evaluation result for one evaluator run.
 type Report struct {
-	Timestamp string        `json:"timestamp"`
-	TopK      int           `json:"top_k"`
-	Rerank    bool          `json:"reranker_enabled"`
-	PerQuery  []QueryResult `json:"per_query"`
-	Aggregate Aggregate     `json:"aggregate"`
+	Timestamp      string        `json:"timestamp"`
+	TopK           int           `json:"top_k"`
+	Rerank         bool          `json:"reranker_enabled"`
+	AdaptiveRerank bool          `json:"adaptive_reranker_enabled"`
+	PerQuery       []QueryResult `json:"per_query"`
+	Aggregate      Aggregate     `json:"aggregate"`
 }

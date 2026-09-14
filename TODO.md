@@ -119,10 +119,6 @@ fabricated repository content.
       This is an engineering-generated synthetic regression result, not
       consented production evidence; the default remains Nomic pending a
       release-gated judged corpus and representative hardware run.
-- [ ] Add confidence-gated adaptive reranking: return the hybrid RRF result
-      for high-confidence queries and invoke a reranker only when dense and
-      lexical rankings disagree or the top-result margin is weak. Measure
-      quality, rerank coverage, p50/p95 latency, and dependency load.
 - [ ] Tune and calibrate dense/BM25/RRF fusion with offline golden-set
       evaluation, query-type thresholds, exact-match/header boosts, and
       deterministic score handling. Keep the current unreranked hybrid path as

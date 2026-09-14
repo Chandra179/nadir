@@ -37,20 +37,24 @@ type searchTestStore struct {
 	hybridCalls int
 	lastFilter  *Filter
 	results     []SearchCandidate
+	signals     HybridSearchResult
 }
 
 func (s *searchTestStore) KeywordSearch(context.Context, string, int, *Filter) ([]SearchCandidate, error) {
 	return nil, nil
 }
 
-func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *Filter) ([]SearchCandidate, error) {
+func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *Filter) (HybridSearchResult, error) {
 	s.mu.Lock()
 	s.hybridCalls++
 	if filter != nil {
 		copyFilter := *filter
 		s.lastFilter = &copyFilter
 	}
-	results := append([]SearchCandidate(nil), s.results...)
+	results := s.signals
+	if results.Fused == nil {
+		results.Fused = append([]SearchCandidate(nil), s.results...)
+	}
 	s.mu.Unlock()
 	return results, nil
 }
@@ -73,16 +77,21 @@ func (c *searchTestCache) Clear(context.Context) error                          
 var _ cache.SemanticCache = (*searchTestCache)(nil)
 
 type searchTestReranker struct {
-	err error
+	err   error
+	calls *int
+	out   []SearchCandidate
 }
 
 func (r searchTestReranker) Rerank(context.Context, string, []SearchCandidate) ([]SearchCandidate, error) {
-	return nil, r.err
+	if r.calls != nil {
+		(*r.calls)++
+	}
+	return r.out, r.err
 }
 
 func TestNewDependenciesWiresOptionalAdaptersAtConstruction(t *testing.T) {
 	cache := &searchTestCache{}
-	ranker := searchTestReranker{}
+	ranker := &searchTestReranker{}
 	d := NewDependencies(DependenciesConfig{
 		Embedder:      embTestEmbedder{},
 		Store:         &searchTestStore{},
@@ -208,5 +217,72 @@ func TestQueryRerankerFailureKeepsResultsBounded(t *testing.T) {
 	}
 	if got.Chunks[0].Text != "one" || got.Chunks[1].Text != "two" {
 		t.Fatalf("fallback chunks = %+v, want original score order", got.Chunks)
+	}
+}
+
+func TestAdaptiveRerankingSkipsHighConfidenceHybridResult(t *testing.T) {
+	calls := 0
+	top := SearchCandidate{Text: "top", FilePath: "top.md", LineStart: 1, Score: 0.90}
+	second := SearchCandidate{Text: "second", FilePath: "second.md", LineStart: 1, Score: 0.70}
+	store := &searchTestStore{signals: HybridSearchResult{
+		Fused:   []SearchCandidate{top, second},
+		Dense:   []SearchCandidate{{FilePath: "top.md", LineStart: 1, Score: 0.90}},
+		Lexical: []SearchCandidate{{FilePath: "top.md", LineStart: 1, Score: 12}},
+	}}
+	d := NewDependencies(DependenciesConfig{
+		Embedder:                embTestEmbedder{},
+		Store:                   store,
+		Reranker:                searchTestReranker{calls: &calls},
+		AdaptiveRerank:          true,
+		AdaptiveMarginThreshold: 0.01,
+		CandidateMul:            2,
+		MaxTopK:                 10,
+		MaxChunksPerFile:        10,
+	})
+
+	got, err := d.Query(context.Background(), Request{Query: "high confidence", TopK: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("reranker calls = %d, want 0", calls)
+	}
+	if !got.Rerank.Enabled || got.Rerank.Attempted || got.Rerank.Reason != "high_confidence" {
+		t.Fatalf("rerank telemetry = %+v, want a high-confidence skip", got.Rerank)
+	}
+	if len(got.Chunks) != 2 || got.Chunks[0].Text != "top" {
+		t.Fatalf("chunks = %+v, want fused order", got.Chunks)
+	}
+}
+
+func TestAdaptiveRerankingRunsWhenLegsDisagree(t *testing.T) {
+	calls := 0
+	top := SearchCandidate{Text: "top", FilePath: "top.md", LineStart: 1, Score: 0.90}
+	second := SearchCandidate{Text: "second", FilePath: "second.md", LineStart: 1, Score: 0.89}
+	store := &searchTestStore{signals: HybridSearchResult{
+		Fused:   []SearchCandidate{top, second},
+		Dense:   []SearchCandidate{{FilePath: "top.md", LineStart: 1, Score: 0.90}},
+		Lexical: []SearchCandidate{{FilePath: "second.md", LineStart: 1, Score: 12}},
+	}}
+	d := NewDependencies(DependenciesConfig{
+		Embedder:                embTestEmbedder{},
+		Store:                   store,
+		Reranker:                searchTestReranker{calls: &calls, out: []SearchCandidate{second, top}},
+		AdaptiveRerank:          true,
+		AdaptiveMarginThreshold: 0.01,
+		CandidateMul:            2,
+		MaxTopK:                 10,
+		MaxChunksPerFile:        10,
+	})
+
+	got, err := d.Query(context.Background(), Request{Query: "ambiguous", TopK: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || !got.Rerank.Attempted || got.Rerank.Reason != "leg_disagreement" {
+		t.Fatalf("calls=%d telemetry=%+v, want one disagreement rerank", calls, got.Rerank)
+	}
+	if got.Chunks[0].Text != "second" {
+		t.Fatalf("chunks = %+v, want reranked order", got.Chunks)
 	}
 }

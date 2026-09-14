@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-09-14",
+  "dataset": {
+    "documents": 4,
+    "queries": 133,
+    "provenance": "expert-authored synthetic regression fixture; not production release evidence",
+    "top_k": 5,
+    "candidate_multiplier": 4,
+    "qdrant_collection": "adaptive_rerank_20260914",
+    "full_reindex": {
+      "adaptive": {"processed": 4, "skipped": 0, "failed": 0},
+      "always_rerank_control": {"reused_same_index": true}
+    }
+  },
+  "model": {
+    "reranker": "BAAI/bge-reranker-v2-m3",
+    "device": "cpu",
+    "backend": "torch",
+    "adaptive_margin_threshold": 0.01
+  },
+  "arms": {
+    "adaptive": {
+      "adaptive_enabled": true,
+      "hit_rate_at_5": 0.8045112782,
+      "recall_at_5": 0.7807017544,
+      "mrr_at_10": 0.6610275689,
+      "ndcg_at_5": 0.6786563898,
+      "latency_p50_ms": 2518.911,
+      "latency_p95_ms": 5000.7532,
+      "rerank_coverage": 0.5789473684,
+      "rerank_dependency_calls": 77,
+      "rerank_candidate_total": 866,
+      "rerank_dependency_errors": 0,
+      "rerank_latency_p50_ms": 3412.694,
+      "rerank_latency_p95_ms": 5381.1194,
+      "decision_reasons": {
+        "leg_disagreement": 77,
+        "high_confidence_skip": 56
+      },
+      "raw_report": "adaptive-rerank-20260914.json"
+    },
+    "always_rerank_control": {
+      "adaptive_enabled": false,
+      "hit_rate_at_5": 0.8120300754,
+      "recall_at_5": 0.7882205514,
+      "mrr_at_10": 0.6939849624,
+      "ndcg_at_5": 0.7028991749,
+      "latency_p50_ms": 3461.407,
+      "latency_p95_ms": 5207.4064,
+      "rerank_coverage": 1.0,
+      "rerank_dependency_calls": 133,
+      "rerank_candidate_total": 1481,
+      "rerank_dependency_errors": 0,
+      "rerank_latency_p50_ms": 3434.646,
+      "rerank_latency_p95_ms": 5179.8322,
+      "raw_report": "always-rerank-20260914.json"
+    }
+  },
+  "decision": {
+    "implemented": true,
+    "default_changed": false,
+    "reason": "Adaptive mode reduced reranker calls by 42.1% and p50 latency by 27.2%, but the synthetic fixture showed lower HitRate, Recall, MRR@10, and nDCG@5. Keep opt-in pending consent-safe release-gate evidence."
+  }
+}

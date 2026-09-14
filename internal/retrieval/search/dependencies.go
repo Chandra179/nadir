@@ -18,9 +18,11 @@ type DependenciesConfig struct {
 	Reranker reranker
 	// CandidateMul controls how many candidates are fetched before reranking.
 	// It is ignored when Reranker is nil.
-	CandidateMul  int
-	SemanticCache cache.SemanticCache
-	Log           *zap.Logger
+	CandidateMul            int
+	AdaptiveRerank          bool
+	AdaptiveMarginThreshold float32
+	SemanticCache           cache.SemanticCache
+	Log                     *zap.Logger
 	// QueryPrefix is prepended to every embedded query fragment (e.g.
 	// "search_query: " for nomic-embed-text task instructions).
 	QueryPrefix            string
@@ -32,18 +34,20 @@ type DependenciesConfig struct {
 }
 
 type dependencies struct {
-	embedder               embedding.Embedder
-	store                  documentSearcher
-	reranker               reranker
-	candidateMul           int
-	cache                  cache.SemanticCache
-	queryPrefix            string
-	maxQueryChars          int
-	maxFragments           int
-	maxConcurrentFragments int
-	maxTopK                int
-	maxChunksPerFile       int
-	log                    *zap.Logger
+	embedder                embedding.Embedder
+	store                   documentSearcher
+	reranker                reranker
+	candidateMul            int
+	adaptiveRerank          bool
+	adaptiveMarginThreshold float32
+	cache                   cache.SemanticCache
+	queryPrefix             string
+	maxQueryChars           int
+	maxFragments            int
+	maxConcurrentFragments  int
+	maxTopK                 int
+	maxChunksPerFile        int
+	log                     *zap.Logger
 }
 
 var _ Retriever = (*dependencies)(nil)
@@ -70,23 +74,29 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if maxChunksPerFile <= 0 {
 		maxChunksPerFile = 3
 	}
+	adaptiveMarginThreshold := cfg.AdaptiveMarginThreshold
+	if adaptiveMarginThreshold <= 0 {
+		adaptiveMarginThreshold = 0.01
+	}
 	log := cfg.Log
 	if log == nil {
 		log = zap.NewNop()
 	}
 	return &dependencies{
-		embedder:               cfg.Embedder,
-		store:                  cfg.Store,
-		reranker:               cfg.Reranker,
-		candidateMul:           normalizeCandidateMul(cfg.CandidateMul),
-		cache:                  cfg.SemanticCache,
-		queryPrefix:            cfg.QueryPrefix,
-		maxQueryChars:          maxQueryChars,
-		maxFragments:           maxFragments,
-		maxConcurrentFragments: maxConcurrentFragments,
-		maxTopK:                maxTopK,
-		maxChunksPerFile:       maxChunksPerFile,
-		log:                    log,
+		embedder:                cfg.Embedder,
+		store:                   cfg.Store,
+		reranker:                cfg.Reranker,
+		candidateMul:            normalizeCandidateMul(cfg.CandidateMul),
+		adaptiveRerank:          cfg.AdaptiveRerank,
+		adaptiveMarginThreshold: adaptiveMarginThreshold,
+		cache:                   cfg.SemanticCache,
+		queryPrefix:             cfg.QueryPrefix,
+		maxQueryChars:           maxQueryChars,
+		maxFragments:            maxFragments,
+		maxConcurrentFragments:  maxConcurrentFragments,
+		maxTopK:                 maxTopK,
+		maxChunksPerFile:        maxChunksPerFile,
+		log:                     log,
 	}
 }
 

@@ -14,7 +14,7 @@ type reranker interface {
 }
 
 type documentSearcher interface {
-	HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *Filter) ([]SearchCandidate, error)
+	HybridSearch(ctx context.Context, vector []float32, query string, topK int, filter *Filter) (HybridSearchResult, error)
 	KeywordSearch(ctx context.Context, keyword string, topK int, filter *Filter) ([]SearchCandidate, error)
 }
 

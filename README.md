@@ -181,6 +181,8 @@ of every knob, open `config/config.yaml`.
 | `EMBEDDER_API_KEY` | — | Embedder API key, if required |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
 | `RERANKER_ENABLED` | — | `true`/`1` to force-enable the reranker |
+| `RERANKER_ADAPTIVE_ENABLED` | `false` | Gate reranking on dense/lexical disagreement or a weak fused margin; keep off until release-gated quality evidence supports the tradeoff |
+| `RERANKER_ADAPTIVE_MARGIN_THRESHOLD` | `0.01` | Relative fused top-result margin below which adaptive reranking is required |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 | `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
 | `SOURCE_PATHS` | — | Comma-separated source paths; Compose normally sets this to `/app/source` |

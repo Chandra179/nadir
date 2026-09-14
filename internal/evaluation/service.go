@@ -60,6 +60,7 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 			}
 			result.Latencies = append(result.Latencies, latency)
 			chunks = searchResult.Chunks
+			result.Rerank = searchResult.Rerank
 		}
 		result.LatencyMS = Percentile(result.Latencies, 50)
 		result.Hits, result.FirstHitRank, result.RelevantFound, result.DistractorHits = scoreResults(chunks, goldenQuery.Relevant, goldenQuery.Distractors)
@@ -102,13 +103,29 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 	total := make([]int, 0, len(results))
 	hitLists := make([][]bool, 0, len(results))
 	latencies := make([]float64, 0, len(results))
+	rerankLatencies := make([]float64, 0, len(results))
 	distractorQueries := 0
+	rerankReasons := make(map[string]int)
+	rerankCalls := 0
+	rerankCandidates := 0
+	rerankErrors := 0
 	for _, result := range results {
 		firstRanks = append(firstRanks, result.FirstHitRank)
 		found = append(found, result.RelevantFound)
 		total = append(total, result.NumRelevant)
 		hitLists = append(hitLists, result.Hits)
 		latencies = append(latencies, result.LatencyMS)
+		if result.Rerank.Enabled {
+			rerankReasons[result.Rerank.Reason]++
+		}
+		if result.Rerank.Attempted {
+			rerankCalls++
+			rerankCandidates += result.Rerank.Candidates
+			rerankLatencies = append(rerankLatencies, result.Rerank.LatencyMS)
+			if result.Rerank.DependencyErr {
+				rerankErrors++
+			}
+		}
 		if result.DistractorHits > 0 {
 			distractorQueries++
 		}
@@ -119,6 +136,17 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 	aggregate.NDCGAtK = MeanNDCG(hitLists, total, topK)
 	aggregate.P50LatMS = Percentile(latencies, 50)
 	aggregate.P95LatMS = Percentile(latencies, 95)
+	if len(results) > 0 {
+		aggregate.RerankCoverage = float64(rerankCalls) / float64(len(results))
+	}
+	aggregate.RerankDependencyCalls = rerankCalls
+	aggregate.RerankCandidateTotal = rerankCandidates
+	aggregate.RerankP50LatMS = Percentile(rerankLatencies, 50)
+	aggregate.RerankP95LatMS = Percentile(rerankLatencies, 95)
+	aggregate.RerankErrors = rerankErrors
+	if len(rerankReasons) > 0 {
+		aggregate.RerankReasons = rerankReasons
+	}
 	if len(results) > 0 {
 		aggregate.DistractorHitRateAtK = float64(distractorQueries) / float64(len(results))
 	}

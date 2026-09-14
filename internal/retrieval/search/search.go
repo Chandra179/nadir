@@ -17,19 +17,20 @@ import (
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *dependencies) search(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, error) {
+func (s *dependencies) search(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, RerankTelemetry, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
 	}
 
-	chunks, err := s.multiSearch(ctx, query, fetchN, filter)
+	result, err := s.multiSearch(ctx, query, fetchN, filter)
 
 	if err != nil {
-		return nil, err
+		return nil, RerankTelemetry{}, err
 	}
 
-	return s.rerankTopK(ctx, query, chunks, topK), nil
+	chunks, telemetry := s.rerankTopK(ctx, query, result.Fused, topK, result)
+	return chunks, telemetry, nil
 }
 
 // Query is the top-level Retrieval entry point. It normalizes the request,
@@ -62,14 +63,14 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		topK = s.maxTopK
 	}
 	if keyword != "" {
-		chunks, err := s.keywordSearch(ctx, keyword, topK, filter)
+		chunks, telemetry, err := s.keywordSearch(ctx, keyword, topK, filter)
 		outcome := "success"
 		if err != nil {
 			outcome = "error"
 		}
 		finish(outcome, err,
 			zap.Bool("keyword", true), zap.Int("results", len(chunks)))
-		return Result{Chunks: fromStoreChunks(chunks)}, err
+		return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry}, err
 	}
 
 	if cached, ok := s.getCached(ctx, query, topK, filter, request.SkipCache); ok {
@@ -77,7 +78,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		return Result{Chunks: fromStoreChunks(cached), FromCache: true}, nil
 	}
 
-	chunks, err := s.search(ctx, query, topK, filter)
+	chunks, telemetry, err := s.search(ctx, query, topK, filter)
 	if err != nil {
 		finish("error", err)
 		return Result{}, err
@@ -97,7 +98,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 	}
 
 	finish("success", nil, zap.Bool("from_cache", false), zap.Int("results", len(chunks)))
-	return Result{Chunks: fromStoreChunks(chunks)}, nil
+	return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry}, nil
 }
 
 func fromStoreChunks(chunks []SearchCandidate) []Chunk {
@@ -148,7 +149,7 @@ func isEmptyFilter(filter *Filter) bool {
 	return filter == nil || (filter.FilePath == "" && filter.Header == "" && filter.SourceSHA == "")
 }
 
-func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *Filter) ([]SearchCandidate, error) {
+func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK int, filter *Filter) ([]SearchCandidate, RerankTelemetry, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
@@ -156,52 +157,107 @@ func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK i
 
 	chunks, err := s.store.KeywordSearch(ctx, keyword, fetchN, filter)
 	if err != nil {
-		return nil, err
+		return nil, RerankTelemetry{}, err
 	}
 
-	return s.rerankTopK(ctx, keyword, chunks, topK), nil
+	reranked, telemetry := s.rerankTopK(ctx, keyword, chunks, topK, HybridSearchResult{Fused: chunks})
+	return reranked, telemetry, nil
 }
 
 // rerankTopK re-scores candidates with the cross-encoder when configured,
 // keeping the best topK. Best-effort: on reranker failure the original
 // score ordering is retained, but the result count remains bounded.
-func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []SearchCandidate, topK int) []SearchCandidate {
+func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []SearchCandidate, topK int, signals HybridSearchResult) ([]SearchCandidate, RerankTelemetry) {
+	telemetry := RerankTelemetry{Enabled: s.reranker != nil}
 	if s.reranker == nil || len(chunks) == 0 {
-		return chunks
+		telemetry.Reason = "disabled"
+		return chunks, telemetry
 	}
+
 	started := time.Now()
+	if s.adaptiveRerank {
+		shouldRerank, reason := adaptiveRerankDecision(chunks, signals, s.adaptiveMarginThreshold)
+		telemetry.Reason = reason
+		if !shouldRerank {
+			observability.Stage(s.log, "reranking", "skipped", started, nil,
+				zap.Bool("adaptive", true), zap.String("reason", reason), zap.Int("candidates", len(chunks)))
+			return trimCandidates(chunks, topK), telemetry
+		}
+	} else {
+		telemetry.Reason = "always"
+	}
+
+	telemetry.Attempted = true
+	telemetry.Candidates = len(chunks)
 	reranked, err := s.reranker.Rerank(ctx, query, chunks)
+	telemetry.LatencyMS = float64(time.Since(started).Microseconds()) / 1000
 	if err != nil {
+		telemetry.DependencyErr = true
 		observability.Stage(s.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
 		s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
-		if len(chunks) > topK {
-			return chunks[:topK]
-		}
-		return chunks
+		return trimCandidates(chunks, topK), telemetry
 	}
-	if len(reranked) > topK {
-		reranked = reranked[:topK]
-	}
+	reranked = trimCandidates(reranked, topK)
 	observability.Stage(s.log, "reranking", "success", started, nil,
 		zap.Int("candidates", len(chunks)), zap.Int("results", len(reranked)))
-	return reranked
+	return reranked, telemetry
 }
 
-func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, error) {
+func trimCandidates(chunks []SearchCandidate, topK int) []SearchCandidate {
+	if len(chunks) > topK {
+		return chunks[:topK]
+	}
+	return chunks
+}
+
+func adaptiveRerankDecision(fused []SearchCandidate, signals HybridSearchResult, marginThreshold float32) (bool, string) {
+	if len(fused) < 2 {
+		return false, "single_candidate"
+	}
+	if len(signals.Dense) == 0 || len(signals.Lexical) == 0 {
+		return true, "missing_leg"
+	}
+	if signals.Dense[0].Key() != signals.Lexical[0].Key() {
+		return true, "leg_disagreement"
+	}
+	if relativeMargin(fused[0].Score, fused[1].Score) < marginThreshold {
+		return true, "weak_margin"
+	}
+	return false, "high_confidence"
+}
+
+func relativeMargin(first, second float32) float32 {
+	denominator := first
+	if denominator < 0 {
+		denominator = -denominator
+	}
+	if denominator < 1e-6 {
+		return 0
+	}
+	delta := first - second
+	if delta < 0 {
+		delta = -delta
+	}
+	return delta / denominator
+}
+
+func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *Filter) (HybridSearchResult, error) {
 	fragments := splitFragments(query, s.maxFragments)
 
 	vecs, err := s.embedFragments(ctx, fragments)
 	if err != nil {
-		return nil, fmt.Errorf("embed: %w", err)
+		return HybridSearchResult{}, fmt.Errorf("embed: %w", err)
 	}
 	if len(vecs) != len(fragments) {
-		return nil, fmt.Errorf("embed returned %d vectors for %d fragments", len(vecs), len(fragments))
+		return HybridSearchResult{}, fmt.Errorf("embed returned %d vectors for %d fragments", len(vecs), len(fragments))
 	}
 
 	var (
 		mu       sync.Mutex
 		wg       sync.WaitGroup
-		seen     = make(map[string]SearchCandidate)
+		fused    = make(map[string]SearchCandidate)
+		dense    = make(map[string]SearchCandidate)
+		lexical  = make(map[string]SearchCandidate)
 		firstErr error
 	)
 	sem := make(chan struct{}, s.maxConcurrentFragments)
@@ -220,21 +276,18 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 				}
 				return
 			}
-			for _, c := range results {
-				key := c.Key()
-				if existing, ok := seen[key]; !ok || c.Score > existing.Score {
-					seen[key] = c
-				}
-			}
+			mergeBest(fused, results.Fused)
+			mergeBest(dense, results.Dense)
+			mergeBest(lexical, results.Lexical)
 		}(frag, vecs[i])
 	}
 	wg.Wait()
 	if firstErr != nil {
-		return nil, firstErr
+		return HybridSearchResult{}, firstErr
 	}
 
-	merged := make([]SearchCandidate, 0, len(seen))
-	for _, c := range seen {
+	merged := make([]SearchCandidate, 0, len(fused))
+	for _, c := range fused {
 		merged = append(merged, c)
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i].Score > merged[j].Score })
@@ -242,7 +295,29 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 	if len(merged) > topK {
 		merged = merged[:topK]
 	}
-	return merged, nil
+	return HybridSearchResult{
+		Fused:   merged,
+		Dense:   sortCandidates(dense),
+		Lexical: sortCandidates(lexical),
+	}, nil
+}
+
+func mergeBest(dst map[string]SearchCandidate, candidates []SearchCandidate) {
+	for _, candidate := range candidates {
+		key := candidate.Key()
+		if existing, ok := dst[key]; !ok || candidate.Score > existing.Score {
+			dst[key] = candidate
+		}
+	}
+}
+
+func sortCandidates(candidates map[string]SearchCandidate) []SearchCandidate {
+	result := make([]SearchCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		result = append(result, candidate)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Score > result[j].Score })
+	return result
 }
 
 // embedFragments embeds all query fragments in one batch call when the

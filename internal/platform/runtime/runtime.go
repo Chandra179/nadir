@@ -92,9 +92,10 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 	)
 	qdrantHealth := qdrant.NewQdrantClient(conn)
 	store, err := qdrantstore.NewDependencies(qdrantstore.DependenciesConfig{
-		Clients:     clients,
-		Collection:  cfg.Qdrant.Collection,
-		PrefetchMul: cfg.Qdrant.PrefetchMul,
+		Clients:         clients,
+		Collection:      cfg.Qdrant.Collection,
+		PrefetchMul:     cfg.Qdrant.PrefetchMul,
+		AdaptiveSignals: cfg.Reranker.AdaptiveEnabled && !opts.DisableReranker,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("qdrant store init: %w", err)
@@ -145,17 +146,19 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 
 	var rerankerProbe func(context.Context) (reranker.ProbeResult, error)
 	searchConfig := search.DependenciesConfig{
-		Embedder:               emb,
-		Store:                  store,
-		CandidateMul:           cfg.Reranker.CandidateMul,
-		SemanticCache:          semanticCache,
-		QueryPrefix:            cfg.Embedder.QueryPrefix,
-		MaxQueryChars:          cfg.Search.MaxQueryChars,
-		MaxFragments:           cfg.Search.MaxFragments,
-		MaxConcurrentFragments: cfg.Search.MaxConcurrentFragments,
-		MaxTopK:                cfg.Search.MaxTopK,
-		MaxChunksPerFile:       cfg.Search.MaxChunksPerFile,
-		Log:                    log,
+		Embedder:                emb,
+		Store:                   store,
+		CandidateMul:            cfg.Reranker.CandidateMul,
+		AdaptiveRerank:          cfg.Reranker.AdaptiveEnabled,
+		AdaptiveMarginThreshold: cfg.Reranker.AdaptiveMarginThreshold,
+		SemanticCache:           semanticCache,
+		QueryPrefix:             cfg.Embedder.QueryPrefix,
+		MaxQueryChars:           cfg.Search.MaxQueryChars,
+		MaxFragments:            cfg.Search.MaxFragments,
+		MaxConcurrentFragments:  cfg.Search.MaxConcurrentFragments,
+		MaxTopK:                 cfg.Search.MaxTopK,
+		MaxChunksPerFile:        cfg.Search.MaxChunksPerFile,
+		Log:                     log,
 	}
 	if cfg.Reranker.Enabled && !opts.DisableReranker {
 		rankerAdapter := reranker.NewDependencies(reranker.DependenciesConfig{

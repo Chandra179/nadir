@@ -110,6 +110,7 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 		return err
 	}
 	report.Rerank = rerankEnabled
+	report.AdaptiveRerank = rerankEnabled && cfg.Reranker.AdaptiveEnabled
 	printReport(report)
 
 	if reportPath == "" {
@@ -170,7 +171,10 @@ func printReport(report *evaluation.Report) {
 	fmt.Printf("nDCG@%d         %.3f\n", aggregate.TopK, aggregate.NDCGAtK)
 	fmt.Printf("distractor@%d  %.3f\n", aggregate.TopK, aggregate.DistractorHitRateAtK)
 	fmt.Printf("latency p50/p95  %.1fms / %.1fms\n", aggregate.P50LatMS, aggregate.P95LatMS)
-	fmt.Printf("queries=%d reranker=%v top_k=%d\n", aggregate.Queries, report.Rerank, aggregate.TopK)
+	fmt.Printf("rerank coverage %.1f%% calls=%d candidates=%d p50/p95=%.1fms / %.1fms errors=%d\n",
+		aggregate.RerankCoverage*100, aggregate.RerankDependencyCalls, aggregate.RerankCandidateTotal,
+		aggregate.RerankP50LatMS, aggregate.RerankP95LatMS, aggregate.RerankErrors)
+	fmt.Printf("queries=%d reranker=%v adaptive=%v top_k=%d\n", aggregate.Queries, report.Rerank, report.AdaptiveRerank, aggregate.TopK)
 }
 
 func truncate(value string, width int) string {

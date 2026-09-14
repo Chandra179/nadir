@@ -156,3 +156,25 @@ readiness, evaluation-safeguard, and document-intake work is complete and is
 archived here. Production-quality release evidence still requires the product
 and privacy process to provide consent-safe queries and expert judgments; the
 repository does not fabricate that evidence.
+
+## Archived adaptive reranking experiment — 2026-09-14
+
+Confidence-gated adaptive reranking is implemented behind
+`RERANKER_ADAPTIVE_ENABLED`. The Qdrant Adapter returns the fused RRF ranking
+and both dense and lexical rankings in one batch request. Retrieval keeps the
+fused result when the component top results agree and the fused margin is
+strong; it invokes the cross-encoder when the legs disagree or the margin is
+weak. Evaluation records the decision reason, coverage, candidate count,
+dependency errors, and reranker latency.
+
+On the same four-document corpus and 133-query synthetic fixture, the 1%
+margin adaptive arm called BGE v2 M3 for 77/133 queries (57.9% coverage),
+processed 866 candidates, had no dependency errors, and measured HitRate@5
+0.805, Recall@5 0.781, MRR@10 0.661, nDCG@5 0.679, and p50/p95 latency
+2518.9/5000.8ms. The always-rerank control called it 133/133 times, processed
+1481 candidates, had no dependency errors, and measured HitRate@5 0.812,
+Recall@5 0.788, MRR@10 0.694, nDCG@5 0.703, and p50/p95 3461.4/5207.4ms.
+The feature remains opt-in because this synthetic fixture shows a ranking
+tradeoff; release-gated consent-safe judgments are required before changing
+the default. Full evidence is in
+[`adaptive-rerank-comparison-20260914.json`](../../test/evaluation/reports/adaptive-rerank-comparison-20260914.json).

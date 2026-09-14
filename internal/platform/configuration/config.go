@@ -157,11 +157,13 @@ type SearchConfig struct {
 
 // RerankerConfig controls the optional cross-encoder reranker Adapter.
 type RerankerConfig struct {
-	Enabled        bool          `yaml:"enabled"`
-	Addr           string        `yaml:"addr"`            // sidecar addr, e.g. http://localhost:5002
-	Model          string        `yaml:"model"`           // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
-	CandidateMul   int           `yaml:"candidate_mul"`   // fetch topK*candidate_mul before reranking (default 3)
-	RequestTimeout time.Duration `yaml:"request_timeout"` // timeout for one sidecar request
+	Enabled                 bool          `yaml:"enabled"`
+	Addr                    string        `yaml:"addr"`                      // sidecar addr, e.g. http://localhost:5002
+	Model                   string        `yaml:"model"`                     // cross-encoder the sidecar loads (RERANKER_MODEL; default BAAI/bge-reranker-v2-m3)
+	CandidateMul            int           `yaml:"candidate_mul"`             // fetch topK*candidate_mul before reranking (default 3)
+	RequestTimeout          time.Duration `yaml:"request_timeout"`           // timeout for one sidecar request
+	AdaptiveEnabled         bool          `yaml:"adaptive_enabled"`          // invoke the reranker only for low-confidence hybrid results
+	AdaptiveMarginThreshold float32       `yaml:"adaptive_margin_threshold"` // relative fused top-result margin below which reranking is required
 }
 
 // InferenceConfig defines the local model resource profile. It is process-local
@@ -302,6 +304,12 @@ func (c *Config) applyEnv() error {
 		return err
 	}
 	c.envStr(&c.Reranker.Model, "RERANKER_MODEL")
+	if err := c.envBool(&c.Reranker.AdaptiveEnabled, "RERANKER_ADAPTIVE_ENABLED"); err != nil {
+		return err
+	}
+	if err := c.envFloat32(&c.Reranker.AdaptiveMarginThreshold, "RERANKER_ADAPTIVE_MARGIN_THRESHOLD"); err != nil {
+		return err
+	}
 	c.envStr(&c.Inference.Reranker.Device, "RERANKER_DEVICE")
 	c.envStr(&c.Inference.Reranker.Backend, "RERANKER_BACKEND")
 	if err := c.envInt(&c.Inference.Reranker.MaxConcurrent, "RERANKER_MAX_CONCURRENT"); err != nil {
@@ -499,6 +507,9 @@ func (c *Config) applyDefaults() {
 	if c.Reranker.RequestTimeout <= 0 {
 		c.Reranker.RequestTimeout = 30 * time.Second
 	}
+	if c.Reranker.AdaptiveMarginThreshold <= 0 {
+		c.Reranker.AdaptiveMarginThreshold = 0.01
+	}
 	if strings.TrimSpace(c.Inference.Profile) == "" {
 		c.Inference.Profile = "local"
 	}
@@ -607,6 +618,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Reranker.Enabled && strings.TrimSpace(c.Reranker.Model) == "" {
 		return fmt.Errorf("config: reranker.model must not be empty when reranker.enabled is true")
+	}
+	if c.Reranker.AdaptiveMarginThreshold <= 0 || c.Reranker.AdaptiveMarginThreshold > 1 || math.IsNaN(float64(c.Reranker.AdaptiveMarginThreshold)) || math.IsInf(float64(c.Reranker.AdaptiveMarginThreshold), 0) {
+		return fmt.Errorf("config: reranker.adaptive_margin_threshold must be > 0 and <= 1")
 	}
 	if c.Inference.Profile != "local" && c.Inference.Profile != "custom" {
 		return fmt.Errorf("config: inference.profile must be local or custom")

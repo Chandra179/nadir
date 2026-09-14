@@ -15,20 +15,22 @@ const defaultPrefetchMul = 5
 // store. Conn is a shared gRPC connection to Qdrant (the caller dials it
 // once and reuses it across store/cache, rather than each opening its own).
 type DependenciesConfig struct {
-	Clients     qdrantutil.Clients
-	Collection  string
-	PrefetchMul int
+	Clients         qdrantutil.Clients
+	Collection      string
+	PrefetchMul     int
+	AdaptiveSignals bool
 }
 
 // dependencies is a hybrid (dense + BM25) search store backed by Qdrant.
 type dependencies struct {
-	points      qdrant.PointsClient
-	collection  qdrant.CollectionsClient
-	name        string
-	activeAlias string
-	prefetchMul int
-	dimensions  int
-	mu          sync.RWMutex
+	points          qdrant.PointsClient
+	collection      qdrant.CollectionsClient
+	name            string
+	activeAlias     string
+	prefetchMul     int
+	adaptiveSignals bool
+	dimensions      int
+	mu              sync.RWMutex
 }
 
 // NewDependencies constructs a document persistence Adapter over shared
@@ -43,10 +45,11 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		return nil, fmt.Errorf("qdrant clients are required")
 	}
 	return &dependencies{
-		points:      cfg.Clients.Points,
-		collection:  cfg.Clients.Collections,
-		name:        cfg.Collection,
-		activeAlias: activeAliasName(cfg.Collection),
-		prefetchMul: prefetchMul,
+		points:          cfg.Clients.Points,
+		collection:      cfg.Clients.Collections,
+		name:            cfg.Collection,
+		activeAlias:     activeAliasName(cfg.Collection),
+		prefetchMul:     prefetchMul,
+		adaptiveSignals: cfg.AdaptiveSignals,
 	}, nil
 }
