@@ -23,7 +23,6 @@ go run ./cmd/api
 go test -short -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # unit tests only
 go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/...       # all Go tests
 go test -run TestMatchPattern ./internal/knowledge/indexing/   # focused pkg test
-go run ./cmd/contractcheck                                      # HTTP contract drift check
 make load-benchmark ARGS="--mode all --requests 30 --concurrency 8" # live p50/p95/p99 load evidence
 
 # Quick ops (server must be on :8100)

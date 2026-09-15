@@ -84,7 +84,7 @@ func writeSSEEvent(w gin.ResponseWriter, event, text string, seq int64) error {
 		return err
 	}
 	normalized := strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text)
-	for _, line := range strings.Split(normalized, "\n") {
+	for line := range strings.SplitSeq(normalized, "\n") {
 		if _, err := w.WriteString("data: " + line + "\n"); err != nil {
 			return err
 		}

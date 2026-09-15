@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net"
 	"net/http"
 	"sort"
@@ -128,9 +129,7 @@ func (r *Recorder) Snapshot() Snapshot {
 			value *metricValue
 		}{key: key, value: value})
 	}
-	for name, value := range r.gauges {
-		result.Gauges[name] = value
-	}
+	maps.Copy(result.Gauges, r.gauges)
 	r.mu.RUnlock()
 	sort.Slice(metrics, func(i, j int) bool {
 		if metrics[i].key.operation != metrics[j].key.operation {
@@ -200,7 +199,14 @@ func contextString(ctx context.Context, key contextKey) string {
 func NewID(prefix string) string {
 	bytes := make([]byte, 12)
 	if _, err := rand.Read(bytes); err != nil {
-		return prefix + "-" + hex.EncodeToString([]byte(time.Now().UTC().Format("150405.000000000")))
+		value := hex.EncodeToString([]byte(time.Now().UTC().Format("150405.000000000")))
+		if prefix == "" {
+			return value
+		}
+		return prefix + "-" + value
+	}
+	if prefix == "" {
+		return hex.EncodeToString(bytes)
 	}
 	return prefix + "-" + hex.EncodeToString(bytes)
 }

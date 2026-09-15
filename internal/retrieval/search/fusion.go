@@ -54,7 +54,7 @@ func fuseHybrid(query string, queryType QueryType, result HybridSearchResult, cf
 
 		headerOverlap := countOverlap(queryTokens, tokenSet(candidate.Header))
 		if headerOverlap >= profile.MinHeaderTokens {
-			score += float64(profile.HeaderMatchBoost) * float64(headerOverlap) / float64(maxInt(1, len(queryTokens)))
+			score += float64(profile.HeaderMatchBoost) * float64(headerOverlap) / float64(max(1, len(queryTokens)))
 		}
 		candidate.Score = float32(score)
 		out = append(out, candidate)
@@ -135,13 +135,6 @@ func countOverlap(left, right map[string]struct{}) int {
 		}
 	}
 	return count
-}
-
-func maxInt(left, right int) int {
-	if left > right {
-		return left
-	}
-	return right
 }
 
 func resolveQueryType(query string, supplied QueryType) QueryType {

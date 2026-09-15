@@ -38,8 +38,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 	defer d.endStart()
 
-	turn := Turn{OperationID: operation.ID(), Query: req.Query, Generate: req.Generate}
-	turn.SessionID = req.SessionID
+	turn := Turn{OperationID: operation.ID(), Query: req.Query, Generate: req.Generate,
+		SessionID: req.SessionID}
 	var mutation historyMutation
 	if d.history != nil && req.SessionID != "" {
 		mutation = d.mutations.capture(req.SessionID)
@@ -425,16 +425,14 @@ func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, m
 	if d.history == nil || turn.SessionID == "" {
 		return
 	}
-	d.persists.Add(1)
-	go func() {
-		defer d.persists.Done()
+	d.persists.Go(func() {
 		if err := d.persistTurn(reqCtx, req, turn, mutation, failed); err != nil {
 			if errors.Is(err, errStaleHistoryMutation) {
 				return
 			}
 			d.log.Warn("chat append turn failed", zap.String("session_id", turn.SessionID), zap.Error(err))
 		}
-	}()
+	})
 }
 
 // saveTurn persists a finished generation from the supervisor goroutine.

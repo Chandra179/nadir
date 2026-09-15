@@ -11,7 +11,7 @@ import (
 
 func nodeToPlainText(n ast.Node, src []byte) string {
 	var sb strings.Builder
-	ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
@@ -130,7 +130,7 @@ func extractSections(rawText string) []section {
 		return strings.Count(rawText[:offset], "\n") + 1
 	}
 
-	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}

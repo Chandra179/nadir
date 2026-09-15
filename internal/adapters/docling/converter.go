@@ -54,7 +54,7 @@ func (d *Converter) Convert(ctx context.Context, name string, data []byte) ([]by
 		observability.Stage(d.log, "docling_conversion", "error", started, err, zap.String("name", name))
 		return nil, fmt.Errorf("docling convert %s: %w", name, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
 		observability.Stage(d.log, "docling_conversion", "error", started, readErr, zap.String("name", name))

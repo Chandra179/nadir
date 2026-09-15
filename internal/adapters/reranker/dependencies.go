@@ -79,7 +79,7 @@ func (r *dependencies) Probe(ctx context.Context) (ProbeResult, error) {
 	if err != nil {
 		return result, fmt.Errorf("reranker health: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var health struct {
 		Status      string `json:"status"`

@@ -29,7 +29,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
 	}
-	defer log.Sync()
+	defer func() { _ = log.Sync() }()
 	startupCtx, startupCancel := context.WithTimeout(ctx, cfg.HTTP.StartupTimeout)
 	defer startupCancel()
 

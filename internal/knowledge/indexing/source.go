@@ -74,7 +74,7 @@ func readBoundedFile(filePath string, maxBytes int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if maxBytes <= 0 {
 		return io.ReadAll(f)

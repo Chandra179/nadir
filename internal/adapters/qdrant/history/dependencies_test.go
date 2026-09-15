@@ -45,7 +45,7 @@ func testDependencies(t *testing.T) *dependencies {
 	if err != nil {
 		t.Skipf("qdrant dial unavailable: %v", err)
 	}
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

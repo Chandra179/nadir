@@ -27,10 +27,8 @@ func (e *dependencies) Embed(ctx context.Context, text string) ([]float32, error
 }
 
 func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	releaseAdmission := func() {}
 	if e.admission != nil {
-		var err error
-		releaseAdmission, err = e.admission(ctx)
+		releaseAdmission, err := e.admission(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("embedding admission: %w", err)
 		}
@@ -60,7 +58,7 @@ func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]floa
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed batch: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("ollama embed batch: status %d", resp.StatusCode)
@@ -113,7 +111,7 @@ func (e *dependencies) loadedModel(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("ollama ps: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("ollama ps: status %d", resp.StatusCode)
 	}

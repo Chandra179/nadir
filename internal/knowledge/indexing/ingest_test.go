@@ -3,6 +3,7 @@ package indexing
 import (
 	"context"
 	"errors"
+	"maps"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -59,9 +60,7 @@ func (f *fakeStore) ReplaceDocument(_ context.Context, filePath, sourceSHA strin
 }
 func (f *fakeStore) GetAllFileSHAs(context.Context) (map[string]string, error) {
 	shas := make(map[string]string, len(f.stored))
-	for path, sha := range f.stored {
-		shas[path] = sha
-	}
+	maps.Copy(shas, f.stored)
 	return shas, nil
 }
 func (f *fakeStore) DeleteDocument(_ context.Context, filePath string) error {

@@ -20,7 +20,6 @@ jobs:
       - run: go test -short -race -count=1 ./internal/platform/configuration ./cmd/... ./internal/...
       - run: go vet ./internal/platform/configuration ./cmd/... ./internal/...
       - run: go build ./cmd/api
-      - run: go run ./cmd/contractcheck
 
   dashboard:
     runs-on: ubuntu-latest

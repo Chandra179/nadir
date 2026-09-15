@@ -538,7 +538,7 @@ func TestStartTurnRewriteSkippedWithoutRewriter(t *testing.T) {
 
 func TestStartTurnRewriteTurnsCapped(t *testing.T) {
 	var prior []history.Turn
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		prior = append(prior, history.Turn{Query: "q"})
 	}
 	h := &fakeHistory{priorTurns: prior}

@@ -83,10 +83,8 @@ func (m *historyMutations) createSession(ctx context.Context, title string) (his
 }
 
 func (m *historyMutations) prepareEdit(ctx context.Context, sessionID string, beforeSequence int) (historyMutation, error) {
-	release := func() {}
 	if m.destructiveAdmission != nil {
-		var err error
-		release, err = m.destructiveAdmission(ctx)
+		release, err := m.destructiveAdmission(ctx)
 		if err != nil {
 			return historyMutation{}, fmt.Errorf("chat edit admission: %w", err)
 		}
@@ -116,10 +114,8 @@ func (m *historyMutations) append(ctx context.Context, token historyMutation, tu
 }
 
 func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) error {
-	release := func() {}
 	if m.destructiveAdmission != nil {
-		var err error
-		release, err = m.destructiveAdmission(ctx)
+		release, err := m.destructiveAdmission(ctx)
 		if err != nil {
 			return fmt.Errorf("chat delete admission: %w", err)
 		}
@@ -136,10 +132,8 @@ func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) 
 }
 
 func (m *historyMutations) deleteAll(ctx context.Context) error {
-	release := func() {}
 	if m.destructiveAdmission != nil {
-		var err error
-		release, err = m.destructiveAdmission(ctx)
+		release, err := m.destructiveAdmission(ctx)
 		if err != nil {
 			return fmt.Errorf("chat delete-all admission: %w", err)
 		}

@@ -31,10 +31,8 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search
 		return chunks, nil
 	}
 
-	releaseAdmission := func() {}
 	if r.admission != nil {
-		var err error
-		releaseAdmission, err = r.admission(ctx)
+		releaseAdmission, err := r.admission(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				observability.Stage(r.log, "reranking", "canceled", started, ctx.Err(), zap.Int("candidates", len(chunks)))
@@ -87,7 +85,7 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search
 		observability.Stage(r.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
 		return nil, fmt.Errorf("reranker call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("reranker status %d", resp.StatusCode)

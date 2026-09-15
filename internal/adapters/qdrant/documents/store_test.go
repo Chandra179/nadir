@@ -62,7 +62,8 @@ func TestStorePayloadAndPointIdentity(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("chunkFromPayload() = %+v, want %+v", got, chunk)
 	}
-	if pointID(chunk) != pointID(chunk) {
+	firstID := pointID(chunk)
+	if firstID != pointID(chunk) {
 		t.Fatal("pointID is not deterministic")
 	}
 	otherVersion := chunk

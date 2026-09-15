@@ -147,10 +147,10 @@ func TestRunHTTPServerDrainsActiveChatBeforeReturning(t *testing.T) {
 		Streaming bool   `json:"streaming"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		response.Body.Close()
+		_ = response.Body.Close()
 		t.Fatal(err)
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode != http.StatusOK || body.SessionID == "" || !body.Streaming {
 		t.Fatalf("start response = %d/%+v, want streaming turn", response.StatusCode, body)
 	}
@@ -206,7 +206,7 @@ func TestRunHTTPServerCanRestartOnTheSameAddress(t *testing.T) {
 	if response, err := http.Get("http://" + addr); err != nil {
 		t.Fatal(err)
 	} else {
-		response.Body.Close()
+		_ = response.Body.Close()
 	}
 	cancel1()
 	if err := <-done1; err != nil {
@@ -222,7 +222,7 @@ func TestRunHTTPServerCanRestartOnTheSameAddress(t *testing.T) {
 	if response, err := http.Get("http://" + addr); err != nil {
 		t.Fatal(err)
 	} else {
-		response.Body.Close()
+		_ = response.Body.Close()
 	}
 	cancel2()
 	if err := <-done2; err != nil {

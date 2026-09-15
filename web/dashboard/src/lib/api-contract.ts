@@ -1,5 +1,4 @@
-// HTTP DTOs mirrored from contracts/http/openapi.yaml. Keeping transport
-// shapes in one module prevents feature packages from silently drifting apart.
+// HTTP DTOs kept in one module so feature packages cannot silently drift apart.
 
 export type Result = {
   file_path: string;

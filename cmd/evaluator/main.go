@@ -97,7 +97,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
-	defer log.Sync()
+	defer func() { _ = log.Sync() }()
 
 	ctx := context.Background()
 	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{

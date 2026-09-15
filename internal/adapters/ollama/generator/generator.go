@@ -79,7 +79,7 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 		return nil, fmt.Errorf("generator request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		release()
 		releaseAdmission()
 		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
@@ -97,7 +97,7 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 // cancelled context. It owns body and closes it.
 func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event, release func()) {
 	defer release()
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	defer close(events)
 
 	reader := &ollamaTokenReader{body: body, scanner: bufio.NewScanner(body)}

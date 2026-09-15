@@ -64,10 +64,8 @@ func (d *dependencies) ContextualIntro(ctx context.Context, documentExcerpt, chu
 // chat posts a non-streaming chat request to Ollama and returns the
 // assistant message content.
 func (d *dependencies) chat(ctx context.Context, addr, model, system, user string) (string, error) {
-	releaseAdmission := func() {}
 	if d.admission != nil {
-		var err error
-		releaseAdmission, err = d.admission(ctx)
+		releaseAdmission, err := d.admission(ctx)
 		if err != nil {
 			return "", fmt.Errorf("enrichment operation admission: %w", err)
 		}
@@ -107,7 +105,7 @@ func (d *dependencies) chat(ctx context.Context, addr, model, system, user strin
 	if err != nil {
 		return "", fmt.Errorf("enrichment: ollama chat: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("enrichment: ollama chat: status %d", resp.StatusCode)
 	}

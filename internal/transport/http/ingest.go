@@ -34,8 +34,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			d.respondIngestError(c, http.StatusRequestEntityTooLarge, "upload exceeds the configured size limit")
 			return
 		}
@@ -60,7 +59,7 @@ func (d *dependencies) Ingest(c *gin.Context) {
 					return
 				}
 				data, err := io.ReadAll(f)
-				f.Close()
+				_ = f.Close()
 				if err != nil {
 					d.respondIngestError(c, http.StatusBadRequest, fmt.Sprintf("read %s: %v", fh.Filename, err))
 					return

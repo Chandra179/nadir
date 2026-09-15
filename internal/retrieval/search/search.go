@@ -123,16 +123,7 @@ func fromStoreChunks(chunks []SearchCandidate) []Chunk {
 	}
 	out := make([]Chunk, len(chunks))
 	for i, chunk := range chunks {
-		out[i] = Chunk{
-			Text:       chunk.Text,
-			WindowText: chunk.WindowText,
-			FilePath:   chunk.FilePath,
-			Header:     chunk.Header,
-			LineStart:  chunk.LineStart,
-			ChunkIndex: chunk.ChunkIndex,
-			SourceSHA:  chunk.SourceSHA,
-			Score:      chunk.Score,
-		}
+		out[i] = Chunk(chunk)
 	}
 	return out
 }
@@ -171,10 +162,8 @@ func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK i
 		fetchN = topK * s.candidateMul
 	}
 
-	release := func() {}
 	if s.fragmentAdmission != nil {
-		var err error
-		release, err = s.fragmentAdmission(ctx)
+		release, err := s.fragmentAdmission(ctx)
 		if err != nil {
 			return nil, RerankTelemetry{}, fmt.Errorf("retrieval admission: %w", err)
 		}
@@ -293,10 +282,8 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, queryType 
 		go func(frag string, vec []float32) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			release := func() {}
 			if s.fragmentAdmission != nil {
-				var err error
-				release, err = s.fragmentAdmission(ctx)
+				release, err := s.fragmentAdmission(ctx)
 				if err != nil {
 					mu.Lock()
 					if firstErr == nil {

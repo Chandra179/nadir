@@ -1,6 +1,9 @@
 package evaluation
 
-import "math"
+import (
+	"math"
+	"sort"
+)
 
 // ReciprocalRank returns 1/rank for a 1-based rank, or zero when no result
 // was found.
@@ -112,11 +115,7 @@ func Percentile(values []float64, p float64) float64 {
 		return 0
 	}
 	sorted := append([]float64(nil), values...)
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
+	sort.Float64s(sorted)
 	if p <= 0 {
 		return sorted[0]
 	}

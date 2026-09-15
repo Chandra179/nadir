@@ -102,10 +102,8 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 	if d.keepAlive != "" {
 		payload["keep_alive"] = d.keepAlive
 	}
-	releaseAdmission := func() {}
 	if d.admission != nil {
-		var err error
-		releaseAdmission, err = d.admission(ctx)
+		releaseAdmission, err := d.admission(ctx)
 		if err != nil {
 			return "", fmt.Errorf("rewriter operation admission: %w", err)
 		}
@@ -130,7 +128,7 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("rewriter: ollama chat: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("rewriter: ollama chat: status %d", resp.StatusCode)
 	}

@@ -35,7 +35,7 @@ func TestBrokerRetainsOrderedFinishedStreamsBeforeRejectingActiveOnes(t *testing
 
 func TestTurnStreamReplayLogIsBoundedAndSignalsGap(t *testing.T) {
 	s := newTurnStream()
-	for i := 0; i < defaultEventBuffer+2; i++ {
+	for range defaultEventBuffer + 2 {
 		s.publish(EventToken, "token")
 	}
 

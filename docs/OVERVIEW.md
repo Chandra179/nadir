@@ -122,6 +122,25 @@ The selected passages are placed into a prompt with their source context. The
 language model is instructed to answer from that material, which reduces
 unsupported claims and makes the result easier to verify.
 
+## Current evidence
+
+These are the latest engineering measurements. The 133-query fixture uses the
+four sample documents and synthetic user-intent queries, so it is a regression
+signal rather than production release evidence.
+
+| Area | Latest result |
+|---|---|
+| Hybrid Retrieval, no reranker | HitRate@5 **0.797**, MRR@10 **0.651**, p50/p95 **22/47 ms** ([report](../test/evaluation/reports/fusion-baseline-20260915.json)) |
+| EmbeddingGemma experiment | HitRate@5 **0.932**, MRR@10 **0.735**, p50/p95 **98/118 ms**; default remains Nomic pending release-gated evidence ([report](../test/evaluation/reports/embedder-comparison-20260914.json)) |
+| BGE reranker on GPU | MRR@10 **0.962**, nDCG@5 **0.971**, p50/p95 **30/132 ms**; peak VRAM about **2.37 GiB** ([report](../test/evaluation/reports/reranker-bge-m3-gpu-20260915.json)) |
+| Answer-quality judge | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures ([report](../test/evaluation/reports/generation-eval-20260915.json)) |
+| PDF intake | 18/18 successful conversions, p50/p95 **2.62/25.94 s**, peak RSS about **3.28 GiB** ([report](../test/evaluation/reports/docling-system-corpus-20260913.json)) |
+
+The results show that Retrieval is fast without reranking, while reranking and
+PDF conversion are the main latency and resource costs. The default models and
+fusion policy remain conservative until consent-safe, expert-judged production
+data is available.
+
 ## Conversations and data management
 
 Each conversation is an ordered list of question-and-answer turns. Editing a

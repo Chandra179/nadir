@@ -114,7 +114,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("health response = %v/%d", err, resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	var upload bytes.Buffer
 	writer := multipart.NewWriter(&upload)
@@ -134,10 +134,10 @@ func TestHTTPWorkflow(t *testing.T) {
 		Processed int `json:"processed"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&ingestBody); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || ingestBody.Processed != 1 || len(ingestFake.files) != 1 {
 		t.Fatalf("ingest response = %d/%+v files=%+v", resp.StatusCode, ingestBody, ingestFake.files)
 	}
@@ -151,10 +151,10 @@ func TestHTTPWorkflow(t *testing.T) {
 		StreamURL string `json:"stream_url"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&turnBody); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || turnBody.SessionID != "session-1" || turnBody.StreamURL != "/api/v1/turns/turn-1/events" {
 		t.Fatalf("turn response = %d/%+v", resp.StatusCode, turnBody)
 	}
@@ -163,7 +163,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || len(chatFake.startCalls) != 2 || !chatFake.startCalls[1].Edit || chatFake.startCalls[1].EditSequence != 0 {
 		t.Fatalf("edit response = %d calls=%+v", resp.StatusCode, chatFake.startCalls)
 	}
@@ -173,7 +173,7 @@ func TestHTTPWorkflow(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "event: token") || !strings.Contains(string(body), "event: done") {
 		t.Fatalf("SSE response = %d/%s", resp.StatusCode, body)
 	}
@@ -183,7 +183,7 @@ func TestHTTPWorkflow(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ = io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"title":"A chat"`) {
 		t.Fatalf("sessions response = %d/%s", resp.StatusCode, body)
 	}
@@ -192,7 +192,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || len(chatFake.deleted) != 1 {
 		t.Fatalf("delete response = %d calls=%v", resp.StatusCode, chatFake.deleted)
 	}
@@ -201,7 +201,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || chatFake.deleteAllCall != 1 {
 		t.Fatalf("delete all response = %d calls=%d", resp.StatusCode, chatFake.deleteAllCall)
 	}
@@ -210,7 +210,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || storeFake.resetCalls != 1 {
 		t.Fatalf("reset response = %d calls=%d", resp.StatusCode, storeFake.resetCalls)
 	}
@@ -233,7 +233,7 @@ func TestReadinessReturnsServiceUnavailableWithFailedCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("readiness status = %d, want %d", resp.StatusCode, http.StatusServiceUnavailable)
 	}
@@ -249,7 +249,7 @@ func TestReadinessReturnsServiceUnavailableWithFailedCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("liveness status = %d, want %d while readiness is failing", resp.StatusCode, http.StatusOK)
 	}
@@ -267,7 +267,7 @@ func TestConfiguredMirrorPassesExplicitSourceOptionsAndReportsRemoved(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var body struct {
 		Removed int `json:"removed"`
 	}

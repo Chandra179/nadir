@@ -38,10 +38,8 @@ func (d *dependencies) Run(ctx context.Context, files []UploadFile, options RunO
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
-	releaseAdmission := func() {}
 	if d.admission != nil {
-		var err error
-		releaseAdmission, err = d.admission(ctx)
+		releaseAdmission, err := d.admission(ctx)
 		if err != nil {
 			return Result{}, fmt.Errorf("indexing admission: %w", err)
 		}

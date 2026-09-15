@@ -70,7 +70,7 @@ type GoldenSetMetadata struct {
 // GoldenSet is the complete collection of evaluation queries.
 type GoldenSet struct {
 	SchemaVersion int               `json:"schema_version"`
-	Metadata      GoldenSetMetadata `json:"metadata,omitempty"`
+	Metadata      GoldenSetMetadata `json:"metadata"`
 	Queries       []GoldenQuery     `json:"queries"`
 }
 

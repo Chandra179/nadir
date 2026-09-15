@@ -181,12 +181,10 @@ fabricated repository content.
       supervision), Indexing, reset, and cache invalidation are instrumented.
       This is intentionally process-local telemetry; OpenTelemetry export
       remains a later deployment decision.
-- [x] Add a CI contract-drift check or OpenAPI code generation so the central
-      TypeScript API mirror cannot diverge from `contracts/http/openapi.yaml`.
--      `contracts/http/openapi.yaml` is the canonical schema and
-      `cmd/contractcheck` uses the existing YAML dependency to compare every
-      mirrored TypeScript type, field, optionality, and primitive/reference
-      shape. The check runs in Make and `.github/workflows/check.yml`.
+- [ ] Add a CI contract-drift check or OpenAPI code generation when an
+      authoritative HTTP schema is introduced. The previous repository-local
+      checker and unused schema snapshot were removed; the TypeScript DTO
+      mirror remains the current transport seam.
 - [x] Add load benchmarks for concurrent Chat streams, long-fragment Retrieval,
       and large Document ingestion with p50/p95/p99 and dependency saturation.
 -      `scripts/benchmark_load.py` uses only the Python standard library, drives
