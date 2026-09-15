@@ -27,6 +27,12 @@ func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
 	return sb.String()
 }
 
+// BuildPrompt assembles the production answer prompt for evaluation and other
+// local callers that need to exercise the same prompt contract as Chat.
+func BuildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
+	return buildPrompt(query, chunks, maxTokens)
+}
+
 // lostInMiddleOrder interleaves chunks front/back so the highest-ranked
 // ones land at the prompt's edges, where attention is strongest.
 func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
@@ -69,6 +75,13 @@ func buildContext(chunks []search.Chunk, maxTokens int) string {
 		used += entryTokens
 	}
 	return sb.String()
+}
+
+// BuildContext returns the bounded, lost-in-the-middle-ordered context used by
+// BuildPrompt. Evaluation uses it to present exactly the retrieved evidence
+// to the judge model without duplicating Chat prompt assembly.
+func BuildContext(chunks []search.Chunk, maxTokens int) string {
+	return buildContext(lostInMiddleOrder(chunks), maxTokens)
 }
 
 // estimateTokens approximates token count from word count (~1.3 tokens per

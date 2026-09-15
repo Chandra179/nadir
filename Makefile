@@ -1,4 +1,4 @@
-.PHONY: run test race vet build check mdn generate-mocks
+.PHONY: run test race vet build contract-check load-benchmark check mdn generate-mocks
 
 GO_PACKAGES := ./internal/platform/configuration ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
@@ -18,7 +18,13 @@ vet:
 build:
 	go build ./cmd/api
 
-check: test vet build
+contract-check:
+	go run ./cmd/contractcheck
+
+load-benchmark:
+	python3 scripts/benchmark_load.py $(ARGS)
+
+check: test vet build contract-check
 
 mdn:
 	go fix ./...

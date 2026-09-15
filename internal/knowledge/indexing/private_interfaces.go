@@ -19,7 +19,7 @@ type cacheInvalidator interface {
 }
 
 type lifecycleCoordinator interface {
-	BeginIngest()
+	BeginIngest(context.Context) error
 	EndIngest()
 	Reset(ctx context.Context, operation func(context.Context) error) error
 }

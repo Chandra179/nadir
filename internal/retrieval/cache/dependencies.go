@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"nadir/internal/embedding"
+	"nadir/internal/platform/observability"
 )
 
 const (
@@ -22,6 +23,7 @@ type DependenciesConfig struct {
 	TTL         time.Duration
 	QueryPrefix string
 	Version     string
+	Telemetry   *observability.Recorder
 }
 
 // dependencies applies semantic-cache policy over the injected persistence
@@ -35,6 +37,7 @@ type dependencies struct {
 	queryPrefix string
 	version     string
 	generation  atomic.Uint64
+	telemetry   *observability.Recorder
 }
 
 var _ SemanticCache = (*dependencies)(nil)
@@ -58,5 +61,6 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		ttl:         cfg.TTL,
 		queryPrefix: cfg.QueryPrefix,
 		version:     cfg.Version,
+		telemetry:   cfg.Telemetry,
 	}, nil
 }

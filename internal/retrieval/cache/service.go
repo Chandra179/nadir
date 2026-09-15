@@ -4,14 +4,26 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"nadir/internal/platform/observability"
 )
 
 func (c *dependencies) Clear(ctx context.Context) error {
+	ctx, operation := observability.Start(ctx, c.telemetry, nil, "cache_invalidation")
+	var operationErr error
+	defer func() {
+		outcome := "success"
+		if operationErr != nil {
+			outcome = "error"
+		}
+		operation.End(outcome, operationErr)
+	}()
 	// Invalidate logically before deleting records. A concurrent detached Set
 	// may still finish after the delete, but its captured older generation will
 	// never be accepted by Get.
 	c.generation.Add(1)
-	return c.backend.Clear(ctx)
+	operationErr = c.backend.Clear(ctx)
+	return operationErr
 }
 
 func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool, error) {

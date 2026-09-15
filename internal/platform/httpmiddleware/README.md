@@ -19,7 +19,7 @@ domain payloads or implement Document, Retrieval, or Conversation policy.
 | File | Kind | Description |
 |------|------|-------------|
 | `dependencies.go` | infra | Holds the structured logger used by request logging |
-| `request_id.go` | middleware | Reads/reuses `X-Request-ID` header, otherwise generates a random one. Stores the ID in context, echoes it in the response. |
+| `request_id.go` | middleware | Reads/reuses `X-Request-ID` header, otherwise generates a random one. Stores request/trace IDs in context, echoes `X-Request-ID` and `X-Trace-ID` in the response. |
 | `timeout.go` | middleware | Attaches a `context.WithTimeout` deadline (from `middleware.timeout` in config) to the request context, so downstream Qdrant/Ollama calls return instead of hanging indefinitely. Source sweeps and turn SSE streams are exempt. |
 | `request_log.go` | middleware | Logs one canonical line per request: method, path, status, duration, request ID, query params. Level tracks response status (Info for 2xx/3xx, Warn for 4xx, Error for 5xx); the last error attached via `c.Error(err)` is included for 4xx/5xx. Skips configured paths. Neither request nor response bodies are logged (see comment in file). |
 

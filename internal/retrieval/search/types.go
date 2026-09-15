@@ -31,6 +31,47 @@ type HybridSearchResult struct {
 	Lexical []SearchCandidate
 }
 
+// QueryType is an optional retrieval hint. Production callers may leave it
+// empty and let Search classify the query; evaluation callers should pass the
+// golden-set annotation so calibration is measured against a stable label.
+type QueryType string
+
+const (
+	QueryTypeUnknown    QueryType = ""
+	QueryTypeFactoid    QueryType = "factoid"
+	QueryTypeFormula    QueryType = "formula"
+	QueryTypeProcedure  QueryType = "procedure"
+	QueryTypeComparison QueryType = "comparison"
+	QueryTypeMultiHop   QueryType = "multi_hop"
+)
+
+// FusionProfile contains deterministic rank-fusion weights and small lexical
+// boosts. RRF is rank-based, so dense and BM25 score scales are never mixed.
+// The minimum overlap fields are query-type thresholds: a boost is applied
+// only when enough query terms are present in the candidate/header.
+type FusionProfile struct {
+	DenseWeight      float32
+	BM25Weight       float32
+	ExactMatchBoost  float32
+	HeaderMatchBoost float32
+	MinExactTokens   int
+	MinHeaderTokens  int
+}
+
+// FusionConfig enables the opt-in calibrated fusion path. When disabled,
+// Retrieval preserves the provider-native hybrid result.
+type FusionConfig struct {
+	Enabled          bool
+	RRFK             int
+	DenseWeight      float32
+	BM25Weight       float32
+	ExactMatchBoost  float32
+	HeaderMatchBoost float32
+	MinExactTokens   int
+	MinHeaderTokens  int
+	Profiles         map[QueryType]FusionProfile
+}
+
 // RerankTelemetry describes the decision and cost of the optional reranker
 // for one Retrieval request. It is intentionally provider-neutral so the
 // evaluator can measure coverage and dependency load without coupling to an
@@ -71,6 +112,7 @@ type Request struct {
 	TopK      int
 	Filter    *Filter
 	SkipCache bool
+	QueryType QueryType
 }
 
 // Result is the provider-neutral retrieval response.
@@ -78,4 +120,7 @@ type Result struct {
 	Chunks    []Chunk
 	FromCache bool
 	Rerank    RerankTelemetry
+	// OperationID correlates this Retrieval result with structured domain
+	// telemetry. It is intentionally opaque to callers.
+	OperationID string
 }

@@ -1,10 +1,12 @@
 package search
 
 import (
+	"context"
 	"errors"
 	"strings"
 
 	"nadir/internal/embedding"
+	"nadir/internal/platform/observability"
 	"nadir/internal/retrieval/cache"
 
 	"go.uber.org/zap"
@@ -31,6 +33,9 @@ type DependenciesConfig struct {
 	MaxConcurrentFragments int
 	MaxTopK                int
 	MaxChunksPerFile       int
+	Fusion                 FusionConfig
+	FragmentAdmission      func(context.Context) (func(), error)
+	Telemetry              *observability.Recorder
 }
 
 type dependencies struct {
@@ -47,6 +52,9 @@ type dependencies struct {
 	maxConcurrentFragments  int
 	maxTopK                 int
 	maxChunksPerFile        int
+	fusion                  FusionConfig
+	fragmentAdmission       func(context.Context) (func(), error)
+	telemetry               *observability.Recorder
 	log                     *zap.Logger
 }
 
@@ -96,6 +104,9 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		maxConcurrentFragments:  maxConcurrentFragments,
 		maxTopK:                 maxTopK,
 		maxChunksPerFile:        maxChunksPerFile,
+		fusion:                  normalizeFusionConfig(cfg.Fusion),
+		fragmentAdmission:       cfg.FragmentAdmission,
+		telemetry:               cfg.Telemetry,
 		log:                     log,
 	}
 }
@@ -105,6 +116,25 @@ func normalizeCandidateMul(candidateMul int) int {
 		return 3
 	}
 	return candidateMul
+}
+
+func normalizeFusionConfig(cfg FusionConfig) FusionConfig {
+	if cfg.RRFK <= 0 {
+		cfg.RRFK = 60
+	}
+	if cfg.DenseWeight <= 0 {
+		cfg.DenseWeight = 1
+	}
+	if cfg.BM25Weight <= 0 {
+		cfg.BM25Weight = 1
+	}
+	if cfg.MinExactTokens <= 0 {
+		cfg.MinExactTokens = 1
+	}
+	if cfg.MinHeaderTokens <= 0 {
+		cfg.MinHeaderTokens = 1
+	}
+	return cfg
 }
 
 var errQueryTooLong = errors.New("search query exceeds the configured length limit")

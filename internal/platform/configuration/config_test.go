@@ -29,8 +29,17 @@ func TestLoadShippedYAML(t *testing.T) {
 		cfg.Inference.Reranker.Device != "cpu" || cfg.Inference.Reranker.MaxConcurrent != 1 {
 		t.Fatalf("shipped config must use the conservative local inference profile, got %+v", cfg.Inference)
 	}
+	if cfg.Search.Fusion.Enabled || cfg.Search.Fusion.RRFK != 60 || cfg.Search.Fusion.DenseWeight != 1 || cfg.Search.Fusion.BM25Weight != 1 {
+		t.Fatalf("shipped config must keep calibrated fusion opt-in with explicit baseline knobs, got %+v", cfg.Search.Fusion)
+	}
 	if cfg.Reranker.AdaptiveEnabled {
 		t.Fatal("shipped config must keep adaptive reranking opt-in until release-gated quality evidence exists")
+	}
+	if cfg.History.SessionPageSize != 50 || cfg.History.TurnPageSize != 500 {
+		t.Fatalf("shipped history page sizes = %+v, want 50/500", cfg.History)
+	}
+	if cfg.Admission.Retrieval.MaxConcurrent != 16 || cfg.Admission.Indexing.MaxConcurrent != 1 || cfg.Admission.Destructive.MaxConcurrent != 1 {
+		t.Fatalf("shipped admission budgets = %+v, want explicit process-wide limits", cfg.Admission)
 	}
 }
 
@@ -47,9 +56,20 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("REWRITE_ENABLED", "true")
 	t.Setenv("SOURCE_PATHS", "/app/source, /app/extra")
 	t.Setenv("SOURCE_MODE", "mirror")
+	t.Setenv("FUSION_ENABLED", "true")
+	t.Setenv("FUSION_RRF_K", "30")
+	t.Setenv("FUSION_DENSE_WEIGHT", "1.5")
+	t.Setenv("FUSION_BM25_WEIGHT", "0.75")
+	t.Setenv("FUSION_EXACT_MATCH_BOOST", "0.02")
+	t.Setenv("FUSION_HEADER_MATCH_BOOST", "0.01")
+	t.Setenv("FUSION_MIN_EXACT_TOKENS", "2")
+	t.Setenv("FUSION_MIN_HEADER_TOKENS", "1")
 	t.Setenv("INFERENCE_OLLAMA_MAX_CONCURRENT", "2")
 	t.Setenv("INFERENCE_OLLAMA_KEEP_ALIVE", "90s")
 	t.Setenv("RERANKER_DEVICE", "cuda")
+	t.Setenv("HISTORY_SESSION_PAGE_SIZE", "75")
+	t.Setenv("ADMISSION_RETRIEVAL_MAX_CONCURRENT", "4")
+	t.Setenv("ADMISSION_RETRIEVAL_QUEUE_TIMEOUT", "2s")
 
 	var cfg Config
 	if err := cfg.applyEnv(); err != nil {
@@ -83,11 +103,18 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if cfg.Source.Mode != SourceModeMirror {
 		t.Fatalf("Source.Mode = %q, want mirror", cfg.Source.Mode)
 	}
+	if !cfg.Search.Fusion.Enabled || cfg.Search.Fusion.RRFK != 30 || cfg.Search.Fusion.DenseWeight != 1.5 || cfg.Search.Fusion.BM25Weight != 0.75 ||
+		cfg.Search.Fusion.ExactMatchBoost != 0.02 || cfg.Search.Fusion.HeaderMatchBoost != 0.01 || cfg.Search.Fusion.MinExactTokens != 2 {
+		t.Fatalf("Fusion overrides = %+v, want explicit calibrated knobs", cfg.Search.Fusion)
+	}
 	if cfg.Inference.Ollama.MaxConcurrent != 2 || cfg.Inference.Ollama.KeepAlive != 90*time.Second {
 		t.Fatalf("Ollama resource overrides = %+v, want max=2 and keep_alive=90s", cfg.Inference.Ollama)
 	}
 	if cfg.Inference.Reranker.Device != "cuda" {
 		t.Fatalf("Reranker.Device = %q, want cuda", cfg.Inference.Reranker.Device)
+	}
+	if cfg.History.SessionPageSize != 75 || cfg.Admission.Retrieval.MaxConcurrent != 4 || cfg.Admission.Retrieval.QueueTimeout != 2*time.Second {
+		t.Fatalf("operational overrides = history=%+v admission=%+v", cfg.History, cfg.Admission.Retrieval)
 	}
 }
 
@@ -104,6 +131,8 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "duration", env: "INFERENCE_OLLAMA_KEEP_ALIVE", value: "soon"},
 		{name: "embedder dimensions", env: "EMBEDDER_DIMENSIONS", value: "wide"},
 		{name: "adaptive margin", env: "RERANKER_ADAPTIVE_MARGIN_THRESHOLD", value: "wide"},
+		{name: "admission timeout", env: "ADMISSION_INDEXING_QUEUE_TIMEOUT", value: "soon"},
+		{name: "history page size", env: "HISTORY_SESSION_PAGE_SIZE", value: "many"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.env, tt.value)

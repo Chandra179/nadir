@@ -27,6 +27,7 @@ type Config struct {
 	Search        SearchConfig        `yaml:"search"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	Inference     InferenceConfig     `yaml:"inference"`
+	Admission     AdmissionConfig     `yaml:"admission"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Chat          ChatConfig          `yaml:"chat"`
@@ -148,11 +149,36 @@ type IngestConfig struct {
 // operational limits, not retrieval-quality knobs: they prevent one request
 // from creating an unbounded number of embeddings or Qdrant calls.
 type SearchConfig struct {
-	MaxQueryChars          int `yaml:"max_query_chars"`
-	MaxFragments           int `yaml:"max_fragments"`
-	MaxConcurrentFragments int `yaml:"max_concurrent_fragments"`
-	MaxTopK                int `yaml:"max_top_k"`
-	MaxChunksPerFile       int `yaml:"max_chunks_per_file"`
+	MaxQueryChars          int          `yaml:"max_query_chars"`
+	MaxFragments           int          `yaml:"max_fragments"`
+	MaxConcurrentFragments int          `yaml:"max_concurrent_fragments"`
+	MaxTopK                int          `yaml:"max_top_k"`
+	MaxChunksPerFile       int          `yaml:"max_chunks_per_file"`
+	Fusion                 FusionConfig `yaml:"fusion"`
+}
+
+// FusionConfig controls the opt-in Retrieval-side calibrated fusion path.
+// Values are rank weights and small lexical boosts; raw dense/BM25 scores are
+// never combined because their scales are provider-specific.
+type FusionConfig struct {
+	Enabled          bool                           `yaml:"enabled"`
+	RRFK             int                            `yaml:"rrf_k"`
+	DenseWeight      float32                        `yaml:"dense_weight"`
+	BM25Weight       float32                        `yaml:"bm25_weight"`
+	ExactMatchBoost  float32                        `yaml:"exact_match_boost"`
+	HeaderMatchBoost float32                        `yaml:"header_match_boost"`
+	MinExactTokens   int                            `yaml:"min_exact_tokens"`
+	MinHeaderTokens  int                            `yaml:"min_header_tokens"`
+	Profiles         map[string]FusionProfileConfig `yaml:"profiles"`
+}
+
+type FusionProfileConfig struct {
+	DenseWeight      float32 `yaml:"dense_weight"`
+	BM25Weight       float32 `yaml:"bm25_weight"`
+	ExactMatchBoost  float32 `yaml:"exact_match_boost"`
+	HeaderMatchBoost float32 `yaml:"header_match_boost"`
+	MinExactTokens   int     `yaml:"min_exact_tokens"`
+	MinHeaderTokens  int     `yaml:"min_header_tokens"`
 }
 
 // RerankerConfig controls the optional cross-encoder reranker Adapter.
@@ -172,6 +198,24 @@ type InferenceConfig struct {
 	Profile  string                 `yaml:"profile"`
 	Ollama   OllamaResourceConfig   `yaml:"ollama"`
 	Reranker RerankerResourceConfig `yaml:"reranker"`
+}
+
+// AdmissionConfig defines process-wide backpressure budgets. These budgets
+// are separate from the model-resource Gate because they describe operation
+// ownership, not only hardware concurrency.
+type AdmissionConfig struct {
+	Retrieval   AdmissionOperationConfig `yaml:"retrieval"`
+	Reranking   AdmissionOperationConfig `yaml:"reranking"`
+	Generation  AdmissionOperationConfig `yaml:"generation"`
+	Embedding   AdmissionOperationConfig `yaml:"embedding"`
+	Indexing    AdmissionOperationConfig `yaml:"indexing"`
+	Destructive AdmissionOperationConfig `yaml:"destructive"`
+}
+
+// AdmissionOperationConfig bounds one process-wide operation budget.
+type AdmissionOperationConfig struct {
+	MaxConcurrent int           `yaml:"max_concurrent"`
+	QueueTimeout  time.Duration `yaml:"queue_timeout"`
 }
 
 // OllamaResourceConfig bounds all Ollama roles together. Holding the Gate for
@@ -211,8 +255,10 @@ type GeneratorConfig struct {
 // collection (reuses the same Qdrant instance as document search/semantic
 // cache, no extra infra required).
 type HistoryConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Collection string `yaml:"collection"`
+	Enabled         bool   `yaml:"enabled"`
+	Collection      string `yaml:"collection"`
+	SessionPageSize int    `yaml:"session_page_size"`
+	TurnPageSize    int    `yaml:"turn_page_size"`
 }
 
 // RewriterConfig enables conversational query rewriting (Rewrite-Retrieve-
@@ -299,6 +345,30 @@ func (c *Config) applyEnv() error {
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
 	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
 	c.envStr(&c.Source.Mode, "SOURCE_MODE")
+	if err := c.envBool(&c.Search.Fusion.Enabled, "FUSION_ENABLED"); err != nil {
+		return err
+	}
+	if err := c.envInt(&c.Search.Fusion.RRFK, "FUSION_RRF_K"); err != nil {
+		return err
+	}
+	if err := c.envFloat32(&c.Search.Fusion.DenseWeight, "FUSION_DENSE_WEIGHT"); err != nil {
+		return err
+	}
+	if err := c.envFloat32(&c.Search.Fusion.BM25Weight, "FUSION_BM25_WEIGHT"); err != nil {
+		return err
+	}
+	if err := c.envFloat32(&c.Search.Fusion.ExactMatchBoost, "FUSION_EXACT_MATCH_BOOST"); err != nil {
+		return err
+	}
+	if err := c.envFloat32(&c.Search.Fusion.HeaderMatchBoost, "FUSION_HEADER_MATCH_BOOST"); err != nil {
+		return err
+	}
+	if err := c.envInt(&c.Search.Fusion.MinExactTokens, "FUSION_MIN_EXACT_TOKENS"); err != nil {
+		return err
+	}
+	if err := c.envInt(&c.Search.Fusion.MinHeaderTokens, "FUSION_MIN_HEADER_TOKENS"); err != nil {
+		return err
+	}
 	c.envStr(&c.Reranker.Addr, "RERANKER_ADDR")
 	if err := c.envBool(&c.Reranker.Enabled, "RERANKER_ENABLED"); err != nil {
 		return err
@@ -328,6 +398,9 @@ func (c *Config) applyEnv() error {
 	if err := c.envDuration(&c.Inference.Ollama.KeepAlive, "INFERENCE_OLLAMA_KEEP_ALIVE"); err != nil {
 		return err
 	}
+	if err := c.applyAdmissionEnv(); err != nil {
+		return err
+	}
 	c.envStr(&c.Middleware.Logger.Level, "LOGGER_LEVEL")
 	if err := c.envFloat32(&c.SemanticCache.Threshold, "SEMANTIC_CACHE_THRESHOLD"); err != nil {
 		return err
@@ -336,6 +409,12 @@ func (c *Config) applyEnv() error {
 		return err
 	}
 	c.envStr(&c.History.Collection, "HISTORY_COLLECTION")
+	if err := c.envInt(&c.History.SessionPageSize, "HISTORY_SESSION_PAGE_SIZE"); err != nil {
+		return err
+	}
+	if err := c.envInt(&c.History.TurnPageSize, "HISTORY_TURN_PAGE_SIZE"); err != nil {
+		return err
+	}
 	if err := c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED"); err != nil {
 		return err
 	}
@@ -358,6 +437,29 @@ func (c *Config) applyEnv() error {
 		return err
 	}
 	c.envStr(&c.Docling.Addr, "DOCLING_ADDR")
+	return nil
+}
+
+func (c *Config) applyAdmissionEnv() error {
+	for _, item := range []struct {
+		cfg     *AdmissionOperationConfig
+		maxEnv  string
+		timeEnv string
+	}{
+		{&c.Admission.Retrieval, "ADMISSION_RETRIEVAL_MAX_CONCURRENT", "ADMISSION_RETRIEVAL_QUEUE_TIMEOUT"},
+		{&c.Admission.Reranking, "ADMISSION_RERANKING_MAX_CONCURRENT", "ADMISSION_RERANKING_QUEUE_TIMEOUT"},
+		{&c.Admission.Generation, "ADMISSION_GENERATION_MAX_CONCURRENT", "ADMISSION_GENERATION_QUEUE_TIMEOUT"},
+		{&c.Admission.Embedding, "ADMISSION_EMBEDDING_MAX_CONCURRENT", "ADMISSION_EMBEDDING_QUEUE_TIMEOUT"},
+		{&c.Admission.Indexing, "ADMISSION_INDEXING_MAX_CONCURRENT", "ADMISSION_INDEXING_QUEUE_TIMEOUT"},
+		{&c.Admission.Destructive, "ADMISSION_DESTRUCTIVE_MAX_CONCURRENT", "ADMISSION_DESTRUCTIVE_QUEUE_TIMEOUT"},
+	} {
+		if err := c.envInt(&item.cfg.MaxConcurrent, item.maxEnv); err != nil {
+			return err
+		}
+		if err := c.envDuration(&item.cfg.QueueTimeout, item.timeEnv); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -501,6 +603,21 @@ func (c *Config) applyDefaults() {
 	if c.Search.MaxChunksPerFile <= 0 {
 		c.Search.MaxChunksPerFile = 3
 	}
+	if c.Search.Fusion.RRFK <= 0 {
+		c.Search.Fusion.RRFK = 60
+	}
+	if c.Search.Fusion.DenseWeight <= 0 {
+		c.Search.Fusion.DenseWeight = 1
+	}
+	if c.Search.Fusion.BM25Weight <= 0 {
+		c.Search.Fusion.BM25Weight = 1
+	}
+	if c.Search.Fusion.MinExactTokens <= 0 {
+		c.Search.Fusion.MinExactTokens = 1
+	}
+	if c.Search.Fusion.MinHeaderTokens <= 0 {
+		c.Search.Fusion.MinHeaderTokens = 1
+	}
 	if c.Reranker.CandidateMul <= 0 {
 		c.Reranker.CandidateMul = 3
 	}
@@ -534,6 +651,42 @@ func (c *Config) applyDefaults() {
 	if strings.TrimSpace(c.Inference.Reranker.Backend) == "" {
 		c.Inference.Reranker.Backend = "torch"
 	}
+	if c.Admission.Retrieval.MaxConcurrent == 0 {
+		c.Admission.Retrieval.MaxConcurrent = 16
+	}
+	if c.Admission.Retrieval.QueueTimeout == 0 {
+		c.Admission.Retrieval.QueueTimeout = 5 * time.Second
+	}
+	if c.Admission.Reranking.MaxConcurrent == 0 {
+		c.Admission.Reranking.MaxConcurrent = 1
+	}
+	if c.Admission.Reranking.QueueTimeout == 0 {
+		c.Admission.Reranking.QueueTimeout = 30 * time.Second
+	}
+	if c.Admission.Generation.MaxConcurrent == 0 {
+		c.Admission.Generation.MaxConcurrent = 1
+	}
+	if c.Admission.Generation.QueueTimeout == 0 {
+		c.Admission.Generation.QueueTimeout = 30 * time.Second
+	}
+	if c.Admission.Embedding.MaxConcurrent == 0 {
+		c.Admission.Embedding.MaxConcurrent = 1
+	}
+	if c.Admission.Embedding.QueueTimeout == 0 {
+		c.Admission.Embedding.QueueTimeout = 30 * time.Second
+	}
+	if c.Admission.Indexing.MaxConcurrent == 0 {
+		c.Admission.Indexing.MaxConcurrent = 1
+	}
+	if c.Admission.Indexing.QueueTimeout == 0 {
+		c.Admission.Indexing.QueueTimeout = 5 * time.Second
+	}
+	if c.Admission.Destructive.MaxConcurrent == 0 {
+		c.Admission.Destructive.MaxConcurrent = 1
+	}
+	if c.Admission.Destructive.QueueTimeout == 0 {
+		c.Admission.Destructive.QueueTimeout = 10 * time.Second
+	}
 	if c.Chat.MaxContextTokens <= 0 {
 		c.Chat.MaxContextTokens = 2800
 	}
@@ -551,6 +704,12 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Chat.PersistTimeout <= 0 {
 		c.Chat.PersistTimeout = 5 * time.Second
+	}
+	if c.History.SessionPageSize <= 0 {
+		c.History.SessionPageSize = 50
+	}
+	if c.History.TurnPageSize <= 0 {
+		c.History.TurnPageSize = 500
 	}
 	if c.SemanticCache.Threshold == 0 {
 		c.SemanticCache.Threshold = 0.90
@@ -607,6 +766,28 @@ func (c *Config) Validate() error {
 	if c.Qdrant.TopK <= 0 {
 		return fmt.Errorf("config: qdrant.top_k must be > 0")
 	}
+	if c.Search.Fusion.RRFK <= 0 || c.Search.Fusion.DenseWeight <= 0 || c.Search.Fusion.BM25Weight <= 0 {
+		return fmt.Errorf("config: search.fusion.rrf_k and rank weights must be > 0")
+	}
+	if c.Search.Fusion.ExactMatchBoost < 0 || c.Search.Fusion.HeaderMatchBoost < 0 ||
+		math.IsNaN(float64(c.Search.Fusion.ExactMatchBoost)) || math.IsInf(float64(c.Search.Fusion.ExactMatchBoost), 0) ||
+		math.IsNaN(float64(c.Search.Fusion.HeaderMatchBoost)) || math.IsInf(float64(c.Search.Fusion.HeaderMatchBoost), 0) {
+		return fmt.Errorf("config: search.fusion boosts must be finite and >= 0")
+	}
+	if c.Search.Fusion.MinExactTokens <= 0 || c.Search.Fusion.MinHeaderTokens <= 0 {
+		return fmt.Errorf("config: search.fusion token thresholds must be > 0")
+	}
+	for name, profile := range c.Search.Fusion.Profiles {
+		switch name {
+		case "factoid", "formula", "procedure", "comparison", "multi_hop":
+		default:
+			return fmt.Errorf("config: search.fusion.profiles.%s is not a supported query type", name)
+		}
+		if profile.DenseWeight <= 0 || profile.BM25Weight <= 0 || profile.MinExactTokens <= 0 || profile.MinHeaderTokens <= 0 ||
+			profile.ExactMatchBoost < 0 || profile.HeaderMatchBoost < 0 {
+			return fmt.Errorf("config: search.fusion.profiles.%s has invalid weights, boosts, or thresholds", name)
+		}
+	}
 	if c.Chunker.ChunkSize <= 0 {
 		return fmt.Errorf("config: chunker.chunk_size must be > 0")
 	}
@@ -640,6 +821,27 @@ func (c *Config) Validate() error {
 	if c.Inference.Reranker.QueueTimeout <= 0 {
 		return fmt.Errorf("config: inference.reranker.queue_timeout must be > 0")
 	}
+	for _, item := range []struct {
+		name string
+		cfg  AdmissionOperationConfig
+	}{
+		{"retrieval", c.Admission.Retrieval},
+		{"reranking", c.Admission.Reranking},
+		{"generation", c.Admission.Generation},
+		{"embedding", c.Admission.Embedding},
+		{"indexing", c.Admission.Indexing},
+		{"destructive", c.Admission.Destructive},
+	} {
+		if item.cfg.MaxConcurrent <= 0 {
+			return fmt.Errorf("config: admission.%s.max_concurrent must be > 0", item.name)
+		}
+		if item.cfg.QueueTimeout <= 0 {
+			return fmt.Errorf("config: admission.%s.queue_timeout must be > 0", item.name)
+		}
+		if item.name == "indexing" && item.cfg.MaxConcurrent != 1 {
+			return fmt.Errorf("config: admission.indexing.max_concurrent must be 1 because an indexing pass is single-writer")
+		}
+	}
 	switch c.Inference.Reranker.Device {
 	case "cpu", "cuda", "auto":
 	default:
@@ -664,6 +866,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Chat.MaxRetainedTurns > 1024 {
 		return fmt.Errorf("config: chat.max_retained_turns must be <= 1024")
+	}
+	if c.History.SessionPageSize > 1000 {
+		return fmt.Errorf("config: history.session_page_size must be <= 1000")
+	}
+	if c.History.TurnPageSize > 5000 {
+		return fmt.Errorf("config: history.turn_page_size must be <= 5000")
 	}
 	if c.SemanticCache.Threshold < 0 || c.SemanticCache.Threshold > 1 {
 		return fmt.Errorf("config: semantic_cache.threshold must be > 0 and <= 1")

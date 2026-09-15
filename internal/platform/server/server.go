@@ -10,6 +10,7 @@ import (
 	qdranthistory "nadir/internal/adapters/qdrant/history"
 	"nadir/internal/conversation/chat"
 	"nadir/internal/conversation/generation"
+	platformadmission "nadir/internal/platform/admission"
 	"nadir/internal/platform/configuration"
 	"nadir/internal/platform/httpmiddleware"
 	"nadir/internal/platform/logging"
@@ -56,6 +57,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			RequestTimeout: cfg.Generator.RequestTimeout,
 			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 			Gate:           graph.OllamaGate,
+			Admission:      graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),
@@ -63,38 +65,42 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 
 	chatConfig := chat.DependenciesConfig{
-		Searcher:         graph.Searcher,
-		Generator:        gen,
-		RewriteTurns:     cfg.Rewriter.Turns,
-		MaxContextTokens: cfg.Chat.MaxContextTokens,
-		EventBuffer:      cfg.Chat.EventBuffer,
-		MaxEventLogBytes: cfg.Chat.MaxEventLogBytes,
-		MaxRetainedTurns: cfg.Chat.MaxRetainedTurns,
-		FinishedTurnTTL:  cfg.Chat.FinishedTurnTTL,
-		PersistTimeout:   cfg.Chat.PersistTimeout,
-		Model:            cfg.Generator.Model,
-		Log:              log,
+		Searcher:             graph.Searcher,
+		Generator:            gen,
+		RewriteTurns:         cfg.Rewriter.Turns,
+		MaxContextTokens:     cfg.Chat.MaxContextTokens,
+		EventBuffer:          cfg.Chat.EventBuffer,
+		MaxEventLogBytes:     cfg.Chat.MaxEventLogBytes,
+		MaxRetainedTurns:     cfg.Chat.MaxRetainedTurns,
+		FinishedTurnTTL:      cfg.Chat.FinishedTurnTTL,
+		PersistTimeout:       cfg.Chat.PersistTimeout,
+		DestructiveAdmission: graph.Admission.AcquireFunc(platformadmission.Destructive),
+		Model:                cfg.Generator.Model,
+		Telemetry:            graph.Telemetry,
+		Log:                  log,
 	}
 
 	apiConfig := api.DependenciesConfig{
-		Ingest:               graph.Ingest,
-		Reset:                graph.Reset,
-		TopK:                 cfg.Qdrant.TopK,
-		MaxTopK:              cfg.Search.MaxTopK,
-		SourcePaths:          cfg.Source.Paths,
-		SourceIgnorePatterns: cfg.Source.IgnorePatterns,
-		SourceMode:           cfg.Source.Mode,
-		MaxSourceFileBytes:   cfg.Ingest.MaxFileBytes,
-		MaxUploadBytes:       cfg.Ingest.MaxUploadBytes,
-		ReadinessTimeout:     cfg.HTTP.ReadinessTimeout,
-		Log:                  log,
+		Ingest:                 graph.Ingest,
+		Reset:                  graph.Reset,
+		TopK:                   cfg.Qdrant.TopK,
+		MaxTopK:                cfg.Search.MaxTopK,
+		SourcePaths:            cfg.Source.Paths,
+		SourceIgnorePatterns:   cfg.Source.IgnorePatterns,
+		SourceMode:             cfg.Source.Mode,
+		HistorySessionPageSize: cfg.History.SessionPageSize,
+		MaxSourceFileBytes:     cfg.Ingest.MaxFileBytes,
+		MaxUploadBytes:         cfg.Ingest.MaxUploadBytes,
+		ReadinessTimeout:       cfg.HTTP.ReadinessTimeout,
+		Log:                    log,
 	}
 
 	if cfg.History.Enabled {
 		h, err := qdranthistory.NewDependencies(qdranthistory.DependenciesConfig{
-			Clients:    graph.Clients,
-			Collection: cfg.History.Collection,
-			Embedder:   graph.Embedder,
+			Clients:      graph.Clients,
+			Collection:   cfg.History.Collection,
+			Embedder:     graph.Embedder,
+			TurnPageSize: cfg.History.TurnPageSize,
 		})
 		if err != nil {
 			log.Error("history init failed", zap.Error(err))
@@ -126,6 +132,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 				RequestTimeout: cfg.Rewriter.RequestTimeout,
 				KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 				Gate:           graph.OllamaGate,
+				Admission:      graph.Admission.AcquireFunc(platformadmission.Generation),
 			})
 			log.Info("conversational query rewriting enabled",
 				zap.String("model", rewriteEndpoint.Model),
@@ -192,6 +199,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	engine := gin.New()
 	engine.Use(gin.Recovery(), middleware.RequestID, middleware.Timeout(cfg.Middleware.Timeout), deps.RequestLog())
 	router := api.NewRouter(engine, apiDeps)
+	engine.GET("/debug/metrics", gin.WrapH(graph.Telemetry.Handler()))
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,

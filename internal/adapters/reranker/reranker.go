@@ -31,6 +31,21 @@ func (r *dependencies) Rerank(ctx context.Context, query string, chunks []search
 		return chunks, nil
 	}
 
+	releaseAdmission := func() {}
+	if r.admission != nil {
+		var err error
+		releaseAdmission, err = r.admission(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				observability.Stage(r.log, "reranking", "canceled", started, ctx.Err(), zap.Int("candidates", len(chunks)))
+				return chunks, nil
+			}
+			observability.Stage(r.log, "reranking", "capacity", started, err, zap.Int("candidates", len(chunks)))
+			return nil, err
+		}
+		defer releaseAdmission()
+	}
+
 	release, err := r.gate.Acquire(ctx)
 	if err != nil {
 		if ctx.Err() != nil {

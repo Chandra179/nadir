@@ -20,15 +20,17 @@ type DependenciesConfig struct {
 	Model          string
 	RequestTimeout time.Duration
 	Gate           *inference.Gate
+	Admission      func(context.Context) (func(), error)
 	Log            *zap.Logger
 }
 
 type dependencies struct {
-	addr   string
-	model  string
-	client *http.Client
-	gate   *inference.Gate
-	log    *zap.Logger
+	addr      string
+	model     string
+	client    *http.Client
+	gate      *inference.Gate
+	admission func(context.Context) (func(), error)
+	log       *zap.Logger
 }
 
 // NewDependencies constructs the HTTP reranker Adapter.
@@ -46,11 +48,12 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		gate = inference.NewGate(1, 30*time.Second)
 	}
 	return &dependencies{
-		addr:   cfg.Addr,
-		model:  cfg.Model,
-		client: &http.Client{Timeout: timeout},
-		gate:   gate,
-		log:    log,
+		addr:      cfg.Addr,
+		model:     cfg.Model,
+		client:    &http.Client{Timeout: timeout},
+		gate:      gate,
+		admission: cfg.Admission,
+		log:       log,
 	}
 }
 

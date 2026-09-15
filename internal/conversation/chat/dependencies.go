@@ -1,12 +1,14 @@
 package chat
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"nadir/internal/conversation/generation"
+	"nadir/internal/platform/observability"
 	"nadir/internal/retrieval/rewriting"
 	"nadir/internal/retrieval/search"
 )
@@ -44,9 +46,12 @@ type DependenciesConfig struct {
 	FinishedTurnTTL  time.Duration
 	// PersistTimeout bounds a best-effort history write.
 	PersistTimeout time.Duration
+	// DestructiveAdmission bounds edits and history deletion operations.
+	DestructiveAdmission func(context.Context) (func(), error)
 	// Model is stamped onto persisted turns for display in history replay.
-	Model string
-	Log   *zap.Logger
+	Model     string
+	Log       *zap.Logger
+	Telemetry *observability.Recorder
 }
 
 type dependencies struct {
@@ -61,6 +66,7 @@ type dependencies struct {
 	broker           *broker
 	model            string
 	log              *zap.Logger
+	telemetry        *observability.Recorder
 	generations      sync.WaitGroup
 	persists         sync.WaitGroup
 	lifecycleMu      sync.Mutex
@@ -96,7 +102,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		searcher:         cfg.Searcher,
 		generator:        cfg.Generator,
 		history:          cfg.History,
-		mutations:        newHistoryMutations(cfg.History),
+		mutations:        newHistoryMutations(cfg.History, cfg.DestructiveAdmission),
 		rewriter:         cfg.Rewriter,
 		rewriteTurns:     rewriteTurns,
 		maxContextTokens: maxContextTokens,
@@ -110,6 +116,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		}),
 		model:      cfg.Model,
 		log:        log,
+		telemetry:  cfg.Telemetry,
 		activeDone: activeDone,
 	}
 }

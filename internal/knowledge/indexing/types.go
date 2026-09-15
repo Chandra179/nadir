@@ -2,10 +2,11 @@ package indexing
 
 // Result summarizes one indexing pass.
 type Result struct {
-	Processed int
-	Skipped   int
-	Failed    int
-	Removed   int
+	OperationID string
+	Processed   int
+	Skipped     int
+	Failed      int
+	Removed     int
 }
 
 // UploadFile is one source file submitted to POST /api/v1/documents as multipart form

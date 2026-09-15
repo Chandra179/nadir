@@ -1,9 +1,19 @@
-# Retrieval evaluation
+# Retrieval and generation evaluation
 
-Development-only quality measurement for the Retrieval Module. The evaluator
-loads a versioned golden set, bypasses semantic cache, repeats each query,
-records final ranking and latency, and reports Hit Rate, Recall, MRR, nDCG,
-distractor-hit rate, and percentiles.
+Development-only quality measurement for Retrieval and answer generation. The
+evaluator loads a versioned golden set, bypasses semantic cache, passes each
+query-type annotation into Retrieval, records final ranking and latency, and
+reports Hit Rate, Recall, MRR, nDCG, distractor-hit rate, and percentiles. This
+makes calibrated dense/BM25/RRF policies comparable without changing the
+golden fixture or mixing provider score scales.
+
+With `--generation-eval`, it also runs the production answer prompt once per
+query and sends the answer, reference answer, required claims, and retrieved
+context to a separately configured larger judge model. The judge returns four
+scores in `[0,1]`: faithfulness, answer relevancy, context precision, and
+context recall. Invalid judge output and model failures are recorded per query
+instead of becoming a misleading zero score. The report stores scores and
+latency, but not generated answers or source text.
 
 ## Change here when
 
@@ -34,6 +44,22 @@ dataset, records its provenance and expert judgment, and sets
 external dependency, run `go run ./cmd/evaluator --validate-only
 --require-release-gate --golden path/to/production-golden.json`. The repository
 cannot create or approve that production evidence on its own.
+
+Generation evaluation requires explicit judge configuration and an operator
+confirmation that the judge is larger than `generator.model`; there is no
+endpoint or model fallback:
+
+```bash
+go run ./cmd/evaluator --no-rerank --runs 1 --generation-eval \
+  --judge-addr http://localhost:11434 \
+  --judge-model phi4-mini:latest --judge-is-larger \
+  --report test/evaluation/reports/generation-local.json
+```
+
+The committed 133-query fixture is useful for engineering regression checks,
+but its synthetic provenance prevents it from being a production release gate.
+Use a consent-safe, expert-judged fixture and record the answer-model and
+judge-model hardware for release decisions.
 
 ## Verification
 

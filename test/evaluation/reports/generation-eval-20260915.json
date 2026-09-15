@@ -1,0 +1,5432 @@
+{
+  "timestamp": "2026-09-15T13:36:59Z",
+  "top_k": 5,
+  "reranker_enabled": false,
+  "adaptive_reranker_enabled": false,
+  "per_query": [
+    {
+      "id": "secant-trig-definition",
+      "query": "what is the secant of an angle",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 967.112,
+      "latencies": [
+        967.112
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-method-root-finding",
+      "query": "how does the secant method approximate a root",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 35.422,
+      "latencies": [
+        35.422
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-formula-iteration",
+      "query": "secant method iteration formula x_{n+1}",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 41.862,
+      "latencies": [
+        41.862
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-method-failure-mode",
+      "query": "when does the secant method break down",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 19.67,
+      "latencies": [
+        19.67
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-power-rule",
+      "query": "how do I take the derivative of x^n",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 37.097,
+      "latencies": [
+        37.097
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-product-rule",
+      "query": "rule for differentiating a product of two functions",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 38.568,
+      "latencies": [
+        38.568
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-quotient-rule",
+      "query": "quotient rule for derivatives",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 47.449,
+      "latencies": [
+        47.449
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-chain-rule",
+      "query": "differentiate a composition f(g(x))",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 30.577,
+      "latencies": [
+        30.577
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-of-tangent",
+      "query": "what is the derivative of tan(x)",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 29.177,
+      "latencies": [
+        29.177
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-of-secant-function",
+      "query": "derivative of sec(x)",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 18.803,
+      "latencies": [
+        18.803
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-exponential",
+      "query": "integral of e^x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.233,
+      "latencies": [
+        27.233
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-natural-log",
+      "query": "what is the integral of 1 over x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 18.981,
+      "latencies": [
+        18.981
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-power-rule",
+      "query": "general antiderivative of a power function",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 24.855,
+      "latencies": [
+        24.855
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "vector-definition",
+      "query": "what is a vector in n-dimensional space",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.004,
+      "latencies": [
+        27.004
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "dot-product",
+      "query": "compute the dot product of two vectors",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 45.68,
+      "latencies": [
+        45.68
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-multiplication-dimensions",
+      "query": "if A is m by n and B is n by p what size is the product AB",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 19.48,
+      "latencies": [
+        19.48
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "identity-matrix",
+      "query": "definition of the identity matrix",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 25.792,
+      "latencies": [
+        25.792
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "symmetric-matrix",
+      "query": "what makes a matrix symmetric",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.039,
+      "latencies": [
+        27.039
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "orthogonal-matrix",
+      "query": "orthogonal matrix transpose property",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 20.758,
+      "latencies": [
+        20.758
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvector-definition",
+      "query": "when is a vector an eigenvector of a matrix",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 29.935,
+      "latencies": [
+        29.935
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvalues-characteristic-polynomial",
+      "query": "how do you find eigenvalues",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 19.841,
+      "latencies": [
+        19.841
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvector-applications",
+      "query": "practical uses of eigenvalues and eigenvectors",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "distractor_hits": 1,
+      "latency_ms": 25.875,
+      "latencies": [
+        25.875
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "sine-definition",
+      "query": "definition of sine in a right triangle",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 20.6,
+      "latencies": [
+        20.6
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "cosine-definition",
+      "query": "what ratio defines cosine",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 32.461,
+      "latencies": [
+        32.461
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "tangent-ratio",
+      "query": "tangent as a ratio of sine and cosine",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 33.416,
+      "latencies": [
+        33.416
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "cosecant-reciprocal",
+      "query": "cosecant reciprocal relationship",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 19.381,
+      "latencies": [
+        19.381
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "cotangent-reciprocal",
+      "query": "define cotangent",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.27,
+      "latencies": [
+        27.27
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "pythagorean-identity-tan-sec",
+      "query": "identity relating tangent squared and secant squared",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 19.836,
+      "latencies": [
+        19.836
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "sin-45-degrees",
+      "query": "value of sine at 45 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 28.855,
+      "latencies": [
+        28.855
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "degrees-to-radians-30",
+      "query": "30 degrees expressed in radians",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 30.202,
+      "latencies": [
+        30.202
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "newton-raphson-formula",
+      "query": "Newton-Raphson update rule",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 37.053,
+      "latencies": [
+        37.053
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "newton-quadratic-convergence",
+      "query": "convergence speed of Newton's method near a root",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 30.578,
+      "latencies": [
+        30.578
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "bisection-interval-sign-change",
+      "query": "requirement for choosing the bisection interval endpoints",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 26.584,
+      "latencies": [
+        26.584
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "query": "which converges faster bisection or Newton's method",
+      "type": "comparison",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 28.99,
+      "latencies": [
+        28.99
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-sine",
+      "query": "what is the derivative of sine x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 24.607,
+      "latencies": [
+        24.607
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-cosine",
+      "query": "what is the derivative of cos x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 2,
+      "latency_ms": 15.36,
+      "latencies": [
+        15.36
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-cosecant",
+      "query": "differentiate csc x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 21.33,
+      "latencies": [
+        21.33
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-cotangent",
+      "query": "differentiate cotangent x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 29.495,
+      "latencies": [
+        29.495
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-sine",
+      "query": "antiderivative of sin x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 27.447,
+      "latencies": [
+        27.447
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-cosine",
+      "query": "antiderivative of cos x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 27.968,
+      "latencies": [
+        27.968
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-sec-square",
+      "query": "integral of secant squared",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "distractor_hits": 1,
+      "latency_ms": 29.393,
+      "latencies": [
+        29.393
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integral-power-condition",
+      "query": "when can the power rule be used for an integral",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 29.038,
+      "latencies": [
+        29.038
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "integration-constant",
+      "query": "why add C to an indefinite integral",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 29.495,
+      "latencies": [
+        29.495
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "product-rule-symbols",
+      "query": "which factor is differentiated in each product rule term",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 27.883,
+      "latencies": [
+        27.883
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "quotient-rule-denominator",
+      "query": "what remains in the denominator of the quotient rule",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 41.132,
+      "latencies": [
+        41.132
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "chain-rule-inner",
+      "query": "what is multiplied by the outer derivative in the chain rule",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.499,
+      "latencies": [
+        27.499
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-cubic",
+      "query": "derivative of x cubed using the power rule",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 23.182,
+      "latencies": [
+        23.182
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "derivative-linear",
+      "query": "what is the derivative pattern for x to a power",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 20.533,
+      "latencies": [
+        20.533
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "tangent-derivative-identity",
+      "query": "how does the tangent derivative relate to the tangent secant identity",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 31.521,
+      "latencies": [
+        31.521
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-derivative-reciprocal",
+      "query": "how is the secant function related to its derivative",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 26.969,
+      "latencies": [
+        26.969
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "exponential-antiderivative",
+      "query": "does integrating e to the x change the function",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 22.538,
+      "latencies": [
+        22.538
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "reciprocal-integral-absolute",
+      "query": "why does the integral of 1 over x use absolute value",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 25.628,
+      "latencies": [
+        25.628
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "power-antiderivative-exponent",
+      "query": "what exponent appears after integrating x to n",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.191,
+      "latencies": [
+        27.191
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "differentiate-product-example",
+      "query": "how do you differentiate f times g",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 18.536,
+      "latencies": [
+        18.536
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "vector-components",
+      "query": "how is a vector represented in n dimensions",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 19.867,
+      "latencies": [
+        19.867
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "vector-addition",
+      "query": "how do you add two vectors componentwise",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "latency_ms": 19.602,
+      "latencies": [
+        19.602
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "scalar-multiplication",
+      "query": "how does scalar multiplication affect a vector",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 23.882,
+      "latencies": [
+        23.882
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "dot-product-summation",
+      "query": "what is the component formula for a dot product",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 19.466,
+      "latencies": [
+        19.466
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-row-column",
+      "query": "what do m and n mean in an m by n matrix",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 17.409,
+      "latencies": [
+        17.409
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-compatible-product",
+      "query": "when can two matrices be multiplied",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 29.191,
+      "latencies": [
+        29.191
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-product-entry",
+      "query": "how is an entry of AB computed",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 5,
+      "relevant_found": 1,
+      "latency_ms": 32.18,
+      "latencies": [
+        32.18
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "identity-diagonal",
+      "query": "where are the ones in an identity matrix",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 24.008,
+      "latencies": [
+        24.008
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "diagonal-matrix",
+      "query": "what is a diagonal matrix",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 20.839,
+      "latencies": [
+        20.839
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "symmetric-transpose",
+      "query": "what equation identifies a symmetric matrix",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 24.494,
+      "latencies": [
+        24.494
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "orthogonal-identity",
+      "query": "what does an orthogonal matrix multiply to",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 30.238,
+      "latencies": [
+        30.238
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvector-nonzero",
+      "query": "does an eigenvector have to be nonzero",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 36.344,
+      "latencies": [
+        36.344
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvalue-scalar",
+      "query": "what role does lambda play in an eigenvector equation",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 21.68,
+      "latencies": [
+        21.68
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "characteristic-equation",
+      "query": "what equation gives the characteristic polynomial roots",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 22.184,
+      "latencies": [
+        22.184
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "pca-application",
+      "query": "which dimensionality reduction application uses eigenvectors",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 32.184,
+      "latencies": [
+        32.184
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "pagerank-application",
+      "query": "is PageRank an eigenvector application",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 20.004,
+      "latencies": [
+        20.004
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "quantum-application",
+      "query": "which physics application is listed for eigenvalues",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 25.423,
+      "latencies": [
+        25.423
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "vibration-application",
+      "query": "what engineering application is listed for eigenvectors",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 49.047,
+      "latencies": [
+        49.047
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-special-types",
+      "query": "which special matrix types are listed",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 45.749,
+      "latencies": [
+        45.749
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "eigenvector-pca",
+      "query": "how do eigenvectors connect definition and PCA",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 24.783,
+      "latencies": [
+        24.783
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-dimensions-mn-np",
+      "query": "what dimensions are required for A m n times B n p",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 2,
+      "distractor_hits": 1,
+      "latency_ms": 23.702,
+      "latencies": [
+        23.702
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-product-output",
+      "query": "what are the dimensions of C equals AB",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 22.938,
+      "latencies": [
+        22.938
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "vector-n-tuple",
+      "query": "what mathematical object is an ordered n tuple",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 32.318,
+      "latencies": [
+        32.318
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "matrix-orthogonality-condition",
+      "query": "how can I test the orthogonal matrix condition",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 2,
+      "latency_ms": 36.826,
+      "latencies": [
+        36.826
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "linear-algebra-eigen-workflow",
+      "query": "what is the workflow from eigenvalues to eigenvectors",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 33.304,
+      "latencies": [
+        33.304
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "trig-sine-formula",
+      "query": "what is the formula for sine in a right triangle",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 44.536,
+      "latencies": [
+        44.536
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "trig-cosine-formula",
+      "query": "what is the formula for cosine in a right triangle",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 35.432,
+      "latencies": [
+        35.432
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "trig-tangent-sides",
+      "query": "what sides define tangent",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 44.862,
+      "latencies": [
+        44.862
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "trig-tangent-sine-cosine",
+      "query": "how can tangent be written using sine and cosine",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 31.128,
+      "latencies": [
+        31.128
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "csc-formula",
+      "query": "what is the formula for cosecant",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 44.803,
+      "latencies": [
+        44.803
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "sec-formula",
+      "query": "what is the formula for secant",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 22.962,
+      "latencies": [
+        22.962
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "cot-formula",
+      "query": "what is the formula for cotangent",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 23.033,
+      "latencies": [
+        23.033
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "sine-cosine-identity",
+      "query": "what is the basic sine cosine Pythagorean identity",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 24.244,
+      "latencies": [
+        24.244
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "cot-csc-identity",
+      "query": "what identity relates cotangent and cosecant",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 28.264,
+      "latencies": [
+        28.264
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "key-angle-zero",
+      "query": "what are sine cosine and tangent at zero degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 28.414,
+      "latencies": [
+        28.414
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "key-angle-30",
+      "query": "what are the trigonometric values at 30 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.961,
+      "latencies": [
+        27.961
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "key-angle-45",
+      "query": "what are the trigonometric values at 45 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 25.254,
+      "latencies": [
+        25.254
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "key-angle-60",
+      "query": "what are the trigonometric values at 60 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 18.825,
+      "latencies": [
+        18.825
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "key-angle-90",
+      "query": "what are the trigonometric values at 90 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 34.239,
+      "latencies": [
+        34.239
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "radians-45",
+      "query": "45 degrees in radians",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 26.23,
+      "latencies": [
+        26.23
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "radians-60",
+      "query": "60 degrees in radians",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 41.513,
+      "latencies": [
+        41.513
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "tangent-45",
+      "query": "what is tangent of 45 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 34.292,
+      "latencies": [
+        34.292
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "sine-cosine-45-equal",
+      "query": "are sine and cosine equal at 45 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 32.303,
+      "latencies": [
+        32.303
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "reciprocal-function-family",
+      "query": "which trigonometric functions are reciprocals",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 3,
+      "hits": [
+        true,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 2,
+      "distractor_hits": 1,
+      "latency_ms": 47.042,
+      "latencies": [
+        47.042
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "trig-derivative-link",
+      "query": "how do trigonometric identities help explain derivatives",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 2,
+      "latency_ms": 33.401,
+      "latencies": [
+        33.401
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-initial-guesses",
+      "query": "how many initial guesses does the secant method need",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 28.512,
+      "latencies": [
+        28.512
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-tolerance",
+      "query": "when does the secant algorithm stop",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 27.802,
+      "latencies": [
+        27.802
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-no-derivative",
+      "query": "does the secant method require derivatives",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "latency_ms": 18.651,
+      "latencies": [
+        18.651
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "secant-state-update",
+      "query": "how are secant method guesses updated",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 30.022,
+      "latencies": [
+        30.022
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "newton-derivative-needed",
+      "query": "what extra information does Newton's method require",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 30.05,
+      "latencies": [
+        30.05
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "newton-poor-initial",
+      "query": "when may Newton's method diverge",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 27.814,
+      "latencies": [
+        27.814
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "bisection-midpoint",
+      "query": "what point does bisection evaluate after choosing an interval",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 30.386,
+      "latencies": [
+        30.386
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "bisection-narrow-interval",
+      "query": "how does bisection choose the next interval",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 25.367,
+      "latencies": [
+        25.367
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "bisection-vs-secant",
+      "query": "compare bisection with the secant method",
+      "type": "comparison",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 3,
+      "hits": [
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 2,
+      "latency_ms": 28.574,
+      "latencies": [
+        28.574
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "root-method-derivative-tradeoff",
+      "query": "which root finding methods use derivatives",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 23.404,
+      "latencies": [
+        23.404
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-derivative-sine",
+      "query": "I need the derivative of sine. What does it become?",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "distractor_hits": 2,
+      "latency_ms": 34.796,
+      "latencies": [
+        34.796
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-derivative-cosine",
+      "query": "what do you get when you differentiate cos x",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 36.362,
+      "latencies": [
+        36.362
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-integral-cosine",
+      "query": "what antiderivative should I use for cos(x)",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 44.966,
+      "latencies": [
+        44.966
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-integral-power-exception",
+      "query": "does the power integral rule also work when n equals -1",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 2,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 5,
+      "relevant_found": 2,
+      "distractor_hits": 1,
+      "latency_ms": 47.591,
+      "latencies": [
+        47.591
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-chain-rule-outer-inner",
+      "query": "how do I differentiate an outer function wrapped around an inner function",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "distractor_hits": 1,
+      "latency_ms": 41.247,
+      "latencies": [
+        41.247
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-quotient-rule-denominator",
+      "query": "what belongs in the denominator of the quotient rule",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 39.116,
+      "latencies": [
+        39.116
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-derivative-csc",
+      "query": "what is the derivative formula for cosecant",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 68.44,
+      "latencies": [
+        68.44
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-vector-addition-components",
+      "query": "how is vector addition written component by component",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 32.147,
+      "latencies": [
+        32.147
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-vector-scaling",
+      "query": "what happens to every component under scalar multiplication",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 17.174,
+      "latencies": [
+        17.174
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-matrix-entry-sum",
+      "query": "how is one entry of a matrix product calculated",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "latency_ms": 24.754,
+      "latencies": [
+        24.754
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-diagonal-matrix",
+      "query": "what is the defining property of a diagonal matrix",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 20.009,
+      "latencies": [
+        20.009
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-eigenvalue-equation",
+      "query": "what equation tells me whether v is an eigenvector",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 2,
+      "hits": [
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 2,
+      "latency_ms": 22.548,
+      "latencies": [
+        22.548
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-characteristic-polynomial",
+      "query": "what equation do I solve first to find a matrix eigenvalue",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "distractor_hits": 1,
+      "latency_ms": 25.115,
+      "latencies": [
+        25.115
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-matrix-symmetric-test",
+      "query": "how can I check whether a matrix is symmetric",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 25.681,
+      "latencies": [
+        25.681
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-newton-update",
+      "query": "show me the Newton-Raphson iteration formula",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "first_hit_rank": 3,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 22.709,
+      "latencies": [
+        22.709
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-bisection-root-found",
+      "query": "what does bisection do if the midpoint is exactly a root",
+      "type": "procedure",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 22.176,
+      "latencies": [
+        22.176
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-secants-versus-newton",
+      "query": "which is usually faster near a root, secant or Newton-Raphson",
+      "type": "comparison",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_hit_rank": 4,
+      "relevant_found": 1,
+      "latency_ms": 30.743,
+      "latencies": [
+        30.743
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-bisection-safety",
+      "query": "what condition makes an interval valid for bisection",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "distractor_hits": 1,
+      "latency_ms": 38.531,
+      "latencies": [
+        38.531
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-secants-denominator-risk",
+      "query": "why can the secant update become unstable",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 24.569,
+      "latencies": [
+        24.569
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-tangent-from-sides",
+      "query": "which two triangle sides form tangent",
+      "type": "formula",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 18.654,
+      "latencies": [
+        18.654
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-reciprocal-trig-pairs",
+      "query": "can you map each reciprocal trig function to its original function",
+      "type": "multi_hop",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 3,
+      "hits": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 3,
+      "latency_ms": 22.489,
+      "latencies": [
+        22.489
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-angle-30-radians",
+      "query": "I have 30 degrees; what is that in radians and what are sine and cosine",
+      "type": "multi_hop",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 1,
+      "relevant_found": 1,
+      "latency_ms": 25.299,
+      "latencies": [
+        25.299
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-angle-90-values",
+      "query": "what does the key-angle table say for 90 degrees",
+      "type": "factoid",
+      "faithfulness_label": "fully_supported",
+      "num_relevant": 1,
+      "hits": [
+        false,
+        true,
+        false
+      ],
+      "first_hit_rank": 2,
+      "relevant_found": 1,
+      "latency_ms": 39.837,
+      "latencies": [
+        39.837
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    },
+    {
+      "id": "user-tan-identity-derivative",
+      "query": "how are the tangent derivative and its Pythagorean identity related",
+      "type": "multi_hop",
+      "faithfulness_label": "partially_supported",
+      "num_relevant": 2,
+      "hits": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "first_hit_rank": 0,
+      "relevant_found": 0,
+      "latency_ms": 24.336,
+      "latencies": [
+        24.336
+      ],
+      "rerank": {
+        "enabled": false,
+        "attempted": false,
+        "reason": "disabled",
+        "candidates": 0,
+        "latency_ms": 0,
+        "dependency_error": false
+      }
+    }
+  ],
+  "aggregate": {
+    "queries": 133,
+    "top_k": 5,
+    "hit_rate_at_k": 0.7969924812030075,
+    "recall_at_k": 0.780701754385965,
+    "mrr_at_10": 0.650877192982456,
+    "ndcg_at_k": 0.6740681705031218,
+    "distractor_hit_rate_at_k": 0.24812030075187969,
+    "p50_latency_ms": 27.802,
+    "p95_latency_ms": 45.7076,
+    "rerank_coverage": 0,
+    "rerank_dependency_calls": 0,
+    "rerank_candidate_total": 0,
+    "rerank_p50_latency_ms": 0,
+    "rerank_p95_latency_ms": 0,
+    "rerank_dependency_errors": 0
+  },
+  "generation": {
+    "timestamp": "2026-09-15T13:37:03Z",
+    "answer_model": "gemma3:1b",
+    "judge_model": "phi4-mini:latest",
+    "judge_model_larger_than_answer_model": true,
+    "per_query": [
+      {
+        "id": "secant-trig-definition",
+        "query": "what is the secant of an angle",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.4,
+        "answer_relevancy": 0.6,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 2008.154,
+        "judge_latency_ms": 4510.489
+      },
+      {
+        "id": "secant-method-root-finding",
+        "query": "how does the secant method approximate a root",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.33,
+        "context_recall": 0.67,
+        "answer_latency_ms": 882.337,
+        "judge_latency_ms": 1069.216
+      },
+      {
+        "id": "secant-formula-iteration",
+        "query": "secant method iteration formula x_{n+1}",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 550.471,
+        "judge_latency_ms": 1056.182
+      },
+      {
+        "id": "secant-method-failure-mode",
+        "query": "when does the secant method break down",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0,
+        "answer_latency_ms": 311.506,
+        "judge_latency_ms": 1035.389
+      },
+      {
+        "id": "derivative-power-rule",
+        "query": "how do I take the derivative of x^n",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.5,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 612.795,
+        "judge_latency_ms": 1061.221
+      },
+      {
+        "id": "derivative-product-rule",
+        "query": "rule for differentiating a product of two functions",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 507.884,
+        "judge_latency_ms": 1045.979
+      },
+      {
+        "id": "derivative-quotient-rule",
+        "query": "quotient rule for derivatives",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 542.08,
+        "judge_latency_ms": 3162.447,
+        "error": "judge response: decode JSON: invalid character '/' after object key:value pair"
+      },
+      {
+        "id": "derivative-chain-rule",
+        "query": "differentiate a composition f(g(x))",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 421.184,
+        "judge_latency_ms": 984.089
+      },
+      {
+        "id": "derivative-of-tangent",
+        "query": "what is the derivative of tan(x)",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.5,
+        "context_recall": 0.4,
+        "answer_latency_ms": 2054.033,
+        "judge_latency_ms": 1106.215
+      },
+      {
+        "id": "derivative-of-secant-function",
+        "query": "derivative of sec(x)",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.8,
+        "answer_latency_ms": 706.962,
+        "judge_latency_ms": 1049.343
+      },
+      {
+        "id": "integral-exponential",
+        "query": "integral of e^x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 1,
+        "answer_latency_ms": 385.895,
+        "judge_latency_ms": 1051.048
+      },
+      {
+        "id": "integral-natural-log",
+        "query": "what is the integral of 1 over x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.4,
+        "context_precision": 0.6,
+        "context_recall": 0.2,
+        "answer_latency_ms": 714.08,
+        "judge_latency_ms": 1055.326
+      },
+      {
+        "id": "integral-power-rule",
+        "query": "general antiderivative of a power function",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0,
+        "answer_latency_ms": 306.574,
+        "judge_latency_ms": 1032.505
+      },
+      {
+        "id": "vector-definition",
+        "query": "what is a vector in n-dimensional space",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 469.097,
+        "judge_latency_ms": 1016.28
+      },
+      {
+        "id": "dot-product",
+        "query": "compute the dot product of two vectors",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 1,
+        "answer_latency_ms": 503.683,
+        "judge_latency_ms": 1035.086
+      },
+      {
+        "id": "matrix-multiplication-dimensions",
+        "query": "if A is m by n and B is n by p what size is the product AB",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.6,
+        "answer_latency_ms": 480.624,
+        "judge_latency_ms": 1068.874
+      },
+      {
+        "id": "identity-matrix",
+        "query": "definition of the identity matrix",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.25,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.5,
+        "answer_latency_ms": 323.151,
+        "judge_latency_ms": 1012.339
+      },
+      {
+        "id": "symmetric-matrix",
+        "query": "what makes a matrix symmetric",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 661.98,
+        "judge_latency_ms": 1006.279
+      },
+      {
+        "id": "orthogonal-matrix",
+        "query": "orthogonal matrix transpose property",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 0.25,
+        "answer_latency_ms": 288.374,
+        "judge_latency_ms": 986.358
+      },
+      {
+        "id": "eigenvector-definition",
+        "query": "when is a vector an eigenvector of a matrix",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.5,
+        "answer_latency_ms": 454.983,
+        "judge_latency_ms": 1041.799
+      },
+      {
+        "id": "eigenvalues-characteristic-polynomial",
+        "query": "how do you find eigenvalues",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.25,
+        "answer_latency_ms": 413.239,
+        "judge_latency_ms": 979.885
+      },
+      {
+        "id": "eigenvector-applications",
+        "query": "practical uses of eigenvalues and eigenvectors",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 326.361,
+        "judge_latency_ms": 1040.614
+      },
+      {
+        "id": "sine-definition",
+        "query": "definition of sine in a right triangle",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.8,
+        "answer_latency_ms": 426.644,
+        "judge_latency_ms": 1029.9
+      },
+      {
+        "id": "cosine-definition",
+        "query": "what ratio defines cosine",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 397.495,
+        "judge_latency_ms": 986.407
+      },
+      {
+        "id": "tangent-ratio",
+        "query": "tangent as a ratio of sine and cosine",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 358.781,
+        "judge_latency_ms": 1016.076
+      },
+      {
+        "id": "cosecant-reciprocal",
+        "query": "cosecant reciprocal relationship",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.8,
+        "context_precision": 1,
+        "context_recall": 0.75,
+        "answer_latency_ms": 307.224,
+        "judge_latency_ms": 964.418
+      },
+      {
+        "id": "cotangent-reciprocal",
+        "query": "define cotangent",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.8,
+        "context_recall": 0.5,
+        "answer_latency_ms": 562.248,
+        "judge_latency_ms": 1038.254
+      },
+      {
+        "id": "pythagorean-identity-tan-sec",
+        "query": "identity relating tangent squared and secant squared",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 293.814,
+        "judge_latency_ms": 1020.044
+      },
+      {
+        "id": "sin-45-degrees",
+        "query": "value of sine at 45 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.33,
+        "answer_relevancy": 0.67,
+        "context_precision": 0.2,
+        "context_recall": 0.25,
+        "answer_latency_ms": 615.229,
+        "judge_latency_ms": 1015.839
+      },
+      {
+        "id": "degrees-to-radians-30",
+        "query": "30 degrees expressed in radians",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 301.833,
+        "judge_latency_ms": 1037.276
+      },
+      {
+        "id": "newton-raphson-formula",
+        "query": "Newton-Raphson update rule",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 0.2,
+        "context_recall": 1,
+        "answer_latency_ms": 346.41,
+        "judge_latency_ms": 1023.663
+      },
+      {
+        "id": "newton-quadratic-convergence",
+        "query": "convergence speed of Newton's method near a root",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 0.25,
+        "context_recall": 1,
+        "answer_latency_ms": 330.397,
+        "judge_latency_ms": 983.971
+      },
+      {
+        "id": "bisection-interval-sign-change",
+        "query": "requirement for choosing the bisection interval endpoints",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.25,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0.5,
+        "answer_latency_ms": 412.144,
+        "judge_latency_ms": 1027.767
+      },
+      {
+        "id": "root-method-speed-comparison",
+        "query": "which converges faster bisection or Newton's method",
+        "type": "comparison",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.75,
+        "answer_relevancy": 0.5,
+        "context_precision": 1,
+        "context_recall": 0.6,
+        "answer_latency_ms": 589.529,
+        "judge_latency_ms": 1017.24
+      },
+      {
+        "id": "derivative-sine",
+        "query": "what is the derivative of sine x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.6,
+        "answer_latency_ms": 729.877,
+        "judge_latency_ms": 1052.601
+      },
+      {
+        "id": "derivative-cosine",
+        "query": "what is the derivative of cos x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 120002.028,
+        "error": "answer generation: context deadline exceeded"
+      },
+      {
+        "id": "derivative-cosecant",
+        "query": "differentiate csc x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.4,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0.6,
+        "answer_latency_ms": 540.337,
+        "judge_latency_ms": 1071.497
+      },
+      {
+        "id": "derivative-cotangent",
+        "query": "differentiate cotangent x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.6,
+        "answer_latency_ms": 1583.127,
+        "judge_latency_ms": 1114.508
+      },
+      {
+        "id": "integral-sine",
+        "query": "antiderivative of sin x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.33,
+        "context_recall": 1,
+        "answer_latency_ms": 431.486,
+        "judge_latency_ms": 1045.878
+      },
+      {
+        "id": "integral-cosine",
+        "query": "antiderivative of cos x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.4,
+        "answer_relevancy": 0.5,
+        "context_precision": 0.2,
+        "context_recall": 1,
+        "answer_latency_ms": 588.82,
+        "judge_latency_ms": 1053.964
+      },
+      {
+        "id": "integral-sec-square",
+        "query": "integral of secant squared",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 1,
+        "context_recall": 0,
+        "answer_latency_ms": 298.506,
+        "judge_latency_ms": 1027.567
+      },
+      {
+        "id": "integral-power-condition",
+        "query": "when can the power rule be used for an integral",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 0,
+        "context_precision": 0.2,
+        "context_recall": 0,
+        "answer_latency_ms": 322.681,
+        "judge_latency_ms": 1021.857
+      },
+      {
+        "id": "integration-constant",
+        "query": "why add C to an indefinite integral",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0,
+        "answer_latency_ms": 590.252,
+        "judge_latency_ms": 1101.721
+      },
+      {
+        "id": "product-rule-symbols",
+        "query": "which factor is differentiated in each product rule term",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.7,
+        "answer_latency_ms": 7127.606,
+        "judge_latency_ms": 1414.914
+      },
+      {
+        "id": "quotient-rule-denominator",
+        "query": "what remains in the denominator of the quotient rule",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0,
+        "answer_latency_ms": 317.518,
+        "judge_latency_ms": 1018.952
+      },
+      {
+        "id": "chain-rule-inner",
+        "query": "what is multiplied by the outer derivative in the chain rule",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.2,
+        "answer_latency_ms": 315.516,
+        "judge_latency_ms": 1038.464
+      },
+      {
+        "id": "derivative-cubic",
+        "query": "derivative of x cubed using the power rule",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0,
+        "context_recall": 0.5,
+        "answer_latency_ms": 316.041,
+        "judge_latency_ms": 1058.836
+      },
+      {
+        "id": "derivative-linear",
+        "query": "what is the derivative pattern for x to a power",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 436.4,
+        "judge_latency_ms": 1034.607
+      },
+      {
+        "id": "tangent-derivative-identity",
+        "query": "how does the tangent derivative relate to the tangent secant identity",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.8,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 893.211,
+        "judge_latency_ms": 1018.413
+      },
+      {
+        "id": "secant-derivative-reciprocal",
+        "query": "how is the secant function related to its derivative",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.25,
+        "context_precision": 1,
+        "context_recall": 0,
+        "answer_latency_ms": 313.992,
+        "judge_latency_ms": 1025.36
+      },
+      {
+        "id": "exponential-antiderivative",
+        "query": "does integrating e to the x change the function",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.3,
+        "context_recall": 0.7,
+        "answer_latency_ms": 510.249,
+        "judge_latency_ms": 1062.621
+      },
+      {
+        "id": "reciprocal-integral-absolute",
+        "query": "why does the integral of 1 over x use absolute value",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 0.25,
+        "context_recall": 0.9,
+        "answer_latency_ms": 549.117,
+        "judge_latency_ms": 1050.557
+      },
+      {
+        "id": "power-antiderivative-exponent",
+        "query": "what exponent appears after integrating x to n",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.33,
+        "answer_relevancy": 0.67,
+        "context_precision": 1,
+        "context_recall": 0.25,
+        "answer_latency_ms": 601.204,
+        "judge_latency_ms": 1057.87
+      },
+      {
+        "id": "differentiate-product-example",
+        "query": "how do you differentiate f times g",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 0.25,
+        "context_recall": 0.75,
+        "answer_latency_ms": 551.14,
+        "judge_latency_ms": 1005.698
+      },
+      {
+        "id": "vector-components",
+        "query": "how is a vector represented in n dimensions",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.9,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 477.878,
+        "judge_latency_ms": 1019.149
+      },
+      {
+        "id": "vector-addition",
+        "query": "how do you add two vectors componentwise",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.25,
+        "context_recall": 0,
+        "answer_latency_ms": 317.564,
+        "judge_latency_ms": 1028.743
+      },
+      {
+        "id": "scalar-multiplication",
+        "query": "how does scalar multiplication affect a vector",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 386.033,
+        "judge_latency_ms": 990.116
+      },
+      {
+        "id": "dot-product-summation",
+        "query": "what is the component formula for a dot product",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 323.163,
+        "judge_latency_ms": 1019.404
+      },
+      {
+        "id": "matrix-row-column",
+        "query": "what do m and n mean in an m by n matrix",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 510.004,
+        "judge_latency_ms": 1024.941
+      },
+      {
+        "id": "matrix-compatible-product",
+        "query": "when can two matrices be multiplied",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.8,
+        "context_recall": 0.4,
+        "answer_latency_ms": 304.978,
+        "judge_latency_ms": 1010.5
+      },
+      {
+        "id": "matrix-product-entry",
+        "query": "how is an entry of AB computed",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 0.8,
+        "context_precision": 0.4,
+        "context_recall": 1,
+        "answer_latency_ms": 583.311,
+        "judge_latency_ms": 1126.853
+      },
+      {
+        "id": "identity-diagonal",
+        "query": "where are the ones in an identity matrix",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.8,
+        "answer_latency_ms": 354.999,
+        "judge_latency_ms": 991.866
+      },
+      {
+        "id": "diagonal-matrix",
+        "query": "what is a diagonal matrix",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0,
+        "answer_latency_ms": 313.946,
+        "judge_latency_ms": 1000.524
+      },
+      {
+        "id": "symmetric-transpose",
+        "query": "what equation identifies a symmetric matrix",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.4,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.5,
+        "context_recall": 0.6,
+        "answer_latency_ms": 858.594,
+        "judge_latency_ms": 1013.425
+      },
+      {
+        "id": "orthogonal-identity",
+        "query": "what does an orthogonal matrix multiply to",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.33,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.5,
+        "answer_latency_ms": 441.394,
+        "judge_latency_ms": 1006.216
+      },
+      {
+        "id": "eigenvector-nonzero",
+        "query": "does an eigenvector have to be nonzero",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0,
+        "answer_latency_ms": 303.909,
+        "judge_latency_ms": 1013.972
+      },
+      {
+        "id": "eigenvalue-scalar",
+        "query": "what role does lambda play in an eigenvector equation",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 587.82,
+        "judge_latency_ms": 1040.289
+      },
+      {
+        "id": "characteristic-equation",
+        "query": "what equation gives the characteristic polynomial roots",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 315.337,
+        "judge_latency_ms": 999.103
+      },
+      {
+        "id": "pca-application",
+        "query": "which dimensionality reduction application uses eigenvectors",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 306.536,
+        "judge_latency_ms": 1013.238
+      },
+      {
+        "id": "pagerank-application",
+        "query": "is PageRank an eigenvector application",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0.5,
+        "answer_latency_ms": 299.72,
+        "judge_latency_ms": 980.322
+      },
+      {
+        "id": "quantum-application",
+        "query": "which physics application is listed for eigenvalues",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.4,
+        "context_precision": 1,
+        "context_recall": 0,
+        "answer_latency_ms": 293.743,
+        "judge_latency_ms": 1000.869
+      },
+      {
+        "id": "vibration-application",
+        "query": "what engineering application is listed for eigenvectors",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.4,
+        "context_precision": 1,
+        "context_recall": 0.8,
+        "answer_latency_ms": 297.321,
+        "judge_latency_ms": 1017.527
+      },
+      {
+        "id": "matrix-special-types",
+        "query": "which special matrix types are listed",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 435.001,
+        "judge_latency_ms": 1012.333,
+        "error": "judge response: context_recall score 3.000 is outside [0,1]"
+      },
+      {
+        "id": "eigenvector-pca",
+        "query": "how do eigenvectors connect definition and PCA",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0.33,
+        "answer_latency_ms": 304.317,
+        "judge_latency_ms": 1032.898
+      },
+      {
+        "id": "matrix-dimensions-mn-np",
+        "query": "what dimensions are required for A m n times B n p",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 693.585,
+        "judge_latency_ms": 1044.717
+      },
+      {
+        "id": "matrix-product-output",
+        "query": "what are the dimensions of C equals AB",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 497.239,
+        "judge_latency_ms": 1047.458
+      },
+      {
+        "id": "vector-n-tuple",
+        "query": "what mathematical object is an ordered n tuple",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 480.973,
+        "judge_latency_ms": 1019.263
+      },
+      {
+        "id": "matrix-orthogonality-condition",
+        "query": "how can I test the orthogonal matrix condition",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 1,
+        "context_recall": 0.5,
+        "answer_latency_ms": 319.232,
+        "judge_latency_ms": 1011.89
+      },
+      {
+        "id": "linear-algebra-eigen-workflow",
+        "query": "what is the workflow from eigenvalues to eigenvectors",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.5,
+        "context_recall": 0.3,
+        "answer_latency_ms": 320.081,
+        "judge_latency_ms": 1059.365
+      },
+      {
+        "id": "trig-sine-formula",
+        "query": "what is the formula for sine in a right triangle",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 515.875,
+        "judge_latency_ms": 997.546
+      },
+      {
+        "id": "trig-cosine-formula",
+        "query": "what is the formula for cosine in a right triangle",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 495.435,
+        "judge_latency_ms": 975.826
+      },
+      {
+        "id": "trig-tangent-sides",
+        "query": "what sides define tangent",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.8,
+        "context_recall": 0.4,
+        "answer_latency_ms": 386.284,
+        "judge_latency_ms": 1022.427
+      },
+      {
+        "id": "trig-tangent-sine-cosine",
+        "query": "how can tangent be written using sine and cosine",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 558.667,
+        "judge_latency_ms": 1021.338
+      },
+      {
+        "id": "csc-formula",
+        "query": "what is the formula for cosecant",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 420.87,
+        "judge_latency_ms": 1019.914
+      },
+      {
+        "id": "sec-formula",
+        "query": "what is the formula for secant",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 0.5,
+        "answer_latency_ms": 695.508,
+        "judge_latency_ms": 1042.254
+      },
+      {
+        "id": "cot-formula",
+        "query": "what is the formula for cotangent",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 0.5,
+        "answer_latency_ms": 390.435,
+        "judge_latency_ms": 1044.6
+      },
+      {
+        "id": "sine-cosine-identity",
+        "query": "what is the basic sine cosine Pythagorean identity",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.33,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.5,
+        "answer_latency_ms": 464.25,
+        "judge_latency_ms": 997.77
+      },
+      {
+        "id": "cot-csc-identity",
+        "query": "what identity relates cotangent and cosecant",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.6,
+        "context_recall": 0.4,
+        "answer_latency_ms": 456.267,
+        "judge_latency_ms": 1014.612
+      },
+      {
+        "id": "key-angle-zero",
+        "query": "what are sine cosine and tangent at zero degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.3,
+        "context_precision": 0.4,
+        "context_recall": 0.5,
+        "answer_latency_ms": 1054.371,
+        "judge_latency_ms": 1035.804
+      },
+      {
+        "id": "key-angle-30",
+        "query": "what are the trigonometric values at 30 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 704.82,
+        "judge_latency_ms": 1057.262
+      },
+      {
+        "id": "key-angle-45",
+        "query": "what are the trigonometric values at 45 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.33,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 0.67,
+        "answer_latency_ms": 526.166,
+        "judge_latency_ms": 1052.246
+      },
+      {
+        "id": "key-angle-60",
+        "query": "what are the trigonometric values at 60 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.83,
+        "answer_latency_ms": 552.587,
+        "judge_latency_ms": 1044.484
+      },
+      {
+        "id": "key-angle-90",
+        "query": "what are the trigonometric values at 90 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 685.595,
+        "judge_latency_ms": 1045.076
+      },
+      {
+        "id": "radians-45",
+        "query": "45 degrees in radians",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 471.652,
+        "judge_latency_ms": 1053.073
+      },
+      {
+        "id": "radians-60",
+        "query": "60 degrees in radians",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.9,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 548.851,
+        "judge_latency_ms": 1040.277
+      },
+      {
+        "id": "tangent-45",
+        "query": "what is tangent of 45 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.33,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.5,
+        "answer_latency_ms": 557.891,
+        "judge_latency_ms": 1039.872
+      },
+      {
+        "id": "sine-cosine-45-equal",
+        "query": "are sine and cosine equal at 45 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.25,
+        "context_precision": 1,
+        "context_recall": 0.75,
+        "answer_latency_ms": 303.463,
+        "judge_latency_ms": 1040.589
+      },
+      {
+        "id": "reciprocal-function-family",
+        "query": "which trigonometric functions are reciprocals",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.8,
+        "answer_latency_ms": 1196.764,
+        "judge_latency_ms": 1078.164
+      },
+      {
+        "id": "trig-derivative-link",
+        "query": "how do trigonometric identities help explain derivatives",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.8,
+        "context_recall": 0.7,
+        "answer_latency_ms": 1243.827,
+        "judge_latency_ms": 1160.842
+      },
+      {
+        "id": "secant-initial-guesses",
+        "query": "how many initial guesses does the secant method need",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.8,
+        "answer_latency_ms": 344.503,
+        "judge_latency_ms": 1041.018
+      },
+      {
+        "id": "secant-tolerance",
+        "query": "when does the secant algorithm stop",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 487.83,
+        "judge_latency_ms": 1048.612
+      },
+      {
+        "id": "secant-no-derivative",
+        "query": "does the secant method require derivatives",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0.8,
+        "answer_latency_ms": 314.734,
+        "judge_latency_ms": 1025.795
+      },
+      {
+        "id": "secant-state-update",
+        "query": "how are secant method guesses updated",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.67,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 1,
+        "answer_latency_ms": 617.08,
+        "judge_latency_ms": 1023.835
+      },
+      {
+        "id": "newton-derivative-needed",
+        "query": "what extra information does Newton's method require",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.33,
+        "answer_relevancy": 1,
+        "context_precision": 0.67,
+        "context_recall": 0.75,
+        "answer_latency_ms": 308.036,
+        "judge_latency_ms": 981.165
+      },
+      {
+        "id": "newton-poor-initial",
+        "query": "when may Newton's method diverge",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.67,
+        "context_recall": 1,
+        "answer_latency_ms": 308.081,
+        "judge_latency_ms": 973.193
+      },
+      {
+        "id": "bisection-midpoint",
+        "query": "what point does bisection evaluate after choosing an interval",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.67,
+        "answer_relevancy": 1,
+        "context_precision": 0.33,
+        "context_recall": 0.5,
+        "answer_latency_ms": 779.052,
+        "judge_latency_ms": 1050.788
+      },
+      {
+        "id": "bisection-narrow-interval",
+        "query": "how does bisection choose the next interval",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 1,
+        "answer_latency_ms": 425.039,
+        "judge_latency_ms": 1032.968
+      },
+      {
+        "id": "bisection-vs-secant",
+        "query": "compare bisection with the secant method",
+        "type": "comparison",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 0.75,
+        "answer_latency_ms": 1136.241,
+        "judge_latency_ms": 1069.479
+      },
+      {
+        "id": "root-method-derivative-tradeoff",
+        "query": "which root finding methods use derivatives",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.25,
+        "answer_latency_ms": 336.081,
+        "judge_latency_ms": 1002.555
+      },
+      {
+        "id": "user-derivative-sine",
+        "query": "I need the derivative of sine. What does it become?",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.5,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.8,
+        "answer_latency_ms": 668.391,
+        "judge_latency_ms": 1077.799
+      },
+      {
+        "id": "user-derivative-cosine",
+        "query": "what do you get when you differentiate cos x",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0,
+        "answer_relevancy": 0,
+        "context_precision": 0,
+        "context_recall": 0,
+        "answer_latency_ms": 120000.298,
+        "error": "answer generation: context deadline exceeded"
+      },
+      {
+        "id": "user-integral-cosine",
+        "query": "what antiderivative should I use for cos(x)",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.8,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 0.9,
+        "answer_latency_ms": 848.443,
+        "judge_latency_ms": 1085.003
+      },
+      {
+        "id": "user-integral-power-exception",
+        "query": "does the power integral rule also work when n equals -1",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.4,
+        "answer_relevancy": 0.2,
+        "context_precision": 0.8,
+        "context_recall": 0.6,
+        "answer_latency_ms": 2434.495,
+        "judge_latency_ms": 1119.044
+      },
+      {
+        "id": "user-chain-rule-outer-inner",
+        "query": "how do I differentiate an outer function wrapped around an inner function",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.6,
+        "answer_latency_ms": 321.02,
+        "judge_latency_ms": 1040.102
+      },
+      {
+        "id": "user-quotient-rule-denominator",
+        "query": "what belongs in the denominator of the quotient rule",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.33,
+        "context_recall": 0.67,
+        "answer_latency_ms": 311.715,
+        "judge_latency_ms": 999.08
+      },
+      {
+        "id": "user-derivative-csc",
+        "query": "what is the derivative formula for cosecant",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.4,
+        "answer_relevancy": 1,
+        "context_precision": 0.8,
+        "context_recall": 0.5,
+        "answer_latency_ms": 563.144,
+        "judge_latency_ms": 1074.052
+      },
+      {
+        "id": "user-vector-addition-components",
+        "query": "how is vector addition written component by component",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 0,
+        "context_precision": 0.2,
+        "context_recall": 0.5,
+        "answer_latency_ms": 430.32,
+        "judge_latency_ms": 1001.985
+      },
+      {
+        "id": "user-vector-scaling",
+        "query": "what happens to every component under scalar multiplication",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 0.8,
+        "answer_latency_ms": 907.375,
+        "judge_latency_ms": 1072.567
+      },
+      {
+        "id": "user-matrix-entry-sum",
+        "query": "how is one entry of a matrix product calculated",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.5,
+        "context_precision": 0.3,
+        "context_recall": 0.4,
+        "answer_latency_ms": 483.842,
+        "judge_latency_ms": 1021.716
+      },
+      {
+        "id": "user-diagonal-matrix",
+        "query": "what is the defining property of a diagonal matrix",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.1,
+        "context_precision": 0.4,
+        "context_recall": 0.3,
+        "answer_latency_ms": 318.079,
+        "judge_latency_ms": 1010.853
+      },
+      {
+        "id": "user-eigenvalue-equation",
+        "query": "what equation tells me whether v is an eigenvector",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.5,
+        "context_recall": 1,
+        "answer_latency_ms": 328.273,
+        "judge_latency_ms": 988.74
+      },
+      {
+        "id": "user-characteristic-polynomial",
+        "query": "what equation do I solve first to find a matrix eigenvalue",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 1,
+        "context_precision": 0.2,
+        "context_recall": 0.4,
+        "answer_latency_ms": 331.295,
+        "judge_latency_ms": 1050.906
+      },
+      {
+        "id": "user-matrix-symmetric-test",
+        "query": "how can I check whether a matrix is symmetric",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.3,
+        "context_precision": 1,
+        "context_recall": 0.6,
+        "answer_latency_ms": 309.116,
+        "judge_latency_ms": 995.44
+      },
+      {
+        "id": "user-newton-update",
+        "query": "show me the Newton-Raphson iteration formula",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.4,
+        "context_recall": 0.6,
+        "answer_latency_ms": 316.682,
+        "judge_latency_ms": 1030.133
+      },
+      {
+        "id": "user-bisection-root-found",
+        "query": "what does bisection do if the midpoint is exactly a root",
+        "type": "procedure",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 0.75,
+        "context_recall": 0.5,
+        "answer_latency_ms": 584.306,
+        "judge_latency_ms": 1046.032
+      },
+      {
+        "id": "user-secants-versus-newton",
+        "query": "which is usually faster near a root, secant or Newton-Raphson",
+        "type": "comparison",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 361.675,
+        "judge_latency_ms": 1027.056
+      },
+      {
+        "id": "user-bisection-safety",
+        "query": "what condition makes an interval valid for bisection",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 1,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 561.05,
+        "judge_latency_ms": 1048.135
+      },
+      {
+        "id": "user-secants-denominator-risk",
+        "query": "why can the secant update become unstable",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0,
+        "answer_relevancy": 0.2,
+        "context_precision": 1,
+        "context_recall": 0.5,
+        "answer_latency_ms": 310.92,
+        "judge_latency_ms": 1072.659
+      },
+      {
+        "id": "user-tangent-from-sides",
+        "query": "which two triangle sides form tangent",
+        "type": "formula",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.2,
+        "answer_relevancy": 0.4,
+        "context_precision": 1,
+        "context_recall": 0.8,
+        "answer_latency_ms": 301.8,
+        "judge_latency_ms": 1006.649
+      },
+      {
+        "id": "user-reciprocal-trig-pairs",
+        "query": "can you map each reciprocal trig function to its original function",
+        "type": "multi_hop",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.75,
+        "answer_relevancy": 1,
+        "context_precision": 1,
+        "context_recall": 1,
+        "answer_latency_ms": 908.447,
+        "judge_latency_ms": 1049.214
+      },
+      {
+        "id": "user-angle-30-radians",
+        "query": "I have 30 degrees; what is that in radians and what are sine and cosine",
+        "type": "multi_hop",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 5,
+        "faithfulness": 0.4,
+        "answer_relevancy": 1,
+        "context_precision": 0.6,
+        "context_recall": 0.8,
+        "answer_latency_ms": 564.768,
+        "judge_latency_ms": 1116.795
+      },
+      {
+        "id": "user-angle-90-values",
+        "query": "what does the key-angle table say for 90 degrees",
+        "type": "factoid",
+        "faithfulness_label": "fully_supported",
+        "retrieved_chunks": 3,
+        "faithfulness": 0.2,
+        "answer_relevancy": 1,
+        "context_precision": 0.8,
+        "context_recall": 0.4,
+        "answer_latency_ms": 474.352,
+        "judge_latency_ms": 1036.096
+      },
+      {
+        "id": "user-tan-identity-derivative",
+        "query": "how are the tangent derivative and its Pythagorean identity related",
+        "type": "multi_hop",
+        "faithfulness_label": "partially_supported",
+        "retrieved_chunks": 4,
+        "faithfulness": 0.1,
+        "answer_relevancy": 0.3,
+        "context_precision": 0.05,
+        "context_recall": 0.02,
+        "answer_latency_ms": 737.387,
+        "judge_latency_ms": 1034.814
+      }
+    ],
+    "aggregate": {
+      "queries": 133,
+      "evaluated": 129,
+      "failures": 4,
+      "judge_coverage": 0.9699248120300752,
+      "faithfulness": 0.4852713178294574,
+      "answer_relevancy": 0.7801550387596902,
+      "context_precision": 0.6151937984496123,
+      "context_recall": 0.621627906976744,
+      "answer_p50_latency_ms": 464.25,
+      "answer_p95_latency_ms": 1172.5547999999997,
+      "judge_p50_latency_ms": 1034.607,
+      "judge_p95_latency_ms": 1111.1907999999999
+    }
+  }
+}

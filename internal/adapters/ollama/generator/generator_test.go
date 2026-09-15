@@ -116,7 +116,8 @@ func TestGenerateSendsKeepAliveAndHoldsGateForStream(t *testing.T) {
 		Addr:      srv.URL,
 		Model:     "answer",
 		KeepAlive: "5m0s",
-		Gate:      inference.NewGate(1, 20*time.Millisecond),
+		Gate:      inference.NewGate(1, time.Second),
+		Admission: inference.NewGate(1, 20*time.Millisecond).Acquire,
 	})
 	first, err := d.Generate(context.Background(), "first")
 	if err != nil {

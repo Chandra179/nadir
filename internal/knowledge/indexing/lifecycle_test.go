@@ -2,6 +2,7 @@ package indexing
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +71,9 @@ func TestIndexingDeleteAllWaitsForIndexingBeforeReset(t *testing.T) {
 			return nil
 		},
 	}
-	lifecycle.BeginIngest()
+	if err := lifecycle.BeginIngest(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 
 	done := make(chan struct{})
 	go func() {
@@ -94,5 +97,23 @@ func TestIndexingDeleteAllWaitsForIndexingBeforeReset(t *testing.T) {
 	}
 	if !reset {
 		t.Fatal("reset did not reach the store")
+	}
+}
+
+func TestIndexingDeleteAllHonorsContextWhileIndexingIsActive(t *testing.T) {
+	lifecycle := NewDocumentLifecycle()
+	if err := lifecycle.BeginIngest(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer lifecycle.EndIngest()
+
+	coordinator := &dependencies{
+		coordinator: lifecycle,
+		reset:       func(context.Context) error { t.Fatal("reset should not run"); return nil },
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := coordinator.DeleteAll(ctx); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("DeleteAll() error = %v, want context deadline", err)
 	}
 }

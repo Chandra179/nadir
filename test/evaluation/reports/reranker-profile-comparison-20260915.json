@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-15T12:49:09.259995+00:00",
+  "dataset": {
+    "path": "test/evaluation/golden.json",
+    "corpus": "samples",
+    "queries": 133,
+    "provenance": "engineering-generated synthetic user-intent fixture",
+    "release_gate": false
+  },
+  "hardware": {
+    "current_host": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "cpu_count": 12,
+    "memory_bytes": 16474693632,
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "gpu_memory_bytes": 6439305216,
+    "driver": "595.84",
+    "torch_cuda_available_for_run": true
+  },
+  "runtime": {
+    "python": "3.12.3",
+    "sentence_transformers": "5.4.1",
+    "transformers": "4.57.6",
+    "torch": "2.11.0+cu130",
+    "onnxruntime": "1.24.4",
+    "optimum": "2.1.0"
+  },
+  "profiles": [
+    {
+      "name": "bge-m3-cpu",
+      "status": "completed",
+      "model": "BAAI/bge-reranker-v2-m3",
+      "backend_requested": "torch",
+      "backend_loaded": "torch",
+      "device": "cpu",
+      "startup_ms": 5295.316,
+      "startup_rss_bytes": 1097760768,
+      "health": {
+        "status": "ok",
+        "model": "/home/koala/.cache/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+        "loaded_model": "/home/koala/.cache/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+        "backend": "torch",
+        "device": "cpu"
+      },
+      "resources": {
+        "rss_source": "proc:51718",
+        "gpu_source": "unavailable",
+        "sample_interval_seconds": 0.25,
+        "peak_rss_bytes": 2509037568,
+        "peak_gpu_bytes": null
+      },
+      "summary": {
+        "queries": 133,
+        "evaluated_queries": 133,
+        "attempts": 133,
+        "successes": 133,
+        "failures": 0,
+        "timeouts": 0,
+        "success_rate": 1.0,
+        "latency_ms": {
+          "min": 324.085,
+          "p50": 561.377,
+          "p95": 2927.124,
+          "max": 4642.165
+        },
+        "throughput": {
+          "successful_queries_per_second": 0.9664,
+          "successful_passages_per_second": 2.0418,
+          "attempted_passages": 281
+        },
+        "quality": {
+          "hit_rate_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr_at_10": 0.9624060150375939,
+          "ndcg_at_k": 0.9712684492296687
+        }
+      },
+      "source_report": "test/evaluation/reports/reranker-bge-m3-cpu-20260915.json"
+    },
+    {
+      "name": "bge-m3-gpu",
+      "status": "completed",
+      "model": "BAAI/bge-reranker-v2-m3",
+      "backend_requested": "torch",
+      "backend_loaded": "torch",
+      "device": "cuda",
+      "startup_ms": 5791.109,
+      "startup_rss_bytes": 1197383680,
+      "health": {
+        "status": "ok",
+        "model": "/home/koala/.cache/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+        "loaded_model": "/home/koala/.cache/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+        "backend": "torch",
+        "device": "cuda"
+      },
+      "resources": {
+        "rss_source": "proc:74398",
+        "gpu_source": "nvidia-smi:pid:74398",
+        "sample_interval_seconds": 0.25,
+        "peak_rss_bytes": 1472438272,
+        "peak_gpu_bytes": 2545942528
+      },
+      "summary": {
+        "queries": 133,
+        "evaluated_queries": 133,
+        "attempts": 133,
+        "successes": 133,
+        "failures": 0,
+        "timeouts": 0,
+        "success_rate": 1.0,
+        "latency_ms": {
+          "min": 22.053,
+          "p50": 30.158,
+          "p95": 132.211,
+          "max": 217.987
+        },
+        "throughput": {
+          "successful_queries_per_second": 19.9951,
+          "successful_passages_per_second": 42.2452,
+          "attempted_passages": 281
+        },
+        "quality": {
+          "hit_rate_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr_at_10": 0.9624060150375939,
+          "ndcg_at_k": 0.9712684492296687
+        }
+      },
+      "source_report": "test/evaluation/reports/reranker-bge-m3-gpu-20260915.json"
+    },
+    {
+      "name": "minilm-l6-cpu",
+      "status": "completed",
+      "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+      "backend_requested": "torch",
+      "backend_loaded": "torch",
+      "device": "cpu",
+      "startup_ms": 5518.676,
+      "startup_rss_bytes": 804540416,
+      "health": {
+        "status": "ok",
+        "model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "loaded_model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "backend": "torch",
+        "device": "cpu"
+      },
+      "resources": {
+        "rss_source": "proc:55069",
+        "gpu_source": "unavailable",
+        "sample_interval_seconds": 0.25,
+        "peak_rss_bytes": 944480256,
+        "peak_gpu_bytes": null
+      },
+      "summary": {
+        "queries": 133,
+        "evaluated_queries": 133,
+        "attempts": 133,
+        "successes": 133,
+        "failures": 0,
+        "timeouts": 0,
+        "success_rate": 1.0,
+        "latency_ms": {
+          "min": 15.925,
+          "p50": 30.088,
+          "p95": 164.716,
+          "max": 243.388
+        },
+        "throughput": {
+          "successful_queries_per_second": 17.5939,
+          "successful_passages_per_second": 37.172,
+          "attempted_passages": 281
+        },
+        "quality": {
+          "hit_rate_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr_at_10": 0.9473684210526315,
+          "ndcg_at_k": 0.9612420949077397
+        }
+      },
+      "source_report": "test/evaluation/reports/reranker-minilm-l6-cpu-20260915.json"
+    },
+    {
+      "name": "minilm-l6-onnx-cpu",
+      "status": "completed",
+      "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+      "backend_requested": "onnx",
+      "backend_loaded": "onnx",
+      "device": "cpu",
+      "startup_ms": 5031.533,
+      "startup_rss_bytes": 935161856,
+      "health": {
+        "status": "ok",
+        "model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "loaded_model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "backend": "onnx",
+        "device": "cpu"
+      },
+      "resources": {
+        "rss_source": "proc:58610",
+        "gpu_source": "unavailable",
+        "sample_interval_seconds": 0.25,
+        "peak_rss_bytes": 1075679232,
+        "peak_gpu_bytes": null
+      },
+      "summary": {
+        "queries": 133,
+        "evaluated_queries": 133,
+        "attempts": 133,
+        "successes": 133,
+        "failures": 0,
+        "timeouts": 0,
+        "success_rate": 1.0,
+        "latency_ms": {
+          "min": 10.054,
+          "p50": 16.123,
+          "p95": 113.591,
+          "max": 189.419
+        },
+        "throughput": {
+          "successful_queries_per_second": 28.2489,
+          "successful_passages_per_second": 59.6837,
+          "attempted_passages": 281
+        },
+        "quality": {
+          "hit_rate_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr_at_10": 0.9473684210526315,
+          "ndcg_at_k": 0.9612420949077397
+        }
+      },
+      "source_report": "test/evaluation/reports/reranker-minilm-l6-onnx-cpu-20260915.json"
+    },
+    {
+      "name": "minilm-l6-int8-onnx-cpu",
+      "status": "completed",
+      "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+      "backend_requested": "onnx",
+      "backend_loaded": "onnx-int8",
+      "device": "cpu",
+      "startup_ms": 4782.217,
+      "startup_rss_bytes": 865132544,
+      "health": {
+        "status": "ok",
+        "model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "loaded_model": "/home/koala/.cache/huggingface/hub/models--cross-encoder--ms-marco-MiniLM-L-6-v2/snapshots/233902d25c440f23af6f7d6e94d2946bac0bee0a",
+        "backend": "onnx-int8",
+        "device": "cpu"
+      },
+      "resources": {
+        "rss_source": "proc:61865",
+        "gpu_source": "unavailable",
+        "sample_interval_seconds": 0.25,
+        "peak_rss_bytes": 1025806336,
+        "peak_gpu_bytes": null
+      },
+      "summary": {
+        "queries": 133,
+        "evaluated_queries": 133,
+        "attempts": 133,
+        "successes": 133,
+        "failures": 0,
+        "timeouts": 0,
+        "success_rate": 1.0,
+        "latency_ms": {
+          "min": 6.628,
+          "p50": 10.673,
+          "p95": 74.719,
+          "max": 120.47
+        },
+        "throughput": {
+          "successful_queries_per_second": 44.2187,
+          "successful_passages_per_second": 93.4244,
+          "attempted_passages": 281
+        },
+        "quality": {
+          "hit_rate_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr_at_10": 0.9398496240601504,
+          "ndcg_at_k": 0.9556921663900173
+        }
+      },
+      "source_report": "test/evaluation/reports/reranker-minilm-l6-int8-onnx-cpu-20260915.json"
+    },
+    {
+      "name": "gte-multilingual-base-cpu",
+      "status": "unavailable",
+      "model": "Alibaba-NLP/gte-multilingual-reranker-base",
+      "backend_requested": "torch",
+      "device": "cpu",
+      "startup_ms": 4278.325,
+      "startup_rss_bytes": null,
+      "error": "sidecar model failed to load: ValueError('Alibaba-NLP/new-impl You can inspect the repository content at https://hf.co//home/koala/.cache/huggingface/hub/models--Alibaba-NLP--gte-multilingual-reranker-base/snapshots/8215cf04918ba6f7b6a62bb44238ce2953d8831c.\\nPlease pass the argument `trust_remote_code=True` to allow custom code to be run.')",
+      "evidence_gap": "model.safetensors download incomplete; GTE also requires reviewed remote code"
+    }
+  ],
+  "decision": {
+    "release_ready": false,
+    "default_changed": false,
+    "reason": "Current CPU and RTX 4050 profiles are measured, but GTE weights are unavailable on this host and the fixture is not consent-safe production evidence.",
+    "next_required": [
+      "Run GTE multilingual reranker base with complete weights and reviewed RERANKER_TRUST_REMOTE_CODE=true on the target host.",
+      "Repeat GTE on representative deployment hardware with startup and VRAM sampling.",
+      "Use a consent-safe 100+ query set with expert judgments and release-gate metadata."
+    ]
+  },
+  "notes": [
+    "All completed profiles ran 133/133 queries with zero failures and timeouts.",
+    "The ONNX profile loaded the actual onnx backend after installing Optimum; the int8 profile loaded onnx-int8 from the baked MiniLM artifact.",
+    "Quality is reranker-isolated ranking quality on the same candidate lists, not end-to-end answer quality.",
+    "RAM is process RSS; VRAM is process-specific nvidia-smi sampling where available."
+  ]
+}

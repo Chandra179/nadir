@@ -59,6 +59,12 @@ MODEL_NAME = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 MAX_LENGTH = int(os.environ.get("RERANKER_MAX_LENGTH", "512"))
 BACKEND = os.environ.get("RERANKER_BACKEND", "torch")
 DEVICE_SETTING = os.environ.get("RERANKER_DEVICE", "cpu")
+PORT = int(os.environ.get("RERANKER_PORT", "5002"))
+TRUST_REMOTE_CODE = os.environ.get("RERANKER_TRUST_REMOTE_CODE", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 MAX_CONCURRENT = max(1, int(os.environ.get("RERANKER_MAX_CONCURRENT", "1")))
 # Directory holding the build-time int8 export (see quantize.py).
 QUANTIZED_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
@@ -119,8 +125,12 @@ class TorchInt8Reranker:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self.torch = torch
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name, trust_remote_code=TRUST_REMOTE_CODE
+        )
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_name, trust_remote_code=TRUST_REMOTE_CODE
+        )
         model.eval()
         self.model = quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
         self.max_length = max_length
@@ -181,7 +191,12 @@ def load_model() -> CrossEncoder:
                 f"RERANKER_DEVICE=cuda requires RERANKER_BACKEND=torch, got {BACKEND!r}"
             )
         _loaded_backend = "torch"
-        return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cuda")
+        return CrossEncoder(
+            MODEL_NAME,
+            max_length=MAX_LENGTH,
+            device="cuda",
+            trust_remote_code=TRUST_REMOTE_CODE,
+        )
 
     if BACKEND == "onnx":
         fname = baked_quantized_file()
@@ -193,19 +208,30 @@ def load_model() -> CrossEncoder:
                 backend="onnx",
                 model_kwargs={"file_name": fname},
                 max_length=MAX_LENGTH,
+                trust_remote_code=TRUST_REMOTE_CODE,
             )
         print(f"no baked int8 export matching {MODEL_NAME}; loading fp32 onnx")
     if BACKEND in ("onnx", "openvino"):
         try:
             _loaded_backend = BACKEND
-            return CrossEncoder(MODEL_NAME, backend=BACKEND, max_length=MAX_LENGTH)
+            return CrossEncoder(
+                MODEL_NAME,
+                backend=BACKEND,
+                max_length=MAX_LENGTH,
+                trust_remote_code=TRUST_REMOTE_CODE,
+            )
         except Exception as e:
             print(f"backend {BACKEND!r} failed to load ({e!r}); falling back to torch fp32")
     if BACKEND == "torch-int8":
         _loaded_backend = "torch-int8"
         return TorchInt8Reranker(MODEL_NAME, MAX_LENGTH)
     _loaded_backend = "torch"
-    return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH, device="cpu")
+    return CrossEncoder(
+        MODEL_NAME,
+        max_length=MAX_LENGTH,
+        device="cpu",
+        trust_remote_code=TRUST_REMOTE_CODE,
+    )
 
 
 @asynccontextmanager
@@ -283,4 +309,4 @@ def health():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=5002)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

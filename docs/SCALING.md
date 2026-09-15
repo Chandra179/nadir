@@ -68,10 +68,12 @@ change the consistency model.
 The shipped local resource profile is conservative and explicit: all Ollama
 roles share one process-local execution slot, queued model work waits at most
 30 seconds, and each request sends a five-minute `keep_alive` value. The
-reranker has one process-local execution slot and defaults to an explicit CPU
-`torch` backend. This prevents overlapping model work inside one API process;
-it cannot limit an independently managed Ollama daemon or coordinate multiple
-API instances.
+process-wide admission controller also bounds Retrieval fragments, reranking,
+generation, embedding, indexing, and destructive mutations with finite queue
+timeouts. The reranker has one process-local execution slot and defaults to an
+explicit CPU `torch` backend. This prevents overlapping work inside one API
+process; it cannot limit an independently managed Ollama daemon or coordinate
+multiple API instances.
 
 ## Domain invariants
 
@@ -98,19 +100,19 @@ event ownership needed to satisfy all of them across multiple processes.
 
 | Area | Current guarantee | Limitation |
 |---|---|---|
-| HTTP requests | Handled concurrently by the Go HTTP server | No global admission control or rate limit |
-| Retrieval fragments | Up to the configured fragment limit per request, with bounded parallel fragment searches | The limit is per process and per request; many clients multiply the load |
-| Embeddings | Ingest batches requests and uses bounded file workers; all Ollama calls share the local inference Gate | The Gate is per process; multiple application instances multiply embedder pressure |
-| Reranking | A per-process Gate and sidecar semaphore bound concurrent calls | Multiple application instances multiply sidecar pressure |
-| Generation | The shared Ollama Gate is held for the complete streaming response | A second generation waits or is rejected locally; there is no global model-serving budget |
+| HTTP requests | Handled concurrently by the Go HTTP server | No general request rate limit; only expensive operation seams are admitted |
+| Retrieval fragments | Per-request fan-out plus a process-wide admission budget | Multiple application instances still multiply Qdrant pressure |
+| Embeddings | Per-process operation admission plus the shared Ollama resource Gate | Multiple application instances multiply embedder pressure |
+| Reranking | Process-wide operation admission, resource Gate, and sidecar semaphore | Multiple application instances multiply sidecar pressure |
+| Generation | Process-wide operation admission plus the shared Ollama Gate held for the complete stream | A second generation waits or is rejected locally; no distributed model budget |
 | Document replacement | New versions are staged inactive, then activated and old versions cleaned | Concurrent replacements for one source identity are not ordered or fenced |
-| Indexing pass | One process serializes complete passes and coordinates them with reset | The gate is process-local; distributed workers still need leases/fencing |
+| Indexing pass | Process-wide admission, one process serializes complete passes, and coordinates them with reset | The gate is process-local; distributed workers still need leases/fencing |
 | Chat event log | Bounded, insertion-ordered, replayable in-process streams | Turn IDs and event cursors exist only on the owning process |
 | Session mutations | One process-local revision registry serializes destructive Chat mutations | Another process has a different revision registry and can append stale data |
 | History writes | One process-local mutex protects sequence allocation | The mutex does not protect writes made by another process and serializes all sessions together |
 | Cache writes | Cache entries carry a process-local invalidation generation and are checked at read time | A shared generation is still needed across application instances |
 | Shutdown | HTTP connections, active generations, and detached history writes drain within a bounded shutdown budget | A timeout can still leave an external history write unfinished; the lifecycle logs this and durable retry state is still open |
-| Full reset | Builds a new collection generation and switches a stable alias before cleanup | Cleanup can leave temporary retired collections; alias/lifecycle state is still single-node |
+| Full reset | Process-wide destructive admission plus lifecycle exclusion; builds a new collection generation and switches a stable alias before cleanup | Cleanup can leave temporary retired collections; alias/lifecycle state is still single-node |
 
 The Interface at each of these seams is useful only when its ordering and
 failure guarantees are explicit. A second Adapter is not enough by itself:
@@ -258,11 +260,37 @@ interface and is stopped with the API process.
 
 ### Global resource admission
 
-Most limits, including the new inference Gate, are local to one request or one process. Without a global budget,
-replicas or a burst of clients can overload Qdrant, Ollama, or the reranker.
-Production operation needs explicit policies for request rate, concurrent
-Retrieval, generation slots, embedding work, Indexing jobs, and per-backend
-timeouts. Rejection or queueing is preferable to unbounded latency growth.
+The API now has explicit process-wide operation budgets for Retrieval
+fragments, reranking, generation, embedding, indexing, and destructive
+mutations. Each budget has a finite queue timeout; saturation returns a
+capacity error instead of allowing latency or memory to grow without bound.
+The controller is still single-node. Replicas or independently managed model
+servers need a shared queue, lease, or rate-limit Adapter before these budgets
+can be treated as global across a deployment.
+
+### Operation telemetry and load evidence
+
+Every request has a request/trace ID, and the Retrieval, Chat, Indexing,
+reset, and cache-invalidation Modules emit child operation IDs. Structured
+logs preserve parent/child relationships without putting query text or error
+strings into metric labels. The local `/debug/metrics` endpoint exposes
+bounded operation counts, duration sums/maxima, and admission gauges for
+operator inspection.
+
+The standard-library load harness is `scripts/benchmark_load.py`. It drives
+concurrent Chat streams, long-fragment Retrieval, and unique large Document
+uploads through the HTTP interface and records p50/p95/p99, throughput,
+failures, and the before/after admission metrics delta:
+
+```text
+make load-benchmark ARGS="--mode all --requests 30 --concurrency 8 \
+  --json-out test/evaluation/reports/load-local.json"
+```
+
+The report is a single-process capacity measurement. It must be repeated on
+representative CPU/GPU hardware and against the intended model-serving
+topology before setting production limits; local admission gauges do not
+measure capacity shared by multiple API replicas.
 
 ### Destructive-operation security
 

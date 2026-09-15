@@ -23,7 +23,8 @@ type DependenciesConfig struct {
 	Reset  func(context.Context) error
 	// History is optional: when nil, session pages 404, sessions are not
 	// minted and the sidebar's chat list is simply empty.
-	History conversationhistory.Reader
+	History                conversationhistory.Reader
+	HistorySessionPageSize int
 	// Chat runs the chat use-case for the chat UI: start turn, subscribe to
 	// its event stream, cancel it.
 	Chat chat.Chat
@@ -88,7 +89,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		readiness:            cfg.Readiness,
 		readinessTimeout:     readinessTimeout,
 		turns:                chatapi.NewDependencies(chatapi.DependenciesConfig{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK}),
-		hist:                 historyapi.NewDependencies(historyapi.DependenciesConfig{History: cfg.History, Chat: cfg.Chat, Log: log}),
+		hist:                 historyapi.NewDependencies(historyapi.DependenciesConfig{History: cfg.History, Chat: cfg.Chat, SessionPageSize: cfg.HistorySessionPageSize, Log: log}),
 		log:                  log,
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/mock"
+	conversationhistory "nadir/internal/conversation/history"
 	"nadir/mocks"
 )
 
@@ -64,4 +65,20 @@ func TestDeleteSessionUsesChatLifecycle(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 	chat.AssertNumberOfCalls(t, "DeleteSession", 1)
+}
+
+func TestListSessionsUsesConfiguredPageSize(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	history := &mocks.MockReader{}
+	chat := &mocks.MockChat{}
+	history.EXPECT().ListSessions(mock.Anything, 7).Return([]conversationhistory.Session{}, nil)
+	h := NewDependencies(DependenciesConfig{History: history, Chat: chat, SessionPageSize: 7})
+	c, recorder := testContext("GET", "/api/v1/sessions")
+
+	h.ListSessions(c)
+
+	if recorder.Code != 200 {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+	history.AssertNumberOfCalls(t, "ListSessions", 1)
 }

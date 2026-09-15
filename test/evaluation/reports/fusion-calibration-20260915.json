@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-09-15",
+  "dataset": "test/evaluation/golden.json",
+  "queries": 133,
+  "runs_per_query": 1,
+  "corpus": "samples",
+  "synthetic_fixture": true,
+  "baseline": {
+    "name": "qdrant-native-rrf",
+    "fusion_enabled": false,
+    "hit_rate_at_5": 0.797,
+    "recall_at_5": 0.781,
+    "mrr_at_10": 0.651,
+    "ndcg_at_5": 0.674,
+    "distractor_hit_rate_at_5": 0.248,
+    "p50_latency_ms": 22.4,
+    "p95_latency_ms": 47.4,
+    "report": "fusion-baseline-20260915.json"
+  },
+  "candidates": [
+    {"name": "local-rrf-equal", "rrf_k": 60, "dense_weight": 1, "bm25_weight": 1, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.626, "ndcg_at_5": 0.654, "report": "fusion-rrf-equal-20260915.json"},
+    {"name": "local-dense-2x", "rrf_k": 60, "dense_weight": 2, "bm25_weight": 1, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.647, "ndcg_at_5": 0.673, "report": "fusion-dense2-20260915.json"},
+    {"name": "local-bm25-2x", "rrf_k": 60, "dense_weight": 1, "bm25_weight": 2, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.595, "ndcg_at_5": 0.620, "report": "fusion-bm252-20260915.json"},
+    {"name": "local-dense-1.5x", "rrf_k": 60, "dense_weight": 1.5, "bm25_weight": 1, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.627, "ndcg_at_5": 0.654, "report": "fusion-dense15-20260915.json"},
+    {"name": "local-exact-header-small", "rrf_k": 60, "dense_weight": 1, "bm25_weight": 1, "exact_match_boost": 0.01, "header_match_boost": 0.005, "mrr_at_10": 0.624, "ndcg_at_5": 0.656, "report": "fusion-boost01-20260915.json"},
+    {"name": "local-dense-2x-exact-header", "rrf_k": 60, "dense_weight": 2, "bm25_weight": 1, "exact_match_boost": 0.01, "header_match_boost": 0.005, "mrr_at_10": 0.635, "ndcg_at_5": 0.662, "report": "fusion-dense2boost-20260915.json"},
+    {"name": "local-rrf-k20", "rrf_k": 20, "dense_weight": 1, "bm25_weight": 1, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.623, "ndcg_at_5": 0.651, "report": "fusion-rrfk20-20260915.json"},
+    {"name": "local-rrf-k100", "rrf_k": 100, "dense_weight": 1, "bm25_weight": 1, "exact_match_boost": 0, "header_match_boost": 0, "mrr_at_10": 0.626, "ndcg_at_5": 0.654, "report": "fusion-rrfk100-20260915.json"}
+  ],
+  "decision": {
+    "default_changed": false,
+    "selected": "qdrant-native-rrf",
+    "reason": "No local calibrated candidate beat the provider-native baseline on MRR@10 or nDCG@5. Keep the opt-in path disabled until a larger consent-safe judged corpus supports a new default.",
+    "best_candidate": "local-dense-2x",
+    "best_candidate_mrr_delta": -0.004,
+    "best_candidate_ndcg_delta": -0.001
+  }
+}

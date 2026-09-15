@@ -14,12 +14,13 @@ import (
 )
 
 type ingestResponse struct {
-	Processed int      `json:"processed"`
-	Skipped   int      `json:"skipped"`
-	Failed    int      `json:"failed"`
-	Removed   int      `json:"removed"`
-	Names     []string `json:"names,omitempty"`
-	Error     string   `json:"error,omitempty"`
+	OperationID string   `json:"operation_id,omitempty"`
+	Processed   int      `json:"processed"`
+	Skipped     int      `json:"skipped"`
+	Failed      int      `json:"failed"`
+	Removed     int      `json:"removed"`
+	Names       []string `json:"names,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 // Ingest accepts multipart/form-data uploads (field "files") — the chat
@@ -102,11 +103,12 @@ func (d *dependencies) Ingest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, ingestResponse{
-		Processed: result.Processed,
-		Skipped:   result.Skipped,
-		Failed:    result.Failed,
-		Removed:   result.Removed,
-		Names:     names,
+		OperationID: result.OperationID,
+		Processed:   result.Processed,
+		Skipped:     result.Skipped,
+		Failed:      result.Failed,
+		Removed:     result.Removed,
+		Names:       names,
 	})
 }
 

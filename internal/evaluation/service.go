@@ -53,6 +53,7 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 				Query:     goldenQuery.Query,
 				TopK:      topK,
 				SkipCache: true,
+				QueryType: search.QueryType(goldenQuery.Type),
 			})
 			latency := float64(time.Since(started).Microseconds()) / 1000
 			if err != nil {

@@ -22,6 +22,7 @@ type Request struct {
 // as events on the stream and lands on the persisted turn when generation
 // finishes.
 type Turn struct {
+	OperationID    string // structured correlation ID for this Chat start
 	ID             string // event-stream id; empty when nothing streams
 	SessionID      string
 	Query          string

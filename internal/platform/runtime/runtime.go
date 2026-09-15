@@ -18,8 +18,10 @@ import (
 	"nadir/internal/knowledge/chunking"
 	"nadir/internal/knowledge/enrichment"
 	"nadir/internal/knowledge/indexing"
+	platformadmission "nadir/internal/platform/admission"
 	config "nadir/internal/platform/configuration"
 	"nadir/internal/platform/inference"
+	"nadir/internal/platform/observability"
 	"nadir/internal/retrieval/cache"
 	"nadir/internal/retrieval/search"
 
@@ -43,6 +45,8 @@ type Options struct {
 type Runtime struct {
 	Clients        qdrantutil.Clients
 	OllamaGate     *inference.Gate
+	Admission      *platformadmission.Controller
+	Telemetry      *observability.Recorder
 	Embedder       embedding.Embedder
 	Searcher       search.Retriever
 	Ingest         indexing.Ingest
@@ -52,6 +56,31 @@ type Runtime struct {
 	EmbeddingProbe func(context.Context) (ollamaembedding.ProbeResult, error)
 	RerankerProbe  func(context.Context) (reranker.ProbeResult, error)
 	Close          func() error
+}
+
+func retrievalFusionConfig(cfg config.FusionConfig) search.FusionConfig {
+	profiles := make(map[search.QueryType]search.FusionProfile, len(cfg.Profiles))
+	for name, profile := range cfg.Profiles {
+		profiles[search.QueryType(name)] = search.FusionProfile{
+			DenseWeight:      profile.DenseWeight,
+			BM25Weight:       profile.BM25Weight,
+			ExactMatchBoost:  profile.ExactMatchBoost,
+			HeaderMatchBoost: profile.HeaderMatchBoost,
+			MinExactTokens:   profile.MinExactTokens,
+			MinHeaderTokens:  profile.MinHeaderTokens,
+		}
+	}
+	return search.FusionConfig{
+		Enabled:          cfg.Enabled,
+		RRFK:             cfg.RRFK,
+		DenseWeight:      cfg.DenseWeight,
+		BM25Weight:       cfg.BM25Weight,
+		ExactMatchBoost:  cfg.ExactMatchBoost,
+		HeaderMatchBoost: cfg.HeaderMatchBoost,
+		MinExactTokens:   cfg.MinExactTokens,
+		MinHeaderTokens:  cfg.MinHeaderTokens,
+		Profiles:         profiles,
+	}
 }
 
 // NewDependencies builds the shared Qdrant, embedding, indexing, cache, and
@@ -81,6 +110,34 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		cfg.Inference.Ollama.MaxConcurrent,
 		cfg.Inference.Ollama.QueueTimeout,
 	)
+	telemetry := observability.NewRecorder()
+	operationAdmission := platformadmission.New(platformadmission.Config{
+		Retrieval: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Retrieval.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Retrieval.QueueTimeout,
+		},
+		Reranking: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Reranking.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Reranking.QueueTimeout,
+		},
+		Generation: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Generation.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Generation.QueueTimeout,
+		},
+		Embedding: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Embedding.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Embedding.QueueTimeout,
+		},
+		Indexing: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Indexing.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Indexing.QueueTimeout,
+		},
+		Destructive: platformadmission.OperationConfig{
+			MaxConcurrent: cfg.Admission.Destructive.MaxConcurrent,
+			QueueTimeout:  cfg.Admission.Destructive.QueueTimeout,
+		},
+		Recorder: telemetry,
+	})
 	log.Info("inference resource profile",
 		zap.String("profile", cfg.Inference.Profile),
 		zap.Int("ollama_max_concurrent", cfg.Inference.Ollama.MaxConcurrent),
@@ -95,7 +152,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		Clients:         clients,
 		Collection:      cfg.Qdrant.Collection,
 		PrefetchMul:     cfg.Qdrant.PrefetchMul,
-		AdaptiveSignals: cfg.Reranker.AdaptiveEnabled && !opts.DisableReranker,
+		AdaptiveSignals: (cfg.Reranker.AdaptiveEnabled && !opts.DisableReranker) || cfg.Search.Fusion.Enabled,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("qdrant store init: %w", err)
@@ -108,6 +165,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		RequestTimeout: cfg.Embedder.RequestTimeout,
 		KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 		Gate:           ollamaGate,
+		Admission:      operationAdmission.AcquireFunc(platformadmission.Embedding),
 	})
 	if err := store.EnsureCollection(ctx, emb.Dimensions()); err != nil {
 		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
@@ -129,6 +187,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 				Embedder:    emb,
 				Threshold:   cfg.SemanticCache.Threshold,
 				TTL:         cfg.SemanticCache.TTL,
+				Telemetry:   telemetry,
 				QueryPrefix: cfg.Embedder.QueryPrefix,
 				Version: "v1:" + cfg.Embedder.Model + ":" + fmt.Sprint(cfg.Embedder.Dimensions) +
 					":" + cfg.Embedder.QueryPrefix + ":" + cfg.Embedder.DocumentPrefix,
@@ -158,6 +217,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		MaxConcurrentFragments:  cfg.Search.MaxConcurrentFragments,
 		MaxTopK:                 cfg.Search.MaxTopK,
 		MaxChunksPerFile:        cfg.Search.MaxChunksPerFile,
+		Fusion:                  retrievalFusionConfig(cfg.Search.Fusion),
+		FragmentAdmission:       operationAdmission.AcquireFunc(platformadmission.Retrieval),
+		Telemetry:               telemetry,
 		Log:                     log,
 	}
 	if cfg.Reranker.Enabled && !opts.DisableReranker {
@@ -169,7 +231,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 				cfg.Inference.Reranker.MaxConcurrent,
 				cfg.Inference.Reranker.QueueTimeout,
 			),
-			Log: log,
+			Admission: operationAdmission.AcquireFunc(platformadmission.Reranking),
+			Log:       log,
 		})
 		searchConfig.Reranker = rankerAdapter
 		rerankerProbe = rankerAdapter.Probe
@@ -198,6 +261,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 			RequestTimeout:  cfg.Enrichment.RequestTimeout,
 			KeepAlive:       cfg.Inference.Ollama.KeepAlive.String(),
 			Gate:            ollamaGate,
+			Admission:       operationAdmission.AcquireFunc(platformadmission.Generation),
 		})
 	}
 
@@ -216,18 +280,21 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 		clearCache = semanticCache.Clear
 	}
 	ingestService := indexing.NewDependencies(indexing.DependenciesConfig{
-		Chunker:           chunker,
-		Embedder:          emb,
-		Store:             store,
-		Coordinator:       lifecycle,
-		CacheInvalidator:  semanticCache,
-		Enricher:          enricher,
-		DocumentConverter: converter,
-		Reset:             store.DeleteAll,
-		ClearCache:        clearCache,
-		HypeEnabled:       cfg.Enrichment.Hype.Enabled,
-		HypeQuestions:     cfg.Enrichment.Hype.QuestionsPerChunk,
-		ContextualEnabled: cfg.Enrichment.Contextual.Enabled,
+		Chunker:              chunker,
+		Embedder:             emb,
+		Store:                store,
+		Coordinator:          lifecycle,
+		CacheInvalidator:     semanticCache,
+		Enricher:             enricher,
+		DocumentConverter:    converter,
+		Reset:                store.DeleteAll,
+		ClearCache:           clearCache,
+		Admission:            operationAdmission.AcquireFunc(platformadmission.Indexing),
+		DestructiveAdmission: operationAdmission.AcquireFunc(platformadmission.Destructive),
+		Telemetry:            telemetry,
+		HypeEnabled:          cfg.Enrichment.Hype.Enabled,
+		HypeQuestions:        cfg.Enrichment.Hype.QuestionsPerChunk,
+		ContextualEnabled:    cfg.Enrichment.Contextual.Enabled,
 		Retry: indexing.RetryConfig{
 			MaxAttempts:     cfg.Ingest.MaxAttempts,
 			InitialInterval: cfg.Ingest.InitialInterval,
@@ -252,6 +319,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *zap.Logger, o
 	return &Runtime{
 		Clients:    clients,
 		OllamaGate: ollamaGate,
+		Admission:  operationAdmission,
+		Telemetry:  telemetry,
 		Embedder:   emb,
 		Searcher:   searcher,
 		Ingest:     ingestService,

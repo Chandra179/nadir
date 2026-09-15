@@ -9,7 +9,8 @@ import (
 
 // DependenciesConfig groups the history transport dependencies.
 type DependenciesConfig struct {
-	History conversationhistory.Reader
-	Chat    chat.Chat
-	Log     *zap.Logger
+	History         conversationhistory.Reader
+	Chat            chat.Chat
+	SessionPageSize int
+	Log             *zap.Logger
 }

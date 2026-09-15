@@ -23,6 +23,8 @@ go run ./cmd/api
 go test -short -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # unit tests only
 go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/...       # all Go tests
 go test -run TestMatchPattern ./internal/knowledge/indexing/   # focused pkg test
+go run ./cmd/contractcheck                                      # HTTP contract drift check
+make load-benchmark ARGS="--mode all --requests 30 --concurrency 8" # live p50/p95/p99 load evidence
 
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/api/v1/documents
@@ -85,15 +87,20 @@ processes.
   frontend code.
 - Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
 - Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active
-- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_MODEL`, `EMBEDDER_DIMENSIONS`, `EMBEDDER_QUERY_PREFIX`, `EMBEDDER_DOCUMENT_PREFIX`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_MODE`, `SOURCE_IGNORE_PATTERNS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `RERANKER_ADAPTIVE_ENABLED`, `RERANKER_ADAPTIVE_MARGIN_THRESHOLD`, `RERANKER_DEVICE`, `RERANKER_BACKEND`, `RERANKER_MAX_CONCURRENT`, `RERANKER_QUEUE_TIMEOUT`, `INFERENCE_PROFILE`, `INFERENCE_OLLAMA_MAX_CONCURRENT`, `INFERENCE_OLLAMA_QUEUE_TIMEOUT`, `INFERENCE_OLLAMA_KEEP_ALIVE`, `PROFILING_ENABLED`, `PROFILING_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_MODEL`, `EMBEDDER_DIMENSIONS`, `EMBEDDER_QUERY_PREFIX`, `EMBEDDER_DOCUMENT_PREFIX`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_MODE`, `SOURCE_IGNORE_PATTERNS`, `FUSION_ENABLED`, `FUSION_RRF_K`, `FUSION_DENSE_WEIGHT`, `FUSION_BM25_WEIGHT`, `FUSION_EXACT_MATCH_BOOST`, `FUSION_HEADER_MATCH_BOOST`, `FUSION_MIN_EXACT_TOKENS`, `FUSION_MIN_HEADER_TOKENS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `RERANKER_ADAPTIVE_ENABLED`, `RERANKER_ADAPTIVE_MARGIN_THRESHOLD`, `RERANKER_DEVICE`, `RERANKER_BACKEND`, `RERANKER_TRUST_REMOTE_CODE`, `RERANKER_PORT`, `RERANKER_MAX_CONCURRENT`, `RERANKER_QUEUE_TIMEOUT`, `INFERENCE_PROFILE`, `INFERENCE_OLLAMA_MAX_CONCURRENT`, `INFERENCE_OLLAMA_QUEUE_TIMEOUT`, `INFERENCE_OLLAMA_KEEP_ALIVE`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_MAX_CONCURRENT`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_QUEUE_TIMEOUT`, `HISTORY_SESSION_PAGE_SIZE`, `HISTORY_TURN_PAGE_SIZE`, `PROFILING_ENABLED`, `PROFILING_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
 - Enrichment flags (`enrichment.hype.enabled`, `enrichment.contextual.enabled`) affect ingest only; enabling after a prior ingest requires a reindex
+- Retrieval fusion is opt-in under `search.fusion`; it uses weighted rank-RRF plus optional exact/header boosts and must be compared against the default Qdrant RRF path on the golden set before enabling.
 
 ## Addresses: local vs Docker
 
 `./scripts/local.sh` runs the host-side server against `config/config.yaml`'s localhost addresses directly and prints the local dashboard command. The base Compose stack runs the backend services and is CPU-safe for Linux, Windows Docker Desktop, and macOS; layer `deploy/compose/docker-compose.gpu.yml` only on Linux or Windows WSL2 with NVIDIA support. The dashboard is not a Compose service.
+
+The API exposes bounded process-local operation metrics at `/debug/metrics`.
+Request/trace IDs and domain child operation IDs are included in structured
+logs; this endpoint is diagnostic telemetry, not a distributed metrics store.
 
 ## Features gated by config
 
@@ -108,6 +115,7 @@ processes.
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
 Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The default `inference.profile: local` shares one Ollama Gate across embedding, rewriting, enrichment, and streaming generation, uses a finite `keep_alive`, and limits the reranker to one explicit CPU operation. Set `RERANKER_DEVICE=cuda` and `RERANKER_BACKEND=torch` only with the GPU Compose override and a measured hardware budget; `auto` is reserved for `inference.profile: custom`. The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host with the explicit local CPU profile and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
+The `admission` section adds process-wide finite queues for expensive and destructive operations. These budgets coordinate one API process only; they do not make Chat, Indexing, or model serving distributed-safe.
 
 ## Sample data
 

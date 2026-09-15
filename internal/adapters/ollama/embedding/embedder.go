@@ -27,6 +27,15 @@ func (e *dependencies) Embed(ctx context.Context, text string) ([]float32, error
 }
 
 func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	releaseAdmission := func() {}
+	if e.admission != nil {
+		var err error
+		releaseAdmission, err = e.admission(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("embedding admission: %w", err)
+		}
+		defer releaseAdmission()
+	}
 	release, err := e.gate.Acquire(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed admission: %w", err)

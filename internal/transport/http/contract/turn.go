@@ -11,6 +11,7 @@ import (
 
 // TurnResponse is the public JSON representation of a live or persisted turn.
 type TurnResponse struct {
+	OperationID    string           `json:"operation_id,omitempty"`
 	Error          string           `json:"error,omitempty"`
 	Query          string           `json:"query"`
 	RewrittenQuery string           `json:"rewritten_query,omitempty"`
@@ -45,6 +46,7 @@ type ResultResponse struct {
 // FromChatTurn maps a live chat result to the public HTTP representation.
 func FromChatTurn(req chat.Request, turn chat.Turn) TurnResponse {
 	view := TurnResponse{
+		OperationID:    turn.OperationID,
 		Error:          turn.Error,
 		Query:          req.Query,
 		RewrittenQuery: turn.RewrittenQuery,
@@ -72,6 +74,7 @@ func FromChatTurn(req chat.Request, turn chat.Turn) TurnResponse {
 // FromHistoryTurn maps a persisted turn to the same public HTTP representation.
 func FromHistoryTurn(t history.Turn) TurnResponse {
 	return TurnResponse{
+		OperationID:    "",
 		Error:          t.Error,
 		Query:          t.Query,
 		RewrittenQuery: t.RewrittenQuery,

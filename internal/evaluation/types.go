@@ -269,10 +269,11 @@ type Aggregate struct {
 
 // Report is the persisted evaluation result for one evaluator run.
 type Report struct {
-	Timestamp      string        `json:"timestamp"`
-	TopK           int           `json:"top_k"`
-	Rerank         bool          `json:"reranker_enabled"`
-	AdaptiveRerank bool          `json:"adaptive_reranker_enabled"`
-	PerQuery       []QueryResult `json:"per_query"`
-	Aggregate      Aggregate     `json:"aggregate"`
+	Timestamp      string            `json:"timestamp"`
+	TopK           int               `json:"top_k"`
+	Rerank         bool              `json:"reranker_enabled"`
+	AdaptiveRerank bool              `json:"adaptive_reranker_enabled"`
+	PerQuery       []QueryResult     `json:"per_query"`
+	Aggregate      Aggregate         `json:"aggregate"`
+	Generation     *GenerationReport `json:"generation,omitempty"`
 }

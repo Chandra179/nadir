@@ -102,6 +102,15 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 	if d.keepAlive != "" {
 		payload["keep_alive"] = d.keepAlive
 	}
+	releaseAdmission := func() {}
+	if d.admission != nil {
+		var err error
+		releaseAdmission, err = d.admission(ctx)
+		if err != nil {
+			return "", fmt.Errorf("rewriter operation admission: %w", err)
+		}
+		defer releaseAdmission()
+	}
 	release, err := d.gate.Acquire(ctx)
 	if err != nil {
 		return "", fmt.Errorf("rewriter admission: %w", err)

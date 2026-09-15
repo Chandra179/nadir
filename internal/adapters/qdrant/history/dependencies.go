@@ -14,6 +14,7 @@ import (
 const (
 	defaultCollection = "chat_history"
 	defaultListLimit  = 50
+	defaultTurnPageSize = 500
 	titleMaxLen       = 60
 
 	docTypeSession = "session"
@@ -25,6 +26,7 @@ type DependenciesConfig struct {
 	Clients    qdrantutil.Clients
 	Collection string
 	Embedder   embedding.Embedder
+	TurnPageSize int
 }
 
 type dependencies struct {
@@ -33,6 +35,7 @@ type dependencies struct {
 	name       string
 	embedder   embedding.Embedder
 	dimensions int
+	turnPageSize uint32
 	writeMu    sync.Mutex
 }
 
@@ -49,12 +52,17 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	if cfg.Embedder == nil {
 		return nil, fmt.Errorf("history embedder is required")
 	}
+	turnPageSize := cfg.TurnPageSize
+	if turnPageSize <= 0 {
+		turnPageSize = defaultTurnPageSize
+	}
 	return &dependencies{
 		points:     cfg.Clients.Points,
 		collection: cfg.Clients.Collections,
 		name:       collection,
 		embedder:   cfg.Embedder,
 		dimensions: cfg.Embedder.Dimensions(),
+		turnPageSize: uint32(turnPageSize),
 	}, nil
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"nadir/internal/platform/observability"
 )
 
 // RequestLog logs one line per HTTP request: Info 2xx/3xx, Warn 4xx,
@@ -25,6 +26,12 @@ func (d *dependencies) RequestLog() gin.HandlerFunc {
 			zap.String("path", c.Request.URL.Path),
 			zap.Int("status", status),
 			zap.Int64("duration_ms", duration.Milliseconds()),
+		}
+		if requestID := observability.RequestID(c.Request.Context()); requestID != "" {
+			fields = append(fields, zap.String("request_id", requestID))
+		}
+		if traceID := observability.TraceID(c.Request.Context()); traceID != "" {
+			fields = append(fields, zap.String("trace_id", traceID))
 		}
 
 		if c.Request.URL.RawQuery != "" {

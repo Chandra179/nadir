@@ -1,9 +1,17 @@
 # Retrieval search
 
 Owns query validation, fragment embedding, hybrid document search, RRF-backed
-candidate handling, confidence-gated optional reranking, diversity caps, and
-semantic-cache lookup. Storage and provider details arrive through narrow
-injected seams.
+candidate handling, optional calibrated fusion, confidence-gated optional
+reranking, diversity caps, and semantic-cache lookup. Storage and provider
+details arrive through narrow injected seams.
+
+The default path keeps Qdrant's single-request RRF result for low resource use.
+The opt-in `search.fusion` path asks the Qdrant Adapter for dense and BM25 leg
+rankings, then applies weighted rank-RRF in this module. Raw dense and sparse
+scores are never mixed. It can add deterministic exact-phrase and header-overlap
+boosts, with query-type profiles and minimum-overlap thresholds. Evaluation
+passes the golden query type; live callers may omit it and use the bounded
+classifier.
 
 When adaptive reranking is enabled, the Qdrant Adapter returns the fused RRF
 ranking plus dense and lexical leg rankings in one batch request. Search keeps

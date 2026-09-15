@@ -22,10 +22,32 @@ import (
 // before each source file enters the ordered chunk → enrich → embed → replace
 // pipeline on a bounded worker set.
 func (d *dependencies) Run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
-	return d.run(ctx, files, options)
+	ctx, operation := observability.Start(ctx, d.telemetry, d.log, "indexing")
+	var operationErr error
+	defer func() {
+		outcome := "success"
+		if operationErr != nil {
+			outcome = "error"
+		}
+		operation.End(outcome, operationErr, zap.Int("files", len(files)))
+	}()
+	result, err := d.run(ctx, files, options)
+	operationErr = err
+	result.OperationID = operation.ID()
+	return result, err
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
+	releaseAdmission := func() {}
+	if d.admission != nil {
+		var err error
+		releaseAdmission, err = d.admission(ctx)
+		if err != nil {
+			return Result{}, fmt.Errorf("indexing admission: %w", err)
+		}
+		defer releaseAdmission()
+	}
+
 	// A single process must not let two passes plan against the same SHA
 	// snapshot and then commit in completion order. Distributed workers need a
 	// lease/fencing token later; this lock provides the explicit single-node
@@ -33,14 +55,16 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	if d.coordinator != nil {
-		d.coordinator.BeginIngest()
+		if err := d.coordinator.BeginIngest(ctx); err != nil {
+			return Result{}, fmt.Errorf("indexing lifecycle admission: %w", err)
+		}
 		defer d.coordinator.EndIngest()
 	}
 
 	started := time.Now()
 	storedSHAs, err := d.store.GetAllFileSHAs(ctx)
 	if err != nil {
-		observability.Stage(d.log, "ingest", "error", started, err, zap.Int("files", len(files)))
+		observability.StageContext(ctx, d.log, "ingest", "error", started, err, zap.Int("files", len(files)))
 		return Result{}, err
 	}
 
@@ -125,7 +149,7 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 		Failed:    int(failed.Load()),
 		Removed:   removed,
 	}
-	observability.Stage(d.log, "ingest", "success", started, nil,
+	observability.StageContext(ctx, d.log, "ingest", "success", started, nil,
 		zap.Int("files", len(files)), zap.Int("processed", result.Processed),
 		zap.Int("skipped", result.Skipped), zap.Int("failed", result.Failed),
 		zap.Int("removed", result.Removed))

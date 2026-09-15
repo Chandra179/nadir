@@ -17,13 +17,13 @@ import (
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *dependencies) search(ctx context.Context, query string, topK int, filter *Filter) ([]SearchCandidate, RerankTelemetry, error) {
+func (s *dependencies) search(ctx context.Context, query string, queryType QueryType, topK int, filter *Filter) ([]SearchCandidate, RerankTelemetry, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
 	}
 
-	result, err := s.multiSearch(ctx, query, fetchN, filter)
+	result, err := s.multiSearch(ctx, query, queryType, fetchN, filter)
 
 	if err != nil {
 		return nil, RerankTelemetry{}, err
@@ -37,24 +37,36 @@ func (s *dependencies) search(ctx context.Context, query string, topK int, filte
 // dispatches to keyword or semantic search, consults the semantic cache, and
 // returns storage-independent chunks to the caller.
 func (s *dependencies) Query(ctx context.Context, request Request) (Result, error) {
+	ctx, operation := observability.Start(ctx, s.telemetry, s.log, "retrieval")
+	var operationErr error
+	defer func() {
+		outcome := "success"
+		if operationErr != nil {
+			outcome = "error"
+		}
+		operation.End(outcome, operationErr)
+	}()
 	started := time.Now()
 	finish := func(outcome string, err error, fields ...zap.Field) {
-		observability.Stage(s.log, "retrieval", outcome, started, err, fields...)
+		observability.StageContext(ctx, s.log, "retrieval", outcome, started, err, fields...)
 	}
 	query, keyword, topK := request.Query, request.Keyword, request.TopK
 	filter := request.Filter
 	if keyword == "" {
 		if err := s.validateQuery(query, topK); err != nil {
+			operationErr = err
 			finish("error", err)
 			return Result{}, err
 		}
 	} else {
 		if len([]rune(strings.TrimSpace(keyword))) > s.maxQueryChars {
+			operationErr = errQueryTooLong
 			finish("error", errQueryTooLong)
 			return Result{}, errQueryTooLong
 		}
 		if topK <= 0 {
 			err := fmt.Errorf("search top_k must be greater than zero")
+			operationErr = err
 			finish("error", err)
 			return Result{}, err
 		}
@@ -67,38 +79,42 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		outcome := "success"
 		if err != nil {
 			outcome = "error"
+			operationErr = err
 		}
 		finish(outcome, err,
 			zap.Bool("keyword", true), zap.Int("results", len(chunks)))
-		return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry}, err
+		return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry, OperationID: operation.ID()}, err
 	}
 
 	if cached, ok := s.getCached(ctx, query, topK, filter, request.SkipCache); ok {
 		finish("cache_hit", nil, zap.Bool("from_cache", true), zap.Int("results", len(cached)))
-		return Result{Chunks: fromStoreChunks(cached), FromCache: true}, nil
+		return Result{Chunks: fromStoreChunks(cached), FromCache: true, OperationID: operation.ID()}, nil
 	}
 
-	chunks, telemetry, err := s.search(ctx, query, topK, filter)
+	chunks, telemetry, err := s.search(ctx, query, request.QueryType, topK, filter)
 	if err != nil {
+		operationErr = err
 		finish("error", err)
 		return Result{}, err
 	}
 
 	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
-		go func() {
+		go func(parent context.Context) {
+			cacheCtx, cacheOperation := observability.Start(context.WithoutCancel(parent), s.telemetry, s.log, "cache_write")
 			cacheStarted := time.Now()
-			err := s.cache.Set(context.Background(), query, toCacheCandidates(chunks))
+			err := s.cache.Set(cacheCtx, query, toCacheCandidates(chunks))
 			outcome := "success"
 			if err != nil {
 				outcome = "error"
 			}
-			observability.Stage(s.log, "cache_write", outcome, cacheStarted, err,
+			cacheOperation.End(outcome, err, zap.Int("results", len(chunks)))
+			observability.StageContext(cacheCtx, s.log, "cache_write", outcome, cacheStarted, err,
 				zap.Int("results", len(chunks)))
-		}()
+		}(ctx)
 	}
 
 	finish("success", nil, zap.Bool("from_cache", false), zap.Int("results", len(chunks)))
-	return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry}, nil
+	return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry, OperationID: operation.ID()}, nil
 }
 
 func fromStoreChunks(chunks []SearchCandidate) []Chunk {
@@ -131,17 +147,17 @@ func (s *dependencies) getCached(ctx context.Context, query string, topK int, fi
 	}
 	cached, hit, err := s.cache.Get(ctx, query)
 	if err != nil {
-		observability.Stage(s.log, "cache_read", "error", started, err)
+		observability.StageContext(ctx, s.log, "cache_read", "error", started, err)
 		return nil, false
 	}
 	if !hit {
-		observability.Stage(s.log, "cache_read", "miss", started, nil)
+		observability.StageContext(ctx, s.log, "cache_read", "miss", started, nil)
 		return nil, false
 	}
 	if len(cached) > topK {
 		cached = cached[:topK]
 	}
-	observability.Stage(s.log, "cache_read", "hit", started, nil, zap.Int("results", len(cached)))
+	observability.StageContext(ctx, s.log, "cache_read", "hit", started, nil, zap.Int("results", len(cached)))
 	return fromCacheCandidates(cached), true
 }
 
@@ -155,6 +171,15 @@ func (s *dependencies) keywordSearch(ctx context.Context, keyword string, topK i
 		fetchN = topK * s.candidateMul
 	}
 
+	release := func() {}
+	if s.fragmentAdmission != nil {
+		var err error
+		release, err = s.fragmentAdmission(ctx)
+		if err != nil {
+			return nil, RerankTelemetry{}, fmt.Errorf("retrieval admission: %w", err)
+		}
+		defer release()
+	}
 	chunks, err := s.store.KeywordSearch(ctx, keyword, fetchN, filter)
 	if err != nil {
 		return nil, RerankTelemetry{}, err
@@ -179,7 +204,7 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []Se
 		shouldRerank, reason := adaptiveRerankDecision(chunks, signals, s.adaptiveMarginThreshold)
 		telemetry.Reason = reason
 		if !shouldRerank {
-			observability.Stage(s.log, "reranking", "skipped", started, nil,
+			observability.StageContext(ctx, s.log, "reranking", "skipped", started, nil,
 				zap.Bool("adaptive", true), zap.String("reason", reason), zap.Int("candidates", len(chunks)))
 			return trimCandidates(chunks, topK), telemetry
 		}
@@ -193,12 +218,12 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []Se
 	telemetry.LatencyMS = float64(time.Since(started).Microseconds()) / 1000
 	if err != nil {
 		telemetry.DependencyErr = true
-		observability.Stage(s.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
+		observability.StageContext(ctx, s.log, "reranking", "error", started, err, zap.Int("candidates", len(chunks)))
 		s.log.Warn("reranker failed, falling back to un-reranked results", zap.Error(err))
 		return trimCandidates(chunks, topK), telemetry
 	}
 	reranked = trimCandidates(reranked, topK)
-	observability.Stage(s.log, "reranking", "success", started, nil,
+	observability.StageContext(ctx, s.log, "reranking", "success", started, nil,
 		zap.Int("candidates", len(chunks)), zap.Int("results", len(reranked)))
 	return reranked, telemetry
 }
@@ -241,8 +266,9 @@ func relativeMargin(first, second float32) float32 {
 	return delta / denominator
 }
 
-func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, filter *Filter) (HybridSearchResult, error) {
+func (s *dependencies) multiSearch(ctx context.Context, query string, queryType QueryType, topK int, filter *Filter) (HybridSearchResult, error) {
 	fragments := splitFragments(query, s.maxFragments)
+	queryType = resolveQueryType(query, queryType)
 
 	vecs, err := s.embedFragments(ctx, fragments)
 	if err != nil {
@@ -267,6 +293,20 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 		go func(frag string, vec []float32) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			release := func() {}
+			if s.fragmentAdmission != nil {
+				var err error
+				release, err = s.fragmentAdmission(ctx)
+				if err != nil {
+					mu.Lock()
+					if firstErr == nil {
+						firstErr = fmt.Errorf("retrieval admission for fragment %q: %w", frag, err)
+					}
+					mu.Unlock()
+					return
+				}
+				defer release()
+			}
 			results, err := s.store.HybridSearch(ctx, vec, frag, topK, filter)
 			mu.Lock()
 			defer mu.Unlock()
@@ -276,7 +316,11 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 				}
 				return
 			}
-			mergeBest(fused, results.Fused)
+			fusedCandidates := results.Fused
+			if s.fusion.Enabled {
+				fusedCandidates = fuseHybrid(frag, queryType, results, s.fusion)
+			}
+			mergeBest(fused, fusedCandidates)
 			mergeBest(dense, results.Dense)
 			mergeBest(lexical, results.Lexical)
 		}(frag, vecs[i])
@@ -290,7 +334,12 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, topK int, 
 	for _, c := range fused {
 		merged = append(merged, c)
 	}
-	sort.Slice(merged, func(i, j int) bool { return merged[i].Score > merged[j].Score })
+	sort.Slice(merged, func(i, j int) bool {
+		if merged[i].Score != merged[j].Score {
+			return merged[i].Score > merged[j].Score
+		}
+		return merged[i].Key() < merged[j].Key()
+	})
 	merged = capPerFile(merged, s.maxChunksPerFile)
 	if len(merged) > topK {
 		merged = merged[:topK]
@@ -316,7 +365,12 @@ func sortCandidates(candidates map[string]SearchCandidate) []SearchCandidate {
 	for _, candidate := range candidates {
 		result = append(result, candidate)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Score > result[j].Score })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Score != result[j].Score {
+			return result[i].Score > result[j].Score
+		}
+		return result[i].Key() < result[j].Key()
+	})
 	return result
 }
 
@@ -336,19 +390,19 @@ func (s *dependencies) embedFragments(ctx context.Context, fragments []string) (
 		if err != nil {
 			outcome = "error"
 		}
-		observability.Stage(s.log, "query_embedding", outcome, started, err, zap.Int("fragments", len(fragments)))
+		observability.StageContext(ctx, s.log, "query_embedding", outcome, started, err, zap.Int("fragments", len(fragments)))
 		return vecs, err
 	}
 	vecs := make([][]float32, len(fragments))
 	for i, frag := range fragments {
 		vec, err := s.embedder.Embed(ctx, frag)
 		if err != nil {
-			observability.Stage(s.log, "query_embedding", "error", started, err, zap.Int("fragments", len(fragments)))
+			observability.StageContext(ctx, s.log, "query_embedding", "error", started, err, zap.Int("fragments", len(fragments)))
 			return nil, err
 		}
 		vecs[i] = vec
 	}
-	observability.Stage(s.log, "query_embedding", "success", started, nil, zap.Int("fragments", len(fragments)))
+	observability.StageContext(ctx, s.log, "query_embedding", "success", started, nil, zap.Int("fragments", len(fragments)))
 	return vecs, nil
 }
 

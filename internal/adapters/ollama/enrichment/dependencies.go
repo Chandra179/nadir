@@ -1,6 +1,7 @@
 package enrichment
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ type DependenciesConfig struct {
 	RequestTimeout  time.Duration // timeout for one enrichment request
 	KeepAlive       string
 	Gate            *inference.Gate
+	Admission       func(context.Context) (func(), error)
 }
 
 // dependencies performs index-time LLM enrichment over Ollama.
@@ -29,6 +31,7 @@ type dependencies struct {
 	client          *http.Client
 	keepAlive       string
 	gate            *inference.Gate
+	admission       func(context.Context) (func(), error)
 }
 
 var _ knowledgeenrichment.Enricher = (*dependencies)(nil)
@@ -51,5 +54,6 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		client:          &http.Client{Timeout: timeout},
 		keepAlive:       cfg.KeepAlive,
 		gate:            gate,
+		admission:       cfg.Admission,
 	}
 }

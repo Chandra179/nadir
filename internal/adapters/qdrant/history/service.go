@@ -206,7 +206,6 @@ func (d *dependencies) GetSession(ctx context.Context, sessionID string) (Sessio
 }
 
 func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn, error) {
-	const pageSize = uint32(500)
 	var offset *qdrant.PointId
 	var out []Turn
 	for {
@@ -218,7 +217,7 @@ func (d *dependencies) ListTurns(ctx context.Context, sessionID string) ([]Turn,
 					matchKeyword("session_id", sessionID),
 				},
 			},
-			Limit:       new(uint32(pageSize)),
+			Limit:       new(uint32(d.turnPageSize)),
 			Offset:      offset,
 			WithPayload: qdrant.NewWithPayload(true),
 			WithVectors: qdrant.NewWithVectors(false),

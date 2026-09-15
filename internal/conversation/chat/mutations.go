@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"nadir/internal/conversation/history"
@@ -29,19 +30,21 @@ type trackedGeneration struct {
 // operations. It serializes the mutation check with the underlying history
 // call, so a delete cannot race an append after the check has passed.
 type historyMutations struct {
-	history historyStore
-	mu      sync.Mutex
+	history              historyStore
+	destructiveAdmission func(context.Context) (func(), error)
+	mu                   sync.Mutex
 
 	globalRevision   uint64
 	sessionRevisions map[string]uint64
 	active           map[string]trackedGeneration
 }
 
-func newHistoryMutations(history historyStore) *historyMutations {
+func newHistoryMutations(history historyStore, destructiveAdmission func(context.Context) (func(), error)) *historyMutations {
 	return &historyMutations{
-		history:          history,
-		sessionRevisions: make(map[string]uint64),
-		active:           make(map[string]trackedGeneration),
+		history:              history,
+		destructiveAdmission: destructiveAdmission,
+		sessionRevisions:     make(map[string]uint64),
+		active:               make(map[string]trackedGeneration),
 	}
 }
 
@@ -80,6 +83,15 @@ func (m *historyMutations) createSession(ctx context.Context, title string) (his
 }
 
 func (m *historyMutations) prepareEdit(ctx context.Context, sessionID string, beforeSequence int) (historyMutation, error) {
+	release := func() {}
+	if m.destructiveAdmission != nil {
+		var err error
+		release, err = m.destructiveAdmission(ctx)
+		if err != nil {
+			return historyMutation{}, fmt.Errorf("chat edit admission: %w", err)
+		}
+		defer release()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -104,6 +116,15 @@ func (m *historyMutations) append(ctx context.Context, token historyMutation, tu
 }
 
 func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) error {
+	release := func() {}
+	if m.destructiveAdmission != nil {
+		var err error
+		release, err = m.destructiveAdmission(ctx)
+		if err != nil {
+			return fmt.Errorf("chat delete admission: %w", err)
+		}
+		defer release()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -115,6 +136,15 @@ func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) 
 }
 
 func (m *historyMutations) deleteAll(ctx context.Context) error {
+	release := func() {}
+	if m.destructiveAdmission != nil {
+		var err error
+		release, err = m.destructiveAdmission(ctx)
+		if err != nil {
+			return fmt.Errorf("chat delete-all admission: %w", err)
+		}
+		defer release()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

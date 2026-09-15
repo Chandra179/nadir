@@ -66,6 +66,13 @@ fabricated repository content.
       bytes (~3.28 GiB). The run used the installed repository `venv` because
       the Docker build could not resolve PyPI; it is therefore a local process
       baseline, not a container/cgroup capacity result.
+- [x] Run the available current-host reranker profiles with the same 133-query
+      fixture, including BGE v2 M3 CPU/GPU, MiniLM Torch, MiniLM ONNX, and
+      MiniLM dynamic-int8 ONNX. Record startup, p50/p95 latency, RSS, VRAM,
+      throughput, ranking quality, failures, and timeouts in
+      [`reranker-profile-comparison-20260915.json`](test/evaluation/reports/reranker-profile-comparison-20260915.json).
+      This validates the benchmark path but is not a release decision because
+      the fixture is synthetic and GTE is unavailable.
 - [ ] Complete the representative-hardware reranker comparison. Compare the
       current BGE v2 M3 CPU/GPU profiles, GTE multilingual reranker base,
       MiniLM L6, and quantized ONNX against quality, p50/p95 latency, RAM,
@@ -76,25 +83,29 @@ fabricated repository content.
       optional PID/Docker RSS plus process-specific `nvidia-smi` VRAM sampling;
       it can resolve the existing golden fixture with `--corpus-dir` and now
       supports `--require-release-gate` to reject synthetic or incomplete
-      production evidence. A local
-      synthetic-corpus baseline is recorded for BGE v2 M3 CPU
-      ([report](test/evaluation/reports/reranker-bge-m3-golden-20260914.json))
-      and MiniLM L6 CPU
-      ([report](test/evaluation/reports/reranker-minilm-l6-golden-20260914.json)):
-      both completed 133/133 queries with no timeouts. The full comparison
-      remains pending a consent-safe judged corpus, GTE multilingual weights,
-      an ONNX runtime with Optimum, GPU measurements, and representative
-      hardware runs. The generated 133-query fixture was also exercised
-      end-to-end against Qdrant and Ollama: the no-reranker baseline reached
-      HitRate@5 0.789, Recall@5 0.773, MRR@10 0.641, nDCG@5 0.665 at p50/p95
-      28.2/45.3ms; BGE v2 M3 on the RTX 4050 reached 0.805/0.781/0.686/0.695
-      at p50/p95 165.2/253.6ms. Reports:
+      production evidence. `scripts/benchmark_reranker_profiles.py` now owns
+      startup/shutdown and records startup latency/RSS, loaded backend, p50/p95
+      latency, RAM, throughput, ranking quality, failures, and timeouts. On
+      the current host, BGE v2 M3 Torch, MiniLM L6 Torch, MiniLM L6
+      ONNX, and MiniLM L6 dynamic-int8 ONNX each completed 133/133 queries
+      with zero failures/timeouts. The measured p50/p95 latencies were
+      561/2,927ms, 30/165ms, 16/114ms, and 11/75ms; peak RSS was 2.34, 0.88,
+      1.00, and 0.96 GiB respectively. The current RTX 4050 BGE GPU run
+      completed 133/133 queries with p50/p95 30/132ms, startup 5.79s, peak
+      RSS ~1.37 GiB, and peak VRAM ~2.37 GiB. The compact comparison is recorded in
+      [`reranker-profile-comparison-20260915.json`](test/evaluation/reports/reranker-profile-comparison-20260915.json),
+      with per-profile reports beside it. A prior GPU report remains in
+      [`reranker-bge-m3-golden-cuda-20260914.json`](test/evaluation/reports/reranker-bge-m3-golden-cuda-20260914.json).
+      The item remains open because the GTE 612 MB weights could not be
+      downloaded completely and require reviewed remote code, and all results
+      use the engineering-generated synthetic fixture rather than
+      consent-safe release-gate judgments. The generated 133-query fixture was
+      also exercised end-to-end against Qdrant and Ollama: the no-reranker
+      baseline reached HitRate@5 0.789, Recall@5 0.773, MRR@10 0.641, nDCG@5
+      0.665 at p50/p95 28.2/45.3ms; BGE v2 M3 on the RTX 4050 reached
+      0.805/0.781/0.686/0.695 at p50/p95 165.2/253.6ms. Reports:
       [baseline](test/evaluation/reports/e2e-generated-golden-20260914.json),
       [BGE GPU](test/evaluation/reports/e2e-generated-golden-bge-cuda-20260914.json).
-      These are engineering-generated synthetic regression results, not
-      production-user evidence; the direct reranker GPU run measured peak RSS
-      ~1.39 GiB and peak VRAM ~2.39 GiB with no failures or timeouts
-      ([report](test/evaluation/reports/reranker-bge-m3-golden-cuda-20260914.json)).
 - [x] Add a release-gate safety mode to the reranker benchmark. It validates
       production provenance, consent, expert judgment, 100+ queries, and
       generation annotations before a report can be used for a release
@@ -119,26 +130,72 @@ fabricated repository content.
       This is an engineering-generated synthetic regression result, not
       consented production evidence; the default remains Nomic pending a
       release-gated judged corpus and representative hardware run.
-- [ ] Tune and calibrate dense/BM25/RRF fusion with offline golden-set
+- [x] Tune and calibrate dense/BM25/RRF fusion with offline golden-set
       evaluation, query-type thresholds, exact-match/header boosts, and
-      deterministic score handling. Keep the current unreranked hybrid path as
-      the low-resource baseline.
-- [ ] Add generation-side evaluation for faithfulness, answer relevancy, and
+      deterministic score handling. The opt-in Retrieval-side path now uses
+      weighted rank-RRF with provider-score isolation, deterministic key
+      tie-breaking, query-type profiles, and bounded exact/header overlap
+      boosts. The same 133-query fixture was evaluated against the live local
+      Qdrant/Ollama stack: the provider-native baseline reached HitRate@5
+      0.797, Recall@5 0.781, MRR@10 0.651, and nDCG@5 0.674, while the best
+      tested local candidate (dense 2x, BM25 1x) reached MRR@10 0.647 and
+      nDCG@5 0.673. No candidate improved both primary ranking metrics, so
+      the default remains the low-resource provider-native RRF path and the
+      calibrated path remains opt-in. Full candidate settings and reports are
+      recorded in
+      [`fusion-calibration-20260915.json`](test/evaluation/reports/fusion-calibration-20260915.json).
+- [x] Add generation-side evaluation for faithfulness, answer relevancy, and
       context precision/recall using a judge model larger than the model under
-      test.
-- [ ] Move the history sidebar page size and other operational limits into
-      explicit configuration if they need operational tuning.
-- [ ] Add global admission and backpressure for Retrieval fragments, reranking,
-      generation, embedding, indexing, and destructive operations; current
-      limits are per request or per process.
-- [ ] Add domain-level metrics, traces, and structured operation IDs for
+      test. `cmd/evaluator --generation-eval` now reuses the production Chat
+      prompt, requires explicit answer/judge endpoints and an operator-confirmed
+      larger judge model, validates strict JSON scores, bounds each model call,
+      and records per-query failures without converting them to zeroes. The
+      live 133-query run used `gemma3:1b` answers and the larger
+      `phi4-mini:latest` judge: 129/133 evaluated (97.0% coverage), with mean
+      faithfulness 0.485, answer relevancy 0.780, context precision 0.615,
+      context recall 0.622, answer p50/p95 464/1,173ms, and judge p50/p95
+      1,035/1,111ms. Four cases failed (two answer timeouts and two invalid
+      judge responses); they are retained in the report for follow-up instead
+      of being hidden. Evidence:
+      [`generation-eval-20260915.json`](test/evaluation/reports/generation-eval-20260915.json).
+      The synthetic fixture remains a regression measurement, not a production
+      release gate.
+- [x] Move the history sidebar page size and other operational limits into
+      explicit configuration if they need operational tuning. `history.session_page_size`
+      and `history.turn_page_size` now control the sidebar and Qdrant turn
+      scroll page; both have environment overrides and bounded validation.
+- [x] Add global admission and backpressure for Retrieval fragments, reranking,
+      generation, embedding, indexing, and destructive operations. The prior
+      limits were per request or per process; the runtime now owns one
+      process-wide admission controller with explicit finite queue timeouts
+      under `admission.*`; generation holds its slot through stream completion,
+      and indexing, reset, edit, and chat deletion paths reject saturated work.
+      This is single-node evidence, not distributed coordination. Unit tests,
+      race tests, vet, builds, and Compose validation cover the implementation.
+- [x] Add domain-level metrics, traces, and structured operation IDs for
       Retrieval, Chat, Indexing, cache invalidation, and reset outcomes.
-- [ ] Add a CI contract-drift check or OpenAPI code generation so the central
+-      `internal/platform/observability` now creates request-rooted trace IDs
+      and child operation IDs, records bounded outcome/duration metrics, and
+      exposes `/debug/metrics`; the process-wide admission controller adds
+      active/waiting/peak gauges. Retrieval, Chat (including detached stream
+      supervision), Indexing, reset, and cache invalidation are instrumented.
+      This is intentionally process-local telemetry; OpenTelemetry export
+      remains a later deployment decision.
+- [x] Add a CI contract-drift check or OpenAPI code generation so the central
       TypeScript API mirror cannot diverge from `contracts/http/openapi.yaml`.
-- [ ] Run Qdrant backup/restore drills and document recovery objectives before
-      claiming high availability.
-- [ ] Add load benchmarks for concurrent Chat streams, long-fragment Retrieval,
+-      `contracts/http/openapi.yaml` is the canonical schema and
+      `cmd/contractcheck` uses the existing YAML dependency to compare every
+      mirrored TypeScript type, field, optionality, and primitive/reference
+      shape. The check runs in Make and `.github/workflows/check.yml`.
+- [x] Add load benchmarks for concurrent Chat streams, long-fragment Retrieval,
       and large Document ingestion with p50/p95/p99 and dependency saturation.
+-      `scripts/benchmark_load.py` uses only the Python standard library, drives
+      the live HTTP seams, reports p50/p95/p99, throughput, failures, and
+      before/after domain and admission metrics including active, waiting,
+      peak, and rejected work. Unit coverage is in
+      `scripts/test_benchmark_load.py`; a live report still requires the
+      operator's running Qdrant/Ollama/model topology and should be recorded
+      per representative hardware profile.
 
 ### P3 — Retrieval experiments and capacity work
 

@@ -43,7 +43,7 @@ func sessionResponse(s history.Session) SessionResponse {
 func (h *Handlers) ListSessions(c *gin.Context) {
 	view := SessionsResponse{Enabled: h.history != nil, Sessions: []SessionResponse{}}
 	if h.history != nil {
-		sessions, err := h.history.ListSessions(c.Request.Context(), 50)
+		sessions, err := h.history.ListSessions(c.Request.Context(), h.sessionPageSize)
 		if err != nil {
 			h.log.Warn("history list sessions failed", zap.Error(err))
 		} else {

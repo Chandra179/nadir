@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -15,6 +16,7 @@ type DependenciesConfig struct {
 	RequestTimeout time.Duration
 	KeepAlive      string
 	Gate           *inference.Gate
+	Admission      func(context.Context) (func(), error)
 }
 
 // dependencies streams RAG answers from an Ollama chat model.
@@ -24,6 +26,7 @@ type dependencies struct {
 	client    *http.Client
 	keepAlive string
 	gate      *inference.Gate
+	admission func(context.Context) (func(), error)
 }
 
 var _ conversationgeneration.Generator = (*dependencies)(nil)
@@ -43,6 +46,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		model:     cfg.Model,
 		keepAlive: cfg.KeepAlive,
 		gate:      gate,
+		admission: cfg.Admission,
 		client: &http.Client{
 			Timeout: timeout,
 		},

@@ -23,12 +23,22 @@ import (
 // of subscribers, and persists the final turn itself; the caller only
 // renders the trace and (when Turn.Streaming) subscribes via Subscribe.
 func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
+	ctx, operation := observability.Start(ctx, d.telemetry, d.log, "chat")
+	var operationErr error
+	defer func() {
+		outcome := "success"
+		if operationErr != nil {
+			outcome = "error"
+		}
+		operation.End(outcome, operationErr)
+	}()
 	if !d.beginStart() {
-		return Turn{Error: "Chat service is shutting down."}
+		operationErr = errors.New("chat service is shutting down")
+		return Turn{OperationID: operation.ID(), Error: "Chat service is shutting down."}
 	}
 	defer d.endStart()
 
-	turn := Turn{Query: req.Query, Generate: req.Generate}
+	turn := Turn{OperationID: operation.ID(), Query: req.Query, Generate: req.Generate}
 	turn.SessionID = req.SessionID
 	var mutation historyMutation
 	if d.history != nil && req.SessionID != "" {
@@ -36,6 +46,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 
 	if strings.TrimSpace(req.Query) == "" {
+		operationErr = errors.New("empty chat query")
 		turn.Error = "Enter a question to search."
 		d.persistStart(ctx, req, turn, mutation, true)
 		return turn
@@ -44,12 +55,14 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	start := time.Now()
 	if req.Edit {
 		if d.history == nil || req.SessionID == "" {
+			operationErr = errors.New("chat editing is unavailable")
 			turn.Error = "Chat editing is unavailable."
 			return turn
 		}
 		var err error
 		mutation, err = d.mutations.prepareEdit(ctx, req.SessionID, req.EditSequence)
 		if err != nil {
+			operationErr = err
 			d.log.Warn("chat edit prune failed",
 				zap.String("session_id", req.SessionID),
 				zap.Int("edit_sequence", req.EditSequence),
@@ -73,6 +86,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		}
 	}
 	if d.mutationStale(mutation) {
+		operationErr = errors.New("conversation changed while turn was starting")
 		turn.Error = "Conversation changed while this turn was starting; please retry."
 		return turn
 	}
@@ -84,6 +98,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	})
 	turn.FromCache = searchResult.FromCache
 	if err != nil {
+		operationErr = err
 		d.log.Warn("chat search failed", zap.String("query", req.Query), zap.Error(err))
 		turn.Error = "Search failed: " + err.Error()
 		d.persistStart(ctx, req, turn, mutation, true)
@@ -92,6 +107,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	turn.Chunks = searchResult.Chunks
 	turn.ElapsedMS = time.Since(start).Milliseconds()
 	if d.mutationStale(mutation) {
+		operationErr = errors.New("conversation changed while turn was running")
 		turn.Error = "Conversation changed while this turn was running; please retry."
 		return turn
 	}
@@ -114,7 +130,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	events, err := d.generator.Generate(genCtx, turn.Prompt)
 	if err != nil {
 		cancel()
-		observability.Stage(d.log, "generation", "error", generationStarted, err)
+		operationErr = err
+		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat generate failed", zap.String("query", req.Query), zap.Error(err))
 		turn.GenerateError = "Answer generation failed: " + err.Error()
 		d.persistStart(ctx, req, turn, mutation, false)
@@ -125,7 +142,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	stream, ok := d.broker.create(turn.ID)
 	if !ok {
 		cancel()
-		observability.Stage(d.log, "generation", "error", generationStarted, errors.New("broker rejected generation"))
+		operationErr = errors.New("broker rejected generation")
+		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, operationErr)
 		d.log.Warn("chat broker rejected generation",
 			zap.String("query", req.Query), zap.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
@@ -136,6 +154,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	if !d.mutations.registerGeneration(turn.ID, mutation, stream) {
 		cancel()
 		stream.finish()
+		operationErr = errors.New("conversation changed while generation was starting")
 		turn.ID = ""
 		turn.GenerateError = "Conversation changed while generation was starting; please retry."
 		return turn
@@ -144,7 +163,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	d.generations.Add(1)
 	go func(supervisorTurn Turn) {
 		defer d.generations.Done()
-		d.consumeGeneration(stream, req, supervisorTurn, mutation, events, generationStarted)
+		d.consumeGeneration(genCtx, stream, req, supervisorTurn, mutation, events, generationStarted)
 	}(turn)
 	return turn
 }
@@ -247,7 +266,16 @@ func (d *dependencies) beginDrain() <-chan struct{} {
 // consumeGeneration drains one in-flight answer: it maps the generator's
 // typed events onto the turn's event log and persists the final turn when
 // the stream ends. Runs on its own goroutine — no HTTP request owns this.
-func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generation.Event, started time.Time) {
+func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generation.Event, started time.Time) {
+	ctx, operation := observability.Start(ctx, d.telemetry, d.log, "chat_stream", zap.String("turn_id", turn.ID))
+	var operationErr error
+	defer func() {
+		outcome := "success"
+		if operationErr != nil {
+			outcome = "error"
+		}
+		operation.End(outcome, operationErr)
+	}()
 	defer func() {
 		d.mutations.unregisterGeneration(turn.ID)
 		stream.finish()
@@ -269,14 +297,15 @@ func (d *dependencies) consumeGeneration(stream *turnStream, req Request, turn T
 		}
 	}
 	if turn.GenerateError != "" {
+		operationErr = errors.New(turn.GenerateError)
 		stream.publish(EventError, turn.GenerateError)
-		observability.Stage(d.log, "generation", "error", started, errors.New("generation failed"),
+		observability.StageContext(ctx, d.log, "generation", "error", started, operationErr,
 			zap.Int("answer_bytes", answer.Len()))
 	} else {
 		turn.Answer = answer.String()
 		turn.HasAnswer = true
 		stream.publish(EventDone, "")
-		observability.Stage(d.log, "generation", "success", started, nil,
+		observability.StageContext(ctx, d.log, "generation", "success", started, nil,
 			zap.Int("answer_bytes", answer.Len()))
 	}
 	d.saveTurn(req, turn, mutation)

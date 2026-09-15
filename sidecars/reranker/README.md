@@ -55,6 +55,8 @@ Compose readiness check.
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | Hugging Face model to load |
 | `RERANKER_BACKEND` | `torch` | `onnx`, `torch-int8`, `openvino`, or `torch` |
 | `RERANKER_DEVICE` | `cpu` | `auto`, `cpu`, or `cuda` |
+| `RERANKER_TRUST_REMOTE_CODE` | `false` | Explicitly allow a model's custom Transformers code |
+| `RERANKER_PORT` | `5002` | HTTP listen port |
 | `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous model calls |
 | `RERANKER_MAX_LENGTH` | `512` | Maximum token length per query/passage pair |
 | `RERANKER_QUANTIZED_DIR` | `int8_avx2` | Directory containing an optional baked ONNX model |
@@ -186,6 +188,24 @@ after changing `RERANKER_MODEL`, `RERANKER_BACKEND`, or
 lists, runs, and hardware are the same. The health probe measures readiness,
 not process startup; measure container startup separately when completing the
 production comparison.
+
+For repeatable model/backend comparisons, the profile runner owns sidecar
+startup and shutdown and records startup latency/RSS alongside the direct
+benchmark:
+
+```bash
+python scripts/benchmark_reranker_profiles.py \
+  --dataset test/evaluation/golden.json \
+  --corpus-dir samples \
+  --output-dir /tmp/nadir-reranker-profiles \
+  --json-out test/evaluation/reports/reranker-profile-comparison.json \
+  --quantized-dir /path/to/int8_avx2
+```
+
+The runner records unavailable CUDA, missing weights, and model-load failures
+as evidence gaps. It never substitutes a different model or backend. GTE
+multilingual reranker models require `RERANKER_TRUST_REMOTE_CODE=true`; only
+enable that for a reviewed model source.
 
 The direct benchmark isolates reranker behavior. Run the full evaluator as
 well to measure end-to-end Retrieval quality and dependency latency:

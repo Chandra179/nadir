@@ -38,8 +38,17 @@ type ollamaChatChunk struct {
 // cancelling ctx stops generation at the next event boundary. The caller
 // must drain or cancel to avoid pinning the feed goroutine.
 func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
+	releaseAdmission := func() {}
+	if g.admission != nil {
+		var err error
+		releaseAdmission, err = g.admission(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("generation admission: %w", err)
+		}
+	}
 	release, err := g.gate.Acquire(ctx)
 	if err != nil {
+		releaseAdmission()
 		return nil, fmt.Errorf("generator admission: %w", err)
 	}
 
@@ -51,12 +60,14 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 	})
 	if err != nil {
 		release()
+		releaseAdmission()
 		return nil, fmt.Errorf("generator encode request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.addr+"/api/chat", bytes.NewReader(body))
 	if err != nil {
 		release()
+		releaseAdmission()
 		return nil, fmt.Errorf("generator build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -64,16 +75,21 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 	resp, err := g.client.Do(req)
 	if err != nil {
 		release()
+		releaseAdmission()
 		return nil, fmt.Errorf("generator request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
 		release()
+		releaseAdmission()
 		return nil, fmt.Errorf("generator: status %d", resp.StatusCode)
 	}
 
 	events := make(chan conversationgeneration.Event, 16)
-	go feed(ctx, resp.Body, events, release)
+	go feed(ctx, resp.Body, events, func() {
+		release()
+		releaseAdmission()
+	})
 	return events, nil
 }
 

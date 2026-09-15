@@ -1,9 +1,9 @@
 # Inference resources
 
-This Module provides process-local admission control for expensive model
-operations. The shared Ollama Gate covers embedding, rewriting, enrichment,
-and streaming generation; the reranker has its own Gate because it is a
-separate process and may run on a different device.
+This Module provides the low-level process-local Gate used by the shared
+admission controller. The controller's operation budgets cover Retrieval
+fragments, reranking, generation, embedding, indexing, and destructive
+mutations; the Ollama Gate still protects the combined local model resource.
 
 The configured local profile is conservative: one Ollama operation and one
 reranker operation at a time, a bounded queue wait, and a finite Ollama

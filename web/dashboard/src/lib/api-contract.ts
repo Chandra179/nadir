@@ -10,7 +10,14 @@ export type Result = {
   text: string;
 };
 
+export type Filter = {
+  file_path?: string;
+  header?: string;
+  source_sha?: string;
+};
+
 export type Turn = {
+  operation_id?: string;
   error?: string;
   query: string;
   rewritten_query?: string;
@@ -35,6 +42,7 @@ export type Turn = {
 export type StartTurnRequest = {
   query: string;
   top_k?: number;
+  filter?: Filter;
   generate: boolean;
   session_id?: string;
   attached_files?: string[];
@@ -61,9 +69,16 @@ export type SessionDetail = {
 };
 
 export type IngestResponse = {
+  operation_id?: string;
   processed: number;
   skipped: number;
   failed: number;
+  removed: number;
   names?: string[];
+  error?: string;
+};
+
+export type DeleteResponse = {
+  deleted: boolean;
   error?: string;
 };

@@ -20,7 +20,7 @@ from sentence_transformers.backend import export_dynamic_quantized_onnx_model
 from transformers import AutoConfig
 
 MODEL_NAME = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-OUT_DIR = "int8_avx2"
+OUT_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
 # The exporter always lands the quantized graph here (hub-style layout).
 BAKED_FILE = "onnx/model_quint8_avx2.onnx"
 MARKER = os.path.join(OUT_DIR, "model_name.txt")

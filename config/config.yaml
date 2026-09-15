@@ -62,6 +62,16 @@ search:
   max_concurrent_fragments: 8
   max_top_k: 50
   max_chunks_per_file: 3
+  fusion:
+    enabled: false # enable only after offline golden-set evidence supports the candidate policy
+    rrf_k: 60
+    dense_weight: 1.0
+    bm25_weight: 1.0
+    exact_match_boost: 0.0
+    header_match_boost: 0.0
+    min_exact_tokens: 1
+    min_header_tokens: 1
+    profiles: {}
 
 reranker:
   enabled: true    
@@ -88,6 +98,28 @@ inference:
     queue_timeout: 30s
     device: "cpu"
     backend: "torch"
+
+# Process-wide admission budgets. Each queue has a finite wait and is shared
+# by all HTTP requests in this API process. These are not distributed limits.
+admission:
+  retrieval:
+    max_concurrent: 16       # individual dense/BM25 fragment searches
+    queue_timeout: 5s
+  reranking:
+    max_concurrent: 1
+    queue_timeout: 30s
+  generation:
+    max_concurrent: 1
+    queue_timeout: 30s
+  embedding:
+    max_concurrent: 1
+    queue_timeout: 30s
+  indexing:
+    max_concurrent: 1
+    queue_timeout: 5s
+  destructive:
+    max_concurrent: 1
+    queue_timeout: 10s
 
 enrichment:
   # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero
@@ -140,6 +172,8 @@ rewriter:
 history:
   enabled: true              # persists chat sessions/turns to Qdrant, no extra infra
   collection: "chat_history"
+  session_page_size: 50      # sidebar sessions returned per request
+  turn_page_size: 500        # Qdrant scroll page used while loading one session
 
 docling:
   enabled: false             # enable PDF intake when the Docling sidecar is available

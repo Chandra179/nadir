@@ -1,6 +1,7 @@
 package embedding
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ type DependenciesConfig struct {
 	RequestTimeout time.Duration
 	KeepAlive      string
 	Gate           *inference.Gate
+	Admission      func(context.Context) (func(), error)
 }
 
 // dependencies embeds text via an Ollama embedding model.
@@ -28,6 +30,7 @@ type dependencies struct {
 	client     *http.Client
 	keepAlive  string
 	gate       *inference.Gate
+	admission  func(context.Context) (func(), error)
 }
 
 var _ embedding.Embedder = (*dependencies)(nil)
@@ -49,5 +52,6 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		client:     &http.Client{Timeout: timeout},
 		keepAlive:  cfg.KeepAlive,
 		gate:       gate,
+		admission:  cfg.Admission,
 	}
 }

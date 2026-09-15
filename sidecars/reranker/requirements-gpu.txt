@@ -5,3 +5,4 @@
 # CPU artifacts and fall back to fp32 torch on cuda (see main.py).
 torch==2.14.0
 sentence-transformers[onnx]==6.0.1
+optimum[onnxruntime]==2.1.0
