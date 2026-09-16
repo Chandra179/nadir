@@ -144,16 +144,25 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			Model:          answerEndpoint.Model,
 			RequestTimeout: cfg.Generator.RequestTimeout,
 			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			Gate:           graph.OllamaGate,
-			Admission:      graph.Admission.AcquireFunc(platformadmission.Generation),
+			Options: map[string]any{
+				"temperature": 0,
+				"num_predict": cfg.Generator.MaxOutputTokens,
+			},
+			Gate:      graph.OllamaGate,
+			Admission: graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		judgeGenerator := ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
 			Addr:           strings.TrimSpace(generationOptions.JudgeAddr),
 			Model:          strings.TrimSpace(generationOptions.JudgeModel),
 			RequestTimeout: cfg.Generator.RequestTimeout,
 			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			Gate:           graph.OllamaGate,
-			Admission:      graph.Admission.AcquireFunc(platformadmission.Generation),
+			Format:         evaluation.JudgeResponseSchema(),
+			Options: map[string]any{
+				"temperature": 0,
+				"num_predict": 128,
+			},
+			Gate:      graph.OllamaGate,
+			Admission: graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		generationReport, generationErr := evaluation.NewGenerationDependencies(evaluation.GenerationDependenciesConfig{
 			Searcher:         graph.Searcher,
@@ -265,6 +274,12 @@ func printReport(report *evaluation.Report) {
 		fmt.Printf("generation p50/p95=%.1fms / %.1fms judge p50/p95=%.1fms / %.1fms\n",
 			generation.Aggregate.AnswerP50LatMS, generation.Aggregate.AnswerP95LatMS,
 			generation.Aggregate.JudgeP50LatMS, generation.Aggregate.JudgeP95LatMS)
+		if len(generation.Aggregate.FailureClasses) > 0 {
+			fmt.Printf("generation failure classes=%v\n", generation.Aggregate.FailureClasses)
+		}
+		if len(generation.Aggregate.DiagnosticCauses) > 0 {
+			fmt.Printf("generation diagnostic causes=%v\n", generation.Aggregate.DiagnosticCauses)
+		}
 	}
 }
 

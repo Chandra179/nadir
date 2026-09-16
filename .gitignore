@@ -55,6 +55,12 @@ web/dashboard/.vite-cache/
 web/dashboard/test-results/
 venv/
 
+# ARQMath raw downloads and normalized corpus are large and license-scoped;
+# keep them in an ignored working directory. Commit only pack metadata/reports.
+/var/evaluation/arqmath/
+test/evaluation/arqmath/source/
+test/evaluation/arqmath/corpus/
+
 # compiled binaries
 /nadir
 /eval

@@ -175,6 +175,7 @@ of every knob, open `config/config.yaml`.
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
 | `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
 | `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:1b` | Explicit answer-generation endpoint and model |
+| `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
 | `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
 | `HYPE_ADDR` / `HYPE_MODEL` | same host / `gemma3:1b` | Explicit HyPE enrichment endpoint and model |
 | `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `gemma3:1b` | Explicit contextual-enrichment endpoint and model |
@@ -290,13 +291,22 @@ go run ./cmd/evaluator --no-rerank --runs 3
 go run ./cmd/evaluator --ensure-ingest --report test/evaluation/reports/local.json
 ```
 
-The active golden set contains 133 expert-authored synthetic user-intent
-queries with direct, comparison, multi-hop, and distractor cases. Its metadata
-records that it contains no production user data. Historical reports still
-contain the original 34-query measurements, so the fixture is a Retrieval
-regression tool rather than evidence that generated answers are faithful.
-Collect consent-safe production queries and add generation-quality evaluation
-before treating a score as a production release gate.
+The active golden set is a schema-v3 pack of 133 expert-authored synthetic
+user-intent queries with direct, formula, procedure, comparison, multi-hop,
+ambiguous, negative, and distractor cases. It records the sample corpus
+manifest and two synthetic judgment passes, but contains no production user
+data and is not a release gate. Historical reports still contain the original
+34-query measurements. Collect consent-safe production queries, privacy
+approval, and independent expert judgments before treating a score as a
+production release gate.
+
+A public ARQMath Task 1 candidate is also checked in under
+[`test/evaluation/arqmath/`](test/evaluation/arqmath/). It contains 120
+selected math questions—40 from each 2020–2022 edition—plus pinned source
+metadata and fixed qrel candidate pools. It remains `release_gate: false`:
+the full licensed corpus, two genuine independent reviewer passes,
+adjudication, and privacy/legal approval must be supplied externally. Build
+and review instructions are in its README.
 
 ## PDF ingestion
 

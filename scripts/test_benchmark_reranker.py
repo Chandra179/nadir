@@ -116,6 +116,14 @@ class BenchmarkRerankerTest(unittest.TestCase):
                 "required_claims": ["claim"],
                 "faithfulness_label": "fully_supported",
                 "candidates": [{"text": "passage", "relevance": 2}],
+                "judgments": [
+                    {"annotator_id": "expert-a", "relevant": [{"file": "doc.md"}]},
+                    {"annotator_id": "expert-b", "relevant": [{"file": "doc.md"}]},
+                ],
+                "adjudication": {
+                    "method": "independent labels reviewed and adjudicated",
+                    "reviewer_ids": ["expert-a", "expert-b"],
+                },
             }
             for index in range(100)
         ]
@@ -127,10 +135,68 @@ class BenchmarkRerankerTest(unittest.TestCase):
                     "consent": "user opt-in and retention policy",
                     "judgment": "two expert reviewers with adjudication",
                     "release_gate": True,
+                    "judgment_artifact_path": "reviews/judgments.jsonl",
+                    "judgment_artifact_sha256": "0" * 64,
+                    "source": {
+                        "name": "ARQMath public evaluation collection",
+                        "homepage": "https://www.cs.rit.edu/~dprl/ARQMath/",
+                        "license": "CC BY-SA; non-commercial snapshot terms",
+                        "usage": "non-commercial evaluation with attribution",
+                        "snapshot": "ARQMath-3",
+                        "attribution": "ARQMath and Math Stack Exchange contributors",
+                        "license_notice_path": "LICENSE-NOTICE.md",
+                        "artifact_sha256": {"Posts.V1.3.zip": "0" * 64, "topics.xml": "0" * 64},
+                    },
+                    "corpus": {
+                        "id": "production-corpus-2026-q3",
+                        "documents": ["doc.md"],
+                        "document_count": 1,
+                        "representative": True,
+                        "manifest_path": "manifests/corpus.jsonl",
+                        "manifest_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    },
+                    "privacy_review": {
+                        "status": "approved",
+                        "reviewer": "privacy-owner@example.test",
+                        "reviewed_at": "2026-09-16T00:00:00Z",
+                        "evidence_path": "reviews/privacy.md",
+                        "evidence_sha256": "1" * 64,
+                    },
+                    "annotators": [
+                        {"id": "expert-a", "role": "domain expert", "human": True, "independent": True, "verification_ref": "reviews/expert-a.md"},
+                        {"id": "expert-b", "role": "domain expert", "human": True, "independent": True, "verification_ref": "reviews/expert-b.md"},
+                    ],
                 },
+                "schema_version": 3,
                 "queries": queries,
             }
         )
+
+    def test_release_gate_requires_source_and_review_artifacts(self):
+        raw = {
+            "schema_version": 3,
+            "metadata": {
+                "dataset": "arqmath-release",
+                "provenance": "public source",
+                "consent": "licensed public data",
+                "judgment": "two human reviewers",
+                "release_gate": True,
+            },
+            "queries": [{
+                "id": "q1",
+                "expected_answer": "answer",
+                "required_claims": ["claim"],
+                "faithfulness_label": "fully_supported",
+                "candidates": [{"text": "passage", "relevance": 2}],
+                "judgments": [
+                    {"annotator_id": "a", "relevant": [{"file": "doc.md"}]},
+                    {"annotator_id": "b", "relevant": [{"file": "doc.md"}]},
+                ],
+                "adjudication": {"method": "review", "reviewer_ids": ["a", "b"]},
+            }] * 100,
+        }
+        with self.assertRaisesRegex(ValueError, "source"):
+            validate_release_gate(raw)
 
     def test_ranking_metrics_are_stable_for_score_ties(self):
         query = QueryCase(

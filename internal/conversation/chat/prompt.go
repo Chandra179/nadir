@@ -7,17 +7,32 @@ import (
 	"nadir/internal/retrieval/search"
 )
 
+// ContextStats describes the bounded context presented to a generator.
+// Tokens are an estimate used for operational diagnostics, not a tokenizer
+// contract.
+type ContextStats struct {
+	Tokens         int
+	IncludedChunks int
+	Truncated      bool
+}
+
+type contextBuild struct {
+	text  string
+	stats ContextStats
+}
+
 // buildPrompt assembles the answer-generation prompt: grounded-answer
 // instructions plus the numbered, token-budgeted context. Use-case logic on
 // purpose — the generator is a dumb transport and must not know how RAG
 // prompts are shaped.
 func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
 	ordered := lostInMiddleOrder(chunks)
-	context := buildContext(ordered, maxTokens)
+	context := buildContext(ordered, maxTokens).text
 
 	var sb strings.Builder
 	sb.WriteString("You are a precise assistant. Answer the question using ONLY the context below.\n")
 	sb.WriteString("If the answer is not in the context, say \"I don't know based on the provided context.\"\n")
+	sb.WriteString("Keep the answer concise and state only facts or formulas directly supported by the context.\n")
 	sb.WriteString("Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\n")
 	sb.WriteString("Context:\n")
 	sb.WriteString(context)
@@ -53,35 +68,66 @@ func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
 	return result
 }
 
-func buildContext(chunks []search.Chunk, maxTokens int) string {
+func buildContext(chunks []search.Chunk, maxTokens int) contextBuild {
 	var sb strings.Builder
 	used := 0
+	included := 0
 	for i, c := range chunks {
 		text := c.WindowText
 		if text == "" {
 			text = c.Text
 		}
-		entry := fmt.Sprintf("[%d] (source: %s)\n%s\n\n", i+1, c.FilePath, text)
+		source := c.FilePath
+		if c.Header != "" {
+			source += " > " + c.Header
+		}
+		entry := fmt.Sprintf("[%d] (source: %s)\n%s\n\n", i+1, source, text)
 		entryTokens := estimateTokens(entry)
 		if used+entryTokens > maxTokens {
 			remaining := maxTokens - used
 			if remaining > 15 {
 				truncated := truncateToTokens(entry, remaining)
-				sb.WriteString(truncated)
+				if truncated != "" {
+					sb.WriteString(truncated)
+					included++
+				}
 			}
-			break
+			return contextBuild{text: sb.String(), stats: ContextStats{
+				Tokens:         estimateTokens(sb.String()),
+				IncludedChunks: included,
+				Truncated:      true,
+			}}
 		}
 		sb.WriteString(entry)
 		used += entryTokens
+		included++
 	}
-	return sb.String()
+	return contextBuild{text: sb.String(), stats: ContextStats{
+		Tokens:         estimateTokens(sb.String()),
+		IncludedChunks: included,
+	}}
 }
 
 // BuildContext returns the bounded, lost-in-the-middle-ordered context used by
 // BuildPrompt. Evaluation uses it to present exactly the retrieved evidence
 // to the judge model without duplicating Chat prompt assembly.
 func BuildContext(chunks []search.Chunk, maxTokens int) string {
-	return buildContext(lostInMiddleOrder(chunks), maxTokens)
+	return BuildContextWithStats(chunks, maxTokens).Text
+}
+
+// ContextBuild is the bounded, ordered context and its diagnostic metadata.
+// The source text remains available to the caller because this function is
+// used at the generation boundary; reports should persist only the metadata.
+type ContextBuild struct {
+	Text  string
+	Stats ContextStats
+}
+
+// BuildContextWithStats returns the same ordered context as BuildContext and
+// reports whether the token budget removed or partially included a chunk.
+func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
+	built := buildContext(lostInMiddleOrder(chunks), maxTokens)
+	return ContextBuild{Text: built.text, Stats: built.stats}
 }
 
 // estimateTokens approximates token count from word count (~1.3 tokens per

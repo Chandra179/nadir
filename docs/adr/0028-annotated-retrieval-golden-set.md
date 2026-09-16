@@ -15,17 +15,31 @@ reviewed from one controlled dataset.
 
 ## Decision
 
-Use schema version 2 for the active golden fixture. Every annotated query
+Use schema version 3 for the active golden fixture. Every annotated query
 declares a query type, expected answer, required claims, and a
 generation-faithfulness label. Queries may also declare evidence distractors;
 the evaluator reports the fraction of queries where a distractor enters the
 top-k result set. Relevant evidence remains the source of Retrieval metrics.
 
+Schema version 3 also records a deterministic corpus manifest, privacy-review
+metadata, separate per-query relevance judgments, and the adjudication method
+used to produce canonical labels. Annotator records explicitly distinguish
+human independent reviewers from synthetic evaluator passes.
+
 The committed fixture is 133 expert-authored synthetic user-intent queries
-over the sample corpus. Top-level metadata records its provenance and makes
-clear that it contains no production user data. It is a development regression
-fixture, not a substitute for consent-safe production query collection or
-independent expert review.
+over the sample corpus. Top-level metadata records its provenance, exact
+corpus manifest, and makes clear that it contains no production user data. Two
+synthetic judgment passes exercise the multi-judgment contract, but are not
+independent human review. It is a development regression fixture, not a
+substitute for consent-safe production query collection or independent expert
+review.
+
+A separate public-data path uses ARQMath Task 1 as a review-pack candidate. It
+selects 40 topics from each 2020–2022 edition, records pinned source hashes,
+and preserves a fixed answer candidate pool. The importer can normalize the
+licensed Posts snapshot, but it cannot supply the required two genuine human
+reviews or privacy/legal approval. Therefore the candidate remains outside the
+active release gate until those external artifacts are present.
 
 ## Consequences
 

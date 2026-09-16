@@ -22,6 +22,9 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Qdrant.TopK <= 0 || cfg.Embedder.Model == "" {
 		t.Fatalf("shipped config must validate into a usable state, got %+v", cfg)
 	}
+	if cfg.Generator.MaxOutputTokens != 512 {
+		t.Fatalf("shipped generator.max_output_tokens = %d, want 512", cfg.Generator.MaxOutputTokens)
+	}
 	if cfg.Source.Mode != SourceModeUploadOnly {
 		t.Fatalf("shipped config source mode = %q, want %q", cfg.Source.Mode, SourceModeUploadOnly)
 	}
@@ -49,6 +52,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("EMBEDDER_DIMENSIONS", "768")
 	t.Setenv("EMBEDDER_QUERY_PREFIX", "task: search result | query: ")
 	t.Setenv("EMBEDDER_DOCUMENT_PREFIX", "title: none | text: ")
+	t.Setenv("GENERATOR_MAX_OUTPUT_TOKENS", "256")
 	t.Setenv("RERANKER_ENABLED", "false") // explicit false still counts as an env override
 	t.Setenv("RERANKER_ADAPTIVE_ENABLED", "true")
 	t.Setenv("RERANKER_ADAPTIVE_MARGIN_THRESHOLD", "0.02")
@@ -84,6 +88,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 		cfg.Embedder.QueryPrefix != "task: search result | query: " ||
 		cfg.Embedder.DocumentPrefix != "title: none | text: " {
 		t.Fatalf("Embedder overrides = %+v, want explicit model, dimensions, and prompts", cfg.Embedder)
+	}
+	if cfg.Generator.MaxOutputTokens != 256 {
+		t.Fatalf("Generator.MaxOutputTokens = %d, want 256", cfg.Generator.MaxOutputTokens)
 	}
 	if cfg.Reranker.Enabled {
 		t.Fatal("Reranker.Enabled = true, want false from RERANKER_ENABLED=false")
@@ -130,6 +137,7 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "int", env: "REWRITE_TURNS", value: "many"},
 		{name: "duration", env: "INFERENCE_OLLAMA_KEEP_ALIVE", value: "soon"},
 		{name: "embedder dimensions", env: "EMBEDDER_DIMENSIONS", value: "wide"},
+		{name: "generator max output tokens", env: "GENERATOR_MAX_OUTPUT_TOKENS", value: "many"},
 		{name: "adaptive margin", env: "RERANKER_ADAPTIVE_MARGIN_THRESHOLD", value: "wide"},
 		{name: "admission timeout", env: "ADMISSION_INDEXING_QUEUE_TIMEOUT", value: "soon"},
 		{name: "history page size", env: "HISTORY_SESSION_PAGE_SIZE", value: "many"},

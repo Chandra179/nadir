@@ -33,9 +33,12 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 	}
 
 	report := &Report{
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		TopK:      topK,
-		PerQuery:  make([]QueryResult, 0, len(golden.Queries)),
+		Timestamp:            time.Now().UTC().Format(time.RFC3339),
+		Dataset:              golden.Metadata.Dataset,
+		DatasetSchemaVersion: golden.SchemaVersion,
+		DatasetReleaseGate:   golden.Metadata.ReleaseGate,
+		TopK:                 topK,
+		PerQuery:             make([]QueryResult, 0, len(golden.Queries)),
 	}
 	for _, goldenQuery := range golden.Queries {
 		result := QueryResult{

@@ -13,25 +13,68 @@ import (
 
 func TestValidateOnlyAcceptsReleaseGateFixtureWithoutConfig(t *testing.T) {
 	golden := evaluation.GoldenSet{
-		SchemaVersion: 2,
+		SchemaVersion: 3,
 		Metadata: evaluation.GoldenSetMetadata{
-			Dataset:     "production-user-query-sample-2026-q3",
-			Provenance:  "consent-safe export reviewed by privacy owner",
-			Consent:     "opt-in users, collection purpose documented",
-			Judgment:    "two independent domain experts",
-			ReleaseGate: true,
+			Dataset:                "production-user-query-sample-2026-q3",
+			Provenance:             "consent-safe export reviewed by privacy owner",
+			Consent:                "opt-in users, collection purpose documented",
+			Judgment:               "two independent domain experts",
+			ReleaseGate:            true,
+			JudgmentArtifactPath:   "reviews/arqmath-judgments.jsonl",
+			JudgmentArtifactSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			Source: &evaluation.SourceMetadata{
+				Name:              "ARQMath public evaluation collection",
+				Homepage:          "https://www.cs.rit.edu/~dprl/ARQMath/",
+				License:           "Math Stack Exchange CC BY-SA with ARQMath non-commercial snapshot terms",
+				Usage:             "non-commercial evaluation with attribution",
+				Snapshot:          "ARQMath-1 through ARQMath-3 Task 1 snapshots",
+				Attribution:       "Mansouri et al., ARQMath; Math Stack Exchange contributors",
+				LicenseNoticePath: "LICENSE-NOTICE.md",
+				ArtifactSHA256: map[string]string{
+					"Posts.V1.3.zip": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+					"topics.xml":     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				},
+			},
+			Corpus: &evaluation.CorpusMetadata{
+				ID:             "production-corpus-2026-q3",
+				Documents:      []string{"docs/guide.md"},
+				DocumentCount:  1,
+				Representative: true,
+				ManifestPath:   "manifests/corpus.jsonl",
+				ManifestSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			},
+			PrivacyReview: &evaluation.PrivacyReviewMetadata{
+				Status:         "approved",
+				Reviewer:       "privacy-owner@example.test",
+				ReviewedAt:     "2026-09-16T00:00:00Z",
+				EvidencePath:   "reviews/privacy-approval.md",
+				EvidenceSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			},
+			Annotators: []evaluation.AnnotatorMetadata{
+				{ID: "expert-a", Role: "domain expert", Human: true, Independent: true, VerificationRef: "reviews/expert-a-attestation.md"},
+				{ID: "expert-b", Role: "domain expert", Human: true, Independent: true, VerificationRef: "reviews/expert-b-attestation.md"},
+			},
 		},
 		Queries: make([]evaluation.GoldenQuery, 100),
 	}
 	for i := range golden.Queries {
 		golden.Queries[i] = evaluation.GoldenQuery{
-			ID:                "production-query-" + formatIndex(i),
-			Query:             "What is the documented answer to query " + formatIndex(i) + "?",
-			Type:              evaluation.QueryTypeFactoid,
-			FaithfulnessLabel: evaluation.FaithfulnessFullySupported,
-			ExpectedAnswer:    "The answer is documented in the source.",
-			RequiredClaims:    []string{"the answer is documented"},
-			Relevant:          []evaluation.RelevantChunk{{File: "doc.md", Contains: "documented"}},
+			ID:                 "production-query-" + formatIndex(i),
+			Query:              "What is the documented answer to query " + formatIndex(i) + "?",
+			Type:               evaluation.QueryTypeFactoid,
+			FaithfulnessLabel:  evaluation.FaithfulnessFullySupported,
+			ExpectedAnswer:     "The answer is documented in the source.",
+			RequiredClaims:     []string{"the answer is documented"},
+			CandidateDocuments: []evaluation.CandidateDocument{{DocumentID: "doc-1", SourceGrade: 2}},
+			Relevant:           []evaluation.RelevantChunk{{File: "doc.md", Contains: "documented"}},
+			Judgments: []evaluation.RelevanceJudgment{
+				{AnnotatorID: "expert-a", Relevant: []evaluation.RelevantChunk{{File: "doc.md", Contains: "documented"}}},
+				{AnnotatorID: "expert-b", Relevant: []evaluation.RelevantChunk{{File: "doc.md", Contains: "documented"}}},
+			},
+			Adjudication: &evaluation.AdjudicationMetadata{
+				Method:      "independent labels reviewed and adjudicated",
+				ReviewerIDs: []string{"expert-a", "expert-b"},
+			},
 		}
 	}
 

@@ -392,6 +392,12 @@ def validate_release_gate(raw: dict[str, object]) -> None:
     dataset = str(metadata.get("dataset", "")).strip()
     if not dataset or "synthetic" in dataset.casefold():
         raise ValueError("release gate requires a consented production dataset")
+    try:
+        schema_version = int(raw.get("schema_version", 0))
+    except (TypeError, ValueError):
+        schema_version = 0
+    if schema_version < 3:
+        raise ValueError("release gate requires golden set schema version 3")
     for field in ("provenance", "consent", "judgment"):
         if not str(metadata.get(field, "")).strip():
             raise ValueError(f"release gate requires metadata.{field}")
@@ -399,14 +405,93 @@ def validate_release_gate(raw: dict[str, object]) -> None:
     if consent == "not-applicable-no-production-user-data" or "without consent" in consent:
         raise ValueError("release gate requires consent metadata for production queries")
 
+    source = metadata.get("source")
+    if not isinstance(source, dict) or "arqmath" not in str(source.get("name", "")).casefold():
+        raise ValueError("release gate requires ARQMath source metadata")
+    for field in ("homepage", "license", "usage", "snapshot", "attribution", "license_notice_path"):
+        if not str(source.get(field, "")).strip():
+            raise ValueError(f"release gate requires metadata.source.{field}")
+    artifacts = source.get("artifact_sha256")
+    if not isinstance(artifacts, dict) or not artifacts:
+        raise ValueError("release gate requires source artifact hashes")
+    for name, digest in artifacts.items():
+        if not str(name).strip() or not re.fullmatch(r"[0-9a-fA-F]{64}", str(digest).strip()):
+            raise ValueError("release gate source artifact hashes must be named SHA-256 values")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", str(artifacts.get("Posts.V1.3.zip", "")).strip()):
+        raise ValueError("release gate requires the verified ARQMath Posts.V1.3.zip artifact hash")
+    if not str(metadata.get("judgment_artifact_path", "")).strip() or not re.fullmatch(
+        r"[0-9a-fA-F]{64}", str(metadata.get("judgment_artifact_sha256", "")).strip()
+    ):
+        raise ValueError("release gate requires a verified judgment artifact")
+
+    corpus = metadata.get("corpus")
+    if not isinstance(corpus, dict):
+        raise ValueError("release gate requires metadata.corpus")
+    if not str(corpus.get("id", "")).strip():
+        raise ValueError("release gate requires metadata.corpus.id")
+    if not bool(corpus.get("representative")):
+        raise ValueError("release gate requires a representative corpus")
+    documents = corpus.get("documents")
+    document_count = corpus.get("document_count")
+    if (
+        not isinstance(document_count, int)
+        or isinstance(document_count, bool)
+        or document_count <= 0
+        or (documents is not None and not isinstance(documents, list))
+        or (isinstance(documents, list) and documents and len(documents) != document_count)
+        or (isinstance(documents, list) and any(not str(document).strip() for document in documents))
+        or (isinstance(documents, list) and len({str(document).strip() for document in documents}) != len(documents))
+        or not str(corpus.get("manifest_path", "")).strip()
+    ):
+        raise ValueError("release gate requires a complete corpus document manifest")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", str(corpus.get("manifest_sha256", "")).strip()):
+        raise ValueError("release gate requires metadata.corpus.manifest_sha256")
+
+    privacy_review = metadata.get("privacy_review")
+    if not isinstance(privacy_review, dict) or str(privacy_review.get("status", "")).casefold() != "approved":
+        raise ValueError("release gate requires approved privacy review")
+    if (
+        not str(privacy_review.get("reviewer", "")).strip()
+        or not str(privacy_review.get("reviewed_at", "")).strip()
+        or not str(privacy_review.get("evidence_path", "")).strip()
+        or not re.fullmatch(r"[0-9a-fA-F]{64}", str(privacy_review.get("evidence_sha256", "")).strip())
+    ):
+        raise ValueError("release gate requires privacy review reviewer, timestamp, and evidence")
+    try:
+        dt.datetime.fromisoformat(str(privacy_review["reviewed_at"]).replace("Z", "+00:00"))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("release gate privacy review timestamp must be RFC3339") from exc
+
+    annotator_records = metadata.get("annotators")
+    if not isinstance(annotator_records, list) or len(annotator_records) < 2:
+        raise ValueError("release gate requires at least two annotators")
+    annotators: dict[str, dict[str, object]] = {}
+    for record in annotator_records:
+        if not isinstance(record, dict):
+            raise ValueError("release gate annotators must be objects")
+        annotator_id = str(record.get("id", "")).strip()
+        if not annotator_id or not str(record.get("role", "")).strip():
+            raise ValueError("release gate annotators require id and role")
+        if annotator_id in annotators:
+            raise ValueError(f"release gate annotators contain duplicate id {annotator_id!r}")
+        if record.get("human") is not True or record.get("independent") is not True:
+            raise ValueError(f"release gate annotator {annotator_id!r} must be an independent human")
+        if not str(record.get("verification_ref", "")).strip():
+            raise ValueError(f"release gate annotator {annotator_id!r} requires verification_ref")
+        annotators[annotator_id] = record
+
     queries = raw.get("queries")
     if not isinstance(queries, list) or len(queries) < 100:
         count = len(queries) if isinstance(queries, list) else 0
         raise ValueError(f"release gate requires at least 100 queries, got {count}")
+    query_ids: set[str] = set()
     for index, query in enumerate(queries, start=1):
         if not isinstance(query, dict):
             raise ValueError(f"release gate query #{index} must be an object")
         query_id = str(query.get("id", "")).strip() or f"#{index}"
+        if query_id in query_ids:
+            raise ValueError(f"release gate query {query_id!r} is duplicated")
+        query_ids.add(query_id)
         if not str(query.get("expected_answer", "")).strip():
             raise ValueError(f"release gate query {query_id!r} needs expected_answer")
         claims = query.get("required_claims")
@@ -414,6 +499,34 @@ def validate_release_gate(raw: dict[str, object]) -> None:
             raise ValueError(f"release gate query {query_id!r} needs required_claims")
         if not str(query.get("faithfulness_label", "")).strip():
             raise ValueError(f"release gate query {query_id!r} needs faithfulness_label")
+        judgments = query.get("judgments")
+        if not isinstance(judgments, list) or len(judgments) < 2:
+            raise ValueError(f"release gate query {query_id!r} needs at least two relevance judgments")
+        judgment_ids: set[str] = set()
+        for judgment in judgments:
+            if not isinstance(judgment, dict):
+                raise ValueError(f"release gate query {query_id!r} has an invalid judgment")
+            annotator_id = str(judgment.get("annotator_id", "")).strip()
+            if annotator_id in judgment_ids:
+                raise ValueError(f"release gate query {query_id!r} has duplicate judgment {annotator_id!r}")
+            if annotator_id not in annotators:
+                raise ValueError(f"release gate query {query_id!r} references an unknown annotator")
+            if not isinstance(judgment.get("relevant"), list) or not judgment["relevant"]:
+                raise ValueError(f"release gate query {query_id!r} has an incomplete relevance judgment")
+            judgment_ids.add(annotator_id)
+        adjudication = query.get("adjudication")
+        if not isinstance(adjudication, dict) or not str(adjudication.get("method", "")).strip():
+            raise ValueError(f"release gate query {query_id!r} needs adjudication metadata")
+        reviewers = adjudication.get("reviewer_ids")
+        if (
+            not isinstance(reviewers, list)
+            or len(reviewers) < 2
+            or len({str(reviewer).strip() for reviewer in reviewers}) != len(reviewers)
+            or any(str(reviewer).strip() not in judgment_ids for reviewer in reviewers)
+        ):
+            raise ValueError(f"release gate query {query_id!r} needs two recorded adjudication reviewers")
+        if any(annotator_id not in judgment_ids for annotator_id in annotators):
+            raise ValueError(f"release gate query {query_id!r} must contain a judgment from every annotator")
 
 
 def load_dataset(

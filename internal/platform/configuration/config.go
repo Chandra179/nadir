@@ -245,10 +245,11 @@ type SemanticCacheConfig struct {
 
 // GeneratorConfig controls the optional answer-generation LLM.
 type GeneratorConfig struct {
-	Enabled        bool          `yaml:"enabled"`
-	OllamaAddr     string        `yaml:"ollama_addr"`
-	Model          string        `yaml:"model"` // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
-	RequestTimeout time.Duration `yaml:"request_timeout"`
+	Enabled         bool          `yaml:"enabled"`
+	OllamaAddr      string        `yaml:"ollama_addr"`
+	Model           string        `yaml:"model"` // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	RequestTimeout  time.Duration `yaml:"request_timeout"`
+	MaxOutputTokens int           `yaml:"max_output_tokens"`
 }
 
 // HistoryConfig persists chat sessions/turns to a dedicated Qdrant
@@ -342,6 +343,9 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Embedder.DocumentPrefix, "EMBEDDER_DOCUMENT_PREFIX")
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
+	if err := c.envInt(&c.Generator.MaxOutputTokens, "GENERATOR_MAX_OUTPUT_TOKENS"); err != nil {
+		return err
+	}
 	c.envCSV(&c.Source.Paths, "SOURCE_PATHS")
 	c.envCSV(&c.Source.IgnorePatterns, "SOURCE_IGNORE_PATTERNS")
 	c.envStr(&c.Source.Mode, "SOURCE_MODE")
@@ -720,6 +724,9 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if c.Generator.MaxOutputTokens <= 0 {
+		c.Generator.MaxOutputTokens = 512
+	}
 	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
 		c.Enrichment.Hype.QuestionsPerChunk = 3
 	}
@@ -884,6 +891,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Generator.Enabled && strings.TrimSpace(c.Generator.Model) == "" {
 		return fmt.Errorf("config: generator.model must not be empty when generator.enabled is true")
+	}
+	if c.Generator.MaxOutputTokens <= 0 || c.Generator.MaxOutputTokens > 4096 {
+		return fmt.Errorf("config: generator.max_output_tokens must be > 0 and <= 4096")
 	}
 	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.OllamaAddr) == "" {
 		return fmt.Errorf("config: rewriter.ollama_addr must not be empty when rewriter.enabled is true")

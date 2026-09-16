@@ -1,12 +1,16 @@
 ---
-title: "Nadir Overview"
-description: "A simple overview of Nadir's purpose, features, and search algorithms"
-tags: [overview, rag, search]
+title: "Nadir"
+description: "Nadir is a private-document RAG chat app with hybrid search."
+seoTitle: "Nadir: Private-Document RAG Chat with Hybrid Search"
+seoDescription: "Nadir is a private-document RAG chat app with hybrid search."
+answerSummary: "Nadir is a private-document RAG chat app with hybrid search."
+tags: [system-design, llm, rag]
+links:
+  github: "https://github.com/Chandra179/nadir"
+created: 2026-09-10
 ---
 
-# Nadir Overview
-
-## What is Nadir?
+# Nadir: A Private-Document RAG Chat with Hybrid Search
 
 Nadir is a private document search and question-answering application. It
 turns your documents into a searchable knowledge base, then answers questions
@@ -78,7 +82,7 @@ generated, so the user can start reading immediately.
 - **PDF support** — PDFs can be converted to searchable text when conversion
   support is enabled.
 
-## Algorithms in simple terms
+## Algorithms
 
 ### Chunking
 
@@ -130,16 +134,29 @@ signal rather than production release evidence.
 
 | Area | Latest result |
 |---|---|
-| Hybrid Retrieval, no reranker | HitRate@5 **0.797**, MRR@10 **0.651**, p50/p95 **22/47 ms** ([report](../test/evaluation/reports/fusion-baseline-20260915.json)) |
-| EmbeddingGemma experiment | HitRate@5 **0.932**, MRR@10 **0.735**, p50/p95 **98/118 ms**; default remains Nomic pending release-gated evidence ([report](../test/evaluation/reports/embedder-comparison-20260914.json)) |
-| BGE reranker on GPU | MRR@10 **0.962**, nDCG@5 **0.971**, p50/p95 **30/132 ms**; peak VRAM about **2.37 GiB** ([report](../test/evaluation/reports/reranker-bge-m3-gpu-20260915.json)) |
-| Answer-quality judge | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures ([report](../test/evaluation/reports/generation-eval-20260915.json)) |
-| PDF intake | 18/18 successful conversions, p50/p95 **2.62/25.94 s**, peak RSS about **3.28 GiB** ([report](../test/evaluation/reports/docling-system-corpus-20260913.json)) |
+| Hybrid Retrieval, no reranker | HitRate@5 **0.797**, MRR@10 **0.651**, p50/p95 **22/47 ms**  |
+| EmbeddingGemma experiment | HitRate@5 **0.932**, MRR@10 **0.735**, p50/p95 **98/118 ms**; default remains Nomic pending release-gated evidence  |
+| BGE reranker on GPU | MRR@10 **0.962**, nDCG@5 **0.971**, p50/p95 **30/132 ms**; peak VRAM about **2.37 GiB** |
+| Answer-quality judge baseline | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures; triage and remediation recorded in [`generation-triage-20260916.json`](../test/evaluation/reports/generation-triage-20260916.json)  |
+| PDF intake | 18/18 successful conversions, p50/p95 **2.62/25.94 s**, peak RSS about **3.28 GiB**  |
 
 The results show that Retrieval is fast without reranking, while reranking and
 PDF conversion are the main latency and resource costs. The default models and
 fusion policy remain conservative until consent-safe, expert-judged production
 data is available.
+
+An ARQMath Task 1 candidate pack is available for the next evidence step. It
+selects 40 public math questions from each 2020–2022 edition and records the
+source hashes and fixed candidate pools. It is not release evidence yet: the
+full licensed corpus, independent human judgments, adjudication, and
+privacy/legal approval are still required.
+
+The generation baseline found two answer timeouts, two judge-contract failures,
+and a header-only context-evaluation miss. Generation now includes section
+headers in context and matching, bounds answer output, and requires a
+structured bounded judge response. A post-change live generation measurement
+is still pending because the local Qdrant and Ollama services were unavailable;
+the baseline scores above are not post-change results.
 
 ## Conversations and data management
 

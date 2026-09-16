@@ -151,6 +151,51 @@ func TestGenerateSendsKeepAliveAndHoldsGateForStream(t *testing.T) {
 	}
 }
 
+func TestGenerateSendsStructuredFormatAndBoundedOptions(t *testing.T) {
+	requestReceived := make(chan ollamaChatRequest, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request ollamaChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		requestReceived <- request
+		_, _ = fmt.Fprintln(w, `{"message":{"content":"ok"}}`)
+		_, _ = fmt.Fprintln(w, `{"done":true}`)
+	}))
+	defer srv.Close()
+
+	format := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"score": map[string]any{"type": "number", "minimum": 0, "maximum": 1},
+		},
+		"required": []string{"score"},
+	}
+	d := NewDependencies(DependenciesConfig{
+		Addr:           srv.URL,
+		Model:          "judge",
+		RequestTimeout: time.Second,
+		Format:         format,
+		Options:        map[string]any{"temperature": 0, "num_predict": 128},
+	})
+	events, err := d.Generate(context.Background(), "judge prompt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range events {
+	}
+
+	request := <-requestReceived
+	encodedFormat, ok := request.Format.(map[string]any)
+	if !ok || encodedFormat["type"] != "object" {
+		t.Fatalf("format = %#v, want JSON schema object", request.Format)
+	}
+	if request.Options["temperature"] != float64(0) || request.Options["num_predict"] != float64(128) {
+		t.Fatalf("options = %#v, want deterministic bounded options", request.Options)
+	}
+}
+
 func TestGenerateHonorsCancellation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {

@@ -1,0 +1,70 @@
+{
+  "report_type": "generation_quality_triage",
+  "timestamp": "2026-09-16T00:00:00Z",
+  "status": "implementation_verified_live_rerun_pending",
+  "baseline_report": "generation-eval-20260915.json",
+  "baseline": {
+    "queries": 133,
+    "evaluated": 129,
+    "failures": 4,
+    "faithfulness": 0.4852713178,
+    "answer_relevancy": 0.7801550388,
+    "context_precision": 0.6151937984,
+    "context_recall": 0.621627907,
+    "low_faithfulness_successes": 63,
+    "low_context_recall_successes": 37,
+    "low_either_successes": 72
+  },
+  "failure_classifications": [
+    {
+      "id": "derivative-quotient-rule",
+      "failure_class": "judge_failure",
+      "diagnostic_cause": "",
+      "baseline_retrieval_first_hit_rank": 1,
+      "baseline_retrieval_relevant_found": 1,
+      "baseline_retrieval_relevant_total": 1,
+      "evidence": "The judge response was invalid JSON; the paired Retrieval result found the relevant result at rank 1."
+    },
+    {
+      "id": "derivative-cosine",
+      "failure_class": "timeout",
+      "diagnostic_cause": "",
+      "baseline_retrieval_first_hit_rank": 1,
+      "baseline_retrieval_relevant_found": 1,
+      "baseline_retrieval_relevant_total": 1,
+      "evidence": "Answer generation exceeded the 120-second deadline after Retrieval found the relevant result at rank 1."
+    },
+    {
+      "id": "matrix-special-types",
+      "failure_class": "judge_failure",
+      "diagnostic_cause": "context_selection",
+      "baseline_retrieval_first_hit_rank": 0,
+      "baseline_retrieval_relevant_found": 0,
+      "baseline_retrieval_relevant_total": 1,
+      "evidence": "The judge returned context_recall=3, and the old evaluator did not match or present the relevant section header. Header-aware matching and context are now covered by regression tests."
+    },
+    {
+      "id": "user-derivative-cosine",
+      "failure_class": "timeout",
+      "diagnostic_cause": "",
+      "baseline_retrieval_first_hit_rank": 1,
+      "baseline_retrieval_relevant_found": 1,
+      "baseline_retrieval_relevant_total": 1,
+      "evidence": "Answer generation exceeded the 120-second deadline after Retrieval found the relevant result at rank 1."
+    }
+  ],
+  "remediation": {
+    "section_headers_in_matching_and_context": true,
+    "answer_max_output_tokens": 512,
+    "answer_temperature": 0,
+    "judge_structured_json_schema": true,
+    "judge_max_output_tokens": 128,
+    "judge_temperature": 0,
+    "prompt_requires_context_only_concise_cited_answer": true,
+    "production_defaults_changed": false
+  },
+  "live_rerun": {
+    "status": "not_run",
+    "reason": "Qdrant and Ollama were unavailable on localhost when this implementation was verified; no new live generation metrics are claimed."
+  }
+}

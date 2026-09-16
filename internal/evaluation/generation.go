@@ -16,6 +16,14 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	failureRetrievalMiss  = "retrieval_miss"
+	failureContextSelect  = "context_selection"
+	failurePromptGenerate = "prompt_generation"
+	failureTimeout        = "timeout"
+	failureJudge          = "judge_failure"
+)
+
 // GenerationDependenciesConfig groups the production prompt, answer model,
 // and judge model seams used by the generation evaluator. The judge is
 // intentionally a separate, explicitly configured generator: evaluation must
@@ -79,35 +87,48 @@ func NewGenerationDependencies(cfg GenerationDependenciesConfig) *GenerationHarn
 // and source text are deliberately not persisted in the report because a
 // future release-gate fixture may contain consented user data.
 type GenerationQueryResult struct {
-	ID                string            `json:"id"`
-	Query             string            `json:"query"`
-	Type              QueryType         `json:"type,omitempty"`
-	FaithfulnessLabel FaithfulnessLabel `json:"faithfulness_label,omitempty"`
-	RetrievedChunks   int               `json:"retrieved_chunks"`
-	Faithfulness      float64           `json:"faithfulness"`
-	AnswerRelevancy   float64           `json:"answer_relevancy"`
-	ContextPrecision  float64           `json:"context_precision"`
-	ContextRecall     float64           `json:"context_recall"`
-	AnswerLatencyMS   float64           `json:"answer_latency_ms,omitempty"`
-	JudgeLatencyMS    float64           `json:"judge_latency_ms,omitempty"`
-	Error             string            `json:"error,omitempty"`
+	ID                     string            `json:"id"`
+	Query                  string            `json:"query"`
+	Type                   QueryType         `json:"type,omitempty"`
+	FaithfulnessLabel      FaithfulnessLabel `json:"faithfulness_label,omitempty"`
+	RetrievedChunks        int               `json:"retrieved_chunks"`
+	RetrievalFirstHitRank  int               `json:"retrieval_first_hit_rank"`
+	RetrievalRelevantFound int               `json:"retrieval_relevant_found"`
+	RetrievalRelevantTotal int               `json:"retrieval_relevant_total"`
+	ContextChunks          int               `json:"context_chunks"`
+	ContextTokens          int               `json:"context_tokens"`
+	ContextTruncated       bool              `json:"context_truncated"`
+	AnswerBytes            int               `json:"answer_bytes,omitempty"`
+	AnswerStatus           string            `json:"answer_status"`
+	JudgeStatus            string            `json:"judge_status"`
+	FailureClass           string            `json:"failure_class,omitempty"`
+	DiagnosticCause        string            `json:"diagnostic_cause,omitempty"`
+	Faithfulness           float64           `json:"faithfulness"`
+	AnswerRelevancy        float64           `json:"answer_relevancy"`
+	ContextPrecision       float64           `json:"context_precision"`
+	ContextRecall          float64           `json:"context_recall"`
+	AnswerLatencyMS        float64           `json:"answer_latency_ms,omitempty"`
+	JudgeLatencyMS         float64           `json:"judge_latency_ms,omitempty"`
+	Error                  string            `json:"error,omitempty"`
 }
 
 // GenerationAggregate contains mean judge scores and model-call latency for
 // the successfully evaluated queries.
 type GenerationAggregate struct {
-	Queries          int     `json:"queries"`
-	Evaluated        int     `json:"evaluated"`
-	Failures         int     `json:"failures"`
-	JudgeCoverage    float64 `json:"judge_coverage"`
-	Faithfulness     float64 `json:"faithfulness"`
-	AnswerRelevancy  float64 `json:"answer_relevancy"`
-	ContextPrecision float64 `json:"context_precision"`
-	ContextRecall    float64 `json:"context_recall"`
-	AnswerP50LatMS   float64 `json:"answer_p50_latency_ms"`
-	AnswerP95LatMS   float64 `json:"answer_p95_latency_ms"`
-	JudgeP50LatMS    float64 `json:"judge_p50_latency_ms"`
-	JudgeP95LatMS    float64 `json:"judge_p95_latency_ms"`
+	Queries          int            `json:"queries"`
+	Evaluated        int            `json:"evaluated"`
+	Failures         int            `json:"failures"`
+	JudgeCoverage    float64        `json:"judge_coverage"`
+	Faithfulness     float64        `json:"faithfulness"`
+	AnswerRelevancy  float64        `json:"answer_relevancy"`
+	ContextPrecision float64        `json:"context_precision"`
+	ContextRecall    float64        `json:"context_recall"`
+	AnswerP50LatMS   float64        `json:"answer_p50_latency_ms"`
+	AnswerP95LatMS   float64        `json:"answer_p95_latency_ms"`
+	JudgeP50LatMS    float64        `json:"judge_p50_latency_ms"`
+	JudgeP95LatMS    float64        `json:"judge_p95_latency_ms"`
+	FailureClasses   map[string]int `json:"failure_classes,omitempty"`
+	DiagnosticCauses map[string]int `json:"diagnostic_causes,omitempty"`
 }
 
 // GenerationReport is embedded in the regular evaluator report when
@@ -119,6 +140,26 @@ type GenerationReport struct {
 	JudgeModelLarger bool                    `json:"judge_model_larger_than_answer_model"`
 	PerQuery         []GenerationQueryResult `json:"per_query"`
 	Aggregate        GenerationAggregate     `json:"aggregate"`
+}
+
+// JudgeResponseSchema is the Ollama structured-output schema used by the
+// generation evaluator. Scores remain bounded by validation in parseJudgeScores
+// so non-Ollama test Generators cannot bypass the evaluator contract.
+func JudgeResponseSchema() map[string]any {
+	score := func() map[string]any {
+		return map[string]any{"type": "number", "minimum": 0.0, "maximum": 1.0}
+	}
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"faithfulness":      score(),
+			"answer_relevancy":  score(),
+			"context_precision": score(),
+			"context_recall":    score(),
+		},
+		"required":             []string{"faithfulness", "answer_relevancy", "context_precision", "context_recall"},
+		"additionalProperties": false,
+	}
 }
 
 // Run generates one answer and one judge decision per golden query. Retrieval
@@ -147,7 +188,7 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		return nil, fmt.Errorf("generation evaluation golden set is required")
 	}
 	if golden.SchemaVersion < 2 {
-		return nil, fmt.Errorf("generation evaluation requires golden set schema version 2")
+		return nil, fmt.Errorf("generation evaluation requires golden set schema version 2 or later")
 	}
 	if topK <= 0 {
 		return nil, fmt.Errorf("generation evaluation top_k must be greater than zero")
@@ -163,10 +204,13 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 
 	for _, goldenQuery := range golden.Queries {
 		result := GenerationQueryResult{
-			ID:                goldenQuery.ID,
-			Query:             goldenQuery.Query,
-			Type:              goldenQuery.Type,
-			FaithfulnessLabel: goldenQuery.FaithfulnessLabel,
+			ID:                     goldenQuery.ID,
+			Query:                  goldenQuery.Query,
+			Type:                   goldenQuery.Type,
+			FaithfulnessLabel:      goldenQuery.FaithfulnessLabel,
+			RetrievalRelevantTotal: len(goldenQuery.Relevant),
+			AnswerStatus:           "not_started",
+			JudgeStatus:            "not_started",
 		}
 		searchResult, err := h.searcher.Query(ctx, search.Request{
 			Query:     goldenQuery.Query,
@@ -179,16 +223,27 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 				return nil, ctx.Err()
 			}
 			result.Error = "retrieval: " + err.Error()
+			result.AnswerStatus = "not_run"
+			result.JudgeStatus = "not_run"
+			result.FailureClass = failureRetrievalMiss
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
 		result.RetrievedChunks = len(searchResult.Chunks)
+		_, result.RetrievalFirstHitRank, result.RetrievalRelevantFound, _ = scoreResults(searchResult.Chunks, goldenQuery.Relevant, nil)
 		if len(searchResult.Chunks) == 0 {
 			result.Error = "retrieval returned no context"
+			result.AnswerStatus = "not_run"
+			result.JudgeStatus = "not_run"
+			result.FailureClass = failureRetrievalMiss
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
 
+		contextBuild := chat.BuildContextWithStats(searchResult.Chunks, h.maxContextTokens)
+		result.ContextChunks = contextBuild.Stats.IncludedChunks
+		result.ContextTokens = contextBuild.Stats.Tokens
+		result.ContextTruncated = contextBuild.Stats.Truncated
 		prompt := chat.BuildPrompt(goldenQuery.Query, searchResult.Chunks, h.maxContextTokens)
 		answerCtx, answerCancel := context.WithTimeout(ctx, h.requestTimeout)
 		answerStarted := time.Now()
@@ -200,11 +255,21 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 				return nil, ctx.Err()
 			}
 			result.Error = "answer generation: " + err.Error()
+			result.AnswerStatus = "error"
+			result.FailureClass = classifyGenerationFailure(err, false)
+			result.DiagnosticCause = diagnoseRetrieval(result)
+			result.JudgeStatus = "not_run"
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
+		result.AnswerStatus = "success"
+		result.AnswerBytes = len(answer)
 		if strings.TrimSpace(answer) == "" {
 			result.Error = "answer generation returned empty output"
+			result.AnswerStatus = "error"
+			result.FailureClass = failurePromptGenerate
+			result.DiagnosticCause = diagnoseRetrieval(result)
+			result.JudgeStatus = "not_run"
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
@@ -220,12 +285,19 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 				return nil, ctx.Err()
 			}
 			result.Error = "judge generation: " + err.Error()
+			result.JudgeStatus = "error"
+			result.FailureClass = classifyGenerationFailure(err, true)
+			result.DiagnosticCause = diagnoseRetrieval(result)
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
+		result.JudgeStatus = "success"
 		scores, err := parseJudgeScores(judgment)
 		if err != nil {
 			result.Error = "judge response: " + err.Error()
+			result.JudgeStatus = "invalid_response"
+			result.FailureClass = failureJudge
+			result.DiagnosticCause = diagnoseRetrieval(result)
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
@@ -233,12 +305,43 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		result.AnswerRelevancy = scores.AnswerRelevancy
 		result.ContextPrecision = scores.ContextPrecision
 		result.ContextRecall = scores.ContextRecall
+		result.DiagnosticCause = diagnoseQuality(result)
 		report.PerQuery = append(report.PerQuery, result)
 		h.log.Debug("generation evaluation query completed", zap.String("id", result.ID))
 	}
 
 	report.Aggregate = aggregateGeneration(report.PerQuery)
 	return report, nil
+}
+
+func classifyGenerationFailure(err error, judge bool) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return failureTimeout
+	}
+	if judge {
+		return failureJudge
+	}
+	return failurePromptGenerate
+}
+
+func diagnoseQuality(result GenerationQueryResult) string {
+	if cause := diagnoseRetrieval(result); cause != "" {
+		return cause
+	}
+	if result.ContextTruncated || result.ContextRecall < 0.5 {
+		return failureContextSelect
+	}
+	if result.Faithfulness < 0.5 {
+		return failurePromptGenerate
+	}
+	return ""
+}
+
+func diagnoseRetrieval(result GenerationQueryResult) string {
+	if result.RetrievalRelevantFound < result.RetrievalRelevantTotal {
+		return failureRetrievalMiss
+	}
+	return ""
 }
 
 func buildJudgePrompt(query GoldenQuery, chunks []search.Chunk, answer string, maxContextTokens int) string {
@@ -325,12 +428,20 @@ func parseJudgeScores(raw string) (judgeScores, error) {
 
 func aggregateGeneration(results []GenerationQueryResult) GenerationAggregate {
 	aggregate := GenerationAggregate{Queries: len(results)}
+	aggregate.FailureClasses = make(map[string]int)
+	aggregate.DiagnosticCauses = make(map[string]int)
 	answerLatencies := make([]float64, 0, len(results))
 	judgeLatencies := make([]float64, 0, len(results))
 	for _, result := range results {
 		if result.Error != "" {
 			aggregate.Failures++
+			if result.FailureClass != "" {
+				aggregate.FailureClasses[result.FailureClass]++
+			}
 			continue
+		}
+		if result.DiagnosticCause != "" {
+			aggregate.DiagnosticCauses[result.DiagnosticCause]++
 		}
 		aggregate.Evaluated++
 		aggregate.Faithfulness += result.Faithfulness
@@ -354,6 +465,12 @@ func aggregateGeneration(results []GenerationQueryResult) GenerationAggregate {
 	aggregate.AnswerP95LatMS = Percentile(answerLatencies, 95)
 	aggregate.JudgeP50LatMS = Percentile(judgeLatencies, 50)
 	aggregate.JudgeP95LatMS = Percentile(judgeLatencies, 95)
+	if len(aggregate.FailureClasses) == 0 {
+		aggregate.FailureClasses = nil
+	}
+	if len(aggregate.DiagnosticCauses) == 0 {
+		aggregate.DiagnosticCauses = nil
+	}
 	return aggregate
 }
 

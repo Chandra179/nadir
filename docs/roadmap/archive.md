@@ -157,6 +157,38 @@ archived here. Production-quality release evidence still requires the product
 and privacy process to provide consent-safe queries and expert judgments; the
 repository does not fabricate that evidence.
 
+## Archived P2 scope — 2026-09-16
+
+- Added and ran the Docling benchmark. The six-document local baseline achieved
+  18/18 successful conversions, p50/p95 latency of 2.62/25.94 seconds, and
+  peak RSS of about 3.28 GiB. It is a local-process measurement, not a
+  container-capacity result. See
+  [`docling-system-corpus-20260913.json`](../../test/evaluation/reports/docling-system-corpus-20260913.json).
+- Measured the available BGE v2 M3 and MiniLM CPU/GPU/ONNX reranker profiles
+  over 133 synthetic queries. The comparison is retained as engineering
+  evidence; GTE and consent-safe release judgments remain open. See
+  [`reranker-profile-comparison-20260915.json`](../../test/evaluation/reports/reranker-profile-comparison-20260915.json).
+- Added reranker release-gate validation so synthetic or incomplete evidence
+  cannot be used as a production model decision.
+- Compared EmbeddingGemma 300M with Nomic using isolated collections and full
+  reindexes. EmbeddingGemma improved the sample fixture but raised query
+  latency, so Nomic remains the default pending release-gated evidence. See
+  [`embedder-comparison-20260914.json`](../../test/evaluation/reports/embedder-comparison-20260914.json).
+- Tuned dense/BM25/RRF fusion with deterministic weighted rank fusion and
+  query-type safeguards. No tested candidate improved both primary ranking
+  metrics, so provider-native RRF remains the default. See
+  [`fusion-calibration-20260915.json`](../../test/evaluation/reports/fusion-calibration-20260915.json).
+- Added generation evaluation using the larger `phi4-mini:latest` judge. The
+  133-query run evaluated 129 cases and recorded faithfulness, answer
+  relevancy, context precision/recall, latency, and four failures. See
+  [`generation-eval-20260915.json`](../../test/evaluation/reports/generation-eval-20260915.json).
+- Moved Chat history page sizes into configuration and added process-wide
+  finite admission queues for expensive and destructive operations.
+- Added process-local operation IDs, bounded metrics, traces, and a load
+  benchmark for Chat streams, Retrieval, and large Document ingestion. The
+  benchmark reports p50/p95/p99, throughput, failures, and admission pressure;
+  live capacity results still require the operator's running topology.
+
 ## Archived adaptive reranking experiment — 2026-09-14
 
 Confidence-gated adaptive reranking is implemented behind

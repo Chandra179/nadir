@@ -146,6 +146,7 @@ generator:
   ollama_addr: "http://localhost:11434"
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   request_timeout: 120s
+  max_output_tokens: 512 # bound answer generation; prevents an unending stream
 
 chat:
   # Chat use-case tuning: prompt assembly and the streaming turn lifecycle.

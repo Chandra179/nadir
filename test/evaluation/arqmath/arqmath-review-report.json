@@ -1,0 +1,52 @@
+{
+  "report_type": "arqmath_review_pack_acquisition",
+  "dataset": "arqmath-task1-release-gate-candidate",
+  "status": "awaiting-independent-human-review",
+  "release_gate": false,
+  "query_count": 120,
+  "queries_per_source_year": {
+    "2020": 40,
+    "2021": 40,
+    "2022": 40
+  },
+  "source": {
+    "name": "ARQMath public evaluation collection",
+    "homepage": "https://www.cs.rit.edu/~dprl/ARQMath/",
+    "license": "Math Stack Exchange CC BY-SA with ARQMath non-commercial snapshot terms",
+    "usage": "non-commercial evaluation with attribution",
+    "snapshot": "ARQMath-1 through ARQMath-3 Task 1; collection Posts.V1.3",
+    "attribution": "Mansouri et al., ARQMath; Math Stack Exchange contributors",
+    "license_notice_path": "LICENSE-NOTICE.md",
+    "artifact_sha256": {
+      "qrels-2020.tsv": "6b8c248e6a70a79bdec79f349b1e51b710338bd146c1cb0d4c9dc6e315ec8948",
+      "qrels-2021.tsv": "289f4ae6fb0f9a65fb8101da1a3c45b6c74180a0ccffb73eb5635db854193f38",
+      "qrels-2022.tsv": "c8a9fc2020a251c8ecfbf8612760f6bd29433b1e854342c367e6aa0174515517",
+      "topics-2020.xml": "7e88764849bec5901c4d90253b48df189232b01f581d905db41a0c1592ebaf5e",
+      "topics-2021.xml": "2c7fec17c0a7f90a08f1cd85b2100a3b3371fad6030527a8766afa824fd3d063",
+      "topics-2022.xml": "fe6e0e2e3af41d1b84de05fb708066a2f1f12470e23d1587ae353cfe30fa8c54"
+    }
+  },
+  "corpus": {
+    "id": "arqmath-math-stackexchange-2010-2018-v1.3",
+    "documents": [],
+    "document_count": 0,
+    "representative": false,
+    "manifest_path": "",
+    "manifest_sha256": ""
+  },
+  "review_requirements": {
+    "annotators": 2,
+    "judgments_per_query": 2,
+    "adjudication_required": true,
+    "expected_answer_and_claims_required": true
+  },
+  "retrieval_evaluation": {
+    "status": "not_run",
+    "reason": "The representative ARQMath Posts corpus and independent human review artifacts are pending; no quality score is recorded."
+  },
+  "limitations": [
+    "The checked-in candidate contains public ARQMath topics/qrels, not consented Nadir user telemetry.",
+    "The full Posts.V1.3 snapshot is not committed and was not available during this build.",
+    "ARQMath qrels are candidate-pool evidence, not a substitute for two new independent reviews."
+  ]
+}

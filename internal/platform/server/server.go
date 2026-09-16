@@ -56,8 +56,12 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			Model:          generatorEndpoint.Model,
 			RequestTimeout: cfg.Generator.RequestTimeout,
 			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			Gate:           graph.OllamaGate,
-			Admission:      graph.Admission.AcquireFunc(platformadmission.Generation),
+			Options: map[string]any{
+				"temperature": 0,
+				"num_predict": cfg.Generator.MaxOutputTokens,
+			},
+			Gate:      graph.OllamaGate,
+			Admission: graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		log.Info("LLM generator enabled",
 			zap.String("model", cfg.Generator.Model),

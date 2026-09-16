@@ -21,6 +21,8 @@ type ollamaChatRequest struct {
 	Messages  []ollamaMessage `json:"messages"`
 	Stream    bool            `json:"stream"`
 	KeepAlive string          `json:"keep_alive,omitempty"`
+	Format    any             `json:"format,omitempty"`
+	Options   map[string]any  `json:"options,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -57,6 +59,8 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 		Messages:  []ollamaMessage{{Role: "user", Content: prompt}},
 		Stream:    true,
 		KeepAlive: g.keepAlive,
+		Format:    g.format,
+		Options:   g.options,
 	})
 	if err != nil {
 		release()

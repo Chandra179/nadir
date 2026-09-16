@@ -1,0 +1,43 @@
+{
+  "dataset": "ARQMath Task 1",
+  "homepage": "https://www.cs.rit.edu/~dprl/ARQMath/arqmath-resources.html",
+  "license_policy": "non-commercial use with attribution; review Math Stack Exchange CC BY-SA terms",
+  "artifacts": [
+    {
+      "name": "topics-2020.xml",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Topics/Task1%263%20Topics/ARQMath-1/Topics/Topics_V2.0.xml",
+      "sha256": "7e88764849bec5901c4d90253b48df189232b01f581d905db41a0c1592ebaf5e"
+    },
+    {
+      "name": "qrels-2020.tsv",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Evaluation/%20Scripts%20%26%20Qrels/ARQMath-1/Task%201%20/qrel_official_task1",
+      "sha256": "6b8c248e6a70a79bdec79f349b1e51b710338bd146c1cb0d4c9dc6e315ec8948"
+    },
+    {
+      "name": "topics-2021.xml",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Topics/Task1%263%20Topics/ARQMath-2/Topics/Topics_Task1_2021_V1.1.xml",
+      "sha256": "2c7fec17c0a7f90a08f1cd85b2100a3b3371fad6030527a8766afa824fd3d063"
+    },
+    {
+      "name": "qrels-2021.tsv",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Evaluation/%20Scripts%20%26%20Qrels/ARQMath-2/Task1/Qrel%20Files/qrel_task1_2021_all.tsv",
+      "sha256": "289f4ae6fb0f9a65fb8101da1a3c45b6c74180a0ccffb73eb5635db854193f38"
+    },
+    {
+      "name": "topics-2022.xml",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Topics/Task1%263%20Topics/ARQMath-3/Topics/Topics_Task1_2022_V0.1.xml",
+      "sha256": "fe6e0e2e3af41d1b84de05fb708066a2f1f12470e23d1587ae353cfe30fa8c54"
+    },
+    {
+      "name": "qrels-2022.tsv",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Evaluation/%20Scripts%20%26%20Qrels/ARQMath-3/Task%201/Qrel%20Files/qrel_task1_2022_all.tsv",
+      "sha256": "c8a9fc2020a251c8ecfbf8612760f6bd29433b1e854342c367e6aa0174515517"
+    },
+    {
+      "name": "Posts.V1.3.zip",
+      "url": "https://www.cs.rit.edu/~dprl/ARQMath-backup/Collection/Posts.V1.3.zip",
+      "sha256": null,
+      "status": "trusted checksum must be supplied by the operator before import"
+    }
+  ]
+}

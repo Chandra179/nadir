@@ -15,6 +15,8 @@ type DependenciesConfig struct {
 	Model          string
 	RequestTimeout time.Duration
 	KeepAlive      string
+	Format         any
+	Options        map[string]any
 	Gate           *inference.Gate
 	Admission      func(context.Context) (func(), error)
 }
@@ -25,6 +27,8 @@ type dependencies struct {
 	model     string
 	client    *http.Client
 	keepAlive string
+	format    any
+	options   map[string]any
 	gate      *inference.Gate
 	admission func(context.Context) (func(), error)
 }
@@ -45,10 +49,23 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		addr:      cfg.Addr,
 		model:     cfg.Model,
 		keepAlive: cfg.KeepAlive,
+		format:    cfg.Format,
+		options:   cloneOptions(cfg.Options),
 		gate:      gate,
 		admission: cfg.Admission,
 		client: &http.Client{
 			Timeout: timeout,
 		},
 	}
+}
+
+func cloneOptions(options map[string]any) map[string]any {
+	if len(options) == 0 {
+		return nil
+	}
+	copy := make(map[string]any, len(options))
+	for key, value := range options {
+		copy[key] = value
+	}
+	return copy
 }
