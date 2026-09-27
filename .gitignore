@@ -80,3 +80,6 @@ __pycache__/
 
 # Default `go build ./cmd/api` output
 /api
+
+# Local dynamic-int8 reranker export produced by sidecars/reranker/quantize.py
+int8_avx2/

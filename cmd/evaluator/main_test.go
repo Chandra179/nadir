@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	config "nadir/internal/bootstrap/configuration"
 	"nadir/internal/eval"
+	"nadir/internal/providers/reranker"
 )
 
 func TestValidateOnlyAcceptsReleaseGateFixtureWithoutConfig(t *testing.T) {
@@ -108,5 +112,29 @@ func TestValidateGenerationOptionsRequiresExplicitLargerJudge(t *testing.T) {
 	}
 	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "phi4-mini:latest", JudgeLarger: true}); err != nil {
 		t.Fatalf("validateGenerationOptions(valid) = %v", err)
+	}
+}
+
+func TestRecordRerankerProfileCapturesServingProfile(t *testing.T) {
+	report := &evaluation.Report{}
+	recordRerankerProfile(context.Background(),
+		func(context.Context) (reranker.ProbeResult, error) {
+			return reranker.ProbeResult{LoadedModel: "BAAI/bge-reranker-v2-m3", Backend: "onnx-int8", Device: "cpu"}, nil
+		}, report, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if report.RerankerModel != "BAAI/bge-reranker-v2-m3" || report.RerankerBackend != "onnx-int8" || report.RerankerDevice != "cpu" {
+		t.Fatalf("serving profile not recorded: %+v", report)
+	}
+}
+
+func TestRecordRerankerProfileOmitsProfileOnFailureOrAbsence(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	report := &evaluation.Report{}
+	recordRerankerProfile(context.Background(),
+		func(context.Context) (reranker.ProbeResult, error) {
+			return reranker.ProbeResult{}, fmt.Errorf("sidecar down")
+		}, report, log)
+	recordRerankerProfile(context.Background(), nil, report, log)
+	if report.RerankerModel != "" || report.RerankerBackend != "" || report.RerankerDevice != "" {
+		t.Fatalf("failed or absent probe must leave the profile empty: %+v", report)
 	}
 }

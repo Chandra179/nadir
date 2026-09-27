@@ -39,16 +39,20 @@ must not be used alone for a release decision.
 | Hybrid Retrieval without reranking | HitRate@5 0.805, Recall@5 0.788, MRR@10 0.657, nDCG@5 0.678, p50/p95 19/23ms ([report](test/evaluation/reports/e2e-podman-no-rerank-goldencorpus-20260926.json)) | Fast baseline; provider-native RRF remains the fusion default |
 | End-to-end BGE v2-M3 reranking on CPU | HitRate@5 0.812, Recall@5 0.794, MRR@10 0.697, nDCG@5 0.709; rerank p50/p95 9.36/18.6s ([report](test/evaluation/reports/e2e-podman-rerank-20260926.json)) | Best measured quality; CPU rerank tail latency is the operational blocker for default-on |
 | End-to-end BGE v2-M3 reranking on GPU (laptop RTX, CDI overlay) | Quality identical (MRR@10 0.697, nDCG@5 0.709); rerank p50/p95 435/700ms; peak VRAM ≈3.7 of 6.1 GiB ([report](test/evaluation/reports/e2e-podman-gpu-rerank-20260927.json)) | ≈21× faster reranking than CPU with no quality change; laptop hardware so far |
+| End-to-end BGE v2-M3 reranking, quantized int8 CPU (2026-09-27, full 14-document corpus) | HitRate@5 0.820, Recall@5 0.796, MRR@10 0.725, nDCG@5 0.731; rerank p50/p95 5.42/9.70s; serving profile recorded in-report (backend onnx-int8, device cpu) ([report](test/evaluation/reports/e2e-podman-rerank-onnx-int8-20260927.json)) | Quality at or above torch, but only ≈1.7× faster — fails the pre-registered rerank-p50 ≤ 2s bar; the CPU default stays torch ([ADR 0031](docs/adr/0031-default-retrieval-profile-torch-cpu.md)) |
 | Load, chat streams at concurrency 8 | p50/p95/p99 26.0/53.2/55.2s, 0 failures ([report](test/evaluation/reports/load-podman-20260926.json)) | Single-process, LLM-bound laptop baseline; not target-capacity evidence |
-| Generation judge baseline (pre-remediation) | Faithfulness 0.485, relevancy 0.780, context precision/recall 0.615/0.622; 129/133 evaluated ([triage](test/evaluation/reports/generation-triage-20260916.json)) | Pre-remediation numbers; the post-change live rerun is the open P1 gate |
+| Generation judge baseline (pre-remediation) | Faithfulness 0.485, relevancy 0.780, context precision/recall 0.615/0.622; 129/133 evaluated ([triage](test/evaluation/reports/generation-triage-20260916.json)) | Pre-remediation numbers; the live rerun below is the same fixture re-measured after the remediation |
+| Generation judge, post-remediation live rerun (2026-09-27, 4-document golden-corpus isolation) | Faithfulness **0.716**, relevancy 0.662, context precision/recall 0.663/0.711; 133/133 evaluated, 0 failures ([report](test/evaluation/reports/e2e-podman-generation-rerun-20260927.json)) | All mechanical gate criteria pass. The relevancy aggregate dropped 0.780→0.662, but the paired per-query triage locates it in the 26 retrieval-miss queries (relevancy 0.623→0.335 where faithfulness rose 0.181→0.615 — the bounded style now refuses instead of hallucinating) and in the judge mis-scoring terse formula answers (e.g. a 19-byte correct answer scored faithfulness 0.0 and context recall 0.0 against context precision 1.0). Retrieval-hit queries: relevancy 0.789→0.742 (noise-level), faithfulness 0.541→0.741 |
 | PDF intake | 18/18 conversions, p50/p95 2.62/25.94s, peak RSS ≈3.28 GiB (measured 2026-09-13; earlier report removed in the stale-evidence cleanup) | Local-process baseline, not container-capacity evidence |
 
-The current configuration enables BGE v2 M3 CPU reranking by default. That is
-an operational choice, not a release-validated model decision. The CPU/GPU
-comparison above shows identical quality with rerank p50 dropping 9.36s to
-435ms on a laptop GPU; the default stays CPU for portable operation until the
-P1 release decision below documents which deployment profile each default
-supports.
+The current configuration enables BGE v2 M3 CPU reranking by default. That
+default is now a measured release decision ([ADR 0031](docs/adr/0031-default-retrieval-profile-torch-cpu.md)):
+the pre-registered comparison kept torch CPU for portable operation — the
+quantized int8 route matched quality (MRR@10 0.725 vs 0.697) but rerank p50
+5.42s missed the ≤ 2s bar — and the GPU Compose overlay is the documented
+profile for latency-sensitive deployments (identical quality, rerank p50
+435ms). Any revisit of int8 serving tuning requires a new pre-registered
+measurement.
 
 ## Active priority backlog
 
@@ -78,21 +82,25 @@ These items come before model or architecture experiments.
       the full Posts snapshot when a trusted checksum is supplied. It does not
       fabricate human review or approval.
 - [ ] Complete the generation-quality remediation gate. The implementation is
-      complete: per-query paired Retrieval/context diagnostics, section-header
-      matching and prompt context, bounded deterministic answer output,
-      structured bounded judge output, strict score validation, and regression
-      cases are in place ([triage report](test/evaluation/reports/generation-triage-20260916.json)).
-      Remaining evidence is a live 133-query rerun with Qdrant/Ollama: require
-      zero judge-contract failures, no repeated cosine timeout, complete
-      classifications, and no Retrieval or answer-quality regression before
-      checking this item.
-- [ ] Make the default Retrieval profile an explicit release decision. Compare
-      no reranker, fast quantized CPU reranking, BGE CPU, and BGE GPU against
-      the agreed quality and latency criteria; document which deployment
-      profile each default supports. Laptop CPU/GPU evidence now exists:
-      identical quality (MRR@10 0.697) with rerank p50 9.36s (CPU) vs 435ms
-      (GPU); the missing inputs are the fast quantized CPU route on the
-      current build and the agreed acceptance thresholds.
+      complete and the live 133-query rerun has been executed
+      ([report](test/evaluation/reports/e2e-podman-generation-rerun-20260927.json)):
+      zero judge-contract failures, zero timeouts, complete classifications,
+      and no Retrieval regression — but the answer-relevancy aggregate
+      regressed 0.780→0.662, so the item stays open. The paired triage (see
+      the evidence table) attributes the drop to the intended refusal
+      behavior on retrieval misses and to the phi4-mini judge mis-scoring
+      terse formula answers, not to worse answers on queries retrieval can
+      serve. The decision this item now needs: amend the gate metric to the
+      retrieval-hit subset, or fix the judge prompt's terseness bias
+      ("directly and completely") and re-run, or accept the
+      faithfulness-over-verbosity tradeoff explicitly.
+- [x] Make the default Retrieval profile an explicit release decision. All
+      four profiles are measured against the same fixture and the decision is
+      recorded in [ADR 0031](docs/adr/0031-default-retrieval-profile-torch-cpu.md):
+      torch fp32 CPU stays the portable default — the quantized int8 route
+      matched quality (MRR@10 0.725 vs 0.697) but rerank p50 5.42s failed the
+      pre-registered ≤ 2s bar — and the GPU Compose overlay covers
+      latency-sensitive deployments (identical quality, rerank p50 435ms).
 
 ### P2 — Production measurements and maintainability
 

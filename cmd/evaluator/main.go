@@ -25,6 +25,7 @@ import (
 	"nadir/internal/core/documents/indexing"
 	"nadir/internal/eval"
 	ollamagenerator "nadir/internal/providers/ollama/generator"
+	"nadir/internal/providers/reranker"
 
 	"log/slog"
 )
@@ -135,6 +136,9 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	}
 	report.Rerank = rerankEnabled
 	report.AdaptiveRerank = rerankEnabled && cfg.Reranker.AdaptiveEnabled
+	if rerankEnabled {
+		recordRerankerProfile(ctx, graph.RerankerProbe, report, log)
+	}
 	if generationOptions.Enabled {
 		answerEndpoint := cfg.GeneratorEndpoint()
 		answerGenerator := ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
@@ -189,6 +193,25 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	}
 	fmt.Println("\nreport written to", reportPath)
 	return nil
+}
+
+// recordRerankerProfile captures the reranker profile actually serving the
+// run for report provenance. A probe failure is non-fatal: the run continues
+// and the report omits the profile.
+func recordRerankerProfile(ctx context.Context, probe func(context.Context) (reranker.ProbeResult, error), report *evaluation.Report, log *slog.Logger) {
+	if probe == nil {
+		return
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	result, err := probe(probeCtx)
+	if err != nil {
+		log.Warn("reranker probe failed; report will omit the serving profile", slog.Any("error", err))
+		return
+	}
+	report.RerankerModel = result.LoadedModel
+	report.RerankerBackend = result.Backend
+	report.RerankerDevice = result.Device
 }
 
 func validateGenerationOptions(cfg *config.Config, options generationOptions) error {
@@ -257,6 +280,9 @@ func printReport(report *evaluation.Report) {
 		aggregate.RerankCoverage*100, aggregate.RerankDependencyCalls, aggregate.RerankCandidateTotal,
 		aggregate.RerankP50LatMS, aggregate.RerankP95LatMS, aggregate.RerankErrors)
 	fmt.Printf("queries=%d reranker=%v adaptive=%v top_k=%d\n", aggregate.Queries, report.Rerank, report.AdaptiveRerank, aggregate.TopK)
+	if report.RerankerBackend != "" || report.RerankerDevice != "" {
+		fmt.Printf("reranker profile  model=%s backend=%s device=%s\n", report.RerankerModel, report.RerankerBackend, report.RerankerDevice)
+	}
 	if report.Generation != nil {
 		generation := report.Generation
 		fmt.Printf("generation answer=%s judge=%s larger=%v coverage=%.1f%% failures=%d\n",

@@ -615,14 +615,21 @@ type Aggregate struct {
 
 // Report is the persisted evaluation result for one evaluator run.
 type Report struct {
-	Timestamp            string            `json:"timestamp"`
-	Dataset              string            `json:"dataset,omitempty"`
-	DatasetSchemaVersion int               `json:"dataset_schema_version,omitempty"`
-	DatasetReleaseGate   bool              `json:"dataset_release_gate"`
-	TopK                 int               `json:"top_k"`
-	Rerank               bool              `json:"reranker_enabled"`
-	AdaptiveRerank       bool              `json:"adaptive_reranker_enabled"`
-	PerQuery             []QueryResult     `json:"per_query"`
-	Aggregate            Aggregate         `json:"aggregate"`
-	Generation           *GenerationReport `json:"generation,omitempty"`
+	Timestamp            string `json:"timestamp"`
+	Dataset              string `json:"dataset,omitempty"`
+	DatasetSchemaVersion int    `json:"dataset_schema_version,omitempty"`
+	DatasetReleaseGate   bool   `json:"dataset_release_gate"`
+	TopK                 int    `json:"top_k"`
+	Rerank               bool   `json:"reranker_enabled"`
+	AdaptiveRerank       bool   `json:"adaptive_reranker_enabled"`
+	// Serving reranker profile recorded from the sidecar health endpoint
+	// when reranking is enabled; empty when reranking is off or the probe
+	// failed. Distinguishes torch from onnx-int8 and cpu from cuda in
+	// committed evidence.
+	RerankerModel   string            `json:"reranker_model,omitempty"`
+	RerankerBackend string            `json:"reranker_backend,omitempty"`
+	RerankerDevice  string            `json:"reranker_device,omitempty"`
+	PerQuery        []QueryResult     `json:"per_query"`
+	Aggregate       Aggregate         `json:"aggregate"`
+	Generation      *GenerationReport `json:"generation,omitempty"`
 }
