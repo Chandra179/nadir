@@ -41,3 +41,20 @@ func TestBuildContextWithStatsReportsTruncation(t *testing.T) {
 		t.Fatalf("included chunks = %d, want one partially included chunk", got.Stats.IncludedChunks)
 	}
 }
+
+func TestBuildPromptShapesAnswersAndAbstention(t *testing.T) {
+	prompt := BuildPrompt("why add C to an indefinite integral", []search.Chunk{{
+		FilePath: "calculus.md",
+		Header:   "Antiderivatives",
+		Text:     "An antiderivative collects a constant of integration C.",
+	}}, 1000)
+	for _, clause := range []string{
+		`"what is" question gets the value or formula itself`,
+		`"why" or "how" question gets the answer plus one to three short sentences`,
+		"labeled as related background",
+	} {
+		if !strings.Contains(prompt, clause) {
+			t.Fatalf("prompt missing shaping/abstention clause %q", clause)
+		}
+	}
+}

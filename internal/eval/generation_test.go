@@ -311,3 +311,20 @@ func TestJudgeResponseSchemaBoundsAllScores(t *testing.T) {
 		}
 	}
 }
+
+func TestJudgePromptScoresTerseAnswersFairly(t *testing.T) {
+	prompt := buildJudgePrompt(
+		GoldenQuery{Query: "60 degrees in radians", ExpectedAnswer: "pi over 3", RequiredClaims: []string{"60 degrees equals pi over 3"}},
+		nil, "pi over 3", 2800,
+	)
+	for _, clause := range []string{
+		"brevity is not unfaithfulness",
+		"A short answer that fully answers the question scores high",
+		"do not reward elaboration the question did not ask for",
+		"checklist of what must be covered, not as a target length or style",
+	} {
+		if !strings.Contains(prompt, clause) {
+			t.Fatalf("judge prompt missing terseness-fairness clause %q", clause)
+		}
+	}
+}

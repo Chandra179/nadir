@@ -31,8 +31,9 @@ func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
 
 	var sb strings.Builder
 	sb.WriteString("You are a precise assistant. Answer the question using ONLY the context below.\n")
-	sb.WriteString("If the answer is not in the context, say \"I don't know based on the provided context.\"\n")
-	sb.WriteString("Keep the answer concise and state only facts or formulas directly supported by the context.\n")
+	sb.WriteString("Match the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\n")
+	sb.WriteString("Do not pad the answer beyond what the question asks.\n")
+	sb.WriteString("If the context does not contain the answer, say so in one sentence, then add the closest related fact from the context, labeled as related background.\n")
 	sb.WriteString("Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\n")
 	sb.WriteString("Context:\n")
 	sb.WriteString(context)

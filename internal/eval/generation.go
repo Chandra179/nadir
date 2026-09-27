@@ -356,8 +356,8 @@ func buildJudgePrompt(query GoldenQuery, chunks []search.Chunk, answer string, m
 	return fmt.Sprintf(`You are a strict, independent RAG evaluation judge. Return only one JSON object, with no Markdown and no extra text.
 
 Score each field as a number from 0.0 to 1.0:
-- faithfulness: proportion of substantive claims in the generated answer that are entailed by the retrieved context. Penalize invented, contradicted, or unsupported claims.
-- answer_relevancy: how directly and completely the answer addresses the question, using the reference answer as a rubric but not as evidence.
+- faithfulness: proportion of substantive claims in the generated answer that are entailed by the retrieved context. Score only the claims the answer actually makes; brevity is not unfaithfulness. Penalize invented, contradicted, or unsupported claims.
+- answer_relevancy: how directly the answer addresses the question. A short answer that fully answers the question scores high; do not reward elaboration the question did not ask for. Use the reference answer as a checklist of what must be covered, not as a target length or style.
 - context_precision: proportion of the retrieved context that is relevant to answering the question or reference answer. Penalize unrelated passages.
 - context_recall: proportion of the required claims that are supported by the retrieved context. Missing or unsupported claims lower this score.
 
