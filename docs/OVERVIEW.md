@@ -126,10 +126,117 @@ The selected passages are placed into a prompt with their source context. The
 language model is instructed to answer from that material, which reduces
 unsupported claims and makes the result easier to verify.
 
+## Under the hood
+
+Documents flow through one pipeline when they are added; questions flow
+through another when they are asked. A small amount of bookkeeping keeps the
+heavy work of each from colliding. None of this changes how Nadir is used —
+it explains why it stays fast and predictable.
+
+### Finding the right passages
+
+```text
+        your question
+             │
+             ▼
+   ┌───────────────────┐  was a very similar question
+   │  semantic cache   │ searched recently?
+   └────────┬──────────┘ ─── yes ──▶ reuse that result
+            │ no
+            ▼
+   break the question into its sub-questions, if it has several
+            │
+            ▼
+   for each part: search by meaning + search by exact words,
+   then combine the two rankings
+            │
+            ▼
+   keep the best passages — at most a few per document
+            │
+            ▼
+   the reranker re-reads the question together with each
+   leading passage and puts them in a finer order
+            │
+            ▼
+   final passages ──▶ remembered in the cache for next time
+```
+
+Three ideas do most of the work. The semantic cache answers a repeated or
+rephrased question from memory, so an earlier search is reused instead of
+repeated. Meaning-based search finds passages written with different words,
+while exact-word search catches the names, formulas, and identifiers that
+meaning alone can miss; the two rankings are combined into one. Finally the
+reranker — the slowest, most careful step — reads the question together with
+each leading passage. If it is unavailable, the search order is kept rather
+than losing the answer. Results are capped per document, so one long file
+cannot crowd out the rest.
+
+### How a conversation turn works
+
+```text
+        you ask a question
+              │
+   editing an earlier question? ──▶ that turn and everything after
+              │                    it are replaced by the new answer
+              ▼
+   a follow-up question? ──▶ rewritten into a standalone question
+              │              using the recent conversation
+              ▼
+     retrieve passages (diagram above)
+              │
+              ▼
+     generate the answer from those passages, streamed as it is written
+              │
+    ├─ closing the page does not stop it: the answer finishes and is saved
+    ├─ cancelling keeps what was already written
+    └─ reopening the page shows the answer from where you left off
+```
+
+A follow-up question is first rewritten into a standalone question using the
+recent conversation, so "what about the second one?" searches for something
+meaningful; if that step fails, the original wording is used. Only an
+explicit cancel stops a running answer. Closing the page does not: the answer
+finishes in the background and is saved, so reopening shows it from where you
+left off. Editing an earlier question trims that branch of the conversation —
+the edited question is answered against everything before it, and everything
+after it is replaced. The conversation itself is stored, so history survives
+a restart; an answer that was still being written is saved up to that point.
+
+### Keeping heavy work orderly
+
+```text
+ ┌──────────────────────────────────────────────────┐
+ │ indexing:         one run at a time              │
+ │                                                  │
+ │ destructive:      one at a time, and never       │
+ │ reset, edit or    while an indexing run is       │
+ │ delete chats      in progress                    │
+ │                                                  │
+ │ busy?             new work is turned away        │
+ │                   promptly instead of piling up  │
+ └──────────────────────────────────────────────────┘
+
+   talking to the AI model is a separate matter: the model
+   server itself decides how many requests it handles at once
+```
+
+This prevents two indexing runs from racing each other, and a reset from
+deleting content halfway through an indexing run. Turning work away quickly
+keeps the app responsive instead of letting hidden queues grow. Reranking has
+its own one-at-a-time queue for the same reason.
+
+### What "ready" means
+
+Nadir distinguishes merely running from truly ready. It reports ready only
+when the search index, the embedding model, and — if enabled — the reranker
+have each been checked and are actually working, and startup tooling watches
+that signal, so the app never looks healthy while a dependency is quietly
+broken.
+
 ## Current evidence
 
 These are the latest engineering measurements. The 133-query fixture uses the
-four sample documents and synthetic user-intent queries, so it is a regression
+sample documents and synthetic user-intent queries, so it is a regression
 signal rather than production release evidence.
 
 | Area | Latest result |
@@ -137,7 +244,7 @@ signal rather than production release evidence.
 | Hybrid Retrieval, no reranker | HitRate@5 **0.797**, MRR@10 **0.651**, p50/p95 **22/47 ms**  |
 | EmbeddingGemma experiment | HitRate@5 **0.932**, MRR@10 **0.735**, p50/p95 **98/118 ms**; default remains Nomic pending release-gated evidence  |
 | BGE reranker on GPU | MRR@10 **0.962**, nDCG@5 **0.971**, p50/p95 **30/132 ms**; peak VRAM about **2.37 GiB** |
-| Answer-quality judge baseline | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures; triage and remediation recorded in [`generation-triage-20260916.json`](../test/evaluation/reports/generation-triage-20260916.json)  |
+| Answer-quality judge baseline | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures; triage and remediation recorded in [the generation triage report](../test/evaluation/reports/generation-triage-20260916.json)  |
 | PDF intake | 18/18 successful conversions, p50/p95 **2.62/25.94 s**, peak RSS about **3.28 GiB**  |
 
 The results show that Retrieval is fast without reranking, while reranking and
@@ -155,7 +262,7 @@ The generation baseline found two answer timeouts, two judge-contract failures,
 and a header-only context-evaluation miss. Generation now includes section
 headers in context and matching, bounds answer output, and requires a
 structured bounded judge response. A post-change live generation measurement
-is still pending because the local Qdrant and Ollama services were unavailable;
+is still pending because the local search-index and model services were unavailable;
 the baseline scores above are not post-change results.
 
 ## Conversations and data management
@@ -176,5 +283,5 @@ control, and a simple operating model.
 
 Retrieval and storage can be scaled separately when needed. Horizontal scaling
 of live Chat streaming and concurrent Indexing requires a shared event backend
-and coordination layer. See the [architecture guide](architecture.md) for the current single-node
+and coordination layer. See the [architecture guide](../AGENTS.md#architecture) for the current single-node
 guarantees and the coordination needed for a distributed deployment.
