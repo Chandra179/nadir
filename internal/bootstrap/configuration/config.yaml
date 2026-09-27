@@ -51,7 +51,7 @@ embedder:
   document_prefix: "title: none | text: "          # prepended to chunks at ingest time; requires reindex when changed
 
 chunker:
-  provider: "recursive"  # recursive | sentence-window
+  provider: "recursive"  # recursive | sentence-window (measured 2026-09-27, ADR 0033: recursive stays)
   chunk_size: 512
   chunk_overlap: 64
   window_size: 3          # sentences before+after each sentence (sentence-window only)

@@ -48,6 +48,7 @@ must not be used alone for a release decision.
 | Fusion A/B: weighted rank-RRF vs Qdrant-native RRF (2026-09-27, both corpus states, same-session controls) | Fusion loses on both: full corpus HitRate@5 0.744 / MRR@10 0.602 vs control 0.759/0.641; golden 0.789/0.636 vs 0.797/0.641 ([reports](test/evaluation/reports/e2e-podman-fusion-on-goldencorpus-20260927.json)) | The shipped default fusion profile (equal weights, k=60, no boosts) does not beat native RRF anywhere; the flag stays opt-in and off |
 | Fresh EmbeddingGemma reindex (2026-09-27, current build, full reindex both arms) | Golden: HitRate@5 **0.955**, Recall@5 0.941, MRR@10 0.742, nDCG@5 0.787 at embed p50/p95 95/106ms; full 14-doc corpus: **0.940**, 0.929, **0.795**, 0.823. Same-session Nomic controls: 0.797 golden / 0.759 full ([reports](test/evaluation/reports/embedder-gemma-goldencorpus-20260927.json)) | The 2026-09-14 experiment reproduces and improves on the current build; converts roughly 21 of the 26 retrieval-miss queries at 3-4x embedding latency |
 | Generation-gate attempts on the swapped embedder (2026-09-27) | Gemma no-rerank: faithfulness 0.632 / relevancy **0.757**; with reranker: 0.663 / 0.689 ([reports](test/evaluation/reports/generation-gemma-promptfix-20260927.json)) | Each configuration passes exactly one bar; the three runs bracket the pre-registered gate (see the P1 item) — the binding constraint is now the answer model, not retrieval |
+| Chunking A/B: recursive vs sentence-window (2026-09-27, golden-corpus isolation, same-session arms, pre-registered bars) | Sentence-window: HitRate@5 0.925 / Recall@5 0.909 / MRR@10 0.743 / nDCG@5 0.779 vs recursive 0.940 / 0.930 / 0.737 / 0.779; 35 vs 29 points, ingest 0.97 s vs 2.79 s, query p50 97.1 vs 96.2 ms ([reports](test/evaluation/reports/chunk-recursive-goldencorpus-20260927.json)) | Sentence-window failed the pre-registered HitRate@5 bar (needed ≥ 0.955): ranking among hits held but the hit pool shrank. Its segmenter degenerates on bullet-list markdown (sections collapse into few coarse segments; list items fuse without separators), so the measured arm is window-context-at-query-time over section-level segments — a real markdown/formula-aware segmenter is a pre-condition for any revisit ([ADR 0033](docs/adr/0033-default-chunker-recursive.md)) |
 | PDF intake | 18/18 conversions, p50/p95 2.62/25.94s, peak RSS ≈3.28 GiB (measured 2026-09-13; earlier report removed in the stale-evidence cleanup) | Local-process baseline, not container-capacity evidence |
 
 The current configuration enables BGE v2 M3 CPU reranking by default. That
@@ -134,9 +135,19 @@ These items come before model or architecture experiments.
       throughput, dependency saturation, memory, failures, and timeouts. The
       existing harnesses and the laptop-topology load report do not prove
       target capacity.
-- [ ] Benchmark recursive versus sentence-window chunking on the release-gated
-      corpus before changing the chunker default. Include retrieval and answer
-      quality, chunk count, index size, ingest cost, and query latency.
+- [x] Benchmark recursive versus sentence-window chunking on the release-gated
+      corpus before changing the chunker default. Done (2026-09-27, pre-registered
+      bars, golden-corpus isolation, same-session arms): sentence-window failed
+      the primary bar — HitRate@5 0.925 vs the required recursive + 0.015 = 0.955
+      — while ranking held (MRR@10 0.743 vs 0.737, nDCG@5 equal), so the
+      recursive default stays ([ADR 0033](docs/adr/0033-default-chunker-recursive.md)).
+      Chunk count (35 vs 29 points), index size, ingest cost (0.97 s vs 2.79 s),
+      and query latency (p50 97.1 vs 96.2 ms) are recorded in the ADR. The
+      pre-registered answer-quality stage was not reached: it required the
+      retrieval bars to pass first. The measured sentence-window segmenter
+      degenerates on bullet-list markdown (sections collapse into few coarse
+      segments; adjacent list items fuse), so any revisit requires a
+      markdown- and formula-aware segmenter as a pre-condition.
 - [ ] Choose the canonical HTTP contract. If external clients or independent
       teams need a stable contract, restore an authoritative OpenAPI source and
       generate or verify the TypeScript DTO mirror in CI. If the dashboard
