@@ -43,12 +43,12 @@ qdrant:
 
 embedder:
   provider: "ollama"
-  model: "nomic-embed-text"
+  model: "embeddinggemma-300m-q8:latest"
   ollama_addr: "http://localhost:11434"
   dimensions: 768
   request_timeout: 60s
-  query_prefix: "search_query: "      # prepended to queries at search time (nomic-embed-text task instruction; empty = off)
-  document_prefix: "search_document: " # prepended to chunks at ingest time; requires reindex when changed
+  query_prefix: "task: search result | query: "   # prepended to queries at search time (EmbeddingGemma task instruction; empty = off)
+  document_prefix: "title: none | text: "          # prepended to chunks at ingest time; requires reindex when changed
 
 chunker:
   provider: "recursive"  # recursive | sentence-window

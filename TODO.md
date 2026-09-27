@@ -101,8 +101,8 @@ These items come before model or architecture experiments.
       profile loses to native RRF on both corpus states and stays off, and
       the EmbeddingGemma reindex converts most retrieval misses
       (HitRate@5 0.955 golden / 0.940 full vs 0.797/0.759 Nomic controls).
-      Three gate attempts on the swapped embedder each pass exactly one
-      pre-registered bar — Run B 0.690/0.733, Gemma 0.632/0.757, Gemma plus
+      The default embedder is now EmbeddingGemma (ADR 0032). Three gate
+      attempts on it each pass exactly one pre-registered bar — Run B 0.690/0.733, Gemma 0.632/0.757, Gemma plus
       reranker 0.663/0.689 — so the gate stays open on evidence, not on
       effort: faithfulness and relevancy trade against each other through
       retrieval richness and answer verbosity, and the binding constraint is
@@ -149,9 +149,14 @@ These items come before model or architecture experiments.
       then evaluate Retrieval fallback or abstention against false-confidence
       and noise rates. Existing adaptive reranking only decides whether to
       call the reranker.
-- [ ] Revisit Qdrant quantization or an embedder replacement only when corpus
+- [x] Revisit Qdrant quantization or an embedder replacement only when corpus
       size, memory, latency, or golden-set quality demonstrates a real ceiling.
-      Any change requires a full reindex and an isolated comparison.
+      Any change requires a full reindex and an isolated comparison. Done: the
+      golden-set ceiling was demonstrated (HitRate@5 0.797 vs 0.955), two
+      isolated full-reindex comparisons ran (2026-09-14 and 2026-09-27), and
+      the embedder replacement is adopted as the default
+      ([ADR 0032](docs/adr/0032-default-embedder-embeddinggemma.md)). Qdrant
+      quantization remains open only if scale or memory evidence appears.
 - [ ] Collect explicit relevance and user-selection labels, then evaluate a
       small learned-to-rank model over dense score, BM25 score, RRF rank,
       metadata, exact-match, and position features. Require an out-of-sample

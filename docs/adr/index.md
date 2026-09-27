@@ -37,3 +37,4 @@ Context, Decision, Consequences — one decision per file, numbered
 | [0029](0029-ollama-scheduler-owns-llm-concurrency.md) | Ollama's scheduler owns LLM/embedding concurrency; admission only for indexing and destructive mutations | Accepted |
 | [0030](0030-podman-container-runtime.md) | Podman (rootless) is the supported engine: `compose.yaml`/`Containerfile` naming, `HOST_*` variables, `host.containers.internal`, CDI GPU overlay | Accepted |
 | [0031](0031-default-retrieval-profile-torch-cpu.md) | Default retrieval profile stays BGE v2-M3 torch fp32 on CPU, chosen by pre-registered measurement; int8 matched quality but missed the latency bar, the GPU overlay is the latency-sensitive profile | Accepted |
+| [0032](0032-default-embedder-embeddinggemma.md) | Default dense embedder is EmbeddingGemma-300m (task-instruction prefixes, 768 dims), chosen by two isolated full-reindex comparisons; upgrade requires a full reindex | Accepted |

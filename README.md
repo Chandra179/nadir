@@ -10,10 +10,10 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 | Go 1.27+ | **Required** | Server + CLI |
 | Python 3.12+ | **Required for the host reranker/PDF sidecar** | Reranker sidecar and optional PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
 | Node.js 22+ | **Required for dashboard** | React dashboard and browser tests |
-| [Ollama](https://ollama.com) | **Required** | Embeddings (`nomic-embed-text`) and optional LLM features |
+| [Ollama](https://ollama.com) | **Required** | Embeddings (`embeddinggemma-300m-q8`) and optional LLM features |
 
 ```bash
-ollama pull nomic-embed-text
+ollama pull embeddinggemma-300m-q8
 ollama pull gemma3:1b   # for answer generation
 ```
 
@@ -379,7 +379,7 @@ document reindex.
 ### "model not found" during ingest/search
 
 ```bash
-ollama pull nomic-embed-text
+ollama pull embeddinggemma-300m-q8
 ollama pull gemma3:1b   # for answer generation
 ```
 
