@@ -164,9 +164,6 @@ func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChun
 			"ingested_at": qdrantutil.StringValue(ingestedAt),
 			"active":      qdrantutil.BoolValue(active),
 		}
-		if c.HypeQuestion != "" {
-			payload["hype_question"] = qdrantutil.StringValue(c.HypeQuestion)
-		}
 		points[i] = &qdrant.PointStruct{
 			Id: qdrant.NewIDUUID(id),
 			Vectors: qdrant.NewVectorsMap(map[string]*qdrant.Vector{
@@ -529,14 +526,10 @@ func (s *dependencies) Stats(ctx context.Context) (Stats, error) {
 
 var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 
-// pointID derives a stable UUID for a chunk (or HyPE sibling) from its
-// document-version identity fields; siblings get ":hype:<n>" appended so they
-// never collide with their parent.
+// pointID derives a stable UUID for a chunk from its document-version
+// identity fields.
 func pointID(c indexing.IndexedChunk) string {
 	key := c.FilePath + ":" + c.SourceSHA + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
-	if c.HypeQuestion != "" {
-		key += ":hype:" + strconv.Itoa(c.HypeIndex)
-	}
 	return uuid.NewSHA1(chunkIDNamespace, []byte(key)).String()
 }
 

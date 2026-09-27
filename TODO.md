@@ -44,7 +44,7 @@ must not be used alone for a release decision.
 | Generation judge baseline (pre-remediation) | Faithfulness 0.485, relevancy 0.780, context precision/recall 0.615/0.622; 129/133 evaluated ([triage](test/evaluation/reports/generation-triage-20260916.json)) | Pre-remediation numbers; the live rerun below is the same fixture re-measured after the remediation |
 | Generation judge, post-remediation live rerun (2026-09-27, 4-document golden-corpus isolation) | Faithfulness **0.716**, relevancy 0.662, context precision/recall 0.663/0.711; 133/133 evaluated, 0 failures ([report](test/evaluation/reports/e2e-podman-generation-rerun-20260927.json)) | All mechanical gate criteria pass. The relevancy aggregate dropped 0.780→0.662, but the paired per-query triage locates it in the 26 retrieval-miss queries (relevancy 0.623→0.335 where faithfulness rose 0.181→0.615 — the bounded style now refuses instead of hallucinating) and in the judge mis-scoring terse formula answers (e.g. a 19-byte correct answer scored faithfulness 0.0 and context recall 0.0 against context precision 1.0). Retrieval-hit queries: relevancy 0.789→0.742 (noise-level), faithfulness 0.541→0.741 |
 | Judge-instrument fix, same answers re-judged (2026-09-27) | Faithfulness 0.729, relevancy 0.682; 132/133 evaluated, 1 judge-contract failure ([report](test/evaluation/reports/e2e-podman-generation-rerun-judgefix-20260927.json)) | The corrected judge (terse-but-complete answers score high; brevity is not unfaithfulness) explains only ≈+0.02 of the relevancy gap — the ruler was a minor factor; the answers were genuinely less relevant |
-| Answer-prompt recalibration: question-proportional shaping + informative abstention (2026-09-27) | Faithfulness **0.690**, relevancy **0.733**, context precision/recall **0.689/0.736**; 133/133 evaluated, 0 failures ([report](test/evaluation/reports/e2e-podman-generation-promptfix-20260927.json)) | Largest single-lever gain (relevancy +0.071) with faithfulness held far above the 0.485 baseline; still below the pre-registered 0.75 relevancy bar by 0.017 — the residual tracks the 26 retrieval-miss queries; next lever is HyPE |
+| Answer-prompt recalibration: question-proportional shaping + informative abstention (2026-09-27) | Faithfulness **0.690**, relevancy **0.733**, context precision/recall **0.689/0.736**; 133/133 evaluated, 0 failures ([report](test/evaluation/reports/e2e-podman-generation-promptfix-20260927.json)) | Largest single-lever gain (relevancy +0.071) with faithfulness held far above the 0.485 baseline; still below the pre-registered 0.75 relevancy bar by 0.017 — the residual tracks the 26 retrieval-miss queries; the retrieval-side priority ladder below is the path to closing it |
 | PDF intake | 18/18 conversions, p50/p95 2.62/25.94s, peak RSS ≈3.28 GiB (measured 2026-09-13; earlier report removed in the stale-evidence cleanup) | Local-process baseline, not container-capacity evidence |
 
 The current configuration enables BGE v2 M3 CPU reranking by default. That
@@ -92,10 +92,14 @@ These items come before model or architecture experiments.
       and no retrieval regression. The pre-registered gate bar
       (faithfulness ≥ 0.65, relevancy ≥ 0.75) is met on faithfulness and
       missed on relevancy by 0.017; the residual gap tracks the 26
-      retrieval-miss queries. The next lever is HyPE hypothetical-question
-      sibling embeddings (`enrichment.hype.enabled`, reindex required,
-      separate pre-registered comparison) — then re-measure against the same
-      bar.
+      retrieval-miss queries. HyPE was removed from the codebase (its
+      ingest-time LLM cost per chunk was not justified). The remaining
+      retrieval-side levers, in priority order: (1) measure the opt-in
+      fusion profile against the Qdrant-native RRF default, (2) a fresh
+      EmbeddingGemma reindex comparison (the older experiment measured
+      HitRate@5 0.932 vs 0.805 and MRR@10 0.735 vs 0.657), (3) a
+      rerank-parity generation run. Each is a pre-registered measurement
+      against the same bar.
 - [x] Make the default Retrieval profile an explicit release decision. All
       four profiles are measured against the same fixture and the decision is
       recorded in [ADR 0031](docs/adr/0031-default-retrieval-profile-torch-cpu.md):

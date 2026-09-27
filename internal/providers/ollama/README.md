@@ -7,7 +7,7 @@ call is made.
 | Role | Folder | Consumer |
 |---|---|---|
 | Dense embeddings | `embedding/` | `knowledge/indexing/`, `retrieval/search/`, `retrieval/cache/` |
-| HyPE and contextual enrichment | `enrichment/` | `knowledge/indexing/` |
+| Contextual enrichment | `enrichment/` | `knowledge/indexing/` |
 | Streaming answer generation | `generator/` | `conversation/chat/` |
 | Conversational query rewriting | `rewriter/` | `conversation/chat/` through `conversation/rewriting/` |
 

@@ -269,23 +269,12 @@ type RewriterConfig struct {
 	Model          string        `yaml:"model"`
 }
 
-// EnrichmentConfig controls index-time LLM enrichment. Both features cost
-// one-time LLM calls per chunk during ingest and add zero query-time
-// latency; enabling either requires a reindex to take effect.
+// EnrichmentConfig controls index-time LLM enrichment. It costs one-time
+// LLM calls per chunk during ingest and adds zero query-time latency;
+// enabling it requires a reindex to take effect.
 type EnrichmentConfig struct {
 	RequestTimeout time.Duration    `yaml:"request_timeout"`
-	Hype           HypeConfig       `yaml:"hype"`
 	Contextual     ContextualConfig `yaml:"contextual"`
-}
-
-// HypeConfig enables HyPE (Hypothetical Prompt Embeddings): N hypothetical
-// questions are generated per chunk at ingest and embedded as extra points,
-// turning retrieval into question-to-question matching.
-type HypeConfig struct {
-	Enabled           bool   `yaml:"enabled"`
-	QuestionsPerChunk int    `yaml:"questions_per_chunk"` // default 3 when enabled
-	OllamaAddr        string `yaml:"ollama_addr"`
-	Model             string `yaml:"model"`
 }
 
 // ContextualConfig enables Anthropic-style contextual retrieval: a short
@@ -414,11 +403,6 @@ func (c *Config) applyEnv() error {
 	if err := c.envInt(&c.History.TurnPageSize, "HISTORY_TURN_PAGE_SIZE"); err != nil {
 		return err
 	}
-	if err := c.envBool(&c.Enrichment.Hype.Enabled, "HYPE_ENABLED"); err != nil {
-		return err
-	}
-	c.envStr(&c.Enrichment.Hype.OllamaAddr, "HYPE_ADDR")
-	c.envStr(&c.Enrichment.Hype.Model, "HYPE_MODEL")
 	if err := c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED"); err != nil {
 		return err
 	}
@@ -464,10 +448,6 @@ func (c Config) GeneratorEndpoint() OllamaEndpoint {
 
 func (c Config) RewriterEndpoint() OllamaEndpoint {
 	return OllamaEndpoint{Addr: c.Rewriter.OllamaAddr, Model: c.Rewriter.Model}
-}
-
-func (c Config) HypeEndpoint() OllamaEndpoint {
-	return OllamaEndpoint{Addr: c.Enrichment.Hype.OllamaAddr, Model: c.Enrichment.Hype.Model}
 }
 
 func (c Config) ContextualEndpoint() OllamaEndpoint {
@@ -688,9 +668,6 @@ func (c *Config) applyDefaults() {
 	if c.Generator.MaxOutputTokens <= 0 {
 		c.Generator.MaxOutputTokens = 512
 	}
-	if c.Enrichment.Hype.Enabled && c.Enrichment.Hype.QuestionsPerChunk <= 0 {
-		c.Enrichment.Hype.QuestionsPerChunk = 3
-	}
 	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
 		c.Rewriter.Turns = 4
 	}
@@ -851,12 +828,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.Model) == "" {
 		return fmt.Errorf("config: rewriter.model must not be empty when rewriter.enabled is true")
-	}
-	if c.Enrichment.Hype.Enabled && strings.TrimSpace(c.Enrichment.Hype.OllamaAddr) == "" {
-		return fmt.Errorf("config: enrichment.hype.ollama_addr must not be empty when enrichment.hype.enabled is true")
-	}
-	if c.Enrichment.Hype.Enabled && strings.TrimSpace(c.Enrichment.Hype.Model) == "" {
-		return fmt.Errorf("config: enrichment.hype.model must not be empty when enrichment.hype.enabled is true")
 	}
 	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.OllamaAddr) == "" {
 		return fmt.Errorf("config: enrichment.contextual.ollama_addr must not be empty when enrichment.contextual.enabled is true")

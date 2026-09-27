@@ -22,16 +22,14 @@ type UploadFile struct {
 // It contains the vector and enrichment metadata required to publish one
 // version, while storage protocol types remain inside the Adapter.
 type IndexedChunk struct {
-	Text         string
-	WindowText   string
-	FilePath     string
-	Header       string
-	LineStart    int
-	ChunkIndex   int
-	Vector       []float32
-	SourceSHA    string
-	IngestedAt   string
-	SparseText   string
-	HypeQuestion string
-	HypeIndex    int
+	Text       string
+	WindowText string
+	FilePath   string
+	Header     string
+	LineStart  int
+	ChunkIndex int
+	Vector     []float32
+	SourceSHA  string
+	IngestedAt string
+	SparseText string
 }

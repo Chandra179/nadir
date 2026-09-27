@@ -76,13 +76,7 @@ var _ embedding.Embedder = fakeEmbedder{}
 var _ documentIndexer = (*fakeStore)(nil)
 
 type fakeEnricher struct {
-	hypeCalls       int
 	contextualCalls int
-}
-
-func (f *fakeEnricher) HypotheticalQuestions(context.Context, string, string, int) ([]string, error) {
-	f.hypeCalls++
-	return []string{"what does this document explain?"}, nil
 }
 
 func (f *fakeEnricher) ContextualIntro(context.Context, string, string) (string, error) {
@@ -207,16 +201,12 @@ func TestRunSkipsSourceReconciliationWhenIndexingFails(t *testing.T) {
 func TestEnrichmentFeatureFlagsAreIndependent(t *testing.T) {
 	tests := []struct {
 		name             string
-		hypeEnabled      bool
 		contextualEnable bool
-		wantHypeCalls    int
 		wantContextCalls int
 		wantChunks       int
 	}{
-		{name: "both disabled", wantChunks: 1},
-		{name: "hype only", hypeEnabled: true, wantHypeCalls: 1, wantChunks: 2},
-		{name: "contextual only", contextualEnable: true, wantContextCalls: 1, wantChunks: 1},
-		{name: "both enabled", hypeEnabled: true, contextualEnable: true, wantHypeCalls: 1, wantContextCalls: 1, wantChunks: 2},
+		{name: "disabled", wantChunks: 1},
+		{name: "contextual enabled", contextualEnable: true, wantContextCalls: 1, wantChunks: 1},
 	}
 
 	for _, tt := range tests {
@@ -226,8 +216,6 @@ func TestEnrichmentFeatureFlagsAreIndependent(t *testing.T) {
 				Chunker:           &fakeChunker{},
 				Embedder:          fakeEmbedder{},
 				Enricher:          enricher,
-				HypeEnabled:       tt.hypeEnabled,
-				HypeQuestions:     1,
 				ContextualEnabled: tt.contextualEnable,
 				Log:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 			})
@@ -235,9 +223,6 @@ func TestEnrichmentFeatureFlagsAreIndependent(t *testing.T) {
 			plan, err := d.planFile(context.Background(), "notes.md", "body", "sha")
 			if err != nil {
 				t.Fatal(err)
-			}
-			if enricher.hypeCalls != tt.wantHypeCalls {
-				t.Fatalf("HyPE calls = %d, want %d", enricher.hypeCalls, tt.wantHypeCalls)
 			}
 			if enricher.contextualCalls != tt.wantContextCalls {
 				t.Fatalf("contextual calls = %d, want %d", enricher.contextualCalls, tt.wantContextCalls)

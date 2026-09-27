@@ -7,7 +7,7 @@ deduplication, and versioned publication.
 | Task | Start here | Related |
 |---|---|---|
 | Chunk boundaries or contextual text | `chunking/` | `indexing/`, retrieval quality |
-| HyPE/contextual enrichment contract | `enrichment/` | `indexing/`, Ollama enrichment |
+| Contextual enrichment contract | `enrichment/` | `indexing/`, Ollama enrichment |
 | Ingest, dedup, retry, replace, or PDF policy | `indexing/` | all three children, Qdrant documents |
 
 Change an existing child when its concept already exists. Add a new child only

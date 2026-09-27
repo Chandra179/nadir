@@ -1,7 +1,6 @@
 // Package enrichment provides index-time LLM enrichment over Ollama:
-// HyPE hypothetical-question generation and Anthropic-style contextual
-// chunk intros. It is a domain package and must not import api/server/
-// middleware packages.
+// Anthropic-style contextual chunk intros. It is a domain package and must
+// not import api/server/middleware packages.
 package enrichment
 
 import (
@@ -10,39 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 )
-
-const hypeSystemPrompt = `You write search queries. Given a passage from a knowledge base, produce short standalone questions that a user might type and that this exact passage answers. Questions must be self-contained: never refer to "the passage" or "this section". Reply ONLY with a JSON array of strings.`
-
-func (d *dependencies) HypotheticalQuestions(ctx context.Context, header, text string, n int) ([]string, error) {
-	if n <= 0 {
-		n = 3
-	}
-	prompt := fmt.Sprintf("Write exactly %d search queries for this passage.\n\nSection: %s\n\n%s", n, header, text)
-	out, err := d.chat(ctx, d.hypeAddr, d.hypeModel, hypeSystemPrompt, prompt)
-	if err != nil {
-		return nil, err
-	}
-	qs := parseStringList(out)
-	if len(qs) == 0 {
-		return nil, fmt.Errorf("enrichment: no questions parsed from model output")
-	}
-	cleaned := make([]string, 0, len(qs))
-	for _, q := range qs {
-		if q = strings.TrimSpace(q); q != "" {
-			cleaned = append(cleaned, q)
-		}
-	}
-	if len(cleaned) == 0 {
-		return nil, fmt.Errorf("enrichment: all parsed questions were empty")
-	}
-	if len(cleaned) > n {
-		cleaned = cleaned[:n]
-	}
-	return cleaned, nil
-}
 
 const contextualSystemPrompt = `You write document context lines. Given an excerpt of a document and one chunk from it, write ONE short sentence (<30 words) situating the chunk: which document/topic it belongs to and any key entities or terms needed to understand it out of order. Reply ONLY with the sentence itself — no preamble, no quotes.`
 
@@ -106,32 +74,6 @@ func (d *dependencies) chat(ctx context.Context, addr, model, system, user strin
 		return "", fmt.Errorf("enrichment: decode chat response: %w", err)
 	}
 	return result.Message.Content, nil
-}
-
-var quotedString = regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`)
-
-// parseStringList extracts a list of strings from model output: it prefers
-// a JSON array (tolerating code fences or prose around it) and falls back
-// to scanning double-quoted strings.
-func parseStringList(out string) []string {
-	s := stripFences(out)
-	if start := strings.Index(s, "["); start >= 0 {
-		if end := strings.LastIndex(s, "]"); end > start {
-			var arr []string
-			if err := json.Unmarshal([]byte(s[start:end+1]), &arr); err == nil {
-				return arr
-			}
-		}
-	}
-	matches := quotedString.FindAllStringSubmatch(s, -1)
-	var out2 []string
-	for _, m := range matches {
-		var q string
-		if err := json.Unmarshal([]byte(`"`+m[1]+`"`), &q); err == nil {
-			out2 = append(out2, q)
-		}
-	}
-	return out2
 }
 
 func stripFences(s string) string {

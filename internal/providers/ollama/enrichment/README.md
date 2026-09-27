@@ -1,7 +1,6 @@
 # Ollama enrichment Adapter
 
-Implements HyPE question generation and contextual-intro generation for the
-Knowledge indexing context. It owns Ollama protocol details, output cleanup,
+Implements contextual-intro generation for the Knowledge indexing context. It owns Ollama protocol details, output cleanup,
 timeouts, and provider errors; feature flags and fallback policy belong to
 `knowledge/indexing`.
 

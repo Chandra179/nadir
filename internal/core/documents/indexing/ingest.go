@@ -217,9 +217,7 @@ func contentSHA(data []byte) string {
 
 // indexPlan contains the planned replacement points for one Document. Dense
 // embeddings cover "<document prefix><contextual text>"; the BM25 leg
-// indexes the same contextual text without the prefix. With HyPE enabled,
-// each chunk additionally gets sibling points from embedded hypothetical
-// questions.
+// indexes the same contextual text without the prefix.
 type indexPlan struct {
 	filePath  string
 	sourceSHA string
@@ -282,8 +280,6 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 		})
 	}
 
-	indexed = d.appendHypeSiblings(ctx, indexed, filePath, chunks, sourceSHA)
-
 	observability.Stage(d.log, "ingest_plan", "success", started, nil,
 		slog.String("path", filePath), slog.Int("chunks", len(indexed)))
 	return indexPlan{filePath: filePath, sourceSHA: sourceSHA, chunks: indexed}, nil
@@ -340,79 +336,6 @@ func (d *dependencies) contextualText(ctx context.Context, docText string, c chu
 		return base
 	}
 	return intro + "\n" + base
-}
-
-type hypeSibling struct {
-	parentIdx int
-	question  string
-}
-
-// appendHypeSiblings extends indexed chunks with HyPE sibling points when HyPE is
-// enabled. Best-effort: generation/embedding failures index the file
-// without hype points.
-func (d *dependencies) appendHypeSiblings(ctx context.Context, indexed []IndexedChunk, filePath string, chunks []chunking.Chunk, sourceSHA string) []IndexedChunk {
-	if !d.hypeEnabled || d.enrich == nil || d.hypeQuestions <= 0 {
-		return indexed
-	}
-	siblings, err := d.hypeSiblings(ctx, filePath, chunks, sourceSHA)
-	if err != nil {
-		d.log.Warn("HyPE question embedding failed; indexing without hype points",
-			slog.String("path", filePath), slog.Any("error", err))
-		return indexed
-	}
-	return append(indexed, siblings...)
-}
-
-// hypeSiblings generates hypothetical questions per chunk, embeds them in
-// one batched call, and returns sibling IndexedChunks carrying the parent's
-// identity fields (so search-side Key() dedup collapses them onto the
-// parent) plus their own hype marker for unique point IDs.
-func (d *dependencies) hypeSiblings(ctx context.Context, filePath string, chunks []chunking.Chunk, sourceSHA string) ([]IndexedChunk, error) {
-	var refs []hypeSibling
-	for i, c := range chunks {
-		qs, err := d.enrich.HypotheticalQuestions(ctx, c.Header, c.Text, d.hypeQuestions)
-		if err != nil {
-			d.log.Warn("HyPE generation failed for chunk; skipping its hype points",
-				slog.String("path", filePath), slog.Int("chunk", c.ChunkIndex), slog.Any("error", err))
-			continue
-		}
-		for _, q := range qs {
-			refs = append(refs, hypeSibling{parentIdx: i, question: q})
-		}
-	}
-	if len(refs) == 0 {
-		return nil, nil
-	}
-
-	inputs := make([]string, len(refs))
-	for j, r := range refs {
-		inputs[j] = d.documentPrefix + r.question
-	}
-	vecs, err := d.embedWithRetry(ctx, inputs)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]IndexedChunk, 0, len(refs))
-	perParent := make(map[int]int)
-	for j, r := range refs {
-		c := chunks[r.parentIdx]
-		idx := perParent[r.parentIdx]
-		perParent[r.parentIdx] = idx + 1
-		out = append(out, IndexedChunk{
-			Text:         c.Text,
-			WindowText:   c.WindowText,
-			FilePath:     c.FilePath,
-			Header:       c.Header,
-			LineStart:    c.LineStart,
-			ChunkIndex:   c.ChunkIndex,
-			Vector:       vecs[j],
-			SourceSHA:    sourceSHA,
-			HypeQuestion: r.question,
-			HypeIndex:    idx,
-		})
-	}
-	return out, nil
 }
 
 // embedWithRetry embeds all inputs, preferring one batch call, with the

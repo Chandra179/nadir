@@ -37,3 +37,10 @@ interface.
   `enrichment`), its interface lives there; consumer-side narrow seams (like
   Chat's private history seam) remain in the consuming Module when they cover
   only part of a sibling's contract.
+
+## Post-history note (2026-09-27)
+
+HyPE was removed from the codebase (the hypothetical-questions method left
+the `Enricher` contract with it) because its ingest-time LLM cost per chunk
+was not justified. The interface is now contextual-retrieval only; this
+record still documents the single-home rule that remains in force.

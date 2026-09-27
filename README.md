@@ -185,7 +185,6 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 | `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:1b` | Explicit answer-generation endpoint and model |
 | `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
 | `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
-| `HYPE_ADDR` / `HYPE_MODEL` | same host / `gemma3:1b` | Explicit HyPE enrichment endpoint and model |
 | `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `gemma3:1b` | Explicit contextual-enrichment endpoint and model |
 | `EMBEDDER_API_KEY` | — | Embedder API key, if required |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
@@ -214,7 +213,7 @@ LLM and embedding concurrency is owned by the Ollama scheduler
 remain for single-writer indexing and destructive operations
 (`GATES_INDEXING_*`, `GATES_DESTRUCTIVE_*`).
 When an LLM role is enabled, its address and model are required explicitly:
-`generator`, `rewriter`, `enrichment.hype`, and `enrichment.contextual` do not
+`generator`, `rewriter`, and `enrichment.contextual` do not
 inherit another role's endpoint or model. Compose supplies explicit role
 environment overrides even when roles share one Ollama server.
 

@@ -22,8 +22,6 @@ services:
       GENERATOR_MODEL: ${GENERATOR_MODEL:-gemma3:1b}
       REWRITE_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
       REWRITE_MODEL: ${REWRITE_MODEL:-gemma3:1b}
-      HYPE_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
-      HYPE_MODEL: ${HYPE_MODEL:-gemma3:1b}
       CONTEXTUAL_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
       CONTEXTUAL_MODEL: ${CONTEXTUAL_MODEL:-gemma3:1b}
       INFERENCE_PROFILE: ${INFERENCE_PROFILE:-local}

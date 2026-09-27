@@ -116,11 +116,6 @@ enrichment:
   # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero
   # query-time latency). Changing these requires a reindex to take effect.
   request_timeout: 120s
-  hype:
-    enabled: false          
-    questions_per_chunk: 3
-    ollama_addr: "http://localhost:11434"
-    model: "gemma3:1b"
   contextual:
     enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
     ollama_addr: "http://localhost:11434"

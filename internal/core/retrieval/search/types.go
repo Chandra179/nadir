@@ -85,8 +85,8 @@ type RerankTelemetry struct {
 	DependencyErr bool    `json:"dependency_error"`
 }
 
-// Key identifies a logical source chunk across dense, lexical, and HyPE
-// results. HyPE siblings intentionally collapse onto their parent chunk.
+// Key identifies a logical source chunk across dense and lexical results so
+// fused candidates deduplicate onto one entry.
 func (c SearchCandidate) Key() string {
 	return c.FilePath + ":" + strconv.Itoa(c.LineStart)
 }

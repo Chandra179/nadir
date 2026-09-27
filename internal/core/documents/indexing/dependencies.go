@@ -32,27 +32,25 @@ type RetryConfig struct {
 // DependenciesConfig groups everything needed to construct the ingest
 // dependencies.
 type DependenciesConfig struct {
-	Chunker              chunking.Chunker
-	Embedder             embedding.Embedder
-	Store                documentIndexer
-	Coordinator          lifecycleCoordinator
-	CacheInvalidator     cacheInvalidator
-	Enricher             enrichment.Enricher
-	DocumentConverter    documentConverter
-	Reset                func(context.Context) error
-	ClearCache           func(context.Context) error
-	Gates                func(context.Context) (func(), error)
-	DestructiveGate      func(context.Context) (func(), error)
-	HypeEnabled          bool
-	HypeQuestions        int
-	ContextualEnabled    bool
-	Retry                RetryConfig
-	Workers              int
-	MaxFileBytes         int64
-	EmbedBatchSize       int
-	MaxChunksPerFile     int
-	Log                  *slog.Logger
-	Telemetry            *observability.Recorder
+	Chunker           chunking.Chunker
+	Embedder          embedding.Embedder
+	Store             documentIndexer
+	Coordinator       lifecycleCoordinator
+	CacheInvalidator  cacheInvalidator
+	Enricher          enrichment.Enricher
+	DocumentConverter documentConverter
+	Reset             func(context.Context) error
+	ClearCache        func(context.Context) error
+	Gates             func(context.Context) (func(), error)
+	DestructiveGate   func(context.Context) (func(), error)
+	ContextualEnabled bool
+	Retry             RetryConfig
+	Workers           int
+	MaxFileBytes      int64
+	EmbedBatchSize    int
+	MaxChunksPerFile  int
+	Log               *slog.Logger
+	Telemetry         *observability.Recorder
 	// DocumentPrefix is prepended to every embedded text at ingest time
 	// (e.g. "search_document: " for nomic-embed-text task instructions).
 	DocumentPrefix string
@@ -62,29 +60,27 @@ type DependenciesConfig struct {
 // against what's already stored, and for each new/changed file runs
 // chunk -> embed -> upsert.
 type dependencies struct {
-	chunker              chunking.Chunker
-	embedder             embedding.Embedder
-	store                documentIndexer
-	coordinator          lifecycleCoordinator
-	cache                cacheInvalidator
-	cfg                  RetryConfig
-	documentPrefix       string
-	enrich               enrichment.Enricher
-	hypeEnabled          bool
-	hypeQuestions        int
-	contextual           bool
-	maxFileBytes         int64
-	embedBatchSize       int
-	maxChunks            int
-	workers              int
-	runMu                sync.Mutex
-	converter            documentConverter
-	reset                func(context.Context) error
-	clearCache           func(context.Context) error
-	gate                 func(context.Context) (func(), error)
-	destructiveGate      func(context.Context) (func(), error)
-	telemetry            *observability.Recorder
-	log                  *slog.Logger
+	chunker         chunking.Chunker
+	embedder        embedding.Embedder
+	store           documentIndexer
+	coordinator     lifecycleCoordinator
+	cache           cacheInvalidator
+	cfg             RetryConfig
+	documentPrefix  string
+	enrich          enrichment.Enricher
+	contextual      bool
+	maxFileBytes    int64
+	embedBatchSize  int
+	maxChunks       int
+	workers         int
+	runMu           sync.Mutex
+	converter       documentConverter
+	reset           func(context.Context) error
+	clearCache      func(context.Context) error
+	gate            func(context.Context) (func(), error)
+	destructiveGate func(context.Context) (func(), error)
+	telemetry       *observability.Recorder
+	log             *slog.Logger
 }
 
 var _ Ingest = (*dependencies)(nil)
@@ -113,27 +109,25 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 	coordinator := cfg.Coordinator
 	return &dependencies{
-		chunker:              cfg.Chunker,
-		embedder:             cfg.Embedder,
-		store:                cfg.Store,
-		coordinator:          coordinator,
-		cache:                cfg.CacheInvalidator,
-		enrich:               cfg.Enricher,
-		hypeEnabled:          cfg.HypeEnabled,
-		hypeQuestions:        cfg.HypeQuestions,
-		contextual:           cfg.ContextualEnabled,
-		converter:            cfg.DocumentConverter,
-		reset:                cfg.Reset,
-		clearCache:           cfg.ClearCache,
-		gate:                 cfg.Gates,
-		destructiveGate:      cfg.DestructiveGate,
-		telemetry:            cfg.Telemetry,
-		cfg:                  cfg.Retry,
-		documentPrefix:       cfg.DocumentPrefix,
-		maxFileBytes:         maxFileBytes,
-		embedBatchSize:       embedBatchSize,
-		maxChunks:            maxChunks,
-		workers:              workers,
-		log:                  log,
+		chunker:         cfg.Chunker,
+		embedder:        cfg.Embedder,
+		store:           cfg.Store,
+		coordinator:     coordinator,
+		cache:           cfg.CacheInvalidator,
+		enrich:          cfg.Enricher,
+		contextual:      cfg.ContextualEnabled,
+		converter:       cfg.DocumentConverter,
+		reset:           cfg.Reset,
+		clearCache:      cfg.ClearCache,
+		gate:            cfg.Gates,
+		destructiveGate: cfg.DestructiveGate,
+		telemetry:       cfg.Telemetry,
+		cfg:             cfg.Retry,
+		documentPrefix:  cfg.DocumentPrefix,
+		maxFileBytes:    maxFileBytes,
+		embedBatchSize:  embedBatchSize,
+		maxChunks:       maxChunks,
+		workers:         workers,
+		log:             log,
 	}
 }

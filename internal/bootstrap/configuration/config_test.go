@@ -255,9 +255,6 @@ func TestEndpointResolutionKeepsRoleConfigurationExplicit(t *testing.T) {
 	if got := cfg.RewriterEndpoint(); got.Addr != "http://rewriter:11434" || got.Model != "rewrite-model" {
 		t.Fatalf("RewriterEndpoint() = %+v, want explicitly configured rewriter endpoint", got)
 	}
-	if got := cfg.HypeEndpoint(); got.Addr != "" || got.Model != "" {
-		t.Fatalf("HypeEndpoint() = %+v, want empty because Hype is not configured", got)
-	}
 	if got := cfg.ContextualEndpoint(); got.Addr != "http://contextual:11434" || got.Model != "contextual-model" {
 		t.Fatalf("ContextualEndpoint() = %+v, want explicitly configured contextual endpoint", got)
 	}
@@ -299,11 +296,6 @@ func TestEnabledRolesRequireExplicitConfiguration(t *testing.T) {
 				c.Generator.Enabled = true
 				c.Generator.OllamaAddr = "http://generator:11434"
 			},
-		},
-		{
-			name: "hype address",
-			want: "enrichment.hype.ollama_addr",
-			edit: func(c *Config) { c.Enrichment.Hype.Enabled = true; c.Enrichment.Hype.Model = "hype-model" },
 		},
 		{
 			name: "contextual model",

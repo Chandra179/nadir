@@ -73,12 +73,6 @@ func TestStorePayloadAndPointIdentity(t *testing.T) {
 	if pointID(chunk) == pointID(otherVersion) {
 		t.Fatal("different document versions must have distinct point IDs")
 	}
-	hype := chunk
-	hype.HypeQuestion = "what is intro?"
-	hype.HypeIndex = 1
-	if pointID(chunk) == pointID(hype) {
-		t.Fatal("HyPE sibling must have a distinct point ID")
-	}
 }
 
 func TestBuildFilterConditions(t *testing.T) {

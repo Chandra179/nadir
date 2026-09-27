@@ -237,10 +237,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	}
 
 	var enricher enrichment.Enricher
-	if cfg.Enrichment.Hype.Enabled || cfg.Enrichment.Contextual.Enabled {
+	if cfg.Enrichment.Contextual.Enabled {
 		enricher = ollamaenrichment.NewDependencies(ollamaenrichment.DependenciesConfig{
-			HypeAddr:        cfg.Enrichment.Hype.OllamaAddr,
-			HypeModel:       cfg.Enrichment.Hype.Model,
 			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
 			ContextualModel: cfg.Enrichment.Contextual.Model,
 			RequestTimeout:  cfg.Enrichment.RequestTimeout,
@@ -263,21 +261,19 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		clearCache = semanticCache.Clear
 	}
 	ingestService := indexing.NewDependencies(indexing.DependenciesConfig{
-		Chunker:              chunker,
-		Embedder:             emb,
-		Store:                store,
-		Coordinator:          lifecycle,
-		CacheInvalidator:     semanticCache,
-		Enricher:             enricher,
-		DocumentConverter:    converter,
-		Reset:                store.DeleteAll,
-		ClearCache:           clearCache,
-		Gates:               operationGates.AcquireFunc(gates.Indexing),
-		DestructiveGate:     operationGates.AcquireFunc(gates.Destructive),
-		Telemetry:            telemetry,
-		HypeEnabled:          cfg.Enrichment.Hype.Enabled,
-		HypeQuestions:        cfg.Enrichment.Hype.QuestionsPerChunk,
-		ContextualEnabled:    cfg.Enrichment.Contextual.Enabled,
+		Chunker:           chunker,
+		Embedder:          emb,
+		Store:             store,
+		Coordinator:       lifecycle,
+		CacheInvalidator:  semanticCache,
+		Enricher:          enricher,
+		DocumentConverter: converter,
+		Reset:             store.DeleteAll,
+		ClearCache:        clearCache,
+		Gates:             operationGates.AcquireFunc(gates.Indexing),
+		DestructiveGate:   operationGates.AcquireFunc(gates.Destructive),
+		Telemetry:         telemetry,
+		ContextualEnabled: cfg.Enrichment.Contextual.Enabled,
 		Retry: indexing.RetryConfig{
 			MaxAttempts:     cfg.Ingest.MaxAttempts,
 			InitialInterval: cfg.Ingest.InitialInterval,
@@ -305,8 +301,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	}
 	closed = true
 	return &Runtime{
-		Clients: clients,
-		Gates:   operationGates,
+		Clients:   clients,
+		Gates:     operationGates,
 		Telemetry: telemetry,
 		Embedder:  emb,
 		Searcher:  searcher,
