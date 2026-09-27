@@ -12,7 +12,7 @@ class BenchmarkDoclingTest(unittest.TestCase):
         self.assertEqual(percentile([30, 10, 20, 40], 0.95), 40)
         self.assertIsNone(percentile([], 0.50))
 
-    def test_parse_memory_bytes_supports_docker_units(self):
+    def test_parse_memory_bytes_supports_podman_units(self):
         self.assertEqual(parse_memory_bytes("12.5MiB"), 12 * 1024 * 1024 + 524288)
         self.assertEqual(parse_memory_bytes("1GB"), 1000**3)
         self.assertIsNone(parse_memory_bytes("unknown"))

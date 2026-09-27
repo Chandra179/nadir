@@ -41,7 +41,7 @@ Example:
         --json-out test/evaluation/reports/reranker-bge-cpu.json
 
 For a Compose container, pass the ID returned by:
-    docker compose -f deploy/compose/docker-compose.yml ps -q reranker
+    podman compose -f deploy/compose/compose.yaml ps -q reranker
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ def percentile(values: list[float], fraction: float) -> float | None:
 
 
 def parse_memory_bytes(value: str) -> int | None:
-    """Parse a Docker/proc-style memory quantity into bytes."""
+    """Parse a container/proc-style memory quantity into bytes."""
 
     match = MEMORY_RE.match(value)
     if not match:
@@ -157,13 +157,13 @@ def proc_rss_reader(pid: int) -> Callable[[], int | None]:
     return read
 
 
-def docker_memory_reader(container: str) -> Callable[[], int | None]:
-    """Return a reader backed by ``docker stats --no-stream``."""
+def podman_memory_reader(container: str) -> Callable[[], int | None]:
+    """Return a reader backed by ``podman stats --no-stream``."""
 
     def read() -> int | None:
         try:
             result = subprocess.run(
-                ["docker", "stats", "--no-stream", "--format", "{{.MemUsage}}", container],
+                ["podman", "stats", "--no-stream", "--format", "{{.MemUsage}}", container],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -857,7 +857,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-response-bytes", type=int, default=DEFAULT_MAX_RESPONSE_BYTES, help="reject larger responses")
     memory = result.add_mutually_exclusive_group()
     memory.add_argument("--pid", type=int, help="local sidecar PID; samples Linux /proc RSS")
-    memory.add_argument("--container", help="Docker container ID or name; samples docker stats RSS")
+    memory.add_argument("--container", help="Podman container ID or name; samples podman stats RSS")
     result.add_argument("--gpu-pid", type=int, help="CUDA process PID; samples process VRAM with nvidia-smi")
     result.add_argument("--sample-interval", type=float, default=DEFAULT_SAMPLE_INTERVAL_SECONDS, help="resource sampling interval in seconds")
     result.add_argument("--json-out", type=Path, help="write the complete JSON report to this path")
@@ -908,8 +908,8 @@ def main() -> int:
         rss_reader = proc_rss_reader(args.pid)
         rss_source = f"proc:{args.pid}"
     elif args.container:
-        rss_reader = docker_memory_reader(args.container)
-        rss_source = f"docker:{args.container}"
+        rss_reader = podman_memory_reader(args.container)
+        rss_source = f"podman:{args.container}"
     gpu_reader: Callable[[], int | None] | None = None
     gpu_source = "unavailable"
     if args.gpu_pid is not None:

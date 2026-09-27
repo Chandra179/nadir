@@ -1,6 +1,6 @@
 """Build-time helper: bake a dynamic-int8 ONNX copy of the reranker model.
 
-Run inside the Docker build (see Dockerfile). Produces ./int8_avx2/ holding
+Run inside the image build (see Containerfile). Produces ./int8_avx2/ holding
 the quantized graph (onnx/model_quint8_avx2.onnx) plus the tokenizer/config
 needed to load it standalone, and model_name.txt, which records the model it
 was built from — main.py only uses the baked copy when RERANKER_MODEL still

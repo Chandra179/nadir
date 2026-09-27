@@ -3,6 +3,9 @@
 # image grows by several GB and the host needs the NVIDIA container toolkit.
 # Backends: use RERANKER_BACKEND=torch (fp32 on cuda); the int8 routes are
 # CPU artifacts and fall back to fp32 torch on cuda (see main.py).
+# sentence-transformers stays on 5.x: its 6.x line requires transformers>=5,
+# which the optimum-onnx backend does not support yet (it caps
+# transformers<4.58).
 torch==2.14.0
-sentence-transformers[onnx]==6.0.1
+sentence-transformers[onnx]==5.2.3
 optimum[onnxruntime]==2.1.0

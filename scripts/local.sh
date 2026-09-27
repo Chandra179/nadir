@@ -6,18 +6,18 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$ROOT"
 
-COMPOSE=(docker compose -f deploy/compose/docker-compose.yml)
+COMPOSE=(podman compose -f deploy/compose/compose.yaml)
 
-# addrs come from config/config.yaml (already localhost for host-side server);
+# addrs come from internal/bootstrap/configuration/config.yaml (already
+# localhost for host-side server);
 # only override here if you need something config.yaml doesn't already have.
 
-# The local profile is deliberately explicit: one shared Ollama operation and
-# one CPU reranker operation at a time. Override these values only after
-# measuring the available hardware (for example, RERANKER_DEVICE=cuda on a
-# CUDA host with a matching GPU Compose/toolchain).
+# The local profile is deliberately explicit: Ollama owns LLM/embedding
+# concurrency (OLLAMA_NUM_PARALLEL), and the reranker is one CPU operation at
+# a time. Override these values only after measuring the available hardware
+# (for example, RERANKER_DEVICE=cuda on a CUDA host with the CDI GPU
+# Compose/toolchain).
 export INFERENCE_PROFILE="${INFERENCE_PROFILE:-local}"
-export INFERENCE_OLLAMA_MAX_CONCURRENT="${INFERENCE_OLLAMA_MAX_CONCURRENT:-1}"
-export INFERENCE_OLLAMA_QUEUE_TIMEOUT="${INFERENCE_OLLAMA_QUEUE_TIMEOUT:-30s}"
 export INFERENCE_OLLAMA_KEEP_ALIVE="${INFERENCE_OLLAMA_KEEP_ALIVE:-5m}"
 export RERANKER_DEVICE="${RERANKER_DEVICE:-cpu}"
 export RERANKER_BACKEND="${RERANKER_BACKEND:-torch}"
@@ -27,15 +27,15 @@ export DASHBOARD_PORT="${DASHBOARD_PORT:-3002}"
 
 # The reranker model travels from config.yaml (reranker.model) through the
 # RERANKER_MODEL env var, to the sidecar however it is hosted.
-RERANKER_MODEL="$(awk '/^reranker:/{f=1; next} f && /^[^ ]/{f=0} f && /model:/{gsub(/[\"'"'"']/, ""); sub(/#.*/, "", $2); print $2; exit}' config/config.yaml)"
+RERANKER_MODEL="$(awk '/^reranker:/{f=1; next} f && /^[^ ]/{f=0} f && /model:/{gsub(/[\"'"'"']/, ""); sub(/#.*/, "", $2); print $2; exit}' internal/bootstrap/configuration/config.yaml)"
 export RERANKER_MODEL
 echo "==> Reranker model: ${RERANKER_MODEL:-<compose default>}"
 
-echo "==> Starting Qdrant (Docker)..."
+echo "==> Starting Qdrant (Podman)..."
 "${COMPOSE[@]}" up -d --remove-orphans qdrant
-# The compose reranker needs the NVIDIA container toolkit for its GPU
-# reservation; the dev flow runs the sidecar from the repo venv on the host
-# GPU instead (same as Ollama). Free the port from any compose instance.
+# The compose reranker needs an NVIDIA CDI spec for its GPU device; the dev
+# flow runs the sidecar from the repo venv on the host GPU instead (same as
+# Ollama). Free the port from any compose instance.
 "${COMPOSE[@]}" stop reranker >/dev/null 2>&1 || true
 
 echo "==> Killing any process on :5002, :8100 and :6063..."
@@ -67,7 +67,7 @@ echo ""
 echo "Local stack running. Server PID=$SERVER_PID, Reranker PID=$RERANKER_PID"
 echo "  Dashboard: http://localhost:${DASHBOARD_PORT} (cd web/dashboard && npm ci && npm run dev)"
 echo "  Search: curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{\"query\":\"...\"}'"
-echo "  Stop:   kill $SERVER_PID $RERANKER_PID && docker compose -f deploy/compose/docker-compose.yml stop"
-echo "  (full-Docker reranker needs the NVIDIA container toolkit; see AGENTS.md)"
+echo "  Stop:   kill $SERVER_PID $RERANKER_PID && podman compose -f deploy/compose/compose.yaml stop"
+echo "  (full-Compose reranker needs the NVIDIA CDI spec; see AGENTS.md)"
 
 wait "$SERVER_PID"

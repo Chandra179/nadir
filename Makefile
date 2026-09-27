@@ -1,10 +1,13 @@
-.PHONY: run test race vet build load-benchmark check mdn generate-mocks
+.PHONY: run compose test race vet build load-benchmark check mdn generate-mocks
 
 GO_PACKAGES := ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
 
 run:
 	./scripts/local.sh
+
+compose:
+	podman compose -f deploy/compose/compose.yaml up -d
 
 test:
 	go test -short -count=1 $(GO_PACKAGES)

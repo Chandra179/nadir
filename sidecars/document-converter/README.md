@@ -51,8 +51,9 @@ points to this process; in Compose the service name remains `docling`.
 - The current image is based on `python:3.11-slim` and installs no CUDA
   runtime or GPU reservation.
 - Conversion therefore runs on CPU in the base Compose stack.
-- The same image is suitable for Linux, Windows Docker Desktop, and macOS.
-- Docker build downloads the Docling model in advance, so the image is large
+- The same image is suitable for Linux, Windows/macOS `podman machine`, and
+  native Linux hosts.
+- The image build downloads the Docling model in advance, so the image is large
   but startup does not need a model download.
 - If GPU acceleration is needed later, add it as an explicit deployment
   variant rather than changing the HTTP contract; the current implementation
@@ -76,10 +77,10 @@ venv/bin/uvicorn main:app --app-dir sidecars/document-converter \
 curl http://localhost:5003/health
 ```
 
-With Docker Compose, start this optional process with:
+With Podman Compose, start this optional process with:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml \
+podman compose -f deploy/compose/compose.yaml \
   --profile pdf up -d --build docling
 ```
 
@@ -89,7 +90,7 @@ Use the standard-library benchmark from the repository root with a
 representative, consent-safe PDF corpus. It checks sidecar health, performs a
 warmup, measures each conversion, records failures and request timeouts, and
 reports p50/p95 latency. Add `--pid` for a host process or `--container` for a
-Docker container to sample resident memory during each request:
+container to sample resident memory during each request:
 
 ```bash
 python scripts/benchmark_docling.py \
@@ -101,7 +102,7 @@ python scripts/benchmark_docling.py \
 ```
 
 For Compose, obtain the container ID with
-`docker compose -f deploy/compose/docker-compose.yml ps -q docling` and pass
+`podman compose -f deploy/compose/compose.yaml ps -q docling` and pass
 it to `--container`. The benchmark stores document paths and measurements, not
 PDF contents. Do not use private or identifiable documents without the
 appropriate consent and redaction process. Memory is sampled periodically, so

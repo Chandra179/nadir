@@ -1,24 +1,33 @@
-# Compose deployment
+# Podman Compose deployment
 
-The base file is the supported portable backend deployment for Linux, Windows
-Docker Desktop, and macOS. It runs the Go API, Qdrant, and a CPU reranker. The
-React dashboard runs separately with the local Node.js toolchain. The API
-reaches host Ollama through `host.docker.internal:11434`.
+The base file is the supported portable backend deployment: rootless Podman on
+Linux, or Podman inside a `podman machine` VM on macOS and Windows. It runs the
+Go API, Qdrant, and a CPU reranker. The React dashboard runs separately with
+the local Node.js toolchain. The API reaches host Ollama through
+`host.containers.internal:11434`, which Podman injects automatically.
+
+One-time host setup (engine, rootless IDs, newest `podman-compose` provider,
+NVIDIA CDI):
+
+```bash
+./scripts/setup_podman_host.sh
+```
 
 The API container's healthcheck uses `/api/v1/ready`, so it stays unhealthy
 until Qdrant, the configured Ollama embedding model, and the enabled reranker
 are usable. `/api/v1/health` remains the dependency-free liveness endpoint.
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml up -d --build
+podman compose -f deploy/compose/compose.yaml up -d --build
 ```
 
-On Linux or Windows WSL2 with NVIDIA Container Toolkit, layer the GPU override
-for the reranker:
+On Linux (or Windows WSL2) with an NVIDIA GPU, layer the GPU override for the
+reranker after generating the CDI spec:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml \
-  -f deploy/compose/docker-compose.gpu.yml up -d --build
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+podman compose -f deploy/compose/compose.yaml \
+  -f deploy/compose/compose.gpu.yaml up -d --build
 ```
 
 Do not apply the GPU override on macOS. Apple Silicon uses the CPU reranker;

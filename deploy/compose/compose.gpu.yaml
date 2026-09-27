@@ -1,3 +1,11 @@
+# GPU overlay for the reranker sidecar, layered on compose.yaml:
+#   podman compose -f deploy/compose/compose.yaml -f deploy/compose/compose.gpu.yaml up -d --build
+#
+# Requires an NVIDIA CDI spec (Linux only):
+#   sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+#
+# The RTX-class laptop GPUs share VRAM with a host Ollama; keep the reranker
+# CPU unless you have measured the budget.
 services:
   app:
     environment:
@@ -6,6 +14,7 @@ services:
   reranker:
     build:
       context: ../../sidecars/reranker
+      dockerfile: Containerfile
       args:
         GPU: ${RERANKER_GPU:-1}
         BAKE_QUANTIZED: ${RERANKER_BAKE_QUANTIZED:-0}
@@ -13,10 +22,6 @@ services:
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cuda}
       RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
       RERANKER_MAX_CONCURRENT: ${RERANKER_MAX_CONCURRENT:-1}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    # CDI device name — resolved against /etc/cdi/nvidia.yaml by podman.
+    devices:
+      - "nvidia.com/gpu=all"

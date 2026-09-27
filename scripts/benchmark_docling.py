@@ -4,7 +4,7 @@
 The benchmark deliberately uses only the Python standard library so it can be
 run from the host without installing another measurement stack. It records
 latency and failure behavior for every document/run and optionally samples
-the converter's resident memory through a local PID or Docker stats.
+the converter's resident memory through a local PID or Podman stats.
 
 Example:
     python scripts/benchmark_docling.py \
@@ -14,7 +14,7 @@ Example:
         --json-out test/evaluation/reports/docling.json
 
 For a Compose container, pass the ID returned by:
-    docker compose -f deploy/compose/docker-compose.yml ps -q docling
+    podman compose -f deploy/compose/compose.yaml ps -q docling
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def percentile(values: list[float], fraction: float) -> float | None:
 
 
 def parse_memory_bytes(value: str) -> int | None:
-    """Parse a Docker/proc-style memory quantity into bytes."""
+    """Parse a container/proc-style memory quantity into bytes."""
 
     match = MEMORY_RE.match(value)
     if not match:
@@ -114,13 +114,13 @@ def proc_rss_reader(pid: int) -> Callable[[], int | None]:
     return read
 
 
-def docker_memory_reader(container: str) -> Callable[[], int | None]:
-    """Return a reader backed by ``docker stats --no-stream``."""
+def podman_memory_reader(container: str) -> Callable[[], int | None]:
+    """Return a reader backed by ``podman stats --no-stream``."""
 
     def read() -> int | None:
         try:
             result = subprocess.run(
-                ["docker", "stats", "--no-stream", "--format", "{{.MemUsage}}", container],
+                ["podman", "stats", "--no-stream", "--format", "{{.MemUsage}}", container],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -133,7 +133,7 @@ def docker_memory_reader(container: str) -> Callable[[], int | None]:
         usage = result.stdout.strip().splitlines()
         if not usage:
             return None
-        # Docker reports "used / limit". Only the used quantity is relevant.
+        # Podman reports "used / limit". Only the used quantity is relevant.
         return parse_memory_bytes(usage[0].split("/", 1)[0].strip())
 
     return read
@@ -331,7 +331,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-response-bytes", type=int, default=DEFAULT_MAX_RESPONSE_BYTES, help="fail responses larger than this bound")
     memory = result.add_mutually_exclusive_group()
     memory.add_argument("--pid", type=int, help="local Docling process ID; reads /proc/<pid>/status")
-    memory.add_argument("--container", help="Docker container ID or name; samples docker stats")
+    memory.add_argument("--container", help="Podman container ID or name; samples podman stats")
     result.add_argument("--sample-interval", type=float, default=DEFAULT_SAMPLE_INTERVAL_SECONDS, help="memory sampling interval in seconds")
     result.add_argument("--json-out", type=Path, help="write the complete JSON report to this path")
     return result
@@ -374,8 +374,8 @@ def main() -> int:
         reader = proc_rss_reader(args.pid)
         memory_source = f"proc:{args.pid}"
     elif args.container:
-        reader = docker_memory_reader(args.container)
-        memory_source = f"docker:{args.container}"
+        reader = podman_memory_reader(args.container)
+        memory_source = f"podman:{args.container}"
 
     first = documents[0]
     for warmup in range(args.warmup_runs):

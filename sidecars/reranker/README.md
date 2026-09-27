@@ -61,9 +61,13 @@ Compose readiness check.
 | `RERANKER_MAX_LENGTH` | `512` | Maximum token length per query/passage pair |
 | `RERANKER_QUANTIZED_DIR` | `int8_avx2` | Directory containing an optional baked ONNX model |
 
-The model is downloaded at startup when running locally. The Docker image
+The model is downloaded at startup when running locally. The container image
 pre-downloads the build-time model; changing `RERANKER_MODEL` at runtime may
-require rebuilding the image to use a matching baked quantized model.
+require rebuilding the image to use a matching baked quantized model. The
+build-time int8 bake (`BAKE_QUANTIZED=1`) exports the model to ONNX and
+transiently needs more than 10 GB of host RAM for the current default model —
+16 GB laptops with a desktop session should keep the Compose default
+(`BAKE_QUANTIZED=0`, `RERANKER_BAKE_QUANTIZED=0`) and use the torch backend.
 
 ## CPU, GPU, and platform behavior
 
@@ -76,10 +80,10 @@ require rebuilding the image to use a matching baked quantized model.
   falling back to CPU. `auto` is available only for custom deployments.
 - The local profile uses one CPU reranker call at a time. Requests above that
   limit receive HTTP `429` instead of accumulating unbounded inference work.
-- The GPU Compose overlay is intended for Linux or Windows WSL2 with the
-  NVIDIA Container Toolkit. It adds the NVIDIA device reservation and CUDA
-  dependencies.
-- macOS and CPU-only Windows Docker Desktop use the CPU image. Apple Silicon
+- The GPU Compose overlay is intended for Linux or Windows WSL2 with an
+  NVIDIA CDI spec. It adds the CUDA build and passes the GPU through
+  `nvidia.com/gpu=all`.
+- macOS and CPU-only Windows hosts use the CPU image. Apple Silicon
   can still use host-side Ollama acceleration, but this sidecar currently runs
   on CPU.
 
@@ -180,8 +184,8 @@ python scripts/benchmark_reranker.py \
   --json-out test/evaluation/reports/reranker-production-bge.json
 ```
 
-For Compose, replace `--pid` with `--container "$(docker compose -f
-deploy/compose/docker-compose.yml ps -q reranker)"`. For a CUDA process, add
+For Compose, replace `--pid` with `--container "$(podman compose -f
+deploy/compose/compose.yaml ps -q reranker)"`. For a CUDA process, add
 `--gpu-pid` to sample process VRAM through `nvidia-smi`. Repeat the command
 after changing `RERANKER_MODEL`, `RERANKER_BACKEND`, or
 `RERANKER_DEVICE`; do not compare reports unless their corpus, candidate

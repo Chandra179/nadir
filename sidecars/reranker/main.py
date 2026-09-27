@@ -26,7 +26,7 @@ Device, via RERANKER_DEVICE (auto | cpu | cuda, default cpu):
     RERANKER_BACKEND=torch is required. Explicit cuda fails readiness when
     CUDA is unavailable instead of silently falling back to CPU. The CUDA
     build of torch comes from the GPU image
-    variant (deploy/compose/docker-compose.gpu.yml / Dockerfile GPU=1 build arg).
+    variant (deploy/compose/compose.gpu.yaml / Containerfile GPU=1 build arg).
 
 Install:
     pip install "sentence-transformers[onnx]" fastapi uvicorn

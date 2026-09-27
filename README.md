@@ -6,9 +6,9 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 
 | Tool | Required? | Purpose |
 |------|-----------|---------|
-| Docker + Docker Compose | **Required for the provided local/Compose flow** | Qdrant and optional containerized reranker |
+| [Podman](https://podman.io) + podman-compose | **Required for the provided local/Compose flow** | Qdrant and optional containerized reranker (rootless; `./scripts/setup_podman_host.sh` sets the laptop up) |
 | Go 1.27+ | **Required** | Server + CLI |
-| Python 3.10+ | **Required for the host reranker/PDF sidecar** | Reranker sidecar and optional PDF conversion |
+| Python 3.12+ | **Required for the host reranker/PDF sidecar** | Reranker sidecar and optional PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
 | Node.js 22+ | **Required for dashboard** | React dashboard and browser tests |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`nomic-embed-text`) and optional LLM features |
 
@@ -21,10 +21,10 @@ ollama pull gemma3:1b   # for answer generation
 
 ### 1. Configure your data source
 
-Edit `config/config.yaml` → `source.paths` to point at your source documents:
+Edit `internal/bootstrap/configuration/config.yaml` → `documents.paths` to point at your source documents:
 
 ```yaml
-source:
+documents:
   mode: "upload-only"     # upload-only | mirror
   paths:
     - "samples"           # ships with sample math docs
@@ -80,9 +80,9 @@ curl -X POST localhost:8100/api/v1/turns \
 ## Source data
 
 The server reads Markdown and, when Docling is enabled, PDF source files from
-directories listed in `config.yaml` → `source.paths`. Each source path is
-walked recursively; files matching `source.ignore_patterns` are skipped.
-Source handling is controlled by `source.mode`: `upload-only` retains indexed
+directories listed in `config.yaml` → `documents.paths`. Each documents path is
+walked recursively; files matching `documents.ignore_patterns` are skipped.
+Source handling is controlled by `documents.mode`: `upload-only` retains indexed
 files that are no longer present, while `mirror` removes missing files after a
 fully successful sweep. A failed conversion or embedding pass never triggers
 destructive reconciliation.
@@ -90,8 +90,8 @@ destructive reconciliation.
 A sample set is included at `samples/` (4 math files). To use your own data:
 
 ```yaml
-# config/config.yaml
-source:
+# internal/bootstrap/configuration/config.yaml
+documents:
   paths:
     - "/path/to/your/docs"
     - "/another/directory"
@@ -102,8 +102,8 @@ Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/api/v1/docu
 ## Run separately
 
 ```bash
-# 1. Start Docker services (Qdrant + reranker)
-docker compose -f deploy/compose/docker-compose.yml up -d qdrant reranker
+# 1. Start Podman services (Qdrant + reranker)
+podman compose -f deploy/compose/compose.yaml up -d qdrant reranker
 
 # 2. Start Go server
 go run ./cmd/api
@@ -112,15 +112,22 @@ go run ./cmd/api
 curl -X POST localhost:8100/api/v1/documents
 ```
 
-## Docker Desktop (Linux, Windows, and macOS)
+## Podman Compose (Linux, Windows, macOS)
 
 The default Compose stack is CPU-safe and does not require NVIDIA. It runs the
-Go API, Qdrant, and the CPU reranker. It works with Docker Desktop on Windows
-and macOS; Ollama runs on the host and the container reaches it through
-`host.docker.internal`.
+Go API, Qdrant, and the CPU reranker under rootless Podman on Linux, or inside
+a `podman machine` VM on Windows and macOS; Ollama runs on the host and the
+container reaches it through `host.containers.internal` (injected by Podman).
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml up -d --build
+podman compose -f deploy/compose/compose.yaml up -d --build
+```
+
+One-time host setup — engine, rootless subordinate IDs, the newest
+`podman-compose` provider, and the NVIDIA CDI toolchain on GPU machines:
+
+```bash
+./scripts/setup_podman_host.sh
 ```
 
 The dashboard is not built or served by Compose. Start it with the local Node
@@ -136,44 +143,45 @@ Open `http://localhost:3002` after Vite starts. Set `DASHBOARD_PORT` to choose
 another available port; Vite uses a strict port and will fail clearly if it is
 occupied.
 
-The default source mount is `./samples`. Set `SOURCE_DIR` in `.env` to a
+The default source mount is `./samples`. Set `DOCUMENTS_DIR` in `.env` to a
 different host directory. On Apple Silicon, keep the default CPU reranker
 backend (`RERANKER_BACKEND=torch`); the AVX2 quantized artifact is skipped for
 portable builds. Ollama can still use Apple Metal acceleration on the host.
 
-On Linux or Windows with Docker Desktop + WSL2 and the NVIDIA Container
-Toolkit, opt into the GPU override:
+On Linux or Windows WSL2 with an NVIDIA GPU, generate the CDI spec once and
+opt into the GPU override:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.gpu.yml up -d --build
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+podman compose -f deploy/compose/compose.yaml -f deploy/compose/compose.gpu.yaml up -d --build
 ```
 
 The GPU override is optional. Do not use it on macOS.
 
 ## Config
 
-Config file: `config/config.yaml`. All keys with defaults are shown there — edit directly.
+Config file: `internal/bootstrap/configuration/config.yaml`. All keys with defaults are shown there — edit directly.
 
 ### Minimal config
 
 ```yaml
-# config/config.yaml
-source:
+# internal/bootstrap/configuration/config.yaml
+documents:
   paths:
     - "~/documents"
 ```
 
 Disabled features and bounded operational knobs have sensible defaults. Enabled
 external roles require their address/model in the config. For a full reference
-of every knob, open `config/config.yaml`.
+of every knob, open `internal/bootstrap/configuration/config.yaml`.
 
 ### Env vars
 
-| Var | Default (docker-compose) | Purpose |
+| Var | Default (Podman Compose) | Purpose |
 |-----|--------------------------|---------|
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
-| `OLLAMA_ADDR` | `http://host.docker.internal:11434` | Ollama host |
+| `OLLAMA_ADDR` | `http://host.containers.internal:11434` | Ollama host |
 | `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:1b` | Explicit answer-generation endpoint and model |
 | `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
 | `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
@@ -186,23 +194,25 @@ of every knob, open `config/config.yaml`.
 | `RERANKER_ADAPTIVE_MARGIN_THRESHOLD` | `0.01` | Relative fused top-result margin below which adaptive reranking is required |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 | `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
-| `SOURCE_PATHS` | — | Comma-separated source paths; Compose normally sets this to `/app/source` |
-| `SOURCE_MODE` | `upload-only` | `upload-only` retains removed files; `mirror` reconciles configured source roots |
-| `SOURCE_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
+| `DOCUMENTS_PATHS` | — | Comma-separated documents paths; Compose normally sets this to `/app/source` |
+| `DOCUMENTS_MODE` | `upload-only` | `upload-only` retains removed files; `mirror` reconciles configured source roots |
+| `DOCUMENTS_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
 | `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
 | `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
 | `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous reranker inferences |
 | `RERANKER_QUEUE_TIMEOUT` | `30s` | Maximum time waiting for a reranker slot |
 | `INFERENCE_PROFILE` | `local` | `local` requires an explicit reranker device; `custom` permits `auto` |
-| `INFERENCE_OLLAMA_MAX_CONCURRENT` | `1` | Shared local limit across all Ollama roles |
-| `INFERENCE_OLLAMA_QUEUE_TIMEOUT` | `30s` | Maximum time waiting for an Ollama slot |
 | `INFERENCE_OLLAMA_KEEP_ALIVE` | `5m` | Ollama model residency after a request is idle |
 | `RERANKER_GPU` | `0` in CPU Compose | Set to `1` only with the GPU Compose override |
 | `DOCLING_ENABLED` | `false` | Enable PDF document intake |
-| `DOCLING_ADDR` | `http://host.docker.internal:5003` in Compose | Docling sidecar address |
+| `DOCLING_ADDR` | `http://host.containers.internal:5003` in Compose | Docling sidecar address |
 
-Role-specific request timeouts are configured in `config/config.yaml` under
+Role-specific request timeouts are configured in `internal/bootstrap/configuration/config.yaml` under
 `embedder`, `generator`, `rewriter`, `enrichment`, `reranker`, and `docling`.
+LLM and embedding concurrency is owned by the Ollama scheduler
+(`OLLAMA_NUM_PARALLEL`) rather than a client-side gate; admission remains for
+single-writer indexing and destructive operations (`ADMISSION_INDEXING_*`,
+`ADMISSION_DESTRUCTIVE_*`).
 When an LLM role is enabled, its address and model are required explicitly:
 `generator`, `rewriter`, `enrichment.hype`, and `enrichment.contextual` do not
 inherit another role's endpoint or model. Compose supplies explicit role
@@ -214,7 +224,7 @@ operation at a time. This is a process-local safety profile for laptops, not a
 distributed rate limiter. Set an explicit CUDA device and `torch` backend only
 with the GPU Compose override after measuring GPU capacity.
 
-> `./scripts/local.sh` runs the server against `config/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Docker-internal service names and a portable CPU reranker by default.
+> `./scripts/local.sh` runs the server against `internal/bootstrap/configuration/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Podman-internal service names and a portable CPU reranker by default.
 
 ## Routes
 
@@ -253,7 +263,7 @@ behind a shared backend such as Redis Streams and route or broadcast SSE
 subscribers through that shared log.
 
 The Go API and React dashboard are separate artifacts. The dashboard is run
-locally with Vite, which proxies `/api/` plus SSE traffic to the Go API. Docker
+locally with Vite, which proxies `/api/` plus SSE traffic to the Go API. Podman
 Compose runs the backend dependencies and does not build a frontend container.
 For production, serve the dashboard's built `dist/` directory from an
 independently managed static host and proxy the versioned API/SSE paths to the
@@ -269,7 +279,7 @@ Go API.
 
 ## Run tests
 
-### Unit tests (no Docker required)
+### Unit tests (no containers required)
 
 ```bash
 make test                       # unit tests only; excludes local Python venv
@@ -312,16 +322,16 @@ PDFs can be ingested directly when the Docling sidecar is enabled. The Go
 indexing pass keeps the original PDF path as the source identity after
 conversion.
 
-With Docker Compose:
+With Podman Compose:
 
 ```bash
-DOCLING_ENABLED=true DOCKER_DOCLING_ADDR=http://docling:5003 \
-  docker compose -f deploy/compose/docker-compose.yml --profile pdf up -d --build
+DOCLING_ENABLED=true HOST_DOCLING_ADDR=http://docling:5003 \
+  podman compose -f deploy/compose/compose.yaml --profile pdf up -d --build
 curl -X POST localhost:8100/api/v1/documents
 ```
 
 For host-side development, start the sidecar and enable it in
-`config/config.yaml`:
+`internal/bootstrap/configuration/config.yaml`:
 
 ```bash
 pip install -r sidecars/document-converter/requirements.txt   # one-time: install Python deps
@@ -336,7 +346,7 @@ is preferred.
 
 ### `./scripts/local.sh` fails with connection errors
 
-Ensure Docker is running and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
+Ensure the Podman Compose stack is up and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
 
 Use `POST /api/v1/documents/reset` to publish an empty collection generation safely:
 
@@ -383,5 +393,5 @@ The server uses gRPC on port 6334 (not the REST API on 6333). If you see gRPC di
 
 ```bash
 lsof -i :8100
-# Change http.addr in config/config.yaml if needed
+# Change http.addr in internal/bootstrap/configuration/config.yaml if needed
 ```

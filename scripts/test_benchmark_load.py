@@ -23,16 +23,16 @@ class LoadBenchmarkTest(unittest.TestCase):
 
     def test_metric_delta_includes_admission_gauges(self):
         before = {
-            "operations": [{"operation": "admission.retrieval", "outcome": "acquired", "count": 2, "duration_ms_sum": 5}],
-            "gauges": {"admission.retrieval.active": 0},
+            "operations": [{"operation": "admission.indexing", "outcome": "acquired", "count": 2, "duration_ms_sum": 5}],
+            "gauges": {"admission.indexing.active": 0},
         }
         after = {
-            "operations": [{"operation": "admission.retrieval", "outcome": "acquired", "count": 5, "duration_ms_sum": 11}],
-            "gauges": {"admission.retrieval.active": 1, "admission.retrieval.max_concurrent": 4},
+            "operations": [{"operation": "admission.indexing", "outcome": "acquired", "count": 5, "duration_ms_sum": 11}],
+            "gauges": {"admission.indexing.active": 1, "admission.indexing.max_concurrent": 4},
         }
         delta = benchmark_load.metric_delta(before, after)
         self.assertEqual(delta["operations"][0]["count"], 3)
-        self.assertEqual(delta["admission_gauges"]["admission.retrieval.active"], 1)
+        self.assertEqual(delta["admission_gauges"]["admission.indexing.active"], 1)
 
     def test_multipart_body_is_parseable_shape(self):
         content_type, body = benchmark_load.multipart_body("files", "sample.md", b"hello")
