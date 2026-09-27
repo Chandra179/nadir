@@ -1,0 +1,139 @@
+{
+  "generated_turn": {
+    "content_type": "application/json; charset=utf-8",
+    "shape": {
+      "count": "int",
+      "elapsed_ms": "int",
+      "from_cache": "bool",
+      "generate": "bool",
+      "has_answer": "bool",
+      "operation_id": "str",
+      "prompt": "str",
+      "query": "str",
+      "results": {
+        "item": {
+          "file_path": "str",
+          "header": "str",
+          "line_start": "int",
+          "score": "float",
+          "source_sha": "str",
+          "text": "str"
+        },
+        "type": "array"
+      },
+      "session_id": "str",
+      "stream_url": "str",
+      "streaming": "bool",
+      "top_k": "int",
+      "turn_id": "str"
+    },
+    "status": 200
+  },
+  "health": {
+    "content_type": "",
+    "status": 200
+  },
+  "malformed_turn": {
+    "content_type": "application/json; charset=utf-8",
+    "shape": {
+      "error": "str"
+    },
+    "status": 400
+  },
+  "missing_cancel": {
+    "content_type": "",
+    "status": 404
+  },
+  "missing_events": {
+    "body": "no such turn event stream",
+    "content_type": "text/plain; charset=utf-8",
+    "status": 404
+  },
+  "ready": {
+    "content_type": "application/json; charset=utf-8",
+    "shape": {
+      "checks": {
+        "embedding": {
+          "details": "str",
+          "loaded_model": "str",
+          "model": "str",
+          "ready": "bool"
+        },
+        "qdrant": {
+          "ready": "bool"
+        },
+        "reranker": {
+          "details": "str",
+          "ready": "bool"
+        }
+      },
+      "ready": "bool"
+    },
+    "status": 200
+  },
+  "replay_after_terminal": {
+    "body": "",
+    "content_type": "text/event-stream",
+    "status": 204
+  },
+  "retrieval": {
+    "content_type": "application/json; charset=utf-8",
+    "shape": {
+      "count": "int",
+      "elapsed_ms": "int",
+      "from_cache": "bool",
+      "generate": "bool",
+      "has_answer": "bool",
+      "operation_id": "str",
+      "query": "str",
+      "results": {
+        "item": {
+          "file_path": "str",
+          "header": "str",
+          "line_start": "int",
+          "score": "float",
+          "source_sha": "str",
+          "text": "str"
+        },
+        "type": "array"
+      },
+      "session_id": "str",
+      "streaming": "bool",
+      "top_k": "int"
+    },
+    "status": 200
+  },
+  "sessions": {
+    "content_type": "application/json; charset=utf-8",
+    "shape": {
+      "enabled": "bool",
+      "sessions": {
+        "item": {
+          "created_at": "str",
+          "id": "str",
+          "title": "str",
+          "turn_count": "int",
+          "updated_at": "str"
+        },
+        "type": "array"
+      }
+    },
+    "status": 200
+  },
+  "stream": {
+    "content_type": "text/event-stream",
+    "event_kinds": [
+      "done",
+      "token"
+    ],
+    "has_ids": true,
+    "ids_strictly_increasing": true,
+    "status": 200,
+    "terminal_event": "done"
+  },
+  "wrong_method": {
+    "body": "404 page not found",
+    "content_type": "text/plain",
+    "status": 404
+  }
+}

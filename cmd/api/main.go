@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"nadir/internal/platform/configuration"
-	"nadir/internal/platform/profiling"
-	"nadir/internal/platform/server"
+	"nadir/internal/bootstrap/configuration"
+	"nadir/internal/bootstrap/profiling"
+	"nadir/internal/bootstrap/server"
 )
 
 func main() {
-	cfg, err := config.Load("config/config.yaml")
+	cfg, err := config.Load(config.DefaultPath)
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}

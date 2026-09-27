@@ -70,3 +70,6 @@ test/evaluation/arqmath/corpus/
 # Python sidecars (sidecars/)
 __pycache__/
 *.pyc
+
+# Local Qdrant cutover backups and rollback binaries
+.local/

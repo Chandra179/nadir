@@ -28,7 +28,14 @@ test.describe("full-stack browser flows", () => {
     const sessionID = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");
     expect(sessionID).not.toBe("");
 
-    const detailResponse = await request.get(`/api/v1/sessions/${encodeURIComponent(sessionID)}`);
+    const detailURL = `/api/v1/sessions/${encodeURIComponent(sessionID)}`;
+    await expect.poll(async () => {
+      const response = await request.get(detailURL);
+      if (response.status() !== 200) return 0;
+      const detail = await response.json() as { turns: unknown[] };
+      return detail.turns.length;
+    }, { timeout: 30_000 }).toBe(1);
+    const detailResponse = await request.get(detailURL);
     expect(detailResponse.status()).toBe(200);
     const detail = await detailResponse.json() as { turns: Array<{ turn_id?: string; query: string }> };
     expect(detail.turns).toHaveLength(1);
@@ -42,7 +49,7 @@ test.describe("full-stack browser flows", () => {
     if (replay.status() === 200) expect(await replay.text()).toContain("event: done");
 
     await page.reload();
-    await expect(page.getByText("What is the secant formula?", { exact: true })).toBeVisible();
+    await expect(page.locator("#reader-inner").getByText("What is the secant formula?", { exact: true })).toBeVisible();
     await expect(page.locator(".nadir-turn-a p").first()).toHaveText(/\S+/, { timeout: 30_000 });
   });
 

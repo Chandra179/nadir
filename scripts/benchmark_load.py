@@ -63,7 +63,12 @@ def read_stream(url: str, timeout: float) -> int:
     request = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         data = response.read()
-    return response.status
+        status = response.status
+    events = [line[7:] for line in data.decode("utf-8", errors="replace").splitlines()
+              if line.startswith("event: ")]
+    if not events or events[-1] != "done" or "generror" in events:
+        raise ValueError(f"generation stream failed; terminal={events[-1] if events else 'missing'}")
+    return status
 
 
 def multipart_body(field: str, filename: str, content: bytes) -> tuple[str, bytes]:
@@ -195,24 +200,36 @@ def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict
             "state the result precisely",
         ]
     )
-    document = ("# Load benchmark document\n\n" + ("This is a representative long indexing paragraph. " * 4000)).encode("utf-8")
-    if len(document) < large_bytes:
-        remaining = large_bytes - len(document)
-        document += b"\n" + b"detail " * math.ceil(remaining / len(b"detail "))
+    paragraph = (
+        "This section explains a formula, its assumptions, an example, and the result. " * 5
+        + "\n\n"
+    ).encode("utf-8")
+    document = b"# Load benchmark document\n\n"
+    while len(document) < large_bytes:
+        document += paragraph
 
     def chat(index: int) -> tuple[int, bytes]:
         status, body = request_json(turns_url, {"query": f"load chat {index}: {long_query}", "generate": True, "top_k": 5}, timeout)
         response = json.loads(body.decode("utf-8"))
+        if response.get("error") or response.get("generate_error"):
+            raise ValueError("chat turn reported an error")
         turn_id = response.get("turn_id")
-        if turn_id:
-            read_stream(base_url.rstrip("/") + "/api/v1/turns/" + turn_id + "/events", timeout)
+        if not turn_id:
+            raise ValueError("chat turn did not start a generation stream")
+        read_stream(base_url.rstrip("/") + "/api/v1/turns/" + turn_id + "/events", timeout)
         return status, body
 
     def retrieval(index: int) -> tuple[int, bytes]:
-        return request_json(turns_url, {"query": f"load retrieval {index}: {long_query}", "generate": False, "top_k": 5}, timeout)
+        status, body = request_json(turns_url, {"query": f"load retrieval {index}: {long_query}", "generate": False, "top_k": 5}, timeout)
+        if json.loads(body.decode("utf-8")).get("error"):
+            raise ValueError("retrieval turn reported an error")
+        return status, body
 
     def ingest(index: int) -> tuple[int, bytes]:
-        return request_upload(documents_url, index, document + f"\ncase={index}\n".encode("utf-8"), timeout)
+        status, body = request_upload(documents_url, index, document + f"\ncase={index}\n".encode("utf-8"), timeout)
+        if json.loads(body.decode("utf-8")).get("failed", 0):
+            raise ValueError("ingestion reported failed files")
+        return status, body
 
     return {"chat_streams": chat, "long_retrieval": retrieval, "large_ingestion": ingest}
 
@@ -224,11 +241,12 @@ def main() -> int:
     parser.add_argument("--requests", type=int, default=20)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=120.0)
-    parser.add_argument("--large-bytes", type=int, default=256 * 1024)
+    parser.add_argument("--large-bytes", type=int, default=8 * 1024)
+    parser.add_argument("--warmup", type=int, default=0, help="sequential warmup requests per workload, excluded from measurements")
     parser.add_argument("--json-out")
     args = parser.parse_args()
-    if args.requests <= 0 or args.concurrency <= 0:
-        parser.error("--requests and --concurrency must be greater than zero")
+    if args.requests <= 0 or args.concurrency <= 0 or args.warmup < 0:
+        parser.error("--requests and --concurrency must be greater than zero; --warmup must be nonnegative")
 
     health_request = urllib.request.Request(args.base_url.rstrip("/") + "/api/v1/health")
     try:
@@ -246,9 +264,22 @@ def main() -> int:
         "measured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "base_url": args.base_url,
         "process_scope": "single API process; admission is not distributed",
+        "warmup_per_workload": args.warmup,
+        "warmups": {},
         "workloads": [],
     }
     for name in names:
+        warmup_failures = []
+        for index in range(args.warmup):
+            try:
+                operations[name](-index - 1)
+            except (OSError, ValueError, urllib.error.HTTPError) as exc:
+                warmup_failures.append(str(exc))
+        report["warmups"][name] = {
+            "attempts": args.warmup,
+            "failures": len(warmup_failures),
+            "errors": warmup_failures,
+        }
         before = fetch_metrics(args.base_url, args.timeout)
         report["workloads"].append(
             run_workload(name, args.requests, args.concurrency, args.timeout, operations[name], before, args.base_url)

@@ -1,6 +1,6 @@
 .PHONY: run test race vet build load-benchmark check mdn generate-mocks
 
-GO_PACKAGES := ./internal/platform/configuration ./cmd/... ./internal/...
+GO_PACKAGES := ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
 
 run:

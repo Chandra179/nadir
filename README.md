@@ -263,11 +263,9 @@ Go API.
 
 - [Overview](docs/OVERVIEW.md) — what Nadir does and how users experience it.
 - [Architecture](docs/architecture.md) — high-level system design and data flow.
-- [Scaling and concurrency](docs/SCALING.md) — current single-node guarantees
-  and the requirements for distributed operation.
+- [Architecture review](docs/architecture-review.md) — answers to the current
+  TODO architecture questions and measured HyPE costs.
 - [Active TODO](TODO.md) — open engineering work and evaluation priorities.
-- [Completed roadmap archive](docs/roadmap/archive.md) — finished phases and
-  historical benchmark context.
 
 ## Run tests
 
@@ -276,7 +274,7 @@ Go API.
 ```bash
 make test                       # unit tests only; excludes local Python venv
 make check                      # tests + vet + build
-go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # all Go tests (Qdrant as available)
+go test -count=1 ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 ```
 
 ## Evaluate Retrieval quality

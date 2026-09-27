@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/evaluator [--config config/config.yaml] [--golden test/evaluation/golden.json]
+//	go run ./cmd/evaluator [--config internal/bootstrap/configuration/config.yaml] [--golden test/evaluation/golden.json]
 //	                         [--top-k N] [--no-rerank] [--runs N]
 //	                         [--report path] [--ensure-ingest]
 //	                         [--require-release-gate] [--validate-only]
@@ -19,19 +19,18 @@ import (
 	"strings"
 	"time"
 
-	ollamagenerator "nadir/internal/adapters/ollama/generator"
-	"nadir/internal/evaluation"
-	"nadir/internal/knowledge/indexing"
-	platformadmission "nadir/internal/platform/admission"
-	config "nadir/internal/platform/configuration"
-	"nadir/internal/platform/logging"
-	"nadir/internal/platform/runtime"
+	config "nadir/internal/bootstrap/configuration"
+	"nadir/internal/bootstrap/logging"
+	"nadir/internal/bootstrap/runtime"
+	"nadir/internal/core/documents/indexing"
+	"nadir/internal/eval"
+	ollamagenerator "nadir/internal/providers/ollama/generator"
 
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 func main() {
-	configPath := flag.String("config", "config/config.yaml", "path to config file")
+	configPath := flag.String("config", config.DefaultPath, "path to config file")
 	goldenPath := flag.String("golden", "test/evaluation/golden.json", "path to golden query set")
 	topK := flag.Int("top-k", 0, "results per query (0 uses qdrant.top_k)")
 	noRerank := flag.Bool("no-rerank", false, "bypass the configured reranker")
@@ -97,7 +96,6 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
-	defer func() { _ = log.Sync() }()
 
 	ctx := context.Background()
 	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{
@@ -148,8 +146,6 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 				"temperature": 0,
 				"num_predict": cfg.Generator.MaxOutputTokens,
 			},
-			Gate:      graph.OllamaGate,
-			Admission: graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		judgeGenerator := ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
 			Addr:           strings.TrimSpace(generationOptions.JudgeAddr),
@@ -161,8 +157,6 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 				"temperature": 0,
 				"num_predict": 128,
 			},
-			Gate:      graph.OllamaGate,
-			Admission: graph.Admission.AcquireFunc(platformadmission.Generation),
 		})
 		generationReport, generationErr := evaluation.NewGenerationDependencies(evaluation.GenerationDependenciesConfig{
 			Searcher:         graph.Searcher,
@@ -216,28 +210,28 @@ func validateGenerationOptions(cfg *config.Config, options generationOptions) er
 	return nil
 }
 
-func ensureIngested(ctx context.Context, cfg *config.Config, ing indexing.Ingest, log *zap.Logger) error {
-	if len(cfg.Source.Paths) == 0 {
-		return fmt.Errorf("collection is empty or --ensure-ingest was requested, but source.paths has no directories")
+func ensureIngested(ctx context.Context, cfg *config.Config, ing indexing.Ingest, log *slog.Logger) error {
+	if len(cfg.Documents.Paths) == 0 {
+		return fmt.Errorf("collection is empty or --ensure-ingest was requested, but documents.paths has no directories")
 	}
-	files, err := indexing.DiscoverFiles(cfg.Source.Paths, cfg.Source.IgnorePatterns, cfg.Ingest.MaxFileBytes)
+	files, err := indexing.DiscoverFiles(cfg.Documents.Paths, cfg.Documents.IgnorePatterns, cfg.Ingest.MaxFileBytes)
 	if err != nil {
 		return fmt.Errorf("discover source files: %w", err)
 	}
 	if len(files) == 0 {
-		return fmt.Errorf("no supported source files found under %v", cfg.Source.Paths)
+		return fmt.Errorf("no supported source files found under %v", cfg.Documents.Paths)
 	}
 
-	log.Info("ingesting source files before evaluation", zap.Int("files", len(files)), zap.Strings("roots", cfg.Source.Paths))
+	log.Info("ingesting source files before evaluation", slog.Int("files", len(files)), slog.Any("roots", cfg.Documents.Paths))
 	options := indexing.RunOptions{}
-	if cfg.Source.Mode == config.SourceModeMirror {
-		options = indexing.RunOptions{MirrorSources: true, SourceRoots: cfg.Source.Paths}
+	if cfg.Documents.Mode == config.DocumentsModeMirror {
+		options = indexing.RunOptions{MirrorSources: true, SourceRoots: cfg.Documents.Paths}
 	}
 	result, err := ing.Run(ctx, files, options)
 	if err != nil {
 		return fmt.Errorf("ingest: %w", err)
 	}
-	log.Info("ingest finished", zap.Int("processed", result.Processed), zap.Int("skipped", result.Skipped), zap.Int("failed", result.Failed))
+	log.Info("ingest finished", slog.Int("processed", result.Processed), slog.Int("skipped", result.Skipped), slog.Int("failed", result.Failed))
 	return nil
 }
 

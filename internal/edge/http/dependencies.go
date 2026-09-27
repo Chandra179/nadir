@@ -1,0 +1,96 @@
+package api
+
+import (
+	"context"
+	"io"
+	"time"
+
+	"log/slog"
+
+	"nadir/internal/core/conversation/chat"
+	conversationhistory "nadir/internal/core/conversation/history"
+	"nadir/internal/core/documents/indexing"
+	chatapi "nadir/internal/edge/http/chat"
+	historyapi "nadir/internal/edge/http/history"
+)
+
+// defaultTopK backs the configured default when config leaves it unset.
+const defaultTopK = 8
+
+// DependenciesConfig groups everything needed to construct the API
+// dependencies.
+type DependenciesConfig struct {
+	Ingest indexing.Ingest
+	Reset  func(context.Context) error
+	// History is optional: when nil, session pages 404, sessions are not
+	// minted and the sidebar's chat list is simply empty.
+	History                conversationhistory.Reader
+	HistorySessionPageSize int
+	// Chat runs the chat use-case for the chat UI: start turn, subscribe to
+	// its event stream, cancel it.
+	Chat chat.Chat
+	// TopK is the configured default result count; requests and the
+	// composer fall back to it (then to defaultTopK). Resolved once here so
+	// handlers never re-apply the fallback.
+	TopK                    int
+	MaxTopK                 int
+	DocumentsPaths          []string
+	DocumentsIgnorePatterns []string
+	DocumentsMode           string
+	MaxDocumentFileBytes    int64
+	MaxUploadBytes          int64
+	Readiness               ReadinessFunc
+	ReadinessTimeout        time.Duration
+	Log                     *slog.Logger
+}
+
+type dependencies struct {
+	ingest                  indexing.Ingest
+	reset                   func(context.Context) error
+	topK                    int
+	documentsPaths          []string
+	documentsIgnorePatterns []string
+	documentsMode           string
+	maxDocumentFileBytes    int64
+	maxUploadBytes          int64
+	readiness               ReadinessFunc
+	readinessTimeout        time.Duration
+	turns                   *chatapi.Handlers
+	hist                    *historyapi.Handlers
+	log                     *slog.Logger
+}
+
+// NewDependencies builds the HTTP transport over the domain capabilities.
+func NewDependencies(cfg DependenciesConfig) *dependencies {
+	log := cfg.Log
+	if log == nil {
+		log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	topK := cfg.TopK
+	if topK <= 0 {
+		topK = defaultTopK
+	}
+	maxTopK := cfg.MaxTopK
+	if maxTopK <= 0 {
+		maxTopK = 50
+	}
+	readinessTimeout := cfg.ReadinessTimeout
+	if readinessTimeout <= 0 {
+		readinessTimeout = readinessTimeoutDefault
+	}
+	return &dependencies{
+		ingest:                  cfg.Ingest,
+		reset:                   cfg.Reset,
+		topK:                    topK,
+		documentsPaths:          cfg.DocumentsPaths,
+		documentsIgnorePatterns: cfg.DocumentsIgnorePatterns,
+		documentsMode:           cfg.DocumentsMode,
+		maxDocumentFileBytes:    cfg.MaxDocumentFileBytes,
+		maxUploadBytes:          cfg.MaxUploadBytes,
+		readiness:               cfg.Readiness,
+		readinessTimeout:        readinessTimeout,
+		turns:                   chatapi.NewDependencies(chatapi.DependenciesConfig{Chat: cfg.Chat, TopK: topK, MaxTopK: maxTopK}),
+		hist:                    historyapi.NewDependencies(historyapi.DependenciesConfig{History: cfg.History, Chat: cfg.Chat, SessionPageSize: cfg.HistorySessionPageSize, Log: log}),
+		log:                     log,
+	}
+}

@@ -1,6 +1,6 @@
 # 0027 — Explicit local inference resource profile
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [0029](0029-ollama-scheduler-owns-llm-concurrency.md) (client-side Ollama gate and per-operation LLM admission removed; keep-alive and device policy still in force)
 - **Date:** 2026-09-13
 - **Deciders:** Chandra, Codex architecture review
 

@@ -1,0 +1,225 @@
+{
+  "controlled": {
+    "next": {
+      "chat_streams": {
+        "failures": 0,
+        "p95_ms": 148.577,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 0,
+        "p95_ms": 152.506,
+        "requests": 30
+      }
+    }
+  },
+  "evaluator_133_no_rerank": {
+    "next": {
+      "distractor_hit_rate_at_k": 0.24812030075187969,
+      "hit_rate_at_k": 0.8045112781954887,
+      "mrr_at_10": 0.6583959899749372,
+      "ndcg_at_k": 0.6815869674956031,
+      "p50_latency_ms": 24.738,
+      "p95_latency_ms": 36.96519999999998,
+      "queries": 133,
+      "recall_at_k": 0.7882205513784462
+    },
+    "old": {
+      "distractor_hit_rate_at_k": 0.24812030075187969,
+      "hit_rate_at_k": 0.8045112781954887,
+      "mrr_at_10": 0.6583959899749372,
+      "ndcg_at_k": 0.6786782997720351,
+      "p50_latency_ms": 25.916,
+      "p95_latency_ms": 38.4876,
+      "queries": 133,
+      "recall_at_k": 0.7882205513784462
+    }
+  },
+  "final": {
+    "next": {
+      "chat_streams": {
+        "failures": 22,
+        "p95_ms": 72848.492,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 30,
+        "p95_ms": 9898.553,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 926.184,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 19,
+        "p95_ms": 43394.88,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 30,
+        "p95_ms": 12157.226,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 1050.42,
+        "requests": 30
+      }
+    }
+  },
+  "fixture_notes": {
+    "controlled": "local deterministic Ollama wire stub isolates backend overhead",
+    "final": "JSON and SSE semantic failures counted; Qdrant clone restored before each run",
+    "initial": "HTTP-only failure counts; diagnostic, not the release gate",
+    "strict_cold": "corrected valid 8 KiB ingestion; no warmup; same live Ollama and clone snapshot; all three workloads pass 20% p95 and no-increased-failure gate",
+    "valid_ingestion": "corrected bounded 8 KiB markdown payload; all 30 uploads succeeded on both backends",
+    "warmed_chat": "one successful sequential chat warmup per backend; clone restored before each; live Ollama, reranker disabled",
+    "warmed_full": "one sequential warmup per workload; 256 KiB ingestion payload caused Ollama 400 and all samples failed; chat and retrieval valid"
+  },
+  "initial": {
+    "next": {
+      "chat_streams": {
+        "failures": 0,
+        "p95_ms": 72398.986,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 27,
+        "p95_ms": 11307.874,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 895.864,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 0,
+        "p95_ms": 60310.679,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 27,
+        "p95_ms": 11478.611,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 944.584,
+        "requests": 30
+      }
+    }
+  },
+  "strict_cold": {
+    "next": {
+      "chat_streams": {
+        "failures": 18,
+        "p95_ms": 72712.912,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 0,
+        "p95_ms": 1863.481,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 902.551,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 18,
+        "p95_ms": 69781.191,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 0,
+        "p95_ms": 1822.54,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 867.299,
+        "requests": 30
+      }
+    }
+  },
+  "valid_ingestion": {
+    "next": {
+      "large_ingestion": {
+        "failures": 0,
+        "p95_ms": 2006.439,
+        "requests": 30
+      }
+    },
+    "old": {
+      "large_ingestion": {
+        "failures": 0,
+        "p95_ms": 1884.938,
+        "requests": 30
+      }
+    }
+  },
+  "warmed_chat": {
+    "next": {
+      "chat_streams": {
+        "failures": 18,
+        "p95_ms": 65398.851,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 23,
+        "p95_ms": 68643.711,
+        "requests": 30
+      }
+    }
+  },
+  "warmed_full": {
+    "next": {
+      "chat_streams": {
+        "failures": 23,
+        "p95_ms": 68229.287,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 30,
+        "p95_ms": 10422.063,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 913.754,
+        "requests": 30
+      }
+    },
+    "old": {
+      "chat_streams": {
+        "failures": 23,
+        "p95_ms": 67833.456,
+        "requests": 30
+      },
+      "large_ingestion": {
+        "failures": 30,
+        "p95_ms": 11825.432,
+        "requests": 30
+      },
+      "long_retrieval": {
+        "failures": 0,
+        "p95_ms": 942.28,
+        "requests": 30
+      }
+    }
+  }
+}

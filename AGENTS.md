@@ -3,7 +3,7 @@
 ## Commands
 
 The Makefile provides `run`, `test`, `race`, `vet`, `build`, and `check`
-targets. It scopes Go checks to `./internal/platform/configuration`, `./cmd/...`, and `./internal/...`
+targets. It scopes Go checks to `./cmd/...` and `./internal/...`
 so a local Python `venv/` is not discovered as a Go package.
 
 ```bash
@@ -20,9 +20,9 @@ go mod tidy && go mod vendor
 go run ./cmd/api
 
 # Tests
-go test -short -count=1 ./internal/platform/configuration ./cmd/... ./internal/... # unit tests only
-go test -count=1 ./internal/platform/configuration ./cmd/... ./internal/...       # all Go tests
-go test -run TestMatchPattern ./internal/knowledge/indexing/   # focused pkg test
+go test -short -count=1 ./cmd/... ./internal/... # unit tests only
+go test -count=1 ./cmd/... ./internal/...       # all Go tests
+go test -run TestMatchPattern ./internal/core/documents/indexing/   # focused pkg test
 make load-benchmark ARGS="--mode all --requests 30 --concurrency 8" # live p50/p95/p99 load evidence
 
 # Quick ops (server must be on :8100)
@@ -37,56 +37,43 @@ go run ./cmd/evaluator --no-rerank --runs 3
 
 ## Architecture
 
-The API binary is `cmd/api/main.go`; the evaluator is `cmd/evaluator/main.go`. Shared retrieval/indexing composition lives in `internal/platform/runtime/`; HTTP process lifecycle and feature wiring live in `internal/platform/server/server.go`; HTTP handlers and route registration live in `internal/transport/http/`.
+`cmd/api` and `cmd/evaluator` are the normal entrypoints. `internal/bootstrap`
+loads configuration and wires the process. `internal/edge/http` maps the
+versioned JSON/SSE API with `net/http`. The evaluator is a separate CLI that
+uses the same Retrieval and prompt code.
 
 ```
-POST /api/v1/documents → IngestHandler → ingest.Service (walk + SHA dedup) → Pipeline (chunk→embed→upsert)
-POST /api/v1/turns → StartTurnHandler → chat.StartTurn (session mint or in-place edit prune → rewrite follow-up → retrieve → start generation supervisor)
-GET  /api/v1/turns/:id/events → SSE adapter over the turn event log (replay via Last-Event-ID). Generation is owned by the chat service (subscribers never kill it); the turn is persisted by the supervisor at its terminal state
-POST /api/v1/turns/:id/cancel → abort generation; the partial answer is kept and persisted
-GET  /api/v1/health → 200
+POST /api/v1/documents → edge → Documents (intake → chunk → enrich → embed → versioned replace)
+POST /api/v1/turns → edge → Conversation (session/edit → Retrieval → supervised generation)
+GET  /api/v1/turns/{id}/events → SSE replay, including Last-Event-ID
+POST /api/v1/turns/{id}/cancel → cancel generation and persist a partial answer
+GET  /api/v1/health → liveness; GET /api/v1/ready → dependency readiness
 ```
 
-**Bounded contexts (under `internal/`):**
-- `knowledge/` — Document intake and the Indexing pass: normalize, chunk,
-  enrich, embed, deduplicate, and versioned publication.
-- `retrieval/` — query rewriting, fragmentation, hybrid dense/BM25 search,
-  RRF, cache lookup, reranking, and context selection.
-- `conversation/` — Sessions, Chat turns, prompt construction, generation
-  supervision, bounded event retention, cancellation, edit/prune, and history.
-- `evaluation/` — development-only golden-set Retrieval evaluator and reports.
+- `internal/core/documents/` owns intake, chunking, optional enrichment,
+  embeddings, versioned replacement, source mirroring, and reset.
+- `internal/core/retrieval/` owns hybrid search, fusion, reranking, and cache.
+- `internal/core/conversation/` owns sessions, edits, generation, event replay,
+  cancellation, and history.
+- `internal/core/observability/` owns provider-neutral operation correlation and
+  bounded metrics. `internal/bootstrap/server` maps those metrics to HTTP.
+- `internal/providers/` implements Ollama, Qdrant, reranker, and Docling seams.
+- `internal/bootstrap/resources/` owns process-local model and operation gates
+  and bounded background jobs.
+- `internal/eval/` is the evaluator library; it shares retrieval and prompt
+  building with the API.
 
-**Transport and infrastructure:**
-- `transport/http/` — versioned JSON/SSE request mapping, status codes, route
-  registration, and SSE adaptation only; shared response shapes live in
-  `transport/http/contract/`.
-- `adapters/qdrant/` — Qdrant clients, schema helpers, and document storage;
-  domain lifecycle rules remain owned by their calling context.
-- `adapters/ollama/` — embedding, enrichment, generation, and rewriting
-  Adapters, each with explicit role-specific configuration.
-- `adapters/reranker/` — cross-encoder sidecar Adapter.
-- `platform/` — configuration, logging, observability, HTTP middleware, shared
-  runtime composition, and process lifecycle.
-- Optional profiling is disabled by default and is loopback-only when enabled;
-  use a protected local access path such as an SSH tunnel for remote hosts.
-
-The React/TypeScript/Tailwind client lives in `web/dashboard`; it is a separate
-Node/Vite application run with `npm run dev`. Compose runs the backend and
-sidecars only; a production static host may serve the built dashboard.
-Python sidecars remain under `sidecars/` because they are separately deployed
-processes.
-
-**`sidecars/`** — Python sidecars (each has its own Dockerfile): `reranker/`
-(:5002) and optional `document-converter/` (:5003, PDF→Markdown HTTP intake).
+The React dashboard remains in `web/dashboard`, and the Python reranker and
+optional Docling processes remain in `sidecars/`. Compose builds `cmd/api`, so
+normal local and Compose startup use the same backend.
 
 ## Key rules
 
-- Domain contexts must NOT import `internal/transport/http/`,
-  `internal/platform/server/`, `internal/platform/httpmiddleware/`, or
-  frontend code.
-- Retry logic lives in `Pipeline` (ingest), never in `Embedder`/`Store`
+- Core use cases must not import `internal/edge/http/`, `internal/providers/`,
+  `internal/bootstrap/server/`, or frontend code.
+- Retry logic lives in Documents indexing, never in an Embedder or Store.
 - Chunk IDs = UUIDv5 over `filePath:sourceSHA:lineStart:chunkIndex` (HyPE siblings append `:hype:<n>`) — versioned deterministic replacement; old versions are deactivated and cleaned after the new version is active
-- Config: `config/config.yaml` → `internal/platform/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_MODEL`, `EMBEDDER_DIMENSIONS`, `EMBEDDER_QUERY_PREFIX`, `EMBEDDER_DOCUMENT_PREFIX`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_MODE`, `SOURCE_IGNORE_PATTERNS`, `FUSION_ENABLED`, `FUSION_RRF_K`, `FUSION_DENSE_WEIGHT`, `FUSION_BM25_WEIGHT`, `FUSION_EXACT_MATCH_BOOST`, `FUSION_HEADER_MATCH_BOOST`, `FUSION_MIN_EXACT_TOKENS`, `FUSION_MIN_HEADER_TOKENS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `RERANKER_ADAPTIVE_ENABLED`, `RERANKER_ADAPTIVE_MARGIN_THRESHOLD`, `RERANKER_DEVICE`, `RERANKER_BACKEND`, `RERANKER_TRUST_REMOTE_CODE`, `RERANKER_PORT`, `RERANKER_MAX_CONCURRENT`, `RERANKER_QUEUE_TIMEOUT`, `INFERENCE_PROFILE`, `INFERENCE_OLLAMA_MAX_CONCURRENT`, `INFERENCE_OLLAMA_QUEUE_TIMEOUT`, `INFERENCE_OLLAMA_KEEP_ALIVE`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_MAX_CONCURRENT`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_QUEUE_TIMEOUT`, `HISTORY_SESSION_PAGE_SIZE`, `HISTORY_TURN_PAGE_SIZE`, `PROFILING_ENABLED`, `PROFILING_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
+- Config: `config/config.yaml` → `internal/bootstrap/configuration/config.go` `applyEnv()` overrides. Known env vars include `QDRANT_ADDR`, `QDRANT_COLLECTION`, `OLLAMA_ADDR`, `EMBEDDER_MODEL`, `EMBEDDER_DIMENSIONS`, `EMBEDDER_QUERY_PREFIX`, `EMBEDDER_DOCUMENT_PREFIX`, `GENERATOR_ADDR`, `GENERATOR_MODEL`, `EMBEDDER_API_KEY`, `SOURCE_PATHS`, `SOURCE_MODE`, `SOURCE_IGNORE_PATTERNS`, `FUSION_ENABLED`, `FUSION_RRF_K`, `FUSION_DENSE_WEIGHT`, `FUSION_BM25_WEIGHT`, `FUSION_EXACT_MATCH_BOOST`, `FUSION_HEADER_MATCH_BOOST`, `FUSION_MIN_EXACT_TOKENS`, `FUSION_MIN_HEADER_TOKENS`, `RERANKER_ADDR`, `RERANKER_ENABLED`, `RERANKER_MODEL`, `RERANKER_ADAPTIVE_ENABLED`, `RERANKER_ADAPTIVE_MARGIN_THRESHOLD`, `RERANKER_DEVICE`, `RERANKER_BACKEND`, `RERANKER_TRUST_REMOTE_CODE`, `RERANKER_PORT`, `RERANKER_MAX_CONCURRENT`, `RERANKER_QUEUE_TIMEOUT`, `INFERENCE_PROFILE`, `INFERENCE_OLLAMA_MAX_CONCURRENT`, `INFERENCE_OLLAMA_QUEUE_TIMEOUT`, `INFERENCE_OLLAMA_KEEP_ALIVE`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_MAX_CONCURRENT`, `ADMISSION_<RETRIEVAL|RERANKING|GENERATION|EMBEDDING|INDEXING|DESTRUCTIVE>_QUEUE_TIMEOUT`, `HISTORY_SESSION_PAGE_SIZE`, `HISTORY_TURN_PAGE_SIZE`, `PROFILING_ENABLED`, `PROFILING_ADDR`, `LOGGER_LEVEL`, `SEMANTIC_CACHE_THRESHOLD`, `HYPE_ENABLED`, `HYPE_ADDR`, `HYPE_MODEL`, `CONTEXTUAL_ENABLED`, `CONTEXTUAL_ADDR`, `CONTEXTUAL_MODEL`, `REWRITE_ENABLED`, `REWRITE_ADDR`, `REWRITE_MODEL`, `REWRITE_TURNS`, `HISTORY_ENABLED`, `HISTORY_COLLECTION`, `DOCLING_ENABLED`, `DOCLING_ADDR`
 - Source dirs are configured by `source.paths`; `SOURCE_PATHS` is a comma-separated override used by Compose and container deployments
 - External Ollama/sidecar request timeouts are configured per role in `config/config.yaml`; constructors retain defaults only for direct package tests. Enabled LLM roles must declare their own `ollama_addr` and `model`; they do not inherit another role's endpoint.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
@@ -113,8 +100,8 @@ logs; this endpoint is diagnostic telemetry, not a distributed metrics store.
 | Contextual retrieval | `enrichment.contextual.enabled` (off by default) | Ollama LLM; reindex after enabling |
 | PDF document intake | `docling.enabled` (off by default) | Docling sidecar; source PDFs are converted before indexing |
 
-Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The default `inference.profile: local` shares one Ollama Gate across embedding, rewriting, enrichment, and streaming generation, uses a finite `keep_alive`, and limits the reranker to one explicit CPU operation. Set `RERANKER_DEVICE=cuda` and `RERANKER_BACKEND=torch` only with the GPU Compose override and a measured hardware budget; `auto` is reserved for `inference.profile: custom`. The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host with the explicit local CPU profile and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
-The `admission` section adds process-wide finite queues for expensive and destructive operations. These budgets coordinate one API process only; they do not make Chat, Indexing, or model serving distributed-safe.
+Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, HyPE, and contextual enrichment do not inherit another role's endpoint or model. The default `inference.profile: local` shares one Ollama gate across embedding, rewriting, enrichment, and streaming generation, uses a finite `keep_alive`, and limits the reranker to one explicit CPU operation. Set `RERANKER_DEVICE=cuda` and `RERANKER_BACKEND=torch` only with the GPU Compose override and a measured hardware budget; `auto` is reserved for `inference.profile: custom`. The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/docker-compose.gpu.yml` adds the CUDA build and NVIDIA reservation for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host with the explicit local CPU profile and only starts Qdrant via Docker. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
+The `admission` section configures `internal/bootstrap/resources` process-wide finite queues for expensive and destructive operations. These budgets coordinate one API process only; they do not make Chat, Indexing, or model serving distributed-safe.
 
 ## Sample data
 

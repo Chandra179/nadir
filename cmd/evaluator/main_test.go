@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"nadir/internal/evaluation"
-	config "nadir/internal/platform/configuration"
+	config "nadir/internal/bootstrap/configuration"
+	"nadir/internal/eval"
 )
 
 func TestValidateOnlyAcceptsReleaseGateFixtureWithoutConfig(t *testing.T) {
