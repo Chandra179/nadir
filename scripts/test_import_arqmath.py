@@ -22,6 +22,13 @@ class ImportArqMathTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
                 import_arqmath.verify_sha256(path, "0" * 64)
 
+    @unittest.skipUnless(
+        all(
+            (Path(__file__).parents[1] / "test/evaluation/arqmath" / name).exists()
+            for name in ("arqmath-review-pack.json", "SOURCES.json", "arqmath-review-report.json")
+        ),
+        "the regenerable ARQMath review pack is not committed; generate it with scripts/import_arqmath.py",
+    )
     def test_checked_in_arqmath_candidate_has_120_queries_and_three_editions(self):
         path = Path(__file__).parents[1] / "test/evaluation/arqmath/arqmath-review-pack.json"
         pack = json.loads(path.read_text(encoding="utf-8"))

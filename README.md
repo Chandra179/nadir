@@ -272,9 +272,8 @@ Go API.
 ## Documentation map
 
 - [Overview](docs/OVERVIEW.md) — what Nadir does and how users experience it.
-- [Architecture](docs/architecture.md) — high-level system design and data flow.
-- [Architecture review](docs/architecture-review.md) — answers to the current
-  TODO architecture questions and measured HyPE costs.
+- [Architecture decisions](docs/adr/index.md) — accepted ADRs, including the
+  single-node design boundaries and the Podman runtime decision.
 - [Active TODO](TODO.md) — open engineering work and evaluation priorities.
 
 ## Run tests

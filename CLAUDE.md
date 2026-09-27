@@ -18,4 +18,4 @@ This is a single-context repository with one root `CONTEXT.md` and system decisi
 
 ## Repository guidance
 
-Use [AGENTS.md](AGENTS.md) for the current commands, package boundaries, configuration rules, and local/Compose workflow. See [docs/architecture.md](docs/architecture.md) for the single-node design and [docs/architecture-review.md](docs/architecture-review.md) for the eleven-question TODO review. Keep the public JSON/SSE and Qdrant data contracts compatible when changing the backend.
+Use [AGENTS.md](AGENTS.md) for the current commands, package boundaries, configuration rules, and local/Compose workflow. See [docs/adr/index.md](docs/adr/index.md) for accepted architecture decisions and [TODO.md](TODO.md) for the open backlog. Keep the public JSON/SSE and Qdrant data contracts compatible when changing the backend.

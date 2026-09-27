@@ -265,7 +265,7 @@ export default function WorkspacePage() {
   }, [activeTurnID, closeStream]);
 
   return (
-    <div className="flex h-screen relative bg-[#f7f7f4]">
+    <div className="flex h-dvh overflow-hidden relative bg-[#f7f7f4]">
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {deleteSessionTarget && (
@@ -304,7 +304,7 @@ export default function WorkspacePage() {
           <div className="font-serif-display font-semibold text-[17px]">New chat</div>
         </div>
 
-        <div id="reader" ref={readerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div id="reader" ref={readerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div id="reader-inner" className="mx-auto max-w-[768px] px-4 md:px-7 pt-8 pb-4">
             {error && <div className="feedback feedback-err mb-4" role="alert">{error}</div>}
             {turns.length === 0 && !pendingTurn ? (

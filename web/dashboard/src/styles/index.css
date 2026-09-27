@@ -10,8 +10,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { min-width: 320px; min-height: 100%; }
-body { margin: 0; background: #f7f7f4; color: #20241f; }
+html, body, #root { min-width: 320px; height: 100%; }
+body { margin: 0; background: #f7f7f4; color: #20241f; overscroll-behavior: none; }
 button { cursor: pointer; }
 
 .font-serif-display { font-family: "Source Serif 4", Georgia, serif; }
