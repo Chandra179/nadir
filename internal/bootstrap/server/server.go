@@ -8,8 +8,8 @@ import (
 	"nadir/internal/bootstrap/configuration"
 	"nadir/internal/bootstrap/httpmiddleware"
 	"nadir/internal/bootstrap/logging"
+	"nadir/internal/bootstrap/gates"
 	"nadir/internal/bootstrap/readiness"
-	"nadir/internal/bootstrap/resources"
 	"nadir/internal/bootstrap/runtime"
 	"nadir/internal/core/conversation/chat"
 	"nadir/internal/core/conversation/generation"
@@ -74,7 +74,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		MaxRetainedTurns:     cfg.Chat.MaxRetainedTurns,
 		FinishedTurnTTL:      cfg.Chat.FinishedTurnTTL,
 		PersistTimeout:       cfg.Chat.PersistTimeout,
-		DestructiveAdmission: graph.Admission.AcquireFunc(resources.Destructive),
+		DestructiveGate:      graph.Gates.AcquireFunc(gates.Destructive),
 		Model:                cfg.Generator.Model,
 		Telemetry:            graph.Telemetry,
 		Log:                  log,

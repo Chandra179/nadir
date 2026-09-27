@@ -210,9 +210,9 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 Role-specific request timeouts are configured in `internal/bootstrap/configuration/config.yaml` under
 `embedder`, `generator`, `rewriter`, `enrichment`, `reranker`, and `docling`.
 LLM and embedding concurrency is owned by the Ollama scheduler
-(`OLLAMA_NUM_PARALLEL`) rather than a client-side gate; admission remains for
-single-writer indexing and destructive operations (`ADMISSION_INDEXING_*`,
-`ADMISSION_DESTRUCTIVE_*`).
+(`OLLAMA_NUM_PARALLEL`) rather than a client-side gate; process-local gates
+remain for single-writer indexing and destructive operations
+(`GATES_INDEXING_*`, `GATES_DESTRUCTIVE_*`).
 When an LLM role is enabled, its address and model are required explicitly:
 `generator`, `rewriter`, `enrichment.hype`, and `enrichment.contextual` do not
 inherit another role's endpoint or model. Compose supplies explicit role

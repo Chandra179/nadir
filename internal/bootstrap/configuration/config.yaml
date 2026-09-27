@@ -98,10 +98,13 @@ inference:
     device: "cpu"
     backend: "torch"
 
-# Process-wide admission budgets for single-writer indexing and destructive
-# mutations. Each queue has a finite wait and is shared by all HTTP requests
-# in this API process. These are not distributed limits.
-admission:
+# Process-local operation gates (bounded, finite queues). Indexing is
+# single-writer; destructive mutations (document reset, chat edits and
+# deletions) never run concurrently with an indexing pass. A request that
+# waits longer than queue_timeout fails fast instead of piling up. LLM and
+# embedding concurrency is NOT gated here — the Ollama scheduler owns it.
+# These limits coordinate one API process only; they are not distributed.
+gates:
   indexing:
     max_concurrent: 1
     queue_timeout: 5s

@@ -100,7 +100,7 @@ func (r *Recorder) Record(operation, outcome string, duration time.Duration) {
 	}
 }
 
-// SetGauge sets a bounded operational gauge, such as active admission slots.
+// SetGauge sets a bounded operational gauge, such as active gate slots.
 func (r *Recorder) SetGauge(name string, value float64) {
 	if r == nil || name == "" {
 		return

@@ -10,7 +10,7 @@ concurrency to the Ollama scheduler (`OLLAMA_NUM_PARALLEL`) plus per-role
 request timeouts. The nested reranker resource settings choose an explicit
 device/backend and cap sidecar concurrency behind a bounded client queue.
 
-The `admission` section adds process-wide operation budgets with finite queue
+The `gates` section adds process-wide operation budgets with finite queue
 timeouts for single-writer indexing and destructive mutations. History session and turn page sizes are also
 explicit configuration rather than transport or Qdrant Adapter constants.
 

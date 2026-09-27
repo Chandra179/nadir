@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"nadir/internal/bootstrap/resources"
+	"nadir/internal/bootstrap/gates"
 
 	"log/slog"
 )
@@ -20,7 +20,7 @@ type DependenciesConfig struct {
 	Addr           string
 	Model          string
 	RequestTimeout time.Duration
-	Gate           *resources.Gate
+	Gate           *gates.Gate
 	Log            *slog.Logger
 }
 
@@ -28,7 +28,7 @@ type dependencies struct {
 	addr   string
 	model  string
 	client *http.Client
-	gate   *resources.Gate
+	gate   *gates.Gate
 	log    *slog.Logger
 }
 
@@ -44,7 +44,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	}
 	gate := cfg.Gate
 	if gate == nil {
-		gate = resources.NewGate(1, 30*time.Second)
+		gate = gates.NewGate(1, 30*time.Second)
 	}
 	return &dependencies{
 		addr:   cfg.Addr,

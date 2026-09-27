@@ -1,6 +1,6 @@
-// Package resources owns process-local admission for expensive model work.
+// Package gates bounds process-local execution of expensive model work.
 // The gate uses standard-library channels to bound concurrent operations.
-package resources
+package gates
 
 import (
 	"context"

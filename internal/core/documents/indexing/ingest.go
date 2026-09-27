@@ -38,12 +38,12 @@ func (d *dependencies) Run(ctx context.Context, files []UploadFile, options RunO
 }
 
 func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunOptions) (Result, error) {
-	if d.admission != nil {
-		releaseAdmission, err := d.admission(ctx)
+	if d.gate != nil {
+		releaseGate, err := d.gate(ctx)
 		if err != nil {
-			return Result{}, fmt.Errorf("indexing admission: %w", err)
+			return Result{}, fmt.Errorf("indexing gate: %w", err)
 		}
-		defer releaseAdmission()
+		defer releaseGate()
 	}
 
 	// A single process must not let two passes plan against the same SHA
@@ -54,7 +54,7 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 	defer d.runMu.Unlock()
 	if d.coordinator != nil {
 		if err := d.coordinator.BeginIngest(ctx); err != nil {
-			return Result{}, fmt.Errorf("indexing lifecycle admission: %w", err)
+			return Result{}, fmt.Errorf("indexing lifecycle gate: %w", err)
 		}
 		defer d.coordinator.EndIngest()
 	}

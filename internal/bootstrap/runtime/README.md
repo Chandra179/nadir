@@ -6,12 +6,12 @@ indexing pipeline, optional semantic cache, optional reranker, and retrieval
 service. It exposes capabilities and lifecycle functions rather than storage
 implementations.
 
-It also creates process-local admission budgets for indexing (single-writer)
+It also creates process-local operation gates for indexing (single-writer)
 and destructive mutations, and a bounded resource Gate in front of the
 reranker sidecar. LLM and embedding concurrency is delegated to the Ollama
 scheduler (`OLLAMA_NUM_PARALLEL`) plus per-role request timeouts. These
-budgets are deliberately local; they do not provide cross-instance admission
-or coordination.
+budgets are deliberately local; they do not provide cross-instance
+coordination.
 
 Use this Module when an executable needs the shared retrieval/indexing graph.
 The API server adds HTTP, history, generation, and readiness wiring around it;

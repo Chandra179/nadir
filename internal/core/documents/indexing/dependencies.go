@@ -41,8 +41,8 @@ type DependenciesConfig struct {
 	DocumentConverter    documentConverter
 	Reset                func(context.Context) error
 	ClearCache           func(context.Context) error
-	Admission            func(context.Context) (func(), error)
-	DestructiveAdmission func(context.Context) (func(), error)
+	Gates                func(context.Context) (func(), error)
+	DestructiveGate      func(context.Context) (func(), error)
 	HypeEnabled          bool
 	HypeQuestions        int
 	ContextualEnabled    bool
@@ -81,8 +81,8 @@ type dependencies struct {
 	converter            documentConverter
 	reset                func(context.Context) error
 	clearCache           func(context.Context) error
-	admission            func(context.Context) (func(), error)
-	destructiveAdmission func(context.Context) (func(), error)
+	gate                 func(context.Context) (func(), error)
+	destructiveGate      func(context.Context) (func(), error)
 	telemetry            *observability.Recorder
 	log                  *slog.Logger
 }
@@ -125,8 +125,8 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		converter:            cfg.DocumentConverter,
 		reset:                cfg.Reset,
 		clearCache:           cfg.ClearCache,
-		admission:            cfg.Admission,
-		destructiveAdmission: cfg.DestructiveAdmission,
+		gate:                 cfg.Gates,
+		destructiveGate:      cfg.DestructiveGate,
 		telemetry:            cfg.Telemetry,
 		cfg:                  cfg.Retry,
 		documentPrefix:       cfg.DocumentPrefix,

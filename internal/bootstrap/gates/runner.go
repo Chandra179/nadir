@@ -1,5 +1,5 @@
-// Package resources owns process-local gates, admission, and background work.
-package resources
+// Package gates owns process-local operation gates and background work.
+package gates
 
 import (
 	"context"

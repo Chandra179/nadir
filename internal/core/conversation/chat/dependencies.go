@@ -47,8 +47,8 @@ type DependenciesConfig struct {
 	FinishedTurnTTL  time.Duration
 	// PersistTimeout bounds a best-effort history write.
 	PersistTimeout time.Duration
-	// DestructiveAdmission bounds edits and history deletion operations.
-	DestructiveAdmission func(context.Context) (func(), error)
+	// DestructiveGate bounds edits and history deletion operations.
+	DestructiveGate func(context.Context) (func(), error)
 	// Model is stamped onto persisted turns for display in history replay.
 	Model     string
 	Log       *slog.Logger
@@ -103,7 +103,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		searcher:         cfg.Searcher,
 		generator:        cfg.Generator,
 		history:          cfg.History,
-		mutations:        newHistoryMutations(cfg.History, cfg.DestructiveAdmission),
+		mutations:        newHistoryMutations(cfg.History, cfg.DestructiveGate),
 		rewriter:         cfg.Rewriter,
 		rewriteTurns:     rewriteTurns,
 		maxContextTokens: maxContextTokens,

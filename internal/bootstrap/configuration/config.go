@@ -27,7 +27,7 @@ type Config struct {
 	Search        SearchConfig        `yaml:"search"`
 	Reranker      RerankerConfig      `yaml:"reranker"`
 	Inference     InferenceConfig     `yaml:"inference"`
-	Admission     AdmissionConfig     `yaml:"admission"`
+	Gates         GatesConfig         `yaml:"gates"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Chat          ChatConfig          `yaml:"chat"`
@@ -193,23 +193,23 @@ type RerankerConfig struct {
 }
 
 // InferenceConfig defines the local model resource profile. It is process-local
-// admission control; it does not coordinate multiple API instances.
+// capacity policy; it does not coordinate multiple API instances.
 type InferenceConfig struct {
 	Profile  string                 `yaml:"profile"`
 	Ollama   OllamaResourceConfig   `yaml:"ollama"`
 	Reranker RerankerResourceConfig `yaml:"reranker"`
 }
 
-// AdmissionConfig defines process-wide backpressure budgets for single-writer
+// GatesConfig defines process-wide backpressure budgets for single-writer
 // indexing and destructive mutations. LLM and embedding concurrency is
 // delegated to the Ollama scheduler plus per-role request timeouts.
-type AdmissionConfig struct {
-	Indexing    AdmissionOperationConfig `yaml:"indexing"`
-	Destructive AdmissionOperationConfig `yaml:"destructive"`
+type GatesConfig struct {
+	Indexing    GateOperationConfig `yaml:"indexing"`
+	Destructive GateOperationConfig `yaml:"destructive"`
 }
 
-// AdmissionOperationConfig bounds one process-wide operation budget.
-type AdmissionOperationConfig struct {
+// GateOperationConfig bounds one process-wide operation budget.
+type GateOperationConfig struct {
 	MaxConcurrent int           `yaml:"max_concurrent"`
 	QueueTimeout  time.Duration `yaml:"queue_timeout"`
 }
@@ -397,7 +397,7 @@ func (c *Config) applyEnv() error {
 	if err := c.envDuration(&c.Inference.Ollama.KeepAlive, "INFERENCE_OLLAMA_KEEP_ALIVE"); err != nil {
 		return err
 	}
-	if err := c.applyAdmissionEnv(); err != nil {
+	if err := c.applyGatesEnv(); err != nil {
 		return err
 	}
 	c.envStr(&c.Middleware.Logger.Level, "LOGGER_LEVEL")
@@ -439,14 +439,14 @@ func (c *Config) applyEnv() error {
 	return nil
 }
 
-func (c *Config) applyAdmissionEnv() error {
+func (c *Config) applyGatesEnv() error {
 	for _, item := range []struct {
-		cfg     *AdmissionOperationConfig
+		cfg     *GateOperationConfig
 		maxEnv  string
 		timeEnv string
 	}{
-		{&c.Admission.Indexing, "ADMISSION_INDEXING_MAX_CONCURRENT", "ADMISSION_INDEXING_QUEUE_TIMEOUT"},
-		{&c.Admission.Destructive, "ADMISSION_DESTRUCTIVE_MAX_CONCURRENT", "ADMISSION_DESTRUCTIVE_QUEUE_TIMEOUT"},
+		{&c.Gates.Indexing, "GATES_INDEXING_MAX_CONCURRENT", "GATES_INDEXING_QUEUE_TIMEOUT"},
+		{&c.Gates.Destructive, "GATES_DESTRUCTIVE_MAX_CONCURRENT", "GATES_DESTRUCTIVE_QUEUE_TIMEOUT"},
 	} {
 		if err := c.envInt(&item.cfg.MaxConcurrent, item.maxEnv); err != nil {
 			return err
@@ -640,17 +640,17 @@ func (c *Config) applyDefaults() {
 	if strings.TrimSpace(c.Inference.Reranker.Backend) == "" {
 		c.Inference.Reranker.Backend = "torch"
 	}
-	if c.Admission.Indexing.MaxConcurrent == 0 {
-		c.Admission.Indexing.MaxConcurrent = 1
+	if c.Gates.Indexing.MaxConcurrent == 0 {
+		c.Gates.Indexing.MaxConcurrent = 1
 	}
-	if c.Admission.Indexing.QueueTimeout == 0 {
-		c.Admission.Indexing.QueueTimeout = 5 * time.Second
+	if c.Gates.Indexing.QueueTimeout == 0 {
+		c.Gates.Indexing.QueueTimeout = 5 * time.Second
 	}
-	if c.Admission.Destructive.MaxConcurrent == 0 {
-		c.Admission.Destructive.MaxConcurrent = 1
+	if c.Gates.Destructive.MaxConcurrent == 0 {
+		c.Gates.Destructive.MaxConcurrent = 1
 	}
-	if c.Admission.Destructive.QueueTimeout == 0 {
-		c.Admission.Destructive.QueueTimeout = 10 * time.Second
+	if c.Gates.Destructive.QueueTimeout == 0 {
+		c.Gates.Destructive.QueueTimeout = 10 * time.Second
 	}
 	if c.Chat.MaxContextTokens <= 0 {
 		c.Chat.MaxContextTokens = 2800
@@ -785,19 +785,19 @@ func (c *Config) Validate() error {
 	}
 	for _, item := range []struct {
 		name string
-		cfg  AdmissionOperationConfig
+		cfg  GateOperationConfig
 	}{
-		{"indexing", c.Admission.Indexing},
-		{"destructive", c.Admission.Destructive},
+		{"indexing", c.Gates.Indexing},
+		{"destructive", c.Gates.Destructive},
 	} {
 		if item.cfg.MaxConcurrent <= 0 {
-			return fmt.Errorf("config: admission.%s.max_concurrent must be > 0", item.name)
+			return fmt.Errorf("config: gates.%s.max_concurrent must be > 0", item.name)
 		}
 		if item.cfg.QueueTimeout <= 0 {
-			return fmt.Errorf("config: admission.%s.queue_timeout must be > 0", item.name)
+			return fmt.Errorf("config: gates.%s.queue_timeout must be > 0", item.name)
 		}
 		if item.name == "indexing" && item.cfg.MaxConcurrent != 1 {
-			return fmt.Errorf("config: admission.indexing.max_concurrent must be 1 because an indexing pass is single-writer")
+			return fmt.Errorf("config: gates.indexing.max_concurrent must be 1 because an indexing pass is single-writer")
 		}
 	}
 	switch c.Inference.Reranker.Device {

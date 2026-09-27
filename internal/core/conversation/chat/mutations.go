@@ -30,21 +30,21 @@ type trackedGeneration struct {
 // operations. It serializes the mutation check with the underlying history
 // call, so a delete cannot race an append after the check has passed.
 type historyMutations struct {
-	history              historyStore
-	destructiveAdmission func(context.Context) (func(), error)
-	mu                   sync.Mutex
+	history         historyStore
+	destructiveGate func(context.Context) (func(), error)
+	mu              sync.Mutex
 
 	globalRevision   uint64
 	sessionRevisions map[string]uint64
 	active           map[string]trackedGeneration
 }
 
-func newHistoryMutations(history historyStore, destructiveAdmission func(context.Context) (func(), error)) *historyMutations {
+func newHistoryMutations(history historyStore, destructiveGate func(context.Context) (func(), error)) *historyMutations {
 	return &historyMutations{
-		history:              history,
-		destructiveAdmission: destructiveAdmission,
-		sessionRevisions:     make(map[string]uint64),
-		active:               make(map[string]trackedGeneration),
+		history:         history,
+		destructiveGate: destructiveGate,
+		sessionRevisions: make(map[string]uint64),
+		active:          make(map[string]trackedGeneration),
 	}
 }
 
@@ -83,10 +83,10 @@ func (m *historyMutations) createSession(ctx context.Context, title string) (his
 }
 
 func (m *historyMutations) prepareEdit(ctx context.Context, sessionID string, beforeSequence int) (historyMutation, error) {
-	if m.destructiveAdmission != nil {
-		release, err := m.destructiveAdmission(ctx)
+	if m.destructiveGate != nil {
+		release, err := m.destructiveGate(ctx)
 		if err != nil {
-			return historyMutation{}, fmt.Errorf("chat edit admission: %w", err)
+			return historyMutation{}, fmt.Errorf("chat edit gate: %w", err)
 		}
 		defer release()
 	}
@@ -114,10 +114,10 @@ func (m *historyMutations) append(ctx context.Context, token historyMutation, tu
 }
 
 func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) error {
-	if m.destructiveAdmission != nil {
-		release, err := m.destructiveAdmission(ctx)
+	if m.destructiveGate != nil {
+		release, err := m.destructiveGate(ctx)
 		if err != nil {
-			return fmt.Errorf("chat delete admission: %w", err)
+			return fmt.Errorf("chat delete gate: %w", err)
 		}
 		defer release()
 	}
@@ -132,10 +132,10 @@ func (m *historyMutations) deleteSession(ctx context.Context, sessionID string) 
 }
 
 func (m *historyMutations) deleteAll(ctx context.Context) error {
-	if m.destructiveAdmission != nil {
-		release, err := m.destructiveAdmission(ctx)
+	if m.destructiveGate != nil {
+		release, err := m.destructiveGate(ctx)
 		if err != nil {
-			return fmt.Errorf("chat delete-all admission: %w", err)
+			return fmt.Errorf("chat delete-all gate: %w", err)
 		}
 		defer release()
 	}

@@ -41,8 +41,8 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.History.SessionPageSize != 50 || cfg.History.TurnPageSize != 500 {
 		t.Fatalf("shipped history page sizes = %+v, want 50/500", cfg.History)
 	}
-	if cfg.Admission.Indexing.MaxConcurrent != 1 || cfg.Admission.Destructive.MaxConcurrent != 1 {
-		t.Fatalf("shipped admission budgets = %+v, want explicit process-wide limits", cfg.Admission)
+	if cfg.Gates.Indexing.MaxConcurrent != 1 || cfg.Gates.Destructive.MaxConcurrent != 1 {
+		t.Fatalf("shipped gate budgets = %+v, want explicit process-wide limits", cfg.Gates)
 	}
 }
 
@@ -71,8 +71,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("INFERENCE_OLLAMA_KEEP_ALIVE", "90s")
 	t.Setenv("RERANKER_DEVICE", "cuda")
 	t.Setenv("HISTORY_SESSION_PAGE_SIZE", "75")
-	t.Setenv("ADMISSION_DESTRUCTIVE_MAX_CONCURRENT", "2")
-	t.Setenv("ADMISSION_DESTRUCTIVE_QUEUE_TIMEOUT", "2s")
+	t.Setenv("GATES_DESTRUCTIVE_MAX_CONCURRENT", "2")
+	t.Setenv("GATES_DESTRUCTIVE_QUEUE_TIMEOUT", "2s")
 
 	var cfg Config
 	if err := cfg.applyEnv(); err != nil {
@@ -119,8 +119,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if cfg.Inference.Reranker.Device != "cuda" {
 		t.Fatalf("Reranker.Device = %q, want cuda", cfg.Inference.Reranker.Device)
 	}
-	if cfg.History.SessionPageSize != 75 || cfg.Admission.Destructive.MaxConcurrent != 2 || cfg.Admission.Destructive.QueueTimeout != 2*time.Second {
-		t.Fatalf("operational overrides = history=%+v admission=%+v", cfg.History, cfg.Admission.Destructive)
+	if cfg.History.SessionPageSize != 75 || cfg.Gates.Destructive.MaxConcurrent != 2 || cfg.Gates.Destructive.QueueTimeout != 2*time.Second {
+		t.Fatalf("operational overrides = history=%+v gates=%+v", cfg.History, cfg.Gates.Destructive)
 	}
 }
 
@@ -138,7 +138,7 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "embedder dimensions", env: "EMBEDDER_DIMENSIONS", value: "wide"},
 		{name: "generator max output tokens", env: "GENERATOR_MAX_OUTPUT_TOKENS", value: "many"},
 		{name: "adaptive margin", env: "RERANKER_ADAPTIVE_MARGIN_THRESHOLD", value: "wide"},
-		{name: "admission timeout", env: "ADMISSION_INDEXING_QUEUE_TIMEOUT", value: "soon"},
+		{name: "gate timeout", env: "GATES_INDEXING_QUEUE_TIMEOUT", value: "soon"},
 		{name: "history page size", env: "HISTORY_SESSION_PAGE_SIZE", value: "many"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

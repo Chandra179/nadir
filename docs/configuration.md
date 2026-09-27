@@ -10,8 +10,8 @@
 | `search`, `semantic_cache`, `reranker` | Retrieval policy and optional reranking/cache |
 | `generator`, `rewriter`, `history` | Conversation and persistence |
 | `enrichment`, `docling` | Optional index-time LLM and PDF conversion |
-| `inference`, `admission` | Ollama process settings; indexing/destructive operation budgets |
+| `inference`, `gates` | Ollama process settings; indexing/destructive operation gates |
 
 The groups separate use cases reasonably well. `qdrant` and `embedder` are shared infrastructure, so they stay at the top level. The role-specific Ollama address and model fields deliberately remain in `generator`, `rewriter`, and each enrichment role; enabled roles must declare their own endpoints and models. The public file is somewhat long, but regrouping or renaming keys would break existing deployments without a measurable runtime benefit. New internal consumers should receive only the fields they need from bootstrap.
 
-The default `inference.profile: local` delegates LLM/embedding concurrency to the Ollama scheduler (`OLLAMA_NUM_PARALLEL`) with per-role request timeouts and a finite `keep_alive`. The `admission` limits (indexing, destructive) are per process. `enrichment.hype.enabled` and `enrichment.contextual.enabled` default to false, affect ingestion only, and need reindexing to change existing documents. `search.fusion` remains opt-in. The active external key list and local/Compose address rules are in [AGENTS.md](../AGENTS.md).
+The default `inference.profile: local` delegates LLM/embedding concurrency to the Ollama scheduler (`OLLAMA_NUM_PARALLEL`) with per-role request timeouts and a finite `keep_alive`. The `gates` limits (indexing, destructive) are per process. `enrichment.hype.enabled` and `enrichment.contextual.enabled` default to false, affect ingestion only, and need reindexing to change existing documents. `search.fusion` remains opt-in. The active external key list and local/Compose address rules are in [AGENTS.md](../AGENTS.md).

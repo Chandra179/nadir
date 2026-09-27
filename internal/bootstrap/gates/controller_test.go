@@ -1,4 +1,4 @@
-package resources
+package gates
 
 import (
 	"context"
@@ -19,7 +19,7 @@ func TestControllerSharesOperationBudget(t *testing.T) {
 
 	_, err = controller.Acquire(context.Background(), Indexing)
 	if !errors.Is(err, ErrCapacity) {
-		t.Fatalf("second indexing admission error = %v, want ErrCapacity", err)
+		t.Fatalf("second indexing gate error = %v, want ErrCapacity", err)
 	}
 }
 
@@ -36,7 +36,7 @@ func TestControllerKeepsOperationBudgetsIndependent(t *testing.T) {
 
 	destructiveRelease, err := controller.Acquire(context.Background(), Destructive)
 	if err != nil {
-		t.Fatalf("destructive admission blocked by indexing budget: %v", err)
+		t.Fatalf("destructive gate blocked by indexing budget: %v", err)
 	}
 	destructiveRelease()
 }

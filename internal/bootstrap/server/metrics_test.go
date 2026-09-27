@@ -12,7 +12,7 @@ import (
 func TestMetricsHandlerReturnsSnapshot(t *testing.T) {
 	recorder := observability.NewRecorder()
 	recorder.Record("indexing", "success", 2*time.Millisecond)
-	recorder.SetGauge("admission.indexing.active", 1)
+	recorder.SetGauge("gates.indexing.active", 1)
 	request := httptest.NewRequest("GET", "/debug/metrics", nil)
 	response := httptest.NewRecorder()
 	metricsHandler(recorder).ServeHTTP(response, request)
@@ -23,7 +23,7 @@ func TestMetricsHandlerReturnsSnapshot(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshot.Operations) != 1 || snapshot.Gauges["admission.indexing.active"] != 1 {
+	if len(snapshot.Operations) != 1 || snapshot.Gauges["gates.indexing.active"] != 1 {
 		t.Fatalf("metrics snapshot = %+v", snapshot)
 	}
 }

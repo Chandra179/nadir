@@ -11,7 +11,7 @@ import (
 	"time"
 
 	config "nadir/internal/bootstrap/configuration"
-	"nadir/internal/bootstrap/resources"
+	"nadir/internal/bootstrap/gates"
 	"nadir/internal/core/documents/chunking"
 	"nadir/internal/core/documents/enrichment"
 	"nadir/internal/core/documents/indexing"
@@ -46,7 +46,7 @@ type Options struct {
 // on adapter implementations or storage lifecycle details.
 type Runtime struct {
 	Clients        qdrantutil.Clients
-	Admission      *resources.Controller
+	Gates          *gates.Controller
 	Telemetry      *observability.Recorder
 	Embedder       embedding.Embedder
 	Searcher       search.Retriever
@@ -109,16 +109,16 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	clients := qdrantutil.NewClients(conn)
 	telemetry := observability.NewRecorder()
 	// LLM and embedding concurrency is delegated to the Ollama scheduler
-	// (OLLAMA_NUM_PARALLEL) plus per-role request timeouts; admission stays
-	// only for single-writer indexing and destructive operations.
-	operationAdmission := resources.New(resources.Config{
-		Indexing: resources.OperationConfig{
-			MaxConcurrent: cfg.Admission.Indexing.MaxConcurrent,
-			QueueTimeout:  cfg.Admission.Indexing.QueueTimeout,
+	// (OLLAMA_NUM_PARALLEL) plus per-role request timeouts; process-local
+	// gates stay only for single-writer indexing and destructive operations.
+	operationGates := gates.New(gates.Config{
+		Indexing: gates.OperationConfig{
+			MaxConcurrent: cfg.Gates.Indexing.MaxConcurrent,
+			QueueTimeout:  cfg.Gates.Indexing.QueueTimeout,
 		},
-		Destructive: resources.OperationConfig{
-			MaxConcurrent: cfg.Admission.Destructive.MaxConcurrent,
-			QueueTimeout:  cfg.Admission.Destructive.QueueTimeout,
+		Destructive: gates.OperationConfig{
+			MaxConcurrent: cfg.Gates.Destructive.MaxConcurrent,
+			QueueTimeout:  cfg.Gates.Destructive.QueueTimeout,
 		},
 		Recorder: telemetry,
 	})
@@ -183,7 +183,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		}
 	}
 
-	cacheWrites := resources.NewBackgroundRunner(2, 10*time.Second)
+	cacheWrites := gates.NewBackgroundRunner(2, 10*time.Second)
 	defer func() {
 		if !closed {
 			_ = cacheWrites.Close(context.Background())
@@ -213,7 +213,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 			Addr:           cfg.Reranker.Addr,
 			Model:          cfg.Reranker.Model,
 			RequestTimeout: cfg.Reranker.RequestTimeout,
-			Gate: resources.NewGate(
+			Gate: gates.NewGate(
 				cfg.Inference.Reranker.MaxConcurrent,
 				cfg.Inference.Reranker.QueueTimeout,
 			),
@@ -272,8 +272,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		DocumentConverter:    converter,
 		Reset:                store.DeleteAll,
 		ClearCache:           clearCache,
-		Admission:            operationAdmission.AcquireFunc(resources.Indexing),
-		DestructiveAdmission: operationAdmission.AcquireFunc(resources.Destructive),
+		Gates:               operationGates.AcquireFunc(gates.Indexing),
+		DestructiveGate:     operationGates.AcquireFunc(gates.Destructive),
 		Telemetry:            telemetry,
 		HypeEnabled:          cfg.Enrichment.Hype.Enabled,
 		HypeQuestions:        cfg.Enrichment.Hype.QuestionsPerChunk,
@@ -305,8 +305,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	}
 	closed = true
 	return &Runtime{
-		Clients:   clients,
-		Admission: operationAdmission,
+		Clients: clients,
+		Gates:   operationGates,
 		Telemetry: telemetry,
 		Embedder:  emb,
 		Searcher:  searcher,

@@ -119,13 +119,13 @@ func (d *dependencies) DeleteAll(ctx context.Context) error {
 		operationErr = fmt.Errorf("document lifecycle coordinator is not configured")
 		return operationErr
 	}
-	if d.destructiveAdmission != nil {
-		releaseAdmission, err := d.destructiveAdmission(ctx)
+	if d.destructiveGate != nil {
+		releaseGate, err := d.destructiveGate(ctx)
 		if err != nil {
-			operationErr = fmt.Errorf("destructive operation admission: %w", err)
+			operationErr = fmt.Errorf("destructive operation gate: %w", err)
 			return operationErr
 		}
-		defer releaseAdmission()
+		defer releaseGate()
 	}
 	operationErr = d.coordinator.Reset(ctx, func(ctx context.Context) error {
 		if err := d.reset(ctx); err != nil {

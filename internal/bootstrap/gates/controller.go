@@ -1,7 +1,7 @@
-// Package resources owns process-wide backpressure for expensive and
+// Package gates owns process-wide backpressure for expensive and
 // destructive operations. It is intentionally local to one executable;
 // distributed deployments need a shared coordinator at this seam.
-package resources
+package gates
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 
 // Operation identifies one independently tunable runtime capacity budget.
 // LLM/embedding concurrency is delegated to the Ollama scheduler, so only
-// single-writer indexing and destructive mutations are admitted here.
+// single-writer indexing and destructive mutations are gated here.
 type Operation string
 
 const (
@@ -30,7 +30,7 @@ type OperationConfig struct {
 	QueueTimeout  time.Duration
 }
 
-// Config defines every process-wide admission budget.
+// Config defines every process-wide gate budget.
 type Config struct {
 	Indexing    OperationConfig
 	Destructive OperationConfig
@@ -55,7 +55,7 @@ type Controller struct {
 	stats map[Operation]*operationStats
 }
 
-// New constructs a process-wide admission controller. Config is expected to
+// New constructs a process-wide gate controller. Config is expected to
 // be validated before composition; Gate still applies defensive
 // defaults for direct package tests.
 func New(cfg Config) *Controller {
@@ -95,7 +95,7 @@ func (c *Controller) Gate(operation Operation) *Gate {
 // retaining the concrete Gate.
 func (c *Controller) Acquire(ctx context.Context, operation Operation) (func(), error) {
 	if c == nil {
-		return nil, fmt.Errorf("%w: admission controller is nil", ErrCapacity)
+		return nil, fmt.Errorf("%w: gate controller is nil", ErrCapacity)
 	}
 	gate := c.Gate(operation)
 	stats := c.stats[operation]
@@ -136,14 +136,14 @@ func (c *Controller) Acquire(ctx context.Context, operation Operation) (func(), 
 	}, nil
 }
 
-// AcquireFunc returns a narrow admission seam for dependency injection.
+// AcquireFunc returns a narrow gate seam for dependency injection.
 func (c *Controller) AcquireFunc(operation Operation) func(context.Context) (func(), error) {
 	return func(ctx context.Context) (func(), error) { return c.Acquire(ctx, operation) }
 }
 
 func (s *operationStats) record(outcome string, duration time.Duration) {
 	if s.recorder != nil {
-		s.recorder.Record("admission."+string(s.operation), outcome, duration)
+		s.recorder.Record("gates."+string(s.operation), outcome, duration)
 	}
 }
 
@@ -151,7 +151,7 @@ func (s *operationStats) setGauges() {
 	if s.recorder == nil {
 		return
 	}
-	prefix := "admission." + string(s.operation)
+	prefix := "gates." + string(s.operation)
 	s.recorder.SetGauge(prefix+".active", float64(s.active.Load()))
 	s.recorder.SetGauge(prefix+".waiting", float64(s.waiting.Load()))
 	s.recorder.SetGauge(prefix+".peak_active", float64(s.peakActive.Load()))

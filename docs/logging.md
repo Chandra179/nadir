@@ -4,4 +4,4 @@ The backend uses Go `log/slog` from `internal/bootstrap/logging`. `middleware.lo
 
 `internal/bootstrap/httpmiddleware` records one completion line per HTTP request with method, route pattern, status, duration, request ID, and trace ID. The route pattern omits path parameters. Query strings and request or response bodies are not logged. Recovery writes a separate Error line for a panic and returns HTTP 500. Provider and domain stages can log bounded operational fields, but must not log credentials or full request bodies.
 
-The diagnostic `/debug/metrics` endpoint exposes bounded in-process counts, durations, and admission gauges. It is process-local telemetry rather than a distributed metrics store.
+The diagnostic `/debug/metrics` endpoint exposes bounded in-process counts, durations, and gate gauges. It is process-local telemetry rather than a distributed metrics store.
