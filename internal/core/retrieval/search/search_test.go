@@ -135,14 +135,66 @@ func TestQueryBatchesFragmentsAndCapsResultsPerFile(t *testing.T) {
 	if len(emb.batchInputs) != 1 {
 		t.Fatalf("batch calls = %d, want 1", len(emb.batchInputs))
 	}
-	wantInputs := []string{"search_query: alpha", "search_query: beta"}
+	wantInputs := []string{"search_query: alpha. beta", "search_query: alpha", "search_query: beta"}
 	for i, want := range wantInputs {
 		if emb.batchInputs[0][i] != want {
 			t.Errorf("batch input %d = %q, want %q", i, emb.batchInputs[0][i], want)
 		}
 	}
-	if st.hybridCalls != 2 {
-		t.Fatalf("hybrid calls = %d, want 2", st.hybridCalls)
+	if st.hybridCalls != 3 {
+		t.Fatalf("hybrid calls = %d, want 3 (original query + one per sentence)", st.hybridCalls)
+	}
+}
+
+func TestSplitFragmentsKeepsOriginalQueryFirst(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		maxFragments int
+		want         []string
+	}{
+		{"multi sentence keeps original first", "alpha. beta", 16, []string{"alpha. beta", "alpha", "beta"}},
+		{"single sentence unchanged", "single sentence", 16, []string{"single sentence"}},
+		{"single sentence with punctuation unchanged", "single sentence.", 16, []string{"single sentence"}},
+		{"empty falls back to raw query", "   ", 16, []string{"   "}},
+		{"original never trimmed", "a. b. c. d. e. f", 3, []string{"a. b. c. d. e. f", "a", "b"}},
+		{"original survives max of one", "a. b", 1, []string{"a. b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitFragments(tt.query, tt.maxFragments)
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitFragments(%q) = %#v, want %#v", tt.query, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("splitFragments(%q) = %#v, want %#v", tt.query, got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+// Regression test: chunks of one section share the section's LineStart, so
+// dedup keys must include ChunkIndex or all but one of them vanish.
+func TestMultiSearchKeepsDistinctChunksOfOneSection(t *testing.T) {
+	st := &searchTestStore{results: []SearchCandidate{
+		{Text: "part one", FilePath: "a.md", LineStart: 7, ChunkIndex: 0, Score: 0.9},
+		{Text: "part two", FilePath: "a.md", LineStart: 7, ChunkIndex: 1, Score: 0.8},
+	}}
+	d := NewDependencies(DependenciesConfig{
+		Embedder:         embTestEmbedder{},
+		Store:            st,
+		MaxTopK:          10,
+		MaxChunksPerFile: 3,
+	})
+
+	got, err := d.Query(context.Background(), Request{Query: "section", TopK: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Chunks) != 2 || got.Chunks[0].Text != "part one" || got.Chunks[1].Text != "part two" {
+		t.Fatalf("chunks = %+v, want both same-section chunks in score order", got.Chunks)
 	}
 }
 

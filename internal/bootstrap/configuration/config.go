@@ -122,6 +122,9 @@ type EmbedderConfig struct {
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 	QueryPrefix    string        `yaml:"query_prefix"`    // prepended to search queries (e.g. "search_query: " for nomic-embed-text)
 	DocumentPrefix string        `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
+	// MaxInputChars rune-clamps the dense embed input at ingest so chunks
+	// past the model context are truncated deliberately, not silently.
+	MaxInputChars int `yaml:"max_input_chars"`
 }
 
 // ChunkerConfig selects the document chunking strategy and its bounds.
@@ -245,6 +248,10 @@ type GeneratorConfig struct {
 	Model           string        `yaml:"model"` // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
 	RequestTimeout  time.Duration `yaml:"request_timeout"`
 	MaxOutputTokens int           `yaml:"max_output_tokens"`
+	// NumCtx pins the Ollama context window so the assembled prompt
+	// (instructions + context budget + question) plus the output never
+	// silently truncate against the model's default window.
+	NumCtx int `yaml:"num_ctx"`
 }
 
 // HistoryConfig persists chat sessions/turns to a dedicated Qdrant
@@ -331,9 +338,15 @@ func (c *Config) applyEnv() error {
 	}
 	c.envStr(&c.Embedder.QueryPrefix, "EMBEDDER_QUERY_PREFIX")
 	c.envStr(&c.Embedder.DocumentPrefix, "EMBEDDER_DOCUMENT_PREFIX")
+	if err := c.envInt(&c.Embedder.MaxInputChars, "EMBEDDER_MAX_INPUT_CHARS"); err != nil {
+		return err
+	}
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	if err := c.envInt(&c.Generator.MaxOutputTokens, "GENERATOR_MAX_OUTPUT_TOKENS"); err != nil {
+		return err
+	}
+	if err := c.envInt(&c.Generator.NumCtx, "GENERATOR_NUM_CTX"); err != nil {
 		return err
 	}
 	c.envCSV(&c.Documents.Paths, "DOCUMENTS_PATHS")
@@ -548,6 +561,9 @@ func (c *Config) applyDefaults() {
 	if c.Embedder.RequestTimeout <= 0 {
 		c.Embedder.RequestTimeout = 60 * time.Second
 	}
+	if c.Embedder.MaxInputChars <= 0 {
+		c.Embedder.MaxInputChars = 8000
+	}
 	if c.Ingest.MaxFileBytes <= 0 {
 		c.Ingest.MaxFileBytes = 16 << 20
 	}
@@ -667,6 +683,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Generator.MaxOutputTokens <= 0 {
 		c.Generator.MaxOutputTokens = 512
+	}
+	if c.Generator.NumCtx <= 0 {
+		c.Generator.NumCtx = 4096
 	}
 	if c.Rewriter.Enabled && c.Rewriter.Turns <= 0 {
 		c.Rewriter.Turns = 4

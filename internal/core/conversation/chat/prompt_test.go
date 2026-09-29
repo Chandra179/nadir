@@ -51,7 +51,8 @@ func TestBuildPromptShapesAnswersAndAbstention(t *testing.T) {
 	for _, clause := range []string{
 		`"what is" question gets the value or formula itself`,
 		`"why" or "how" question gets the answer plus one to three short sentences`,
-		"labeled as related background",
+		"say so in one sentence and stop",
+		"Never add facts that are not in the context",
 	} {
 		if !strings.Contains(prompt, clause) {
 			t.Fatalf("prompt missing shaping/abstention clause %q", clause)

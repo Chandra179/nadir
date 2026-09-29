@@ -258,6 +258,11 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 	embedInputs := make([]string, len(chunks))
 	for i := range ctxTexts {
 		embedInputs[i] = d.documentPrefix + ctxTexts[i]
+		// Clamp the dense input to the embedder's usable context so Ollama
+		// never truncates it silently; the BM25 leg keeps the full text.
+		if d.maxInputChars > 0 {
+			embedInputs[i] = clampRunes(embedInputs[i], d.maxInputChars)
+		}
 	}
 	vecs, err := d.embedWithRetry(ctx, embedInputs)
 	if err != nil {
@@ -317,6 +322,18 @@ func (d *dependencies) clearSemanticCache(ctx context.Context, changed bool) {
 	if err := d.cache.Clear(ctx); err != nil {
 		d.log.Warn("failed to clear semantic cache after ingest", slog.Any("error", err))
 	}
+}
+
+// clampRunes truncates s to at most n runes.
+func clampRunes(s string, n int) string {
+	if n <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n])
 }
 
 // contextualText fronts the chunk's contextual text with an LLM-written

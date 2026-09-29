@@ -57,6 +57,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			Options: map[string]any{
 				"temperature": 0,
 				"num_predict": cfg.Generator.MaxOutputTokens,
+				"num_ctx":     cfg.Generator.NumCtx,
 			},
 		})
 		log.Info("LLM generator enabled",

@@ -224,13 +224,16 @@ func TestGenerationHarnessRecordsQualityDiagnosticCause(t *testing.T) {
 	tests := []struct {
 		name       string
 		faithful   float64
+		relevancy  float64
 		context    float64
 		maxContext int
 		want       string
 	}{
-		{name: "context selection", faithful: 0.9, context: 0.4, maxContext: 100, want: failureContextSelect},
-		{name: "prompt generation", faithful: 0.4, context: 1, maxContext: 100, want: failurePromptGenerate},
-		{name: "context truncation", faithful: 0.9, context: 1, maxContext: 10, want: failureContextSelect},
+		{name: "context selection", faithful: 0.9, relevancy: 1, context: 0.4, maxContext: 100, want: failureContextSelect},
+		{name: "prompt generation", faithful: 0.4, relevancy: 1, context: 1, maxContext: 100, want: failurePromptGenerate},
+		{name: "context truncation", faithful: 0.9, relevancy: 1, context: 1, maxContext: 10, want: failureContextSelect},
+		{name: "off-topic answer", faithful: 0.9, relevancy: 0.3, context: 1, maxContext: 100, want: failurePromptGenerate},
+		{name: "no cause", faithful: 0.9, relevancy: 1, context: 1, maxContext: 100, want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -239,7 +242,7 @@ func TestGenerationHarnessRecordsQualityDiagnosticCause(t *testing.T) {
 					FilePath: "doc.md", Header: "Evidence", Text: "evidence supports the claim",
 				}}},
 				AnswerGenerator:  &generationTestGenerator{response: "answer"},
-				JudgeGenerator:   &generationTestGenerator{response: fmt.Sprintf(`{"faithfulness":%v,"answer_relevancy":1,"context_precision":1,"context_recall":%v}`, tt.faithful, tt.context)},
+				JudgeGenerator:   &generationTestGenerator{response: fmt.Sprintf(`{"faithfulness":%v,"answer_relevancy":%v,"context_precision":1,"context_recall":%v}`, tt.faithful, tt.relevancy, tt.context)},
 				AnswerModel:      "small-answer",
 				JudgeModel:       "large-judge",
 				JudgeModelLarger: true,

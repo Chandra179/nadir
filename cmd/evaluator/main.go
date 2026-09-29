@@ -44,6 +44,7 @@ func main() {
 	judgeAddr := flag.String("judge-addr", "", "required Ollama address for the larger generation judge when --generation-eval is set")
 	judgeModel := flag.String("judge-model", "", "required larger Ollama judge model when --generation-eval is set")
 	judgeIsLarger := flag.Bool("judge-is-larger", false, "explicitly confirm that --judge-model is larger than generator.model")
+	judgeNumCtx := flag.Int("judge-num-ctx", 4096, "Ollama context window for the judge model")
 	flag.Parse()
 
 	if err := runWithOptions(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate, *validateOnly, generationOptions{
@@ -51,6 +52,7 @@ func main() {
 		JudgeAddr:   *judgeAddr,
 		JudgeModel:  *judgeModel,
 		JudgeLarger: *judgeIsLarger,
+		JudgeNumCtx: *judgeNumCtx,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "evaluator:", err)
 		os.Exit(1)
@@ -66,6 +68,7 @@ type generationOptions struct {
 	JudgeAddr   string
 	JudgeModel  string
 	JudgeLarger bool
+	JudgeNumCtx int
 }
 
 func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) error {
@@ -149,6 +152,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			Options: map[string]any{
 				"temperature": 0,
 				"num_predict": cfg.Generator.MaxOutputTokens,
+				"num_ctx":     cfg.Generator.NumCtx,
 			},
 		})
 		judgeGenerator := ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
@@ -160,6 +164,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			Options: map[string]any{
 				"temperature": 0,
 				"num_predict": 128,
+				"num_ctx":     generationOptions.JudgeNumCtx,
 			},
 		})
 		generationReport, generationErr := evaluation.NewGenerationDependencies(evaluation.GenerationDependenciesConfig{

@@ -11,15 +11,15 @@ func TestFuseHybridUsesWeightedRanksAndDeterministicTies(t *testing.T) {
 	}
 	base := FusionConfig{RRFK: 60, DenseWeight: 1, BM25Weight: 1, MinExactTokens: 1, MinHeaderTokens: 1}
 	got := fuseHybrid("unrelated", QueryTypeFactoid, result, base)
-	if len(got) != 2 || got[0].Key() != "a.md:1" || got[1].Key() != "b.md:1" {
+	if len(got) != 2 || got[0].Key() != "a.md:1:0" || got[1].Key() != "b.md:1:0" {
 		t.Fatalf("equal RRF scores = %#v, want deterministic key order", got)
 	}
 
 	got = fuseHybrid("unrelated", QueryTypeFactoid, result, FusionConfig{
 		RRFK: 60, DenseWeight: 1, BM25Weight: 2, MinExactTokens: 1, MinHeaderTokens: 1,
 	})
-	if got[0].Key() != "b.md:1" {
-		t.Fatalf("weighted RRF top = %s, want lexical rank-1 candidate b.md:1", got[0].Key())
+	if got[0].Key() != "b.md:1:0" {
+		t.Fatalf("weighted RRF top = %s, want lexical rank-1 candidate b.md:1:0", got[0].Key())
 	}
 }
 

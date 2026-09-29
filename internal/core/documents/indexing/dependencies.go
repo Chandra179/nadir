@@ -54,6 +54,10 @@ type DependenciesConfig struct {
 	// DocumentPrefix is prepended to every embedded text at ingest time
 	// (e.g. "search_document: " for nomic-embed-text task instructions).
 	DocumentPrefix string
+	// MaxInputChars bounds the dense embed input so an over-long chunk is
+	// rune-clamped before the embedder call instead of being silently
+	// truncated server-side. Zero disables the clamp (direct package tests).
+	MaxInputChars int
 }
 
 // dependencies takes a batch of uploaded files, dedups them by SHA-256
@@ -67,6 +71,7 @@ type dependencies struct {
 	cache           cacheInvalidator
 	cfg             RetryConfig
 	documentPrefix  string
+	maxInputChars   int
 	enrich          enrichment.Enricher
 	contextual      bool
 	maxFileBytes    int64
@@ -124,6 +129,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		telemetry:       cfg.Telemetry,
 		cfg:             cfg.Retry,
 		documentPrefix:  cfg.DocumentPrefix,
+		maxInputChars:   cfg.MaxInputChars,
 		maxFileBytes:    maxFileBytes,
 		embedBatchSize:  embedBatchSize,
 		maxChunks:       maxChunks,

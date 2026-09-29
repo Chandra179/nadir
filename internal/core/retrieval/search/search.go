@@ -425,9 +425,14 @@ func fromCacheCandidates(candidates []semanticcache.Candidate) []SearchCandidate
 	return out
 }
 
+// splitFragments breaks a multi-sentence query into per-sentence fragments so
+// each part is searchable on its own, and keeps the full query as the first
+// fragment: per-sentence searching alone can lose cross-sentence intent.
+// maxFragments trimming never drops the original query.
 func splitFragments(query string, maxFragments int) []string {
-	parts := sentenceSplit.Split(strings.TrimSpace(query), -1)
-	out := make([]string, 0, len(parts))
+	trimmed := strings.TrimSpace(query)
+	parts := sentenceSplit.Split(trimmed, -1)
+	out := make([]string, 0, len(parts)+1)
 	for _, p := range parts {
 		if t := strings.TrimSpace(p); t != "" {
 			out = append(out, t)
@@ -435,6 +440,9 @@ func splitFragments(query string, maxFragments int) []string {
 	}
 	if len(out) == 0 {
 		return []string{query}
+	}
+	if len(out) > 1 && out[0] != trimmed {
+		out = append([]string{trimmed}, out...)
 	}
 	if maxFragments > 0 && len(out) > maxFragments {
 		out = out[:maxFragments]

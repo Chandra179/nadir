@@ -84,8 +84,9 @@ func NewGenerationDependencies(cfg GenerationDependenciesConfig) *GenerationHarn
 	}
 }
 
-// GenerationQueryResult records judge scores for one golden query. Answers
-// and source text are deliberately not persisted in the report because a
+// GenerationQueryResult records judge scores for one golden query. The answer
+// text and the judge's raw output are persisted so extreme scores are
+// auditable after the run; the retrieved source text still is not, because a
 // future release-gate fixture may contain consented user data.
 type GenerationQueryResult struct {
 	ID                     string            `json:"id"`
@@ -99,9 +100,11 @@ type GenerationQueryResult struct {
 	ContextChunks          int               `json:"context_chunks"`
 	ContextTokens          int               `json:"context_tokens"`
 	ContextTruncated       bool              `json:"context_truncated"`
+	Answer                 string            `json:"answer,omitempty"`
 	AnswerBytes            int               `json:"answer_bytes,omitempty"`
 	AnswerStatus           string            `json:"answer_status"`
 	JudgeStatus            string            `json:"judge_status"`
+	JudgeRaw               string            `json:"judge_raw,omitempty"`
 	FailureClass           string            `json:"failure_class,omitempty"`
 	DiagnosticCause        string            `json:"diagnostic_cause,omitempty"`
 	Faithfulness           float64           `json:"faithfulness"`
@@ -265,6 +268,7 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		}
 		result.AnswerStatus = "success"
 		result.AnswerBytes = len(answer)
+		result.Answer = answer
 		if strings.TrimSpace(answer) == "" {
 			result.Error = "answer generation returned empty output"
 			result.AnswerStatus = "error"
@@ -293,6 +297,7 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 			continue
 		}
 		result.JudgeStatus = "success"
+		result.JudgeRaw = judgment
 		scores, err := parseJudgeScores(judgment)
 		if err != nil {
 			result.Error = "judge response: " + err.Error()
@@ -332,7 +337,7 @@ func diagnoseQuality(result GenerationQueryResult) string {
 	if result.ContextTruncated || result.ContextRecall < 0.5 {
 		return failureContextSelect
 	}
-	if result.Faithfulness < 0.5 {
+	if result.Faithfulness < 0.5 || result.AnswerRelevancy < 0.5 {
 		return failurePromptGenerate
 	}
 	return ""

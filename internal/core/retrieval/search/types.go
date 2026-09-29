@@ -86,9 +86,11 @@ type RerankTelemetry struct {
 }
 
 // Key identifies a logical source chunk across dense and lexical results so
-// fused candidates deduplicate onto one entry.
+// fused candidates deduplicate onto one entry. ChunkIndex is part of the
+// identity: several chunks of one section share the section's LineStart, and
+// collapsing on LineStart alone would hide all but one of them from results.
 func (c SearchCandidate) Key() string {
-	return c.FilePath + ":" + strconv.Itoa(c.LineStart)
+	return c.FilePath + ":" + strconv.Itoa(c.LineStart) + ":" + strconv.Itoa(c.ChunkIndex)
 }
 
 // Chunk is the stable Retrieval result shape used by chat and the HTTP

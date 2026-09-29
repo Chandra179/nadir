@@ -30,11 +30,19 @@ func nodeToPlainText(n ast.Node, src []byte) string {
 				}
 			}
 			return ast.WalkSkipChildren, nil
-		case *ast.FencedCodeBlock:
+		case *ast.FencedCodeBlock, *ast.CodeBlock:
 			for i := 0; i < v.Lines().Len(); i++ {
 				line := v.Lines().At(i)
 				sb.Write(line.Value(src))
 			}
+			return ast.WalkSkipChildren, nil
+		case *ast.ListItem:
+			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
+				sb.WriteString(nodeToPlainText(c, src))
+			}
+			// Items are block-level siblings; without a separator the next
+			// item's text fuses onto this one's last word.
+			sb.WriteByte('\n')
 			return ast.WalkSkipChildren, nil
 		case *ast.Link, *ast.Image:
 			for c := v.FirstChild(); c != nil; c = c.NextSibling() {
@@ -152,6 +160,9 @@ func extractSections(rawText string) []section {
 		case *ast.Blockquote:
 			currentLines = append(currentLines, nodeToPlainText(v, src))
 			return ast.WalkSkipChildren, nil
+		case *ast.FencedCodeBlock, *ast.CodeBlock:
+			currentLines = append(currentLines, nodeToPlainText(v, src))
+			return ast.WalkSkipChildren, nil
 		}
 		return ast.WalkContinue, nil
 	})
@@ -168,26 +179,38 @@ func (c *dependencies) splitText(text string) []string {
 		return []string{text}
 	}
 	separators := []string{"\n\n", "\n", ". ", " "}
-	for _, sep := range separators {
+	for i, sep := range separators {
 		parts := strings.Split(text, sep)
 		if len(parts) > 1 {
-			return c.mergeSplits(parts, sep)
+			return c.mergeSplits(parts, sep, separators[i+1:])
 		}
 	}
 	return hardSplit(text, c.chunkSize, c.chunkOverlap)
 }
 
-func (c *dependencies) mergeSplits(parts []string, sep string) []string {
+// mergeSplits packs parts into chunks up to chunkSize, carrying an overlap
+// suffix into the next chunk. A part longer than chunkSize can never fit, so
+// it is pre-split with the remaining finer separators and emitted as
+// standalone chunks instead of being accepted whole.
+func (c *dependencies) mergeSplits(parts []string, sep string, finer []string) []string {
 	var chunks []string
 	current := ""
 	for _, p := range parts {
+		if utf8.RuneCountInString(p) > c.chunkSize {
+			if current != "" {
+				chunks = append(chunks, current)
+				current = ""
+			}
+			chunks = append(chunks, c.subSplit(p, finer)...)
+			continue
+		}
 		candidate := current
 		if candidate != "" {
 			candidate += sep
 		}
 		candidate += p
 
-		if utf8.RuneCountInString(candidate) <= c.chunkSize || current == "" {
+		if utf8.RuneCountInString(candidate) <= c.chunkSize {
 			current = candidate
 			continue
 		}
@@ -199,6 +222,20 @@ func (c *dependencies) mergeSplits(parts []string, sep string) []string {
 		chunks = append(chunks, current)
 	}
 	return chunks
+}
+
+// subSplit breaks one oversized part with the remaining separators — most
+// graceful first — packing each level with the separator that produced it so
+// re-splitting never rewrites content characters. hardSplit bounds the result
+// when no separator applies.
+func (c *dependencies) subSplit(part string, separators []string) []string {
+	for i, sep := range separators {
+		parts := strings.Split(part, sep)
+		if len(parts) > 1 {
+			return c.mergeSplits(parts, sep, separators[i+1:])
+		}
+	}
+	return hardSplit(part, c.chunkSize, c.chunkOverlap)
 }
 
 func overlapSuffix(s string, n int) string {

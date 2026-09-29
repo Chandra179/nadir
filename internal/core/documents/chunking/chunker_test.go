@@ -42,3 +42,57 @@ func TestHardSplitHandlesUnicodeAndOverlap(t *testing.T) {
 		t.Fatalf("hardSplit() = %#v, want rune-safe overlapping chunks", got)
 	}
 }
+
+func TestRecursiveChunkerCapturesFencedCodeBlocks(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{Provider: "recursive", ChunkSize: 512, ChunkOverlap: 64})
+	doc := "# Service\n\nRun the reset command:\n\n```bash\ncurl -X POST localhost:8100/api/v1/documents/reset\n```\n\nDone."
+	chunks, err := d.Chunk(doc, "svc.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, c := range chunks {
+		joined += c.Text + "\n"
+	}
+	if !strings.Contains(joined, "curl -X POST localhost:8100") {
+		t.Fatalf("chunks = %#v, want fenced code block content preserved", chunks)
+	}
+}
+
+func TestRecursiveChunkerSeparatesListItems(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{Provider: "recursive", ChunkSize: 512, ChunkOverlap: 64})
+	doc := "# Methods\n\n- Newton's method uses derivatives\n- Secant method avoids derivatives"
+	chunks, err := d.Chunk(doc, "methods.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) == 0 {
+		t.Fatal("no chunks produced")
+	}
+	if !strings.Contains(chunks[0].Text, "derivatives\nSecant") {
+		t.Fatalf("chunk text = %q, want list items separated by a newline", chunks[0].Text)
+	}
+}
+
+// Property: no emitted chunk exceeds chunkSize by more than the overlap tail,
+// whatever the input — oversized paragraphs, long URLs, or unbroken runes.
+func TestRecursiveChunkerNeverEmitsOversizedChunks(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{Provider: "recursive", ChunkSize: 120, ChunkOverlap: 20})
+	huge := strings.Repeat("word ", 60) // ~300 runes, only spaces inside
+	doc := "# Docs\n\n" + huge + "\n\n" +
+		strings.Repeat("https://example.com/very/long/path/segment/", 6) + "\n\n" +
+		strings.Repeat("x", 400)
+	chunks, err := d.Chunk(doc, "big.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) == 0 {
+		t.Fatal("no chunks produced")
+	}
+	for i, c := range chunks {
+		// Bound = chunkSize + overlap tail + the packing separator.
+		if got := len([]rune(c.Text)); got > 120+20+1 {
+			t.Fatalf("chunk %d has %d runes, want <= chunkSize+overlap+sep: %q", i, got, c.Text)
+		}
+	}
+}

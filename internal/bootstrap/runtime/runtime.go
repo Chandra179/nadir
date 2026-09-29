@@ -285,6 +285,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		EmbedBatchSize:   cfg.Ingest.EmbedBatchSize,
 		MaxChunksPerFile: cfg.Ingest.MaxChunksPerFile,
 		DocumentPrefix:   cfg.Embedder.DocumentPrefix,
+		MaxInputChars:    cfg.Embedder.MaxInputChars,
 		Log:              log,
 	})
 
