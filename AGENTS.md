@@ -105,4 +105,4 @@ The `gates` section configures `internal/bootstrap/gates` process-wide finite qu
 
 ## Sample data
 
-`./scripts/local.sh` ingests from `documents.paths` in config. A sample set lives at `samples/` (4 math markdown files). Add your own dirs to `documents.paths` in `internal/bootstrap/configuration/config.yaml`.
+`./scripts/local.sh` ingests from `documents.paths` in config. A sample set lives at `samples/` (14 markdown files covering math and system-design topics). Add your own dirs to `documents.paths` in `internal/bootstrap/configuration/config.yaml`.

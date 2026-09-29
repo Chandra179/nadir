@@ -128,7 +128,7 @@ semantic_cache:
   ttl: 24h           # 0 = no expiry
 
 generator:
-  enabled: true      # set true + ensure ollama LLM is pulled; the chat UI or POST /retrieval/search with generate=on
+  enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
   ollama_addr: "http://localhost:11434"
   model: "gemma3:1b"  # LLM for answer generation; use instruct models
   request_timeout: 120s

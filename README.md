@@ -87,7 +87,8 @@ files that are no longer present, while `mirror` removes missing files after a
 fully successful sweep. A failed conversion or embedding pass never triggers
 destructive reconciliation.
 
-A sample set is included at `samples/` (4 math files). To use your own data:
+A sample set is included at `samples/` (14 markdown files covering math and
+system-design topics). To use your own data:
 
 ```yaml
 # internal/bootstrap/configuration/config.yaml
