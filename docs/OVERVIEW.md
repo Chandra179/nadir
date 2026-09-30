@@ -241,6 +241,7 @@ signal rather than production release evidence.
 
 | Area | Latest result |
 |---|---|
+| Corrected defaults on the repaired evaluator (report schema v2, reset+reindex for per-chunk lines) | Golden pack, no reranker, 3 runs / 399 pooled requests: HitRate@5 **0.977**, Recall@5 **0.969**, MRR@10 **0.817**, nDCG@5 **0.837**, p50/p95 **99/127 ms** — identical across all three runs, so retrieval is deterministic on this stack and the earlier ±0.015 variance concern did not reproduce. Representative 14-document pack (64 queries incl. 8 unsupported): HitRate@5 **0.946**, MRR@10 **0.774**, p50 **102 ms**; generation gemma3:4b judged by the observed-3.8B phi4-mini: faithfulness **0.822**, relevancy **0.811**, context precision/recall **0.578/0.643**, judge coverage 100% with zero failures, **8/8 correct abstentions** (mean abstention 1.0) — although the judge scored 4 of those correct abstentions faithfulness 0, which is the first item for the blind human calibration ([golden](../test/evaluation/reports/retrieval-golden-defaults-20260930.json), [representative+generation](../test/evaluation/reports/generation-representative-defaults-20260930.json))  |
 | Hybrid Retrieval, no reranker | HitRate@5 **0.805**, MRR@10 **0.657**, p50/p95 **19/23 ms**  |
 | BGE reranker on CPU | MRR@10 **0.697**, nDCG@5 **0.709**; rerank p50/p95 **9.4/18.6 s**  |
 | BGE reranker on GPU (laptop RTX) | Same quality: MRR@10 **0.697**, nDCG@5 **0.709**; rerank p50/p95 **0.44/0.70 s** (≈21× faster); peak VRAM about **3.7 GiB**  |
@@ -267,12 +268,17 @@ source hashes and fixed candidate pools. It is not release evidence yet: the
 full licensed corpus, independent human judgments, adjudication, and
 privacy/legal approval are still required.
 
-The generation baseline found two answer timeouts, two judge-contract failures,
-and a header-only context-evaluation miss. Generation now includes section
-headers in context and matching, bounds answer output, and requires a
-structured bounded judge response. A post-change live generation measurement
-is still pending because the local search-index and model services were unavailable;
-the baseline scores above are not post-change results.
+The schema-v2 evidence above was recorded 2026-09-30 after a reset-and-reindex
+(per-chunk source lines change chunk IDs, so a published version rejects
+re-staging and a reset is required). The reranker opt-in decision rests on the
+ADR 0034 GPU measurement; a CPU re-confirmation arm on the corrected defaults
+was attempted and aborted — the BGE v2-M3 sidecar needed ~11.5 s per rerank
+call on the local CPU profile, making the full 3-run pack impractical, which
+is consistent with keeping the CPU sidecar opt-in only (ADR 0031). A blind
+human judge calibration is exported (39 cases,
+[test/evaluation/judge-calibration/20260930-phi4-mini/](../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json))
+and pending review; until it completes the judge's calibration status stays
+`unreviewed`.
 
 ## Conversations and data management
 

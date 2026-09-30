@@ -83,15 +83,16 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
 ### P1 — Release confidence and measurement credibility
 
 - [ ] `[testing]` **Re-record live evidence with the repaired evaluator on
-      the corrected defaults.** Every committed report predates both the
-      evaluator repairs and the reranker opt-in, so no committed number is
-      comparable across that boundary. Run the retrieval arm (`--runs >= 3`)
-      on `golden.json` and `representative.json` with and without the
-      reranker, plus the generation arm (gemma3:4b, independent judge) with
-      abstention coverage; commit the reports and update
-      [`docs/OVERVIEW.md`](docs/OVERVIEW.md). Re-confirm the reranker opt-in
-      decision from the new control pair — re-enabling it requires a measured
-      net gain on the current embedding profile.
+      the corrected defaults.** The 2026-09-30 default-path evidence is
+      recorded (golden HitRate@5 0.977 / MRR@10 0.817 at 99 ms p50;
+      representative 0.946 / 0.774; generation faithfulness 0.822 /
+      relevancy 0.811 with 8/8 abstentions;
+      [reports](test/evaluation/reports/retrieval-golden-defaults-20260930.json)).
+      Still open: the with-reranker control pair (the CPU sidecar needed
+      ~11.5 s per rerank call, so the full arm was aborted — re-run on GPU
+      hardware or accept the ADR 0034 GPU measurement as the standing
+      control), and a context_selection follow-up: the representative pack's
+      largest diagnostic cause (12/64).
 - [ ] `[testing]` **Calibrate the judge against human judgments.** The judge
       prompt now handles terse answers and abstention, but its calibration
       status stays `unreviewed` until a human pass lands. Verify the
