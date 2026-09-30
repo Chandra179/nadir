@@ -35,6 +35,23 @@ class Sample:
     success: bool
     latency_ms: float
     error: str | None
+    first_token_ms: float | None = None
+    workload: str | None = None
+
+
+@dataclass
+class StreamResult:
+    status: int
+    answer: str
+    first_token_ms: float | None
+
+
+@dataclass
+class OperationResult:
+    status: int
+    body: bytes
+    first_token_ms: float | None = None
+    workload: str | None = None
 
 
 def percentile(values: list[float], fraction: float) -> float | None:
@@ -59,16 +76,51 @@ def request_json(url: str, payload: dict[str, Any], timeout: float) -> tuple[int
         return response.status, response.read()
 
 
-def read_stream(url: str, timeout: float) -> int:
+def read_stream_result(url: str, timeout: float) -> StreamResult:
+    started = time.monotonic()
+    answer: list[str] = []
+    first_token_ms = None
+    terminal = None
+    event = ""
+    payload: list[str] = []
+
+    def consume() -> None:
+        nonlocal first_token_ms, terminal
+        text = "\n".join(payload)
+        if event == "token":
+            answer.append(text)
+            if first_token_ms is None and text.strip():
+                first_token_ms = (time.monotonic() - started) * 1000
+        elif event == "generror":
+            raise ValueError(f"generation stream failed: {text}")
+        elif event == "resync":
+            raise ValueError("generation stream replay gap; measured answer is incomplete")
+        elif event == "done":
+            terminal = "done"
+
     request = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        data = response.read()
         status = response.status
-    events = [line[7:] for line in data.decode("utf-8", errors="replace").splitlines()
-              if line.startswith("event: ")]
-    if not events or events[-1] != "done" or "generror" in events:
-        raise ValueError(f"generation stream failed; terminal={events[-1] if events else 'missing'}")
-    return status
+        for raw in response:
+            line = raw.decode("utf-8", errors="strict").rstrip("\r\n")
+            if not line:
+                consume()
+                event, payload = "", []
+                if terminal == "done":
+                    break
+            elif line.startswith("event:"):
+                event = line[6:].lstrip(" ")
+            elif line.startswith("data:"):
+                payload.append(line[5:].removeprefix(" "))
+        if event or payload:
+            consume()
+    if terminal != "done":
+        raise ValueError("generation stream failed; terminal=missing")
+    return StreamResult(status, "".join(answer), first_token_ms)
+
+
+def read_stream(url: str, timeout: float) -> int:
+    return read_stream_result(url, timeout).status
 
 
 def multipart_body(field: str, filename: str, content: bytes) -> tuple[str, bytes]:
@@ -142,6 +194,7 @@ def summarize(samples: list[Sample], started: float, metrics: dict[str, Any]) ->
     latencies = [sample.latency_ms for sample in samples]
     successes = sum(sample.success for sample in samples)
     elapsed = max(0.001, time.monotonic() - started)
+    first_tokens = [s.first_token_ms for s in samples if s.first_token_ms is not None]
     return {
         "requests": len(samples),
         "successes": successes,
@@ -153,6 +206,12 @@ def summarize(samples: list[Sample], started: float, metrics: dict[str, Any]) ->
             "max": max(latencies) if latencies else None,
         },
         "throughput_rps": round(successes / elapsed, 3),
+        "first_token_latency_ms": {
+            "p50": percentile(first_tokens, 0.50),
+            "p95": percentile(first_tokens, 0.95),
+            "p99": percentile(first_tokens, 0.99),
+            "measured": len(first_tokens),
+        },
         "metrics": metrics,
         "samples": [asdict(sample) for sample in samples],
     }
@@ -163,7 +222,7 @@ def run_workload(
     requests: int,
     concurrency: int,
     timeout: float,
-    operation: Callable[[int], tuple[int, bytes]],
+    operation: Callable[[int], tuple[int, bytes] | OperationResult],
     before: dict[str, Any] | None,
     base_url: str,
 ) -> dict[str, Any]:
@@ -172,23 +231,35 @@ def run_workload(
     def one(index: int) -> Sample:
         request_started = time.monotonic()
         try:
-            status, _ = operation(index)
-            return Sample(index, status, 200 <= status < 300, (time.monotonic() - request_started) * 1000, None)
+            result = operation(index)
+            if isinstance(result, OperationResult):
+                return Sample(index, result.status, 200 <= result.status < 300, (time.monotonic() - request_started) * 1000, None, result.first_token_ms, result.workload)
+            status, _ = result
+            return Sample(index, status, 200 <= status < 300, (time.monotonic() - request_started) * 1000, None, workload=name)
         except (OSError, ValueError, urllib.error.HTTPError) as exc:
             status = getattr(exc, "code", None)
-            return Sample(index, status, False, (time.monotonic() - request_started) * 1000, str(exc))
+            kind = name
+            if name == "mixed_chat_retrieval":
+                kind = "chat_streams" if index % 2 == 0 else "long_retrieval"
+            return Sample(index, status, False, (time.monotonic() - request_started) * 1000, str(exc), workload=kind)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
         samples = list(executor.map(one, range(requests)))
     after = fetch_metrics(base_url, timeout)
-    return {
+    report = {
         "name": name,
         "concurrency": concurrency,
         **summarize(samples, started, metric_delta(before, after)),
     }
+    if name == "mixed_chat_retrieval":
+        report["by_workload"] = {
+            kind: summarize([s for s in samples if s.workload == kind], started, {})
+            for kind in ["chat_streams", "long_retrieval"]
+        }
+    return report
 
 
-def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict[str, Callable[[int], tuple[int, bytes]]]:
+def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict[str, Callable[[int], tuple[int, bytes] | OperationResult]]:
     turns_url = base_url.rstrip("/") + "/api/v1/turns"
     documents_url = base_url.rstrip("/") + "/api/v1/documents"
     long_query = "; ".join(
@@ -208,7 +279,8 @@ def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict
     while len(document) < large_bytes:
         document += paragraph
 
-    def chat(index: int) -> tuple[int, bytes]:
+    def chat(index: int) -> OperationResult:
+        started = time.monotonic()
         status, body = request_json(turns_url, {"query": f"load chat {index}: {long_query}", "generate": True, "top_k": 5}, timeout)
         response = json.loads(body.decode("utf-8"))
         if response.get("error") or response.get("generate_error"):
@@ -216,8 +288,10 @@ def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict
         turn_id = response.get("turn_id")
         if not turn_id:
             raise ValueError("chat turn did not start a generation stream")
-        read_stream(base_url.rstrip("/") + "/api/v1/turns/" + turn_id + "/events", timeout)
-        return status, body
+        retrieval_ms = (time.monotonic() - started) * 1000
+        stream = read_stream_result(base_url.rstrip("/") + "/api/v1/turns/" + turn_id + "/events", timeout)
+        first_token = None if stream.first_token_ms is None else retrieval_ms + stream.first_token_ms
+        return OperationResult(status, body, first_token, "chat_streams")
 
     def retrieval(index: int) -> tuple[int, bytes]:
         status, body = request_json(turns_url, {"query": f"load retrieval {index}: {long_query}", "generate": False, "top_k": 5}, timeout)
@@ -231,24 +305,32 @@ def workload_operations(base_url: str, timeout: float, large_bytes: int) -> dict
             raise ValueError("ingestion reported failed files")
         return status, body
 
-    return {"chat_streams": chat, "long_retrieval": retrieval, "large_ingestion": ingest}
+    def mixed(index: int) -> OperationResult:
+        if index % 2 == 0:
+            return chat(index)
+        status, body = retrieval(index)
+        return OperationResult(status, body, workload="long_retrieval")
+
+    return {"chat_streams": chat, "long_retrieval": retrieval, "large_ingestion": ingest, "mixed_chat_retrieval": mixed}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8100")
-    parser.add_argument("--mode", choices=["chat", "retrieval", "ingest", "all"], default="all")
+    parser.add_argument("--mode", choices=["chat", "retrieval", "ingest", "mixed", "all"], default="all")
     parser.add_argument("--requests", type=int, default=20)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--large-bytes", type=int, default=8 * 1024)
-    parser.add_argument("--warmup", type=int, default=0, help="sequential warmup requests per workload, excluded from measurements")
+    parser.add_argument("--warmup", type=int, default=2, help="sequential warmup requests per workload, excluded from measurements")
+    parser.add_argument("--profile-label", default="unspecified", help="topology/hardware label recorded with measurements")
+    parser.add_argument("--provenance", help="JSON metadata containing the effective config/corpus fingerprint")
     parser.add_argument("--json-out")
     args = parser.parse_args()
     if args.requests <= 0 or args.concurrency <= 0 or args.warmup < 0:
         parser.error("--requests and --concurrency must be greater than zero; --warmup must be nonnegative")
 
-    health_request = urllib.request.Request(args.base_url.rstrip("/") + "/api/v1/health")
+    health_request = urllib.request.Request(args.base_url.rstrip("/") + "/api/v1/ready")
     try:
         with urllib.request.urlopen(health_request, timeout=args.timeout) as response:
             if response.status != 200:
@@ -257,12 +339,18 @@ def main() -> int:
         parser.error(f"API health check failed: {exc}")
 
     operations = workload_operations(args.base_url, args.timeout, args.large_bytes)
-    selected = {"chat": "chat_streams", "retrieval": "long_retrieval", "ingest": "large_ingestion"}
+    selected = {"chat": "chat_streams", "retrieval": "long_retrieval", "ingest": "large_ingestion", "mixed": "mixed_chat_retrieval"}
     names = list(operations) if args.mode == "all" else [selected[args.mode]]
+    provenance = None
+    if args.provenance:
+        with open(args.provenance, encoding="utf-8") as source:
+            provenance = json.load(source)
     report: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "measured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "base_url": args.base_url,
+        "profile_label": args.profile_label,
+        "provenance": provenance,
         "process_scope": "single API process; admission is not distributed",
         "warmup_per_workload": args.warmup,
         "warmups": {},

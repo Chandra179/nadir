@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "dataset": "synthetic-cache-and-followup-probes-v1",
+    "release_gate": false,
+    "provenance": "Authored from committed samples; no production queries or independent human judgments. Cache cases include close but different concepts; rewriting cases include references and explicit topic switches."
+  },
+  "cache": [
+    {"id":"secant-paraphrase","seed":"What is the secant of an angle?","probe":"How is secant related to cosine?","relevant":[{"file":"trig-functions.md","contains":"reciprocal of cosine"}]},
+    {"id":"secant-cosine-neighbor","seed":"What is the secant of an angle?","probe":"What is the cosine of an angle?","relevant":[{"file":"trig-functions.md","contains":"adjacent"}]},
+    {"id":"secant-domain-switch","seed":"What is the secant of an angle?","probe":"Does the secant root-finding method require derivatives?","relevant":[{"file":"numerical-methods.md","contains":"Does not require computing derivatives"}]},
+    {"id":"derivative-sign-neighbor","seed":"What is the derivative of sine?","probe":"What is the derivative of cosine?","relevant":[{"file":"calculus.md","contains":"-sin"}]},
+    {"id":"newton-secant-neighbor","seed":"Does the secant root-finding method require derivatives?","probe":"Does Newton-Raphson require derivative computation?","relevant":[{"file":"numerical-methods.md","contains":"Requires derivative computation"}]}
+  ],
+  "rewriting": [
+    {"id":"bisection-reference","seed":"How does the bisection root-finding method work?","followup":"How does it choose the initial interval?","standalone":"How does bisection choose its initial interval?","required_any":["bisection"],"relevant":[{"file":"numerical-methods.md","contains":"f(a)"}]},
+    {"id":"secant-second-method","seed":"Compare Newton-Raphson first and the secant method second for finding roots.","followup":"Does the second one need derivatives?","standalone":"Does the secant method require derivatives?","required_any":["secant"],"relevant":[{"file":"numerical-methods.md","contains":"Does not require computing derivatives"}]},
+    {"id":"cosine-followup","seed":"What is the derivative of sine?","followup":"What about cosine?","standalone":"What is the derivative of cosine?","required_any":["derivative","differentiat"],"relevant":[{"file":"calculus.md","contains":"-sin"}]},
+    {"id":"explicit-topic-switch","seed":"How does the bisection root-finding method work?","followup":"Switch topics: how does Redis execute commands?","standalone":"How does Redis execute commands?","required_any":["redis"],"relevant":[{"file":"cache.md","contains":"main execution thread"}]}
+  ]
+}

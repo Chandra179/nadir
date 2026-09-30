@@ -5,6 +5,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 MODULE_PATH = pathlib.Path(__file__).with_name("benchmark_load.py")
@@ -16,6 +17,40 @@ SPEC.loader.exec_module(benchmark_load)
 
 
 class LoadBenchmarkTest(unittest.TestCase):
+    def test_stream_records_first_content_before_completion_and_preserves_multiline_tokens(self):
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def __iter__(self):
+                yield from [b"event: token\n", b"data: hello\n", b"data: world\n", b"\n", b"event: done\n", b"data: 1\n", b"\n"]
+        with patch.object(benchmark_load.urllib.request, "urlopen", return_value=Response()), patch.object(benchmark_load.time, "monotonic", side_effect=[1, 1.025]):
+            result = benchmark_load.read_stream_result("http://test/events", 1)
+        self.assertEqual(result.answer, "hello\nworld")
+        self.assertAlmostEqual(result.first_token_ms, 25)
+
+    def test_stream_does_not_count_generation_errors_or_replay_gaps_as_success(self):
+        class Response:
+            status = 200
+            def __init__(self, event): self.event = event
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def __iter__(self):
+                yield from [f"event: {self.event}\n".encode(), b"data: problem\n", b"\n"]
+        for event in ["generror", "resync", "token"]:
+            with self.subTest(event=event), patch.object(benchmark_load.urllib.request, "urlopen", return_value=Response(event)):
+                with self.assertRaises(ValueError):
+                    benchmark_load.read_stream_result("http://test/events", 1)
+
+    def test_mixed_workload_reports_retrieval_latency_separately(self):
+        def operation(index):
+            kind = "chat_streams" if index % 2 == 0 else "long_retrieval"
+            return benchmark_load.OperationResult(200, b"{}", 5 if index % 2 == 0 else None, kind)
+        with patch.object(benchmark_load, "fetch_metrics", return_value={}):
+            report = benchmark_load.run_workload("mixed_chat_retrieval", 4, 2, 1, operation, {}, "http://test")
+        self.assertEqual(report["by_workload"]["chat_streams"]["requests"], 2)
+        self.assertEqual(report["by_workload"]["long_retrieval"]["first_token_latency_ms"]["measured"], 0)
+
     def test_percentile_uses_nearest_rank(self):
         self.assertEqual(benchmark_load.percentile([3, 1, 2, 4], 0.50), 2)
         self.assertEqual(benchmark_load.percentile([3, 1, 2, 4], 0.95), 4)
