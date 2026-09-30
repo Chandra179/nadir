@@ -74,6 +74,16 @@ SSE replay, cancellation, reset, and process-local gates. As of 2026-09-30
 - Known co-existence constraint: on a 6 GiB GPU, gemma3:4b resident in
   Ollama and a CUDA reranker sidecar do not fit together; the local sidecar
   runs the CPU profile when opted in (ADR 0031 default).
+- Live evidence recorded 2026-09-30, all in
+  [`docs/OVERVIEW.md`](docs/OVERVIEW.md): schema-v2 retrieval and generation
+  reports on both packs; concurrent-load re-run (retrieval head-of-line
+  resolved at p95 2.0 s; the remaining queue is model serving at
+  concurrency 8); semantic cache traps rejected 7/7 with true paraphrases
+  4/4; streaming first token 0.59 s (4b) / 0.50 s (1b); the 1400-token
+  context-budget arm failed its pre-registered bar, so trimming admitted
+  context is rejected. Keyword-only searches are BM25-ranked via the sparse
+  leg, the container build runs golang:1.27.1-alpine + alpine:3.24, and the
+  blind judge-calibration packet (39 cases) awaits human review.
 
 Nadir is still a single-node system; gates, retention, and cache invalidation
 are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrency.md)).
@@ -133,10 +143,6 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
       control: distractor/low-signal filtering before prompt assembly, or
       stricter per-file diversification (`search.max_chunks_per_file`).
       Persisted admitted-context and citations make misses auditable.
-- [ ] `[bug]` **Unranked keyword fallback.** `KeywordSearch` is a Qdrant
-      `Scroll` with `MatchText` — no relevance ordering. Rank it (BM25 score
-      or at least stable scoring) before it is used by any caller that
-      matters.
 - [ ] `[testing]` **Docling re-record and pprof capture.** Re-record the
       Docling benchmark (its 2026-09-13 report file was removed; only
       summaries survive) and capture pprof CPU/heap profiles during a load
@@ -145,12 +151,15 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
 - [ ] `[approach]` **Judge n-sample self-consistency.** One judge sample per
       query remains; evaluate an n-sample median once the human calibration
       above lands.
-- [ ] `[testing]` **Dependency updates.** Merge the routine patches first
-      with CI green (typescript-eslint 8.70.1, golang 1.27.1-alpine, alpine
-      3.24); land the four major frontend tooling upgrades (vite 8,
-      @vitejs/plugin-react 6, vitest 5, jest-dom 7) as one coordinated
-      upgrade after the current changeset merges, gated on the dashboard
-      test suite.
+- [ ] `[testing]` **Dependency updates.** Routine work is done: the
+      typescript-eslint patch merged (#6), and the base-image bumps landed
+      directly on the live `Containerfile` (golang:1.27.1-alpine,
+      alpine:3.24, container-build verified) after #4/#5 turned out to
+      target a root Dockerfile removed in the layer refactor. Remaining:
+      review and merge the coordinated frontend batch
+      ([#15](https://github.com/Chandra179/nadir/pull/15) — vite 8,
+      @vitejs/plugin-react 6, vitest 5, jest-dom 7; all dashboard gates
+      green locally), which supersedes #7–#10.
 - [ ] Choose the canonical HTTP contract (carried). Restore an authoritative
       OpenAPI source with CI verification if external clients appear;
       otherwise remove this item.
