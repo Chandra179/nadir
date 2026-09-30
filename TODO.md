@@ -20,60 +20,88 @@ change to an existing method, `[method]` candidate new technique.
 
 The local workflow is implemented end to end: intake, chunking, embedding,
 hybrid Retrieval, optional reranking, grounded Chat generation, history,
-SSE replay, cancellation, reset, and process-local gates. As of 2026-09-29
-([ADR 0034](docs/adr/0034-chunker-fixes-and-size.md)):
+SSE replay, cancellation, reset, and process-local gates. As of 2026-09-30
+(on top of [ADR 0034](docs/adr/0034-chunker-fixes-and-size.md)):
 
-- Chunker correctness fixes are adopted (fenced code blocks indexed, list-item
-  separators, oversized-part re-split, embed-input clamp). Full-corpus
-  retrieval: HitRate@5 0.970–0.985, MRR@10 0.806–0.809, nDCG@5 0.831–0.840.
-- Result identity includes `ChunkIndex`; multi-sentence queries also search
-  the original composite query.
-- The generation gate (faithfulness ≥ 0.65 **and** relevancy ≥ 0.75) passes
-  for the first time: gemma3:4b 0.881/0.803 (now the default generator),
-  gemma3:1b 0.750/0.756 as the low-latency fallback. `generator.num_ctx` is
-  pinned; judge reports are auditable (answer + raw judge output persisted).
-- Chunk size stays 512 runes: the 2048-rune arm failed both pre-registered
+- Startup defaults are consistent everywhere: `config.yaml`, Compose, and
+  `.env.example` all use EmbeddingGemma-300m with its task prefixes and the
+  gemma3:4b generator, guarded by a deployment-consistency test
+  (`internal/bootstrap/configuration/deployment_test.go`). Reranking is
+  opt-in (`reranker.enabled: false` everywhere); the reranker sidecar moved
+  behind the Compose `rerank` profile, no longer gates API startup, and
+  `scripts/local.sh` starts it only when enabled (`--startup-config` prints
+  the effective local settings). Changing the embedding space requires
+  reset-and-reindex.
+- The evaluator was repaired (report schema v2): quality is the median of
+  dataset-level metrics across runs while latency pools every request;
+  retrieval depth is at least 10 with an explicit MRR@10 cutoff; nDCG is
+  graded and identity-aware with duplicate evidence collapsed (no more >1.0
+  scores); unsupported/abstention queries are first-class with an
+  `abstention_score`; reports carry per-run distributions and full
+  provenance — golden-set SHA, corpus manifest verification, effective-config
+  hash, and model metadata observed from the serving endpoint. The judge
+  prompt scores terse complete answers fairly and requires an explicit
+  suitability acknowledgement plus a judge model distinct from the answer
+  model (by name and observed digest).
+- A representative evaluation pack covers all 14 sample documents:
+  `test/evaluation/representative.json` (64 queries, including 8 genuine
+  unsupported queries, with a content-hashed corpus manifest). The original
+  133-query math pack is preserved unchanged as the fixed regression set.
+- Publication and cache freshness are failure-safe at the Document seam:
+  `indexing.PublicationError` distinguishes a visible mutation with
+  unfinished cleanup from an unpublished failure; replacement retries never
+  restage over an activated version (`publicationMu` plus a visible-version
+  check); the semantic cache suspends reuse during any publication, binds
+  writes to the generation observed before retrieval, and starts each
+  process on a fresh cache epoch; reset invalidates the cache even when
+  cleanup fails. Fault-injection tests cover replace, reset, and
+  mirror-removal paths (`publication_guards_test.go`,
+  `replacement_retry_test.go`, `concurrency_test.go`,
+  `cache_freshness_test.go`).
+- Prompt construction selects evidence by retrieval rank before edge
+  arrangement (a lower-ranked chunk can no longer steal budget from a
+  higher-ranked one), carries a citation map — number, retrieval rank, path,
+  header, line, chunk index — through history and the HTTP contract to the
+  dashboard, and budgets the complete model request (instructions, question,
+  reserved output, template allowance) against the pinned `num_ctx` with a
+  conservative estimator. Chunker output now carries real per-chunk source
+  lines (span-based mapping through extraction, splitting, and overlap).
+- The generation gate (faithfulness ≥ 0.65 **and** relevancy ≥ 0.75) passed
+  for the first time with the pre-repair judge: gemma3:4b 0.881/0.803 (now
+  the default generator), gemma3:1b 0.750/0.756 as the low-latency fallback.
+  Chunk size stays 512 runes: the 2048-rune arm failed both pre-registered
   ranking bars.
-- The BGE v2-M3 reranker re-measured on the EmbeddingGemma default is
-  net-negative on every retrieval metric at ~5× latency; it is no longer part
-  of the measured quality path (see the open P1 decision below).
 - Known co-existence constraint: on a 6 GiB GPU, gemma3:4b resident in
-  Ollama and the CUDA reranker sidecar do not fit together; the local
-  sidecar runs the CPU profile (ADR 0031 default).
+  Ollama and a CUDA reranker sidecar do not fit together; the local sidecar
+  runs the CPU profile when opted in (ADR 0031 default).
 
 Nadir is still a single-node system; gates, retention, and cache invalidation
 are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrency.md)).
 
 ## Active priority backlog
 
-### P1 — Release confidence and core answer quality
+### P1 — Release confidence and measurement credibility
 
-- [ ] `[approach]` **Resolve the reranker default.** `reranker.enabled` is
-      still `true` in config while the 2026-09-29 measurement shows the
-      cross-encoder degrades every retrieval metric on the EmbeddingGemma
-      default (HitRate@5 0.910 with vs 0.947 without; distractor@5 0.376 vs
-      0.211). Either flip the default off or pre-register an adaptive-rerank
-      margin calibrated from this data (the current margin threshold 0.01 was
-      never validated on this embedder). Reports:
-      [rerank](test/evaluation/reports/pre-fix-rerank-gpu-fullcorpus-20260929.json),
-      [control](test/evaluation/reports/pre-fix-baseline-512-fullcorpus-20260929.json).
-- [ ] `[approach]` **Context-selection quality.** Context precision fell to
-      0.565 (gemma3:1b) / 0.480 (gemma3:4b) and `context_selection` is the
-      largest diagnostic cause on the 4b arm (27/133). Evaluate: distractor
-      filtering before prompt assembly, raising `top_k` with stricter
-      selection, or score-threshold gating. Generation reports now persist
-      per-query answers and judge output, so misses are auditable.
-      [Reports](test/evaluation/reports/generation-gemma4b-fullcorpus-20260929.json).
-- [ ] `[testing]` **Evaluation variance protocol.** Run-to-run HitRate@5
-      varies ±0.015 on identical inputs (embedding nondeterminism and/or
-      concurrent-fragment merge order). Gates should use N-run medians; if
-      the source is merge nondeterminism, make fragment merge order
-      deterministic. Noted in ADR 0034.
-- [ ] `[testing]` **Fixture and corpus alignment.** The schema-v3 fixture
-      manifest still pins the original four documents while `samples/` has
-      fourteen; the manifest, the golden-corpus isolation mode, and the
-      full-corpus mode should be re-based and re-recorded. Refresh annotator
-      metadata before any release-gate use.
+- [ ] `[testing]` **Re-record live evidence with the repaired evaluator on
+      the corrected defaults.** Every committed report predates both the
+      evaluator repairs and the reranker opt-in, so no committed number is
+      comparable across that boundary. Run the retrieval arm (`--runs >= 3`)
+      on `golden.json` and `representative.json` with and without the
+      reranker, plus the generation arm (gemma3:4b, independent judge) with
+      abstention coverage; commit the reports and update
+      [`docs/OVERVIEW.md`](docs/OVERVIEW.md). Re-confirm the reranker opt-in
+      decision from the new control pair — re-enabling it requires a measured
+      net gain on the current embedding profile.
+- [ ] `[testing]` **Calibrate the judge against human judgments.** The judge
+      prompt now handles terse answers and abstention, but its calibration
+      status stays `unreviewed` until a human pass lands. Verify the
+      deployed judge's serving fingerprint (observed parameter count, not
+      the model tag), then run
+      [scripts/calibrate_evaluation_judge.py](scripts/calibrate_evaluation_judge.py):
+      blind human scoring of the persisted answer/context/judge bundles,
+      agreement analysis, and prompt or threshold adjustment before any
+      release-gate use. Refresh annotator metadata on the golden pack at the
+      same time.
 - [ ] `[testing]` **Run the ARQMath Task 1 pack through live Retrieval.** The
       importer and review tooling exist
       ([scripts/import_arqmath.py](scripts/import_arqmath.py)); the pack has
@@ -82,50 +110,40 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
 
 ### P2 — Correctness debt, production measurements, maintainability
 
-- [ ] `[bug]` **Per-chunk line tracking.** `LineStart` is the section
-      heading's line for every chunk in the section; citations display
-      section-granular line numbers and the fixed `Key()` relies on
-      `ChunkIndex` alone for within-section identity. Track real per-chunk
-      line offsets through `extractSections`/`mergeSplits` (goldmark segment
-      offsets are available).
+- [ ] `[testing]` **Measure the enabled user paths on the corrected
+      defaults.** Semantic-cache hit correctness vs the 0.90 threshold and
+      multi-turn rewriting quality now have tooling
+      ([scripts/benchmark_user_paths.py](scripts/benchmark_user_paths.py),
+      `make user-path-benchmark`, `test/evaluation/user-paths.json`) but no
+      live evidence yet. Add streaming first-token latency for gemma3:4b vs
+      the documented 1b fallback, and a concurrent `make load-benchmark` run
+      on the current topology — the older report's retrieval p95 near 30 s
+      is unexplained under the current defaults.
+- [ ] `[approach]` **Context-selection quality.** Context precision fell to
+      0.565 (gemma3:1b) / 0.480 (gemma3:4b) and `context_selection` is the
+      largest diagnostic cause on the 4b arm (27/133). The persisted
+      admitted-context and citation map make misses auditable end to end.
+      Evaluate: distractor filtering before prompt assembly, raising `top_k`
+      with stricter selection, or score-threshold gating.
+      [Reports](test/evaluation/reports/generation-gemma4b-fullcorpus-20260929.json).
 - [ ] `[bug]` **Unranked keyword fallback.** `KeywordSearch` is a Qdrant
       `Scroll` with `MatchText` — no relevance ordering. Rank it (BM25 score
       or at least stable scoring) before it is used by any caller that
       matters.
-- [ ] `[bug]` **Prompt budget math excludes non-context tokens.**
-      `max_context_tokens` budgets context only; instructions, the question,
-      and `max_output_tokens` are unaccounted, and `estimateTokens`
-      (1.3×words) undercounts formula-dense text. `num_ctx` is now pinned
-      (4096), so the failure mode is over-truncation, not silent clipping —
-      but the estimate should become a real tokenizer count or a measured
-      chars/token ratio for this corpus.
-- [ ] `[testing]` **Semantic cache correctness is unmeasured.** Threshold
-      0.90 cosine is plausible but nobody has measured hit-answer correctness
-      vs hit rate (the GPTCache failure mode: hits ≠ correct answers). Build
-      a cache-precision probe or log hit correctness in production before
-      trusting it. Staleness invalidation is already versioned and tested.
-- [ ] `[testing]` **Query rewriting is unmeasured.** The rewriter is enabled
-      in production but absent from the evaluator path; multi-turn quality
-      (pronoun resolution, query drift) has no evidence at all.
-- [ ] `[testing]` **Production-topology load and PDF benchmarks.** The single
-      laptop run (concurrency 8, no warmup) shows head-of-line blocking:
-      `long_retrieval` p95 30 s behind 26 s chat streams. Re-run
-      `make load-benchmark` on the intended topology after the reranker
-      decision, plus the Docling benchmark (its 2026-09-13 report file was
-      removed; only summaries survive). Capture pprof CPU/heap profiles —
-      the module exists and has never been used.
-- [ ] `[testing]` **gemma3:4b latency budget.** Answer p50 is 4.3 s vs 0.48 s
-      for gemma3:1b. Measure streaming first-token latency and decide whether
-      interactive paths should use the documented 1b fallback or whether the
-      latency is acceptable everywhere.
-- [ ] `[testing]` **Representative-hardware reranker comparison** (carried
-      from the previous ladder). BGE v2 M3 CPU/GPU is measured on laptop
-      hardware; MiniLM/GTE and production-like hardware remain open — only
-      worth doing if the P1 reranker decision keeps the stage in the product.
-- [ ] `[approach]` **Expose `chunk_index` in the HTTP contract.**
-      `ResultResponse` carries `line_start` only; the dashboard cannot
-      distinguish same-section chunks. Additive JSON field + TypeScript DTO
-      + dashboard key.
+- [ ] `[testing]` **Production-topology load, Docling benchmark, and pprof.**
+      Re-run `make load-benchmark` on the intended topology, re-record the
+      Docling benchmark (its 2026-09-13 report file was removed; only
+      summaries survive), and capture pprof CPU/heap profiles — the module
+      exists and has never been used.
+- [ ] `[approach]` **Judge n-sample self-consistency.** One judge sample per
+      query remains; evaluate an n-sample median once the human calibration
+      above lands.
+- [ ] `[testing]` **Dependency updates.** Merge the routine patches first
+      with CI green (typescript-eslint 8.70.1, golang 1.27.1-alpine, alpine
+      3.24); land the four major frontend tooling upgrades (vite 8,
+      @vitejs/plugin-react 6, vitest 5, jest-dom 7) as one coordinated
+      upgrade after the current changeset merges, gated on the dashboard
+      test suite.
 - [ ] Choose the canonical HTTP contract (carried). Restore an authoritative
       OpenAPI source with CI verification if external clients appear;
       otherwise remove this item.
@@ -145,10 +163,10 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
 - [ ] `[method]` **Multi-query expansion.** The original-query fragment is
       now always searched (ADR 0034); LLM-generated query variants merged by
       RRF (original weighted 2×) remain untested. Cost: +1 LLM call.
-- [ ] `[method]` **Judge robustness.** Single judge sample per query;
-      evaluate n-sample median/self-consistency and whether the judge
-      handles terse formula answers fairly (known mis-scoring documented in
-      the 2026-09-27 evidence).
+- [ ] `[testing]` **Representative-hardware reranker comparison.** Only worth
+      doing if the reranker returns to the product path (it is opt-in
+      today): BGE v2 M3 CPU/GPU was measured on laptop hardware;
+      MiniLM/GTE and production-like hardware remain open.
 - [ ] `[research]` Collect explicit relevance/user-selection labels, then
       evaluate a small learned-to-rank model over dense score, BM25 score,
       RRF rank, metadata, exact-match, and position features. Require an
