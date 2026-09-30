@@ -38,6 +38,10 @@ type GenerationDependenciesConfig struct {
 	JudgeSuitability         string
 	ModelFingerprints        []ModelFingerprint
 	MaxContextTokens         int
+	// ContextBudgetOverride replaces MaxContextTokens when positive, so an
+	// experiment arm can vary the admitted-context budget without changing
+	// the serving configuration. The override is recorded in the report.
+	ContextBudgetOverride    int
 	ContextWindowTokens      int
 	ReservedOutputTokens     int
 	JudgeContextWindowTokens int
@@ -68,6 +72,9 @@ type GenerationHarness struct {
 // NewGenerationDependencies constructs the generation evaluation Harness.
 func NewGenerationDependencies(cfg GenerationDependenciesConfig) *GenerationHarness {
 	maxContextTokens := cfg.MaxContextTokens
+	if cfg.ContextBudgetOverride > 0 {
+		maxContextTokens = cfg.ContextBudgetOverride
+	}
 	if maxContextTokens <= 0 {
 		maxContextTokens = 2800
 	}

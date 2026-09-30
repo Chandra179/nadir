@@ -45,6 +45,7 @@ func main() {
 	judgeModel := flag.String("judge-model", "", "required Ollama judge model; serving metadata is recorded")
 	judgeSuitability := flag.String("judge-suitability", "", "required acknowledgement describing why the judge is suitable and its calibration limits")
 	judgeNumCtx := flag.Int("judge-num-ctx", 8192, "independent Ollama judge window; rejects prompts that would overflow")
+	contextBudget := flag.Int("context-budget", 0, "generation-eval admitted-context budget in tokens (0 uses chat.max_context_tokens); the context-selection experiment arm")
 	flag.Parse()
 
 	if err := runWithOptions(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate, *validateOnly, generationOptions{
@@ -53,6 +54,7 @@ func main() {
 		JudgeModel:       *judgeModel,
 		JudgeSuitability: *judgeSuitability,
 		JudgeNumCtx:      *judgeNumCtx,
+		ContextBudget:    *contextBudget,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "evaluator:", err)
 		os.Exit(1)
@@ -69,6 +71,7 @@ type generationOptions struct {
 	JudgeModel       string
 	JudgeSuitability string
 	JudgeNumCtx      int
+	ContextBudget    int
 }
 
 func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) error {
@@ -186,6 +189,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			JudgeSuitability:         generationOptions.JudgeSuitability,
 			ModelFingerprints:        provenance.Models,
 			MaxContextTokens:         cfg.Chat.MaxContextTokens,
+			ContextBudgetOverride:    generationOptions.ContextBudget,
 			ContextWindowTokens:      cfg.Generator.NumCtx,
 			ReservedOutputTokens:     cfg.Generator.MaxOutputTokens,
 			JudgeContextWindowTokens: generationOptions.JudgeNumCtx,

@@ -82,7 +82,7 @@ func captureProvenance(ctx context.Context, cfg *config.Config, goldenPath strin
 	sanitized.Qdrant.Addr = redactAddress(sanitized.Qdrant.Addr)
 	sanitized.Reranker.Addr = redactAddress(sanitized.Reranker.Addr)
 	sanitized.Docling.Addr = redactAddress(sanitized.Docling.Addr)
-	effective := map[string]any{"config": sanitized, "disable_semantic_cache": true, "no_rerank": noRerank, "top_k": topK, "retrieval_depth": max(topK, 10), "runs": runs, "judge_model": options.JudgeModel, "judge_addr": redactAddress(options.JudgeAddr), "judge_num_ctx": options.JudgeNumCtx, "generation_eval": options.Enabled}
+	effective := map[string]any{"config": sanitized, "disable_semantic_cache": true, "no_rerank": noRerank, "top_k": topK, "retrieval_depth": max(topK, 10), "runs": runs, "context_budget": options.ContextBudget, "judge_model": options.JudgeModel, "judge_addr": redactAddress(options.JudgeAddr), "judge_num_ctx": options.JudgeNumCtx, "generation_eval": options.Enabled}
 	out.EffectiveConfig = effective
 	out.EffectiveConfigSHA256, err = evaluation.HashJSON(effective)
 	if err != nil {
