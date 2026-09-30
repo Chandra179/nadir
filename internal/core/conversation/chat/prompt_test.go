@@ -32,13 +32,102 @@ func TestBuildContextWithStatsReportsTruncation(t *testing.T) {
 		FilePath: "calculus.md",
 		Header:   "Power Rule",
 		Text:     "The derivative of a power function is n times x to the n minus one.",
-	}}, 16)
+	}}, 34)
 
 	if !got.Stats.Truncated {
 		t.Fatal("context stats reported no truncation for an undersized budget")
 	}
 	if got.Stats.IncludedChunks != 1 {
 		t.Fatalf("included chunks = %d, want one partially included chunk", got.Stats.IncludedChunks)
+	}
+}
+
+func TestContextAdmissionPreservesRankBeforePresentation(t *testing.T) {
+	var chunks []search.Chunk
+	for _, rank := range []string{"rank1", "rank2", "rank3", "rank4", "rank5"} {
+		chunks = append(chunks, search.Chunk{FilePath: rank + ".md", Text: strings.Repeat(rank+" ", 20)})
+	}
+	// This reproduced rank #3 consuming the budget while rank #2, reordered
+	// to the prompt's far edge, was entirely excluded.
+	built := BuildContextWithStats(chunks, 110)
+	if !strings.Contains(built.Text, "rank2") || strings.Contains(built.Text, "rank3") {
+		t.Fatalf("admission skipped a higher-ranked chunk: %q", built.Text)
+	}
+	for i, citation := range built.Citations {
+		if citation.Number != i+1 || citation.RetrievalRank != i+1 || citation.FilePath != chunks[i].FilePath {
+			t.Fatalf("citation map does not match ranking: %+v", built.Citations)
+		}
+	}
+	if built.Stats.Tokens > 110 {
+		t.Fatalf("context exceeded estimate budget: %+v", built.Stats)
+	}
+}
+
+func TestCitationNumbersSurvivePromptReordering(t *testing.T) {
+	chunks := []search.Chunk{
+		{FilePath: "first.md", Text: "First", LineStart: 3, ChunkIndex: 7},
+		{FilePath: "second.md", Text: "Second", LineStart: 9, ChunkIndex: 2},
+		{FilePath: "third.md", Text: "Third", LineStart: 20, ChunkIndex: 4},
+	}
+	built := BuildPromptWithBudget("which", chunks, PromptBudget{MaxContextTokens: 500})
+	if strings.Index(built.Context.Text, "[3]") > strings.Index(built.Context.Text, "[2]") {
+		t.Fatalf("expected edge arrangement: %q", built.Context.Text)
+	}
+	if !strings.Contains(built.Context.Text, "[2] (source: second.md (line 9, chunk 2))") {
+		t.Fatalf("citation #2 lost its provenance: %q", built.Context.Text)
+	}
+	for _, citation := range built.Context.Citations {
+		if !strings.Contains(built.Prompt, citationEntry(citation)) {
+			t.Fatalf("prompt differs from admitted evidence: %+v", citation)
+		}
+	}
+}
+
+func TestPromptBudgetReservesQuestionInstructionsAndAnswer(t *testing.T) {
+	query := strings.Repeat("what exactly does this equation mean? ", 12)
+	chunks := []search.Chunk{{FilePath: "formula.md", Text: strings.Repeat(`x_{n+1}=(x_n*f(x_{n-1})-x_{n-1}*f(x_n))/(f(x_{n-1})-f(x_n));`, 80)}}
+	built := BuildPromptWithBudget(query, chunks, PromptBudget{
+		MaxContextTokens: 2800, ContextWindowTokens: 2048, ReservedOutputTokens: 512,
+	})
+	if built.Err != nil {
+		t.Fatal(built.Err)
+	}
+	if estimateTokens(built.Prompt)+512+64 > 2048 {
+		t.Fatalf("complete request exceeds model window: %+v", built.Context.Stats)
+	}
+	if !built.Context.Stats.Truncated || len(built.Context.Citations) != 1 || !built.Context.Citations[0].Truncated {
+		t.Fatalf("bounded evidence was not marked: %+v", built.Context)
+	}
+	if !strings.Contains(built.Prompt, "(source: formula.md)") {
+		t.Fatal("partial admission truncated the source label")
+	}
+}
+
+func TestPromptRejectsQuestionThatExhaustsWindow(t *testing.T) {
+	built := BuildPromptWithBudget(strings.Repeat("dense", 1000), nil, PromptBudget{
+		MaxContextTokens: 2800, ContextWindowTokens: 1024, ReservedOutputTokens: 512,
+	})
+	if built.Err == nil || built.Prompt != "" {
+		t.Fatalf("oversized question should not be sent to the model: %+v", built)
+	}
+}
+
+func TestTokenEstimatorCountsDenseTextAndUnicode(t *testing.T) {
+	for _, text := range []string{strings.Repeat("abc", 100), strings.Repeat("x_i^2+", 100), strings.Repeat("方程", 100)} {
+		if estimateTokens(text) < (len(text)+2)/3 {
+			t.Fatalf("dense text underestimated: %d bytes estimated at %d tokens", len(text), estimateTokens(text))
+		}
+		truncated := truncateToTokens(text, 30)
+		if estimateTokens(truncated) > 30 {
+			t.Fatalf("truncated estimate exceeded budget: %q", truncated)
+		}
+	}
+}
+
+func TestContextDoesNotAdmitSourceLabelWithoutEvidence(t *testing.T) {
+	built := BuildContextWithStats([]search.Chunk{{FilePath: "long-source-name.md", Text: "answer"}}, 4)
+	if built.Text != "" || len(built.Citations) != 0 || !built.Stats.Truncated {
+		t.Fatalf("tiny budget produced a false citation: %+v", built)
 	}
 }
 

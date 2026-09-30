@@ -339,6 +339,10 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 	if err != nil {
 		return nil, fmt.Errorf("history: marshal attached files: %w", err)
 	}
+	citationsJSON, err := json.Marshal(turn.Citations)
+	if err != nil {
+		return nil, fmt.Errorf("history: marshal citations: %w", err)
+	}
 	return map[string]*qdrant.Value{
 		"doc_type":        qdrantutil.StringValue(docTypeTurn),
 		"turn_id":         qdrantutil.StringValue(turn.ID),
@@ -351,6 +355,7 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 		"top_k":           qdrantutil.IntValue(int64(turn.TopK)),
 		"generate":        qdrantutil.BoolValue(turn.Generate),
 		"results_json":    qdrantutil.StringValue(string(resultsJSON)),
+		"citations_json":  qdrantutil.StringValue(string(citationsJSON)),
 		"count":           qdrantutil.IntValue(int64(turn.Count)),
 		"elapsed_ms":      qdrantutil.IntValue(turn.ElapsedMS),
 		"from_cache":      qdrantutil.BoolValue(turn.FromCache),
@@ -375,6 +380,12 @@ func sessionFromPayload(id string, p map[string]*qdrant.Value) Session {
 }
 
 func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
+	var citations []domainhistory.Citation
+	if raw := qdrantutil.StringFromPayload(p, "citations_json"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &citations); err != nil {
+			return Turn{}, fmt.Errorf("history: decode citations: %w", err)
+		}
+	}
 	var results []TurnResult
 	if raw := qdrantutil.StringFromPayload(p, "results_json"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &results); err != nil {
@@ -405,6 +416,7 @@ func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
 		TopK:           int(qdrantutil.IntFromPayload(p, "top_k")),
 		Generate:       qdrantutil.BoolFromPayload(p, "generate"),
 		Results:        results,
+		Citations:      citations,
 		Count:          int(qdrantutil.IntFromPayload(p, "count")),
 		ElapsedMS:      qdrantutil.IntFromPayload(p, "elapsed_ms"),
 		FromCache:      qdrantutil.BoolFromPayload(p, "from_cache"),

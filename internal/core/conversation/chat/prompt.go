@@ -3,151 +3,236 @@ package chat
 import (
 	"fmt"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"nadir/internal/core/retrieval/search"
 )
 
-// ContextStats describes the bounded context presented to a generator.
-// Tokens are an estimate used for operational diagnostics, not a tokenizer
-// contract.
+const promptInstructions = "You are a precise assistant. Answer the question using ONLY the context below.\n" +
+	"Match the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\n" +
+	"Do not pad the answer beyond what the question asks.\n" +
+	"If the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\n" +
+	"Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n"
+
+// PromptBudget bounds evidence and, when configured, the complete model
+// request. ContextWindowTokens includes the reserved answer and a small
+// allowance for the provider's chat template. Counts are conservative estimates.
+type PromptBudget struct {
+	MaxContextTokens     int
+	ContextWindowTokens  int
+	ReservedOutputTokens int
+}
+
+// ContextStats describes the actual evidence admitted to the prompt.
 type ContextStats struct {
-	Tokens         int
-	IncludedChunks int
-	Truncated      bool
+	Tokens               int
+	IncludedChunks       int
+	Truncated            bool
+	BudgetTokens         int
+	PromptTokens         int
+	ReservedOutputTokens int
 }
 
-type contextBuild struct {
-	text  string
-	stats ContextStats
+// Citation identifies one admitted piece of evidence. Number is assigned in
+// retrieval order before arranging the prompt, so it never refers to a
+// different source merely because the prompt order changed. Text snapshots
+// exactly the evidence presented to the model, including any truncation.
+type Citation struct {
+	Number        int
+	RetrievalRank int
+	FilePath      string
+	Header        string
+	LineStart     int
+	ChunkIndex    int
+	SourceSHA     string
+	Text          string
+	Truncated     bool
 }
 
-// buildPrompt assembles the answer-generation prompt: grounded-answer
-// instructions plus the numbered, token-budgeted context. Use-case logic on
-// purpose — the generator is a dumb transport and must not know how RAG
-// prompts are shaped.
-func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
-	ordered := lostInMiddleOrder(chunks)
-	context := buildContext(ordered, maxTokens).text
-
-	var sb strings.Builder
-	sb.WriteString("You are a precise assistant. Answer the question using ONLY the context below.\n")
-	sb.WriteString("Match the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\n")
-	sb.WriteString("Do not pad the answer beyond what the question asks.\n")
-	sb.WriteString("If the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\n")
-	sb.WriteString("Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\n")
-	sb.WriteString("Context:\n")
-	sb.WriteString(context)
-	sb.WriteString("\n\nQuestion: ")
-	sb.WriteString(query)
-	sb.WriteString("\n\nAnswer:")
-	return sb.String()
+// ContextBuild is bounded evidence with an explicit citation map.
+type ContextBuild struct {
+	Text      string
+	Stats     ContextStats
+	Citations []Citation
 }
 
-// BuildPrompt assembles the production answer prompt for evaluation and other
-// local callers that need to exercise the same prompt contract as Chat.
-func BuildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
-	return buildPrompt(query, chunks, maxTokens)
+// PromptBuild is one shared assembly result for generation, judging and
+// source display. Err is set when the question alone exhausts the model budget.
+type PromptBuild struct {
+	Prompt  string
+	Context ContextBuild
+	Err     error
 }
 
-// lostInMiddleOrder interleaves chunks front/back so the highest-ranked
-// ones land at the prompt's edges, where attention is strongest.
-func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
-	if len(chunks) <= 2 {
-		return chunks
+func promptSuffix(query string) string { return "\n\nQuestion: " + query + "\n\nAnswer:" }
+
+// BuildPromptWithBudget selects evidence by retrieval rank, then arranges only
+// the admitted chunks at the prompt edges. Lower-ranked evidence never takes
+// budget away from a higher-ranked chunk.
+func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBudget) PromptBuild {
+	contextTokens := max(0, budget.MaxContextTokens)
+	reserved := max(0, budget.ReservedOutputTokens)
+	suffix := promptSuffix(query)
+	if budget.ContextWindowTokens > 0 {
+		// Ollama adds a model-specific chat template outside the prompt.
+		const templateAllowance = 64
+		available := budget.ContextWindowTokens - reserved - templateAllowance - estimateTokens(promptInstructions+suffix)
+		if available < 0 {
+			return PromptBuild{Err: fmt.Errorf("question and reserved answer exceed the model context window (%d tokens)", budget.ContextWindowTokens)}
+		}
+		contextTokens = min(contextTokens, available)
 	}
-	result := make([]search.Chunk, len(chunks))
-	front, back := 0, len(chunks)-1
-	for i, c := range chunks {
+	context := BuildContextWithStats(chunks, contextTokens)
+	prompt := promptInstructions + context.Text + suffix
+	context.Stats.PromptTokens = estimateTokens(prompt)
+	context.Stats.ReservedOutputTokens = reserved
+	return PromptBuild{Prompt: prompt, Context: context}
+}
+
+// BuildPrompt preserves the evidence-only budget API for local callers. New
+// generation callers should also pass the model window and reserved output.
+func BuildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
+	return BuildPromptWithBudget(query, chunks, PromptBudget{MaxContextTokens: maxTokens}).Prompt
+}
+
+func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
+	return BuildPrompt(query, chunks, maxTokens)
+}
+
+// lostInMiddleOrder interleaves chunks front/back so the best two occupy the
+// prompt edges. Admission must always precede this presentation transform.
+func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
+	return edgeOrder(chunks)
+}
+
+func edgeOrder[T any](items []T) []T {
+	result := make([]T, len(items))
+	front, back := 0, len(items)-1
+	for i, item := range items {
 		if i%2 == 0 {
-			result[front] = c
+			result[front] = item
 			front++
 		} else {
-			result[back] = c
+			result[back] = item
 			back--
 		}
 	}
 	return result
 }
 
-func buildContext(chunks []search.Chunk, maxTokens int) contextBuild {
-	var sb strings.Builder
-	used := 0
-	included := 0
-	for i, c := range chunks {
-		text := c.WindowText
-		if text == "" {
-			text = c.Text
-		}
-		source := c.FilePath
-		if c.Header != "" {
-			source += " > " + c.Header
-		}
-		entry := fmt.Sprintf("[%d] (source: %s)\n%s\n\n", i+1, source, text)
-		entryTokens := estimateTokens(entry)
-		if used+entryTokens > maxTokens {
-			remaining := maxTokens - used
-			if remaining > 15 {
-				truncated := truncateToTokens(entry, remaining)
-				if truncated != "" {
-					sb.WriteString(truncated)
-					included++
-				}
-			}
-			return contextBuild{text: sb.String(), stats: ContextStats{
-				Tokens:         estimateTokens(sb.String()),
-				IncludedChunks: included,
-				Truncated:      true,
-			}}
-		}
-		sb.WriteString(entry)
-		used += entryTokens
-		included++
+func citationEntry(c Citation) string {
+	source := c.FilePath
+	if c.Header != "" {
+		source += " > " + c.Header
 	}
-	return contextBuild{text: sb.String(), stats: ContextStats{
-		Tokens:         estimateTokens(sb.String()),
-		IncludedChunks: included,
-	}}
+	if c.LineStart > 0 {
+		source += fmt.Sprintf(" (line %d, chunk %d)", c.LineStart, c.ChunkIndex)
+	}
+	return fmt.Sprintf("[%d] (source: %s)\n%s\n\n", c.Number, source, c.Text)
 }
 
-// BuildContext returns the bounded, lost-in-the-middle-ordered context used by
-// BuildPrompt. Evaluation uses it to present exactly the retrieved evidence
-// to the judge model without duplicating Chat prompt assembly.
+// BuildContextWithStats selects a ranked prefix. The last admitted chunk may
+// contain a text prefix; its source label is always complete. Citations stay
+// in retrieval order even though Text is arranged for model attention.
+func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
+	built := ContextBuild{Stats: ContextStats{BudgetTokens: max(0, maxTokens)}}
+	used := 0
+	for i, chunk := range chunks {
+		text := chunk.WindowText
+		if text == "" {
+			text = chunk.Text
+		}
+		citation := Citation{Number: i + 1, RetrievalRank: i + 1, FilePath: chunk.FilePath,
+			Header: chunk.Header, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex,
+			SourceSHA: chunk.SourceSHA, Text: text}
+		entryTokens := estimateTokens(citationEntry(citation))
+		if used+entryTokens > maxTokens {
+			built.Stats.Truncated = true
+			remaining := maxTokens - used
+			citation.Text = ""
+			textBudget := remaining - estimateTokens(citationEntry(citation))
+			citation.Text = truncateToTokens(text, textBudget)
+			citation.Truncated = true
+			if citation.Text != "" && estimateTokens(citationEntry(citation)) <= remaining {
+				built.Citations = append(built.Citations, citation)
+			}
+			break
+		}
+		used += entryTokens
+		built.Citations = append(built.Citations, citation)
+	}
+	var sb strings.Builder
+	for _, citation := range edgeOrder(built.Citations) {
+		sb.WriteString(citationEntry(citation))
+	}
+	built.Text = sb.String()
+	built.Stats.Tokens = estimateTokens(built.Text)
+	built.Stats.IncludedChunks = len(built.Citations)
+	return built
+}
+
 func BuildContext(chunks []search.Chunk, maxTokens int) string {
 	return BuildContextWithStats(chunks, maxTokens).Text
 }
 
-// ContextBuild is the bounded, ordered context and its diagnostic metadata.
-// The source text remains available to the caller because this function is
-// used at the generation boundary; reports should persist only the metadata.
-type ContextBuild struct {
-	Text  string
-	Stats ContextStats
-}
+// EstimateTokens is the shared conservative prompt estimate for answer and
+// judge model windows. It is independent of a provider-specific tokenizer.
+func EstimateTokens(s string) int { return estimateTokens(s) }
 
-// BuildContextWithStats returns the same ordered context as BuildContext and
-// reports whether the token budget removed or partially included a chunk.
-func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
-	built := buildContext(lostInMiddleOrder(chunks), maxTokens)
-	return ContextBuild{Text: built.text, Stats: built.stats}
-}
-
-// estimateTokens approximates token count from word count (~1.3 tokens per
-// word for English BPE tokenizers).
+// estimateTokens uses both character density and lexical boundaries. Word
+// count alone badly undercounts equations, code, long identifiers and CJK.
+// This is deliberately conservative and remains independent of any one
+// generator tokenizer; the model window also reserves template headroom.
 func estimateTokens(s string) int {
-	words := len(strings.Fields(s))
-	return int(float64(words)*1.3) + 1
+	if s == "" {
+		return 0
+	}
+	tokens, run := 0, 0
+	flush := func() {
+		tokens += (run + 2) / 3
+		run = 0
+	}
+	for _, r := range s {
+		switch {
+		case r < utf8.RuneSelf && (unicode.IsLetter(r) || unicode.IsDigit(r)):
+			run++
+		case unicode.IsSpace(r):
+			flush()
+			if r == '\n' {
+				tokens++
+			}
+		default:
+			flush()
+			tokens++
+		}
+	}
+	flush()
+	return max(tokens, (len(s)+2)/3)
 }
 
-// truncateToTokens cuts s down to approximately maxTokens tokens at a word
-// boundary and marks the cut with an ellipsis.
+// truncateToTokens retains original whitespace and rune boundaries; it never
+// collapses formulas or code into a sequence of words.
 func truncateToTokens(s string, maxTokens int) string {
-	words := strings.Fields(s)
-	maxWords := int(float64(maxTokens) / 1.3)
-	if maxWords >= len(words) {
+	if estimateTokens(s) <= maxTokens {
 		return s
 	}
-	if maxWords <= 0 {
+	const marker = "\n[truncated]"
+	if maxTokens <= estimateTokens(marker) {
 		return ""
 	}
-	return strings.Join(words[:maxWords], " ") + "..."
+	runes := []rune(s)
+	lo, hi := 0, len(runes)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if estimateTokens(string(runes[:mid])+marker) <= maxTokens {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	if text := strings.TrimSpace(string(runes[:lo])); text != "" {
+		return text + marker
+	}
+	return ""
 }

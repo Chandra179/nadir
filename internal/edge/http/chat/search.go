@@ -15,6 +15,7 @@ type startTurnRequest struct {
 	TopK          int            `json:"top_k"`
 	Filter        *filterRequest `json:"filter,omitempty"`
 	Generate      bool           `json:"generate"`
+	SkipCache     bool           `json:"skip_cache,omitempty"`
 	SessionID     string         `json:"session_id,omitempty"`
 	AttachedFiles []string       `json:"attached_files,omitempty"`
 	Edit          bool           `json:"edit,omitempty"`
@@ -50,6 +51,7 @@ func (h *Handlers) StartTurn(w http.ResponseWriter, r *http.Request) {
 		TopK:          topK,
 		Filter:        toSearchFilter(body.Filter),
 		Generate:      body.Generate,
+		SkipCache:     body.SkipCache,
 		SessionID:     body.SessionID,
 		AttachedFiles: body.AttachedFiles,
 		Edit:          body.Edit,

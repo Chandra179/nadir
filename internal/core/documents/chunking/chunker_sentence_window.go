@@ -8,12 +8,12 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 	sections := extractSections(rawText)
 	var chunks []Chunk
 	for _, sec := range sections {
-		sentences := splitSentences(sec.text)
+		spans := sentenceRanges(sec.text)
+		sentences := make([]string, len(spans))
+		for i, span := range spans {
+			sentences[i] = sec.text[span.start:span.end]
+		}
 		for i, sent := range sentences {
-			sent = strings.TrimSpace(sent)
-			if sent == "" {
-				continue
-			}
 			lo := max(i-c.windowSize, 0)
 			hi := min(i+c.windowSize+1, len(sentences))
 			window := strings.TrimSpace(strings.Join(sentences[lo:hi], " "))
@@ -22,7 +22,7 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 				WindowText: window,
 				FilePath:   filePath,
 				Header:     sec.header,
-				LineStart:  sec.lineStart,
+				LineStart:  sec.lineAt(spans[i]),
 				ChunkIndex: i,
 			})
 		}
@@ -31,24 +31,27 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 }
 
 func splitSentences(text string) []string {
-	indices := sentenceRe.FindAllStringIndex(text, -1)
-	if len(indices) == 0 {
-		if t := strings.TrimSpace(text); t != "" {
-			return []string{t}
-		}
-		return nil
-	}
 	var sentences []string
+	for _, span := range sentenceRanges(text) {
+		sentences = append(sentences, text[span.start:span.end])
+	}
+	return sentences
+}
+
+func sentenceRanges(text string) []textSpan {
+	indices := sentenceRe.FindAllStringIndex(text, -1)
+	var spans []textSpan
 	prev := 0
 	for _, loc := range indices {
-		s := strings.TrimSpace(text[prev:loc[1]])
-		if s != "" {
-			sentences = append(sentences, s)
+		span := trimSpan(text, textSpan{prev, loc[1]})
+		if span.start < span.end {
+			spans = append(spans, span)
 		}
 		prev = loc[1]
 	}
-	if tail := strings.TrimSpace(text[prev:]); tail != "" {
-		sentences = append(sentences, tail)
+	span := trimSpan(text, textSpan{prev, len(text)})
+	if span.start < span.end {
+		spans = append(spans, span)
 	}
-	return sentences
+	return spans
 }

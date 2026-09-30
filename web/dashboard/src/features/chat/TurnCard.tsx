@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
-import type { Result, Turn } from "../../lib/api-contract";
+import type { Citation, Result, Turn } from "../../lib/api-contract";
 
 type Props = {
   turn: Turn;
@@ -121,7 +121,7 @@ function SearchTrace({ turn }: { turn: Turn }) {
             <div className="pt-2">
               {turn.results.length ? (
                 <div className="bg-[#eeece3] border border-[#e3e2d8] rounded-[7px] py-2">
-                  {turn.results.map((result, index) => <SearchResult key={`${result.file_path}-${result.line_start}-${index}`} result={result} />)}
+                  {turn.results.map((result, index) => <SearchResult key={`${result.file_path}-${result.line_start}-${index}`} result={result} rank={result.retrieval_rank ?? index + 1} />)}
                 </div>
               ) : (
                 <p className="text-[13px] text-[#8b8f81]">No matching chunks.</p>
@@ -136,10 +136,10 @@ function SearchTrace({ turn }: { turn: Turn }) {
   );
 }
 
-function SearchResult({ result }: { result: Result }) {
+function SearchResult({ result, rank }: { result: Result; rank: number }) {
   return (
-    <div className="grid grid-cols-[14px_1fr_auto] gap-2.5 items-baseline px-3 py-[3px] font-mono-ui text-[12.5px]">
-      <span className="text-[#8b8f81]">·</span>
+    <div className="grid grid-cols-[24px_1fr_auto] gap-2.5 items-baseline px-3 py-[3px] font-mono-ui text-[12.5px]">
+      <span className="text-[#8b8f81]" aria-label={`Retrieval rank ${rank}`}>#{rank}</span>
       <span className="text-[#5c6156] truncate"><b className="text-[#20241f] font-medium">{result.file_path}</b>{result.header ? ` · ${result.header}` : ""} · L{result.line_start}<span className="sr-only">{result.text}</span></span>
       <span className="text-[#8b8f81]">{scoreText(result.score)}</span>
     </div>
@@ -154,7 +154,7 @@ function ThinkTrace({ turn }: { turn: Turn }) {
       <div className="flex-1 min-w-0">
         <div className="text-[14px]">
           <span className="font-semibold text-[#5c6156]">Think</span><span className="text-[#8b8f81]"> · </span>
-          <span className="text-[#8b8f81]">Reordering retrieved chunks (lost-in-middle) and generating the answer.</span>
+          <span className="text-[#8b8f81]">Selecting relevant evidence and generating the answer.</span>
         </div>
         {turn.rewritten_query && (
           <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5 font-mono-ui text-[12.5px] leading-relaxed">
@@ -188,7 +188,78 @@ function PendingTrace() {
   );
 }
 
+function AnswerText({ text, citations, sourcePrefix, onCitation }: { text: string; citations: Citation[]; sourcePrefix: string; onCitation: (number: number) => void }) {
+  const byNumber = new Map(citations.map((citation) => [citation.number, citation]));
+  const parts = text.split(/(\[\d+\])/g);
+  return parts.map((part, index) => {
+    const number = /^\[(\d+)\]$/.exec(part)?.[1];
+    const citation = number ? byNumber.get(Number(number)) : undefined;
+    return citation ? (
+      <a
+        key={index}
+        href={`#${sourcePrefix}-${citation.number}`}
+        onClick={() => onCitation(citation.number)}
+        aria-label={`Source ${citation.number}: ${citation.file_path}${citation.line_start > 0 ? `, line ${citation.line_start}` : ""}`}
+        className="text-[#2f5d50] underline decoration-[#2f5d5066] underline-offset-2 hover:decoration-[#2f5d50]"
+      >{part}</a>
+    ) : part;
+  });
+}
+
+function EvidenceSources({ citations, sourcePrefix, selected, onSelect }: { citations: Citation[]; sourcePrefix: string; selected: number | null; onSelect: (number: number | null) => void }) {
+  if (!citations.length) return null;
+  return (
+    <section aria-label="Answer sources" className="mt-3 border-t border-[#e3e2d8] pt-2">
+      <h3 className="text-[13px] font-semibold text-[#5c6156]">Sources</h3>
+      <ol className="mt-1 space-y-1">
+        {citations.map((citation) => (
+          <li key={citation.number} id={`${sourcePrefix}-${citation.number}`} className="scroll-mt-5 rounded-md target:bg-[#eeece3]">
+            <button
+              type="button"
+              aria-expanded={selected === citation.number}
+              aria-controls={`${sourcePrefix}-${citation.number}-text`}
+              onClick={() => onSelect(selected === citation.number ? null : citation.number)}
+              className="w-full text-left text-[12.5px] text-[#5c6156] px-2 py-1 hover:bg-[#eeece3] rounded-md"
+            >
+              <span className="font-semibold text-[#2f5d50]">[{citation.number}]</span>{" "}
+              {citation.file_path}{citation.header ? ` · ${citation.header}` : ""}{citation.line_start > 0 ? ` · L${citation.line_start}` : ""}
+            </button>
+            <div id={`${sourcePrefix}-${citation.number}-text`} hidden={selected !== citation.number} className="px-2 pb-2">
+              <p className="text-[11.5px] text-[#8b8f81]">Retrieved #{citation.retrieval_rank}{citation.truncated ? " · Excerpt shortened" : ""}</p>
+              <pre className="mt-1 whitespace-pre-wrap text-[12.5px] leading-relaxed text-[#5c6156]">{citation.text}</pre>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function LegacySources({ turn }: { turn: Turn }) {
+  const [open, setOpen] = useState(false);
+  if (!turn.results.length || turn.citations?.length) return null;
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)} className="mt-3 text-[12.5px] text-[#5c6156]">
+      <summary className="cursor-pointer">Retrieved passages</summary>
+      {open && <>
+      <p className="mt-1 text-[#8b8f81]">This saved answer has no citation mapping.</p>
+      <ul className="mt-2 space-y-2">
+        {turn.results.map((result, index) => (
+          <li key={`${result.file_path}-${result.line_start}-${index}`}>
+            <p>{result.file_path}{result.header ? ` · ${result.header}` : ""}{result.line_start > 0 ? ` · L${result.line_start}` : ""}</p>
+            <pre className="whitespace-pre-wrap leading-relaxed">{result.text}</pre>
+          </li>
+        ))}
+      </ul>
+      </>}
+    </details>
+  );
+}
+
 export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing = false, editQuery = turn.query, onEdit, onEditQueryChange = () => {}, onEditSubmit = () => {}, onCancelEdit = () => {}, pending = false }: Props) {
+  const sourcePrefix = `answer-source-${useId().replaceAll(":", "")}`;
+  const [selectedCitation, setSelectedCitation] = useState<number | null>(null);
+  const citations = turn.citations ?? [];
   if (pending) {
     return (
       <div className="mb-8" data-pending-turn>
@@ -243,8 +314,10 @@ export default function TurnCard({ turn, sequence = turn.sequence ?? 0, editing 
 
           {hasAnswer && (
             <div className={`nadir-turn-a text-[17px] text-[#20241f] leading-[1.7] ${turn.streaming ? "nadir-streaming" : ""}`}>
-              <p className="whitespace-pre-wrap" data-copy-text>{turn.answer}</p>
+              <p className="whitespace-pre-wrap" data-copy-text><AnswerText text={turn.answer ?? ""} citations={citations} sourcePrefix={sourcePrefix} onCitation={setSelectedCitation} /></p>
               <div className="nadir-msg-actions flex items-center gap-0.5 mt-1.5 -ml-1.5"><CopyButton text={turn.answer ?? ""} /></div>
+              <EvidenceSources citations={citations} sourcePrefix={sourcePrefix} selected={selectedCitation} onSelect={setSelectedCitation} />
+              <LegacySources turn={turn} />
             </div>
           )}
           {!hasAnswer && turn.streaming && (

@@ -92,9 +92,10 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 
 	searchResult, err := d.searcher.Query(ctx, search.Request{
-		Query:  retrievalQuery,
-		TopK:   req.TopK,
-		Filter: req.Filter,
+		Query:     retrievalQuery,
+		TopK:      req.TopK,
+		Filter:    req.Filter,
+		SkipCache: req.SkipCache,
 	})
 	turn.FromCache = searchResult.FromCache
 	if err != nil {
@@ -118,7 +119,19 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		return turn
 	}
 
-	turn.Prompt = buildPrompt(retrievalQuery, turn.Chunks, d.maxContextTokens)
+	built := BuildPromptWithBudget(retrievalQuery, turn.Chunks, PromptBudget{
+		MaxContextTokens:     d.maxContextTokens,
+		ContextWindowTokens:  d.contextWindowTokens,
+		ReservedOutputTokens: d.reservedOutputTokens,
+	})
+	if built.Err != nil {
+		operationErr = built.Err
+		turn.GenerateError = "Answer generation failed: " + built.Err.Error()
+		d.persistStart(ctx, req, turn, mutation, false)
+		return turn
+	}
+	turn.Prompt = built.Prompt
+	turn.Citations = built.Context.Citations
 
 	// The generation context is detached from this POST: the request that
 	// starts a turn must not be the one that can kill it. CancelTurn (not
@@ -388,6 +401,7 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 		TopK:           req.TopK,
 		Generate:       req.Generate,
 		Results:        chunkResults(turn.Chunks),
+		Citations:      citationResults(turn.Citations),
 		Count:          len(turn.Chunks),
 		ElapsedMS:      turn.ElapsedMS,
 		FromCache:      turn.FromCache,
@@ -466,12 +480,29 @@ func chunkResults(chunks []search.Chunk) []history.TurnResult {
 			text = ch.Text
 		}
 		out[i] = history.TurnResult{
-			FilePath:  ch.FilePath,
-			Header:    ch.Header,
-			LineStart: ch.LineStart,
-			Score:     ch.Score,
-			Text:      text,
-			SourceSHA: ch.SourceSHA,
+			FilePath:   ch.FilePath,
+			Header:     ch.Header,
+			LineStart:  ch.LineStart,
+			ChunkIndex: ch.ChunkIndex,
+			Score:      ch.Score,
+			Text:       text,
+			SourceSHA:  ch.SourceSHA,
+		}
+	}
+	return out
+}
+
+func citationResults(citations []Citation) []history.Citation {
+	if len(citations) == 0 {
+		return nil
+	}
+	out := make([]history.Citation, len(citations))
+	for i, citation := range citations {
+		out[i] = history.Citation{
+			Number: citation.Number, RetrievalRank: citation.RetrievalRank,
+			FilePath: citation.FilePath, Header: citation.Header,
+			LineStart: citation.LineStart, ChunkIndex: citation.ChunkIndex,
+			SourceSHA: citation.SourceSHA, Text: citation.Text, Truncated: citation.Truncated,
 		}
 	}
 	return out

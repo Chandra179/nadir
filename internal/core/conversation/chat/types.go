@@ -8,6 +8,7 @@ type Request struct {
 	TopK          int
 	Filter        *search.Filter
 	Generate      bool
+	SkipCache     bool   // explicit retrieval baseline for operational measurement
 	SessionID     string // empty → mint a new session (when History is set)
 	AttachedFiles []string
 	// Edit replaces the turn at EditSequence and prunes every later turn in
@@ -28,6 +29,7 @@ type Turn struct {
 	Query          string
 	RewrittenQuery string // set only when the rewriter changed the query
 	Chunks         []search.Chunk
+	Citations      []Citation // only evidence admitted to answer generation
 	ElapsedMS      int64
 	FromCache      bool
 	Generate       bool

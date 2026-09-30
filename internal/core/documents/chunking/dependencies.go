@@ -12,7 +12,7 @@ const (
 )
 
 var (
-	reHTMLComment = regexp.MustCompile(`<!--.*?-->`)
+	reHTMLComment = regexp.MustCompile(`(?s)<!--.*?-->`)
 	reTOCLine     = regexp.MustCompile(`(?m)^.{1,80}\s+\d+\s*$`)
 	sentenceRe    = regexp.MustCompile(`[.!?]+[\s]+`)
 )

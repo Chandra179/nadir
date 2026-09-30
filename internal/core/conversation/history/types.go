@@ -16,12 +16,27 @@ type Session struct {
 // user — captured at write time rather than referenced by pointer, since
 // source documents can be re-ingested or deleted after the fact.
 type TurnResult struct {
-	FilePath  string
-	Header    string
-	LineStart int
-	Score     float32
-	Text      string
-	SourceSHA string
+	FilePath   string
+	Header     string
+	LineStart  int
+	ChunkIndex int
+	Score      float32
+	Text       string
+	SourceSHA  string
+}
+
+// Citation snapshots the evidence admitted to generation, independent of
+// retrieval display order and any later source replacement.
+type Citation struct {
+	Number        int
+	RetrievalRank int
+	FilePath      string
+	Header        string
+	LineStart     int
+	ChunkIndex    int
+	SourceSHA     string
+	Text          string
+	Truncated     bool
 }
 
 // Turn is one question/answer exchange within a session.
@@ -36,6 +51,7 @@ type Turn struct {
 	TopK           int
 	Generate       bool
 	Results        []TurnResult
+	Citations      []Citation
 	Count          int
 	ElapsedMS      int64
 	FromCache      bool

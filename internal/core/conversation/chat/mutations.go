@@ -41,10 +41,10 @@ type historyMutations struct {
 
 func newHistoryMutations(history historyStore, destructiveGate func(context.Context) (func(), error)) *historyMutations {
 	return &historyMutations{
-		history:         history,
-		destructiveGate: destructiveGate,
+		history:          history,
+		destructiveGate:  destructiveGate,
 		sessionRevisions: make(map[string]uint64),
-		active:          make(map[string]trackedGeneration),
+		active:           make(map[string]trackedGeneration),
 	}
 }
 

@@ -39,6 +39,10 @@ type DependenciesConfig struct {
 	// MaxContextTokens budgets the retrieved context inside the prompt
 	// (<= 0 → defaultMaxContextToken).
 	MaxContextTokens int
+	// ContextWindowTokens and ReservedOutputTokens bound the complete model
+	// request, using the generator's configured num_ctx and max_output_tokens.
+	ContextWindowTokens  int
+	ReservedOutputTokens int
 	// EventBuffer, MaxEventLogBytes, MaxRetainedTurns, and FinishedTurnTTL
 	// bound the in-process replay broker.
 	EventBuffer      int
@@ -56,24 +60,26 @@ type DependenciesConfig struct {
 }
 
 type dependencies struct {
-	searcher         search.Retriever
-	generator        generation.Generator
-	history          historyStore
-	mutations        *historyMutations
-	rewriter         rewriting.Rewriter
-	rewriteTurns     int
-	maxContextTokens int
-	persistTimeout   time.Duration
-	broker           *broker
-	model            string
-	log              *slog.Logger
-	telemetry        *observability.Recorder
-	generations      sync.WaitGroup
-	persists         sync.WaitGroup
-	lifecycleMu      sync.Mutex
-	activeStarts     int
-	activeDone       chan struct{}
-	draining         bool
+	searcher             search.Retriever
+	generator            generation.Generator
+	history              historyStore
+	mutations            *historyMutations
+	rewriter             rewriting.Rewriter
+	rewriteTurns         int
+	maxContextTokens     int
+	contextWindowTokens  int
+	reservedOutputTokens int
+	persistTimeout       time.Duration
+	broker               *broker
+	model                string
+	log                  *slog.Logger
+	telemetry            *observability.Recorder
+	generations          sync.WaitGroup
+	persists             sync.WaitGroup
+	lifecycleMu          sync.Mutex
+	activeStarts         int
+	activeDone           chan struct{}
+	draining             bool
 }
 
 var _ Chat = (*dependencies)(nil)
@@ -100,14 +106,16 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	activeDone := make(chan struct{})
 	close(activeDone)
 	return &dependencies{
-		searcher:         cfg.Searcher,
-		generator:        cfg.Generator,
-		history:          cfg.History,
-		mutations:        newHistoryMutations(cfg.History, cfg.DestructiveGate),
-		rewriter:         cfg.Rewriter,
-		rewriteTurns:     rewriteTurns,
-		maxContextTokens: maxContextTokens,
-		persistTimeout:   persistTimeout,
+		searcher:             cfg.Searcher,
+		generator:            cfg.Generator,
+		history:              cfg.History,
+		mutations:            newHistoryMutations(cfg.History, cfg.DestructiveGate),
+		rewriter:             cfg.Rewriter,
+		rewriteTurns:         rewriteTurns,
+		maxContextTokens:     maxContextTokens,
+		contextWindowTokens:  cfg.ContextWindowTokens,
+		reservedOutputTokens: cfg.ReservedOutputTokens,
+		persistTimeout:       persistTimeout,
 		broker: newBroker(brokerConfig{
 			EventBuffer:      cfg.EventBuffer,
 			MaxEventLogBytes: cfg.MaxEventLogBytes,

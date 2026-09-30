@@ -70,6 +70,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		Generator:            gen,
 		RewriteTurns:         cfg.Rewriter.Turns,
 		MaxContextTokens:     cfg.Chat.MaxContextTokens,
+		ContextWindowTokens:  cfg.Generator.NumCtx,
+		ReservedOutputTokens: cfg.Generator.MaxOutputTokens,
 		EventBuffer:          cfg.Chat.EventBuffer,
 		MaxEventLogBytes:     cfg.Chat.MaxEventLogBytes,
 		MaxRetainedTurns:     cfg.Chat.MaxRetainedTurns,

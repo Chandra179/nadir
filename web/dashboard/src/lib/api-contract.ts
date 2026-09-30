@@ -4,9 +4,23 @@ export type Result = {
   file_path: string;
   header?: string;
   line_start: number;
+  chunk_index?: number;
+  retrieval_rank?: number;
   score: number;
   source_sha?: string;
   text: string;
+};
+
+export type Citation = {
+  number: number;
+  retrieval_rank: number;
+  file_path: string;
+  header?: string;
+  line_start: number;
+  chunk_index: number;
+  source_sha?: string;
+  text: string;
+  truncated?: boolean;
 };
 
 export type Filter = {
@@ -26,6 +40,7 @@ export type Turn = {
   top_k: number;
   generate: boolean;
   results: Result[];
+  citations?: Citation[];
   count: number;
   elapsed_ms: number;
   from_cache: boolean;
