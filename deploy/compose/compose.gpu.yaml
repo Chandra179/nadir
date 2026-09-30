@@ -1,5 +1,5 @@
 # GPU overlay for the reranker sidecar, layered on compose.yaml:
-#   podman compose -f deploy/compose/compose.yaml -f deploy/compose/compose.gpu.yaml up -d --build
+#   podman compose -f deploy/compose/compose.yaml -f deploy/compose/compose.gpu.yaml --profile rerank up -d --build
 #
 # Requires an NVIDIA CDI spec (Linux only):
 #   sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
@@ -9,6 +9,7 @@
 services:
   app:
     environment:
+      RERANKER_ENABLED: ${RERANKER_ENABLED:-true}
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cuda}
       RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
   reranker:

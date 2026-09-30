@@ -14,12 +14,12 @@ services:
       QDRANT_ADDR: ${HOST_QDRANT_ADDR:-qdrant:6334}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks}
       OLLAMA_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
-      EMBEDDER_MODEL: ${EMBEDDER_MODEL:-nomic-embed-text}
+      EMBEDDER_MODEL: ${EMBEDDER_MODEL:-embeddinggemma-300m-q8:latest}
       EMBEDDER_DIMENSIONS: ${EMBEDDER_DIMENSIONS:-768}
-      EMBEDDER_QUERY_PREFIX: "${EMBEDDER_QUERY_PREFIX:-search_query: }"
-      EMBEDDER_DOCUMENT_PREFIX: "${EMBEDDER_DOCUMENT_PREFIX:-search_document: }"
+      EMBEDDER_QUERY_PREFIX: "${EMBEDDER_QUERY_PREFIX:-task: search result | query: }"
+      EMBEDDER_DOCUMENT_PREFIX: "${EMBEDDER_DOCUMENT_PREFIX:-title: none | text: }"
       GENERATOR_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
-      GENERATOR_MODEL: ${GENERATOR_MODEL:-gemma3:1b}
+      GENERATOR_MODEL: ${GENERATOR_MODEL:-gemma3:4b}
       REWRITE_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
       REWRITE_MODEL: ${REWRITE_MODEL:-gemma3:1b}
       CONTEXTUAL_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
@@ -27,7 +27,7 @@ services:
       INFERENCE_PROFILE: ${INFERENCE_PROFILE:-local}
       INFERENCE_OLLAMA_KEEP_ALIVE: ${INFERENCE_OLLAMA_KEEP_ALIVE:-5m}
       RERANKER_ADDR: ${HOST_RERANKER_ADDR:-http://reranker:5002}
-      RERANKER_ENABLED: ${RERANKER_ENABLED:-true}
+      RERANKER_ENABLED: ${RERANKER_ENABLED:-false}
       RERANKER_ADAPTIVE_ENABLED: ${RERANKER_ADAPTIVE_ENABLED:-false}
       RERANKER_ADAPTIVE_MARGIN_THRESHOLD: ${RERANKER_ADAPTIVE_MARGIN_THRESHOLD:-0.01}
       LOGGER_LEVEL: ${LOGGER_LEVEL:-prod}
@@ -44,8 +44,6 @@ services:
     restart: unless-stopped
     depends_on:
       qdrant:
-        condition: service_healthy
-      reranker:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://127.0.0.1:8100/api/v1/ready"]
@@ -81,6 +79,7 @@ services:
       retries: 10
 
   reranker:
+    profiles: ["rerank"]
     # Portable default: CPU image, no GPU device. Linux GPU users layer
     # compose.gpu.yaml (CDI) on top of this file.
     build:

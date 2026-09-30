@@ -1,4 +1,4 @@
-.PHONY: run compose test race vet build load-benchmark check mdn generate-mocks
+.PHONY: run compose compose-rerank test race vet build load-benchmark user-path-benchmark check mdn generate-mocks
 
 GO_PACKAGES := ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
@@ -8,6 +8,9 @@ run:
 
 compose:
 	podman compose -f deploy/compose/compose.yaml up -d
+
+compose-rerank:
+	RERANKER_ENABLED=true podman compose -f deploy/compose/compose.yaml --profile rerank up -d
 
 test:
 	go test -short -count=1 $(GO_PACKAGES)
@@ -23,6 +26,9 @@ build:
 
 load-benchmark:
 	python3 scripts/benchmark_load.py $(ARGS)
+
+user-path-benchmark:
+	python3 scripts/benchmark_user_paths.py $(ARGS)
 
 check: test vet build
 
