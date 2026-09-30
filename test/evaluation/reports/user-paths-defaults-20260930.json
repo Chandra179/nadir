@@ -1,0 +1,1877 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-09-30T15:06:54.233802+00:00",
+  "fixture_sha256": "425f3f1e7b3dddbaedcd11b5801762163a649a831f3b40922669032f6d92f694",
+  "metadata": {
+    "dataset": "synthetic-cache-and-followup-probes-v1",
+    "release_gate": false,
+    "provenance": "Authored from committed samples; no production queries or independent human judgments. Cache cases include close but different concepts; rewriting cases include references and explicit topic switches."
+  },
+  "profile_label": "corrected-defaults-20260930",
+  "base_url": "http://127.0.0.1:8100",
+  "top_k": 5,
+  "generated_history": false,
+  "provenance": null,
+  "interpretation": "Synthetic retrieval labels; cache_hit_correctness checks annotated evidence, not answer faithfulness. Topic matches are lexical rewrite diagnostics. Not a release gate.",
+  "cache": [
+    {
+      "id": "secant-paraphrase",
+      "seed_ready": true,
+      "from_cache": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "probe_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "cache_regression": false,
+      "fresh": {
+        "operation_id": "op-a3983346421ace54707197c1",
+        "query": "How is secant related to cosine?",
+        "session_id": "62bbc525-485f-44de-8b6c-767055937f5c",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.75,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.43333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 264,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 286.113
+      },
+      "seed": {
+        "operation_id": "op-57301c58a3ab0300a0721111",
+        "query": "What is the secant of an angle?",
+        "session_id": "4294ccc3-0c7e-4303-af6a-f1766f3caa5c",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.625,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5833334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.39285713,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.36666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 411,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 412.673
+      },
+      "probe": {
+        "operation_id": "op-dae2895fe66bb784a6b9ae27",
+        "query": "How is secant related to cosine?",
+        "session_id": "977e750c-18bd-446a-80bf-2ecd341e8a44",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.75,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.43333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 457,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 458.348
+      }
+    },
+    {
+      "id": "secant-cosine-neighbor",
+      "seed_ready": true,
+      "from_cache": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.5,
+        "recall": 1.0
+      },
+      "probe_scores": {
+        "hit": true,
+        "precision": 0.5,
+        "recall": 1.0
+      },
+      "cache_regression": false,
+      "fresh": {
+        "operation_id": "op-d8a07904da8f3d4650c4cc9c",
+        "query": "What is the cosine of an angle?",
+        "session_id": "2589ad62-8b50-469f-a881-d2be8bde1781",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Tangent (tan)",
+            "line_start": 16,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.45,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side.\nFormula: tan(θ) = opposite / adjacent = sin(θ) / cos(θ)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.45,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 319,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 322.727
+      },
+      "seed": {
+        "operation_id": "op-d873a9d73a2ad633c48e1a20",
+        "query": "What is the secant of an angle?",
+        "session_id": "d45a8175-9d74-4250-9408-fca796b78727",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.625,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5833334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.39285713,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.36666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 317,
+        "from_cache": true,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 319.367
+      },
+      "probe": {
+        "operation_id": "op-48294811c4e8cbb9ac2f1ff8",
+        "query": "What is the cosine of an angle?",
+        "session_id": "90557875-93f0-4100-ab92-822566ddb10f",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Tangent (tan)",
+            "line_start": 16,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.45,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side.\nFormula: tan(θ) = opposite / adjacent = sin(θ) / cos(θ)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.45,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 388,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 389.644
+      }
+    },
+    {
+      "id": "secant-domain-switch",
+      "seed_ready": true,
+      "from_cache": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "probe_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "cache_regression": false,
+      "fresh": {
+        "operation_id": "op-2ee8bacb8e37f8450a6fb782",
+        "query": "Does the secant root-finding method require derivatives?",
+        "session_id": "66912a75-d1aa-4287-8097-58e9ddd1971b",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.45,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 354,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 355.819
+      },
+      "seed": {
+        "operation_id": "op-75497d9df4513f2a1bf5121e",
+        "query": "What is the secant of an angle?",
+        "session_id": "d96eba43-dbdd-49d2-981f-8ed8af2e0740",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.625,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5833334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.39285713,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.36666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 299,
+        "from_cache": true,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 300.579
+      },
+      "probe": {
+        "operation_id": "op-6f287e998d131e91afe5d98f",
+        "query": "Does the secant root-finding method require derivatives?",
+        "session_id": "48ce94f3-bdde-43ae-bf87-a0630bcdaf41",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.45,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 411,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 413.065
+      }
+    },
+    {
+      "id": "derivative-sign-neighbor",
+      "seed_ready": true,
+      "from_cache": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "probe_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "cache_regression": false,
+      "fresh": {
+        "operation_id": "op-bf49a43c635bbb41db21e372",
+        "query": "What is the derivative of cosine?",
+        "session_id": "103ee927-fed9-41a2-bf8b-9dba8131f05e",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Scheduling",
+            "line_start": 215,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "The scheduler decides how long a runnable task gets to execute before it may be preempted. The duration is influenced by the scheduling policy, task priority, system load, and whether the task blocks."
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 306,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 307.603
+      },
+      "seed": {
+        "operation_id": "op-8de0028b8485547b5d6cffc0",
+        "query": "What is the derivative of sine?",
+        "session_id": "bd1e74c4-09dd-4092-9c17-4ce7f68d4883",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.3,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Tangent (tan)",
+            "line_start": 16,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.26666668,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side.\nFormula: tan(θ) = opposite / adjacent = sin(θ) / cos(θ)"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 428,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 429.898
+      },
+      "probe": {
+        "operation_id": "op-26c82fc40173d6d0ff439d31",
+        "query": "What is the derivative of cosine?",
+        "session_id": "5b6154c3-e8c5-4a11-9f53-8b17af966b88",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Scheduling",
+            "line_start": 215,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "The scheduler decides how long a runnable task gets to execute before it may be preempted. The duration is influenced by the scheduling policy, task priority, system load, and whether the task blocks."
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 416,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 417.852
+      }
+    },
+    {
+      "id": "newton-secant-neighbor",
+      "seed_ready": true,
+      "from_cache": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "probe_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "cache_regression": false,
+      "fresh": {
+        "operation_id": "op-9b132070d033ccfe9fa53a3d",
+        "query": "Does Newton-Raphson require derivative computation?",
+        "session_id": "5ca12938-fef5-4b73-bd5e-9fb9621ac4eb",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 27,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.4761905,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Formula",
+            "line_start": 24,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "x_{n+1} = x_n - f(x_n) / f'(x_n)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 222,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 289,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 290.571
+      },
+      "seed": {
+        "operation_id": "op-018e5ec364627617511aac15",
+        "query": "Does the secant root-finding method require derivatives?",
+        "session_id": "5eb5f1a1-9214-4fec-9cd6-c187cecd4cab",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.45,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 292,
+        "from_cache": true,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 293.578
+      },
+      "probe": {
+        "operation_id": "op-bfd76f1ecb9d899478e49624",
+        "query": "Does Newton-Raphson require derivative computation?",
+        "session_id": "957fc09f-e3fc-4f7b-82e6-52836fef3b4c",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 27,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.4761905,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Formula",
+            "line_start": 24,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "x_{n+1} = x_n - f(x_n) / f'(x_n)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 222,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 454,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 455.279
+      }
+    }
+  ],
+  "rewriting": [
+    {
+      "id": "bisection-reference",
+      "rewrite_observed": true,
+      "topic_matches": true,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "followup_scores": {
+        "hit": true,
+        "precision": 0.25,
+        "recall": 1.0
+      },
+      "retrieval_regression": false,
+      "fresh": {
+        "operation_id": "op-35739ebe7a7c44054c7654a5",
+        "query": "How does bisection choose its initial interval?",
+        "session_id": "e1d19b6a-197f-47d8-9a93-919ddaa5f393",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.7,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.4166667,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 222,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.375,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25555557,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 305,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 306.689
+      },
+      "seed": {
+        "operation_id": "op-f7580d54ba90474e3c3c6b50",
+        "query": "How does the bisection root-finding method work?",
+        "session_id": "c5dd1932-5c5e-4e15-a70d-20a782f7c952",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.34285715,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Scheduling",
+            "line_start": 215,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "The scheduler decides how long a runnable task gets to execute before it may be preempted. The duration is influenced by the scheduling policy, task priority, system load, and whether the task blocks."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 309,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 310.209
+      },
+      "followup": {
+        "operation_id": "op-714a397df12771a21812bd28",
+        "query": "How does it choose the initial interval?",
+        "rewritten_query": "bisection root-finding method initial interval selection",
+        "session_id": "c5dd1932-5c5e-4e15-a70d-20a782f7c952",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.75,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.7,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.38596493,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 2114,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 2115.395
+      }
+    },
+    {
+      "id": "secant-second-method",
+      "rewrite_observed": false,
+      "topic_matches": false,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "followup_scores": {
+        "hit": false,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "retrieval_regression": true,
+      "fresh": {
+        "operation_id": "op-d875f9662a0060bd8a1b42e9",
+        "query": "Does the secant method require derivatives?",
+        "session_id": "3870d04a-728e-411e-b3e7-960b8a899c94",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.45,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.375,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 272,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 273.829
+      },
+      "seed": {
+        "operation_id": "op-7d70f2fc86043d67dffbe64c",
+        "query": "Compare Newton-Raphson first and the secant method second for finding roots.",
+        "session_id": "ec83998e-f06c-41c1-977a-3a48a50b6200",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.3409091,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.33333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose two initial guesses x₀ and x₁\nCompute x₂ using the secant formula\nIf |f(x₂)| < tolerance, stop\nOtherwise, update x₀ = x₁, x₁ = x₂ and repeat"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Secant (sec)",
+            "line_start": 28,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.26666668,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 273,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 274.477
+      },
+      "followup": {
+        "operation_id": "op-a451a7026f5356f4bc149085",
+        "query": "Does the second one need derivatives?",
+        "session_id": "ec83998e-f06c-41c1-977a-3a48a50b6200",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Quotient Rule",
+            "line_start": 12,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.33333334,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "If h(x) = f(x) / g(x), then h'(x) = (f'(x)g(x) - f(x)g'(x)) / g(x)²"
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Why use a DAG and workflow engine?",
+            "line_start": 283,
+            "chunk_index": 5,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "from one chunk, while speech-to-text waits for all audio chunks.\n\nMapping to Temporal concepts (if you rebuilt ingest with Temporal today):\n| YouTube DAG Concept | Temporal Equivalent | Responsibility | | --- | --- | --- | | Ingestion Pipeline | Workflow | Defines task order, timeouts, and retry policies. | | Chunk Transcode Task | Activity | The CPU/GPU-heavy function that encodes one chunk. | | Transcoding Servers | Workers | Clusters polling Temporal task queues for jobs. | | DAG Orchestrator | Temporal Server | Persists workflow/DAG state, timers, and retries. |"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Product Rule",
+            "line_start": 9,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "If h(x) = f(x) · g(x), then h'(x) = f'(x)g(x) + f(x)g'(x)"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 390,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 392.3
+      }
+    },
+    {
+      "id": "cosine-followup",
+      "rewrite_observed": true,
+      "topic_matches": true,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "followup_scores": {
+        "hit": true,
+        "precision": 0.2,
+        "recall": 1.0
+      },
+      "retrieval_regression": false,
+      "fresh": {
+        "operation_id": "op-c0d1e96e7e2a9fe33e53f7d0",
+        "query": "What is the derivative of cosine?",
+        "session_id": "61babf93-4efe-4265-9d49-1656549eaa13",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Scheduling",
+            "line_start": 215,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "The scheduler decides how long a runnable task gets to execute before it may be preempted. The duration is influenced by the scheduling policy, task priority, system load, and whether the task blocks."
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 284,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 285.969
+      },
+      "seed": {
+        "operation_id": "op-ef526a9e5f485f94fe33b193",
+        "query": "What is the derivative of sine?",
+        "session_id": "993b2e6a-9b0a-4d4d-9f18-aab8abf6f2ba",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.3,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Tangent (tan)",
+            "line_start": 16,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.26666668,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side.\nFormula: tan(θ) = opposite / adjacent = sin(θ) / cos(θ)"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 292,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 293.316
+      },
+      "followup": {
+        "operation_id": "op-1ff4a480b9131b131c1dbff6",
+        "query": "What about cosine?",
+        "rewritten_query": "sine derivative cosine",
+        "session_id": "993b2e6a-9b0a-4d4d-9f18-aab8abf6f2ba",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.5,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.45833334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.34285715,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Why use a DAG and workflow engine?",
+            "line_start": 283,
+            "chunk_index": 5,
+            "retrieval_rank": 5,
+            "score": 0.33333334,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "from one chunk, while speech-to-text waits for all audio chunks.\n\nMapping to Temporal concepts (if you rebuilt ingest with Temporal today):\n| YouTube DAG Concept | Temporal Equivalent | Responsibility | | --- | --- | --- | | Ingestion Pipeline | Workflow | Defines task order, timeouts, and retry policies. | | Chunk Transcode Task | Activity | The CPU/GPU-heavy function that encodes one chunk. | | Transcoding Servers | Workers | Clusters polling Temporal task queues for jobs. | | DAG Orchestrator | Temporal Server | Persists workflow/DAG state, timers, and retries. |"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 348,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 349.928
+      }
+    },
+    {
+      "id": "explicit-topic-switch",
+      "rewrite_observed": true,
+      "topic_matches": true,
+      "fresh_scores": {
+        "hit": true,
+        "precision": 0.25,
+        "recall": 1.0
+      },
+      "followup_scores": {
+        "hit": true,
+        "precision": 0.25,
+        "recall": 1.0
+      },
+      "retrieval_regression": false,
+      "fresh": {
+        "operation_id": "op-9f8f660fef887ed5f2fd844c",
+        "query": "How does Redis execute commands?",
+        "session_id": "3e74311e-0fc5-4f6b-853c-c881f8b340df",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/cache.md",
+            "header": "How Redis executes commands",
+            "line_start": 18,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Redis keeps its active data in memory. Its command execution is mostly single-threaded: the server handles one command at a time on its main execution thread. Network I/O and background work can use other threads, depending on the Redis version and configuration.\nApplication clients\n   │ commands and replies over TCP\n   ▼\nRedis process\n   ├─ network I/O ─────────────── optional I/O threads\n   ├─ command execution ───────── main thread\n   │                                  │"
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "How Redis executes commands",
+            "line_start": 33,
+            "chunk_index": 2,
+            "retrieval_rank": 2,
+            "score": 0.53333336,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Sequential command execution means one command can finish without another client's command changing the same Redis data halfway through it. It also avoids the need for locks around each command's in-memory changes. The tradeoff is that a slow command or long-running script delays other commands on that node.\nRedis can also save data using snapshots or an append-only file (AOF). These persistence options are separate from serving commands, and the durability you get depends on the configuration."
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "Making operations safe",
+            "line_start": 111,
+            "chunk_index": 2,
+            "retrieval_rank": 4,
+            "score": 0.4761905,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Both clients may act on the same AVAILABLE state. The right fix depends on the scope of the work:\nOne command : use a native Redis command such as INCR or SET ... NX.\nSeveral Redis commands must act together: use a Redis transaction or a short Lua script. A transaction runs its queued commands without another client's commands interleaving, but it does not roll back earlier commands if a later command fails."
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 280,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 281.987
+      },
+      "seed": {
+        "operation_id": "op-e906481f75f8d1fed965d434",
+        "query": "How does the bisection root-finding method work?",
+        "session_id": "1199246f-51e9-4eba-9caf-1e4cec5e7ef7",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.34285715,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 291,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 292.023
+      },
+      "followup": {
+        "operation_id": "op-c6de1a3aa581dae20ea520f4",
+        "query": "Switch topics: how does Redis execute commands?",
+        "rewritten_query": "Redis execute commands",
+        "session_id": "1199246f-51e9-4eba-9caf-1e4cec5e7ef7",
+        "top_k": 5,
+        "generate": false,
+        "results": [
+          {
+            "file_path": "samples/cache.md",
+            "header": "How Redis executes commands",
+            "line_start": 18,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.6666667,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Redis keeps its active data in memory. Its command execution is mostly single-threaded: the server handles one command at a time on its main execution thread. Network I/O and background work can use other threads, depending on the Redis version and configuration.\nApplication clients\n   │ commands and replies over TCP\n   ▼\nRedis process\n   ├─ network I/O ─────────────── optional I/O threads\n   ├─ command execution ───────── main thread\n   │                                  │"
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "Making operations safe",
+            "line_start": 111,
+            "chunk_index": 2,
+            "retrieval_rank": 2,
+            "score": 0.53333336,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Both clients may act on the same AVAILABLE state. The right fix depends on the scope of the work:\nOne command : use a native Redis command such as INCR or SET ... NX.\nSeveral Redis commands must act together: use a Redis transaction or a short Lua script. A transaction runs its queued commands without another client's commands interleaving, but it does not roll back earlier commands if a later command fails."
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "How Redis executes commands",
+            "line_start": 33,
+            "chunk_index": 2,
+            "retrieval_rank": 3,
+            "score": 0.53333336,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "Sequential command execution means one command can finish without another client's command changing the same Redis data halfway through it. It also avoids the need for locks around each command's in-memory changes. The tradeoff is that a slow command or long-running script delays other commands on that node.\nRedis can also save data using snapshots or an append-only file (AOF). These persistence options are separate from serving commands, and the durability you get depends on the configuration."
+          },
+          {
+            "file_path": "samples/os.md",
+            "header": "Context Switching",
+            "line_start": 231,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.5,
+            "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+            "text": "cause caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 361,
+        "from_cache": false,
+        "has_answer": false,
+        "streaming": false,
+        "measured_latency_ms": 363.402
+      }
+    }
+  ],
+  "cleanup_errors": [],
+  "summary": {
+    "cache_cases": 5,
+    "cache_hits": 0,
+    "cache_coverage": 0.0,
+    "cache_hit_correctness": null,
+    "cache_retrieval_regressions": 0,
+    "cache_probe_p50_ms": 417.852,
+    "rewrite_cases": 4,
+    "rewrites_observed": 3,
+    "rewrite_topic_matches": 3,
+    "rewrite_retrieval_regressions": 1,
+    "followup_p50_ms": 363.402,
+    "operational_failures": 0
+  }
+}

@@ -1,0 +1,1667 @@
+{
+  "base_url": "http://127.0.0.1:8100",
+  "measured_at": "2026-09-30T15:27:48.489144+00:00",
+  "process_scope": "single API process; admission is not distributed",
+  "profile_label": "corrected-defaults-20260930",
+  "provenance": null,
+  "schema_version": 2,
+  "warmup_per_workload": 2,
+  "warmups": {
+    "chat_streams": {
+      "attempts": 2,
+      "errors": [],
+      "failures": 0
+    },
+    "large_ingestion": {
+      "attempts": 2,
+      "errors": [],
+      "failures": 0
+    },
+    "long_retrieval": {
+      "attempts": 2,
+      "errors": [],
+      "failures": 0
+    },
+    "mixed_chat_retrieval": {
+      "attempts": 2,
+      "errors": [],
+      "failures": 0
+    }
+  },
+  "workloads": [
+    {
+      "concurrency": 8,
+      "failures": 0,
+      "first_token_latency_ms": {
+        "measured": 30,
+        "p50": 10783.833,
+        "p95": 17680.229,
+        "p99": 17833.788
+      },
+      "latency_ms": {
+        "max": 19904.448020000927,
+        "p50": 13220.537,
+        "p95": 18850.777,
+        "p99": 19904.448
+      },
+      "metrics": {
+        "admission_gauges": {},
+        "operations": [
+          {
+            "count": 22,
+            "duration_ms_sum": 2314.233,
+            "operation": "cache_write",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 338348.917,
+            "operation": "chat",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 51662.317,
+            "operation": "chat_stream",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 6634.37,
+            "operation": "retrieval",
+            "outcome": "success"
+          }
+        ]
+      },
+      "name": "chat_streams",
+      "requests": 30,
+      "samples": [
+        {
+          "error": null,
+          "first_token_ms": 1318.528850999428,
+          "index": 0,
+          "latency_ms": 2477.405371000714,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 9243.43736100127,
+          "index": 1,
+          "latency_ms": 10171.475953000481,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 2684.6796659992833,
+          "index": 2,
+          "latency_ms": 3454.5079600011377,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 3666.5201829982834,
+          "index": 3,
+          "latency_ms": 5492.569871999876,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 5706.197388000874,
+          "index": 4,
+          "latency_ms": 6546.604926001237,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 6756.2442059988825,
+          "index": 5,
+          "latency_ms": 9034.11834200051,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 13431.270768000104,
+          "index": 6,
+          "latency_ms": 17316.890893000163,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10380.483603999892,
+          "index": 7,
+          "latency_ms": 13220.536928998627,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 15044.318969001324,
+          "index": 8,
+          "latency_ms": 17505.03467499948,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 16737.95384099867,
+          "index": 9,
+          "latency_ms": 17708.066384999256,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 15885.507757000596,
+          "index": 10,
+          "latency_ms": 18533.356885000103,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 17680.229192999832,
+          "index": 11,
+          "latency_ms": 19904.448020000927,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 17643.710105998252,
+          "index": 12,
+          "latency_ms": 18781.49668399965,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 17833.787696999934,
+          "index": 13,
+          "latency_ms": 18850.776536999547,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 15998.091154000576,
+          "index": 14,
+          "latency_ms": 17089.74700699946,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 13185.156142999404,
+          "index": 15,
+          "latency_ms": 14813.483566000286,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 12376.043317999574,
+          "index": 16,
+          "latency_ms": 13371.417194999594,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 12405.009155001608,
+          "index": 17,
+          "latency_ms": 13451.126232001116,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10783.832914999948,
+          "index": 18,
+          "latency_ms": 11909.114836000299,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 9691.262172000279,
+          "index": 19,
+          "latency_ms": 11294.229814000573,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10119.575152000834,
+          "index": 20,
+          "latency_ms": 11178.71678299889,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10148.142946001826,
+          "index": 21,
+          "latency_ms": 11218.606218999412,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10144.532641999831,
+          "index": 22,
+          "latency_ms": 11155.926544000977,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 9457.714103999024,
+          "index": 23,
+          "latency_ms": 10578.397114999461,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 9478.891533000933,
+          "index": 24,
+          "latency_ms": 10527.632233999611,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 9473.98205600075,
+          "index": 25,
+          "latency_ms": 12365.972862999115,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 11134.081852000236,
+          "index": 26,
+          "latency_ms": 14689.734517000034,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 13086.539337999056,
+          "index": 27,
+          "latency_ms": 14212.893908999831,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 13086.950234999676,
+          "index": 28,
+          "latency_ms": 14963.152691001596,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": 13823.6640740015,
+          "index": 29,
+          "latency_ms": 15512.684490999163,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        }
+      ],
+      "successes": 30,
+      "throughput_rps": 0.538
+    },
+    {
+      "concurrency": 8,
+      "failures": 0,
+      "first_token_latency_ms": {
+        "measured": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "latency_ms": {
+        "max": 2117.644158000985,
+        "p50": 1511.354,
+        "p95": 2042.331,
+        "p99": 2117.644
+      },
+      "metrics": {
+        "admission_gauges": {},
+        "operations": [
+          {
+            "count": 25,
+            "duration_ms_sum": 2828.908,
+            "operation": "cache_write",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 44968.678,
+            "operation": "chat",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "chat_stream",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 7433.326,
+            "operation": "retrieval",
+            "outcome": "success"
+          }
+        ]
+      },
+      "name": "long_retrieval",
+      "requests": 30,
+      "samples": [
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 0,
+          "latency_ms": 940.1162690010096,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 1,
+          "latency_ms": 938.782369999899,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 2,
+          "latency_ms": 938.307263999377,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 3,
+          "latency_ms": 936.7840550003166,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 4,
+          "latency_ms": 1141.2704470003519,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 5,
+          "latency_ms": 1746.8667829998594,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 6,
+          "latency_ms": 1746.0967499991966,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 7,
+          "latency_ms": 2028.3827200000815,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 8,
+          "latency_ms": 1095.4099940008746,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 9,
+          "latency_ms": 1347.0355049994396,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 10,
+          "latency_ms": 1347.0153299986123,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 11,
+          "latency_ms": 1346.1025200012955,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 12,
+          "latency_ms": 2117.644158000985,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 13,
+          "latency_ms": 1511.354021000443,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 14,
+          "latency_ms": 1511.3983060000464,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 15,
+          "latency_ms": 2000.97211100001,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 16,
+          "latency_ms": 2000.1186139998026,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 17,
+          "latency_ms": 1748.020525999891,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 18,
+          "latency_ms": 1747.368597001696,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 19,
+          "latency_ms": 2042.3309920006432,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 20,
+          "latency_ms": 1623.6621509997349,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 21,
+          "latency_ms": 1623.1604940003308,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 22,
+          "latency_ms": 1065.5842569995002,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 23,
+          "latency_ms": 1266.573247999986,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 24,
+          "latency_ms": 1704.9996859987004,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 25,
+          "latency_ms": 1617.711770000824,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 26,
+          "latency_ms": 1616.9957729998714,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 27,
+          "latency_ms": 1499.0820679995522,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 28,
+          "latency_ms": 1498.6605960002635,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 29,
+          "latency_ms": 1298.3203730000241,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        }
+      ],
+      "successes": 30,
+      "throughput_rps": 4.85
+    },
+    {
+      "concurrency": 8,
+      "failures": 0,
+      "first_token_latency_ms": {
+        "measured": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "latency_ms": {
+        "max": 2780.057998999837,
+        "p50": 2653.268,
+        "p95": 2754.588,
+        "p99": 2780.058
+      },
+      "metrics": {
+        "admission_gauges": {},
+        "operations": [
+          {
+            "count": 30,
+            "duration_ms_sum": 31.447,
+            "operation": "cache_invalidation",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "cache_write",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "chat",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "chat_stream",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 60764.051,
+            "operation": "gates.indexing",
+            "outcome": "acquired"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 70777.007,
+            "operation": "indexing",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "retrieval",
+            "outcome": "success"
+          }
+        ]
+      },
+      "name": "large_ingestion",
+      "requests": 30,
+      "samples": [
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 0,
+          "latency_ms": 983.536763000302,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 1,
+          "latency_ms": 630.3878859998804,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 2,
+          "latency_ms": 1662.7921349991084,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 3,
+          "latency_ms": 319.7036580004351,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 4,
+          "latency_ms": 1301.4205540002877,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 5,
+          "latency_ms": 2017.2726350010635,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 6,
+          "latency_ms": 2369.0564859989536,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 7,
+          "latency_ms": 2724.3869449994236,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 8,
+          "latency_ms": 2744.1987000001973,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 9,
+          "latency_ms": 2745.8273060001375,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 10,
+          "latency_ms": 2780.057998999837,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 11,
+          "latency_ms": 2754.587798001012,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 12,
+          "latency_ms": 2741.3159090010595,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 13,
+          "latency_ms": 2712.441514000602,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 14,
+          "latency_ms": 2727.740209998956,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 15,
+          "latency_ms": 2678.0906399999367,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 16,
+          "latency_ms": 2680.367623001075,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 17,
+          "latency_ms": 2729.146302999652,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 18,
+          "latency_ms": 2665.7595569995465,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 19,
+          "latency_ms": 2666.92346399941,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 20,
+          "latency_ms": 2653.2679540014215,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 21,
+          "latency_ms": 2627.259167000375,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 22,
+          "latency_ms": 2559.844970000995,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 23,
+          "latency_ms": 2581.843543001014,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 24,
+          "latency_ms": 2591.3566110011743,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 25,
+          "latency_ms": 2616.9665719990007,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 26,
+          "latency_ms": 2618.925789000059,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 27,
+          "latency_ms": 2671.3688760009973,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 28,
+          "latency_ms": 2644.9735810001584,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 29,
+          "latency_ms": 2658.1293500003085,
+          "status": 200,
+          "success": true,
+          "workload": "large_ingestion"
+        }
+      ],
+      "successes": 30,
+      "throughput_rps": 2.993
+    },
+    {
+      "by_workload": {
+        "chat_streams": {
+          "failures": 0,
+          "first_token_latency_ms": {
+            "measured": 15,
+            "p50": 5052.659,
+            "p95": 12066.793,
+            "p99": 12066.793
+          },
+          "latency_ms": {
+            "max": 12731.19672699977,
+            "p50": 6334.065,
+            "p95": 12731.197,
+            "p99": 12731.197
+          },
+          "metrics": {},
+          "requests": 15,
+          "samples": [
+            {
+              "error": null,
+              "first_token_ms": 1669.8594059998868,
+              "index": 0,
+              "latency_ms": 1860.5088940003043,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 2240.2965130004304,
+              "index": 2,
+              "latency_ms": 2388.47922199966,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 2960.702748001495,
+              "index": 4,
+              "latency_ms": 2960.8553039997787,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 3781.7038070006674,
+              "index": 6,
+              "latency_ms": 3785.266605000288,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 3833.980760000486,
+              "index": 8,
+              "latency_ms": 5511.818644999948,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 2534.4414339997456,
+              "index": 10,
+              "latency_ms": 2835.679337998954,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 4822.925913998915,
+              "index": 12,
+              "latency_ms": 5221.75909500038,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 5052.658706999864,
+              "index": 14,
+              "latency_ms": 6334.06527400075,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 6017.020164001224,
+              "index": 16,
+              "latency_ms": 8950.591941998937,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 8325.767930000438,
+              "index": 18,
+              "latency_ms": 11256.479256999228,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 11154.31671999977,
+              "index": 20,
+              "latency_ms": 11257.990520998646,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 10621.23230799989,
+              "index": 22,
+              "latency_ms": 12115.717364000375,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 11375.366678001228,
+              "index": 24,
+              "latency_ms": 11718.520877000628,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 10831.33011099926,
+              "index": 26,
+              "latency_ms": 12731.19672699977,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            },
+            {
+              "error": null,
+              "first_token_ms": 12066.793295000025,
+              "index": 28,
+              "latency_ms": 12406.547833999866,
+              "status": 200,
+              "success": true,
+              "workload": "chat_streams"
+            }
+          ],
+          "successes": 15,
+          "throughput_rps": 0.745
+        },
+        "long_retrieval": {
+          "failures": 0,
+          "first_token_latency_ms": {
+            "measured": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null
+          },
+          "latency_ms": {
+            "max": 1831.4296759999706,
+            "p50": 959.444,
+            "p95": 1831.43,
+            "p99": 1831.43
+          },
+          "metrics": {},
+          "requests": 15,
+          "samples": [
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 1,
+              "latency_ms": 960.0290679991303,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 3,
+              "latency_ms": 959.4438530002662,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 5,
+              "latency_ms": 1249.0400689985108,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 7,
+              "latency_ms": 1558.646969999245,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 9,
+              "latency_ms": 1278.203214000314,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 11,
+              "latency_ms": 1393.1459370014636,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 13,
+              "latency_ms": 721.428412000023,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 15,
+              "latency_ms": 827.9777049992845,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 17,
+              "latency_ms": 1831.4296759999706,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 19,
+              "latency_ms": 1132.4212760009686,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 21,
+              "latency_ms": 538.6542169999302,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 23,
+              "latency_ms": 537.2026140012167,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 25,
+              "latency_ms": 482.4678610002593,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 27,
+              "latency_ms": 641.172085001017,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            },
+            {
+              "error": null,
+              "first_token_ms": null,
+              "index": 29,
+              "latency_ms": 598.9569819994358,
+              "status": 200,
+              "success": true,
+              "workload": "long_retrieval"
+            }
+          ],
+          "successes": 15,
+          "throughput_rps": 0.745
+        }
+      },
+      "concurrency": 8,
+      "failures": 0,
+      "first_token_latency_ms": {
+        "measured": 15,
+        "p50": 5052.659,
+        "p95": 12066.793,
+        "p99": 12066.793
+      },
+      "latency_ms": {
+        "max": 12731.19672699977,
+        "p50": 1831.43,
+        "p95": 12406.548,
+        "p99": 12731.197
+      },
+      "metrics": {
+        "admission_gauges": {},
+        "operations": [
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "cache_invalidation",
+            "outcome": "success"
+          },
+          {
+            "count": 25,
+            "duration_ms_sum": 3107.326,
+            "operation": "cache_write",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 111917.711,
+            "operation": "chat",
+            "outcome": "success"
+          },
+          {
+            "count": 15,
+            "duration_ms_sum": 16829.005,
+            "operation": "chat_stream",
+            "outcome": "success"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "gates.indexing",
+            "outcome": "acquired"
+          },
+          {
+            "count": 0,
+            "duration_ms_sum": 0.0,
+            "operation": "indexing",
+            "outcome": "success"
+          },
+          {
+            "count": 30,
+            "duration_ms_sum": 8572.531,
+            "operation": "retrieval",
+            "outcome": "success"
+          }
+        ]
+      },
+      "name": "mixed_chat_retrieval",
+      "requests": 30,
+      "samples": [
+        {
+          "error": null,
+          "first_token_ms": 1669.8594059998868,
+          "index": 0,
+          "latency_ms": 1860.5088940003043,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 1,
+          "latency_ms": 960.0290679991303,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 2240.2965130004304,
+          "index": 2,
+          "latency_ms": 2388.47922199966,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 3,
+          "latency_ms": 959.4438530002662,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 2960.702748001495,
+          "index": 4,
+          "latency_ms": 2960.8553039997787,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 5,
+          "latency_ms": 1249.0400689985108,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 3781.7038070006674,
+          "index": 6,
+          "latency_ms": 3785.266605000288,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 7,
+          "latency_ms": 1558.646969999245,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 3833.980760000486,
+          "index": 8,
+          "latency_ms": 5511.818644999948,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 9,
+          "latency_ms": 1278.203214000314,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 2534.4414339997456,
+          "index": 10,
+          "latency_ms": 2835.679337998954,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 11,
+          "latency_ms": 1393.1459370014636,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 4822.925913998915,
+          "index": 12,
+          "latency_ms": 5221.75909500038,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 13,
+          "latency_ms": 721.428412000023,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 5052.658706999864,
+          "index": 14,
+          "latency_ms": 6334.06527400075,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 15,
+          "latency_ms": 827.9777049992845,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 6017.020164001224,
+          "index": 16,
+          "latency_ms": 8950.591941998937,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 17,
+          "latency_ms": 1831.4296759999706,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 8325.767930000438,
+          "index": 18,
+          "latency_ms": 11256.479256999228,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 19,
+          "latency_ms": 1132.4212760009686,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 11154.31671999977,
+          "index": 20,
+          "latency_ms": 11257.990520998646,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 21,
+          "latency_ms": 538.6542169999302,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10621.23230799989,
+          "index": 22,
+          "latency_ms": 12115.717364000375,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 23,
+          "latency_ms": 537.2026140012167,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 11375.366678001228,
+          "index": 24,
+          "latency_ms": 11718.520877000628,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 25,
+          "latency_ms": 482.4678610002593,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 10831.33011099926,
+          "index": 26,
+          "latency_ms": 12731.19672699977,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 27,
+          "latency_ms": 641.172085001017,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        },
+        {
+          "error": null,
+          "first_token_ms": 12066.793295000025,
+          "index": 28,
+          "latency_ms": 12406.547833999866,
+          "status": 200,
+          "success": true,
+          "workload": "chat_streams"
+        },
+        {
+          "error": null,
+          "first_token_ms": null,
+          "index": 29,
+          "latency_ms": 598.9569819994358,
+          "status": 200,
+          "success": true,
+          "workload": "long_retrieval"
+        }
+      ],
+      "successes": 30,
+      "throughput_rps": 1.49
+    }
+  ]
+}

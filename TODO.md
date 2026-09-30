@@ -111,31 +111,37 @@ are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrenc
 
 ### P2 — Correctness debt, production measurements, maintainability
 
-- [ ] `[testing]` **Measure the enabled user paths on the corrected
-      defaults.** Semantic-cache hit correctness vs the 0.90 threshold and
-      multi-turn rewriting quality now have tooling
-      ([scripts/benchmark_user_paths.py](scripts/benchmark_user_paths.py),
-      `make user-path-benchmark`, `test/evaluation/user-paths.json`) but no
-      live evidence yet. Add streaming first-token latency for gemma3:4b vs
-      the documented 1b fallback, and a concurrent `make load-benchmark` run
-      on the current topology — the older report's retrieval p95 near 30 s
-      is unexplained under the current defaults.
-- [ ] `[approach]` **Context-selection quality.** Context precision fell to
-      0.565 (gemma3:1b) / 0.480 (gemma3:4b) and `context_selection` is the
-      largest diagnostic cause on the 4b arm (27/133). The persisted
-      admitted-context and citation map make misses auditable end to end.
-      Evaluate: distractor filtering before prompt assembly, raising `top_k`
-      with stricter selection, or score-threshold gating.
-      [Reports](test/evaluation/reports/generation-gemma4b-fullcorpus-20260929.json).
+- [ ] `[testing]` **Decide the concurrent-chat capacity posture.** The
+      2026-09-30 load run shows retrieval head-of-line resolved
+      (`long_retrieval` p95 2.0 s at concurrency 8; zero failures across all
+      workloads) while chat-stream first-token p50 is 10.8 s at concurrency 8
+      — eight concurrent gemma3:4b generations serialize inside Ollama.
+      Decide whether raising `OLLAMA_NUM_PARALLEL` (VRAM cost on 6 GiB) or
+      documenting single-stream interactivity (0.6 s first token) is the
+      product answer. [Report](test/evaluation/reports/load-defaults-20260930.json).
+      The older user-path evidence is recorded: cache traps rejected 7/7,
+      paraphrases hit 4/4, rewriting 3/4 with 1 regression — re-run with
+      larger samples before tuning the 0.90 threshold.
+- [ ] `[approach]` **Context-selection quality.** The budget arm is settled:
+      cutting admitted context from 2800 to 1400 tokens LOWERED context
+      precision (0.541 vs 0.578) and recall while raising `context_selection`
+      misses (15 vs 12), so tail chunks carry usable evidence —
+      [arm](test/evaluation/reports/generation-representative-ctx1400-20260930.json)
+      vs [control](test/evaluation/reports/generation-representative-defaults-20260930.json).
+      The precision problem is which mid-ranked chunks get admitted, not how
+      many. Next candidates, each pre-registered against a same-session
+      control: distractor/low-signal filtering before prompt assembly, or
+      stricter per-file diversification (`search.max_chunks_per_file`).
+      Persisted admitted-context and citations make misses auditable.
 - [ ] `[bug]` **Unranked keyword fallback.** `KeywordSearch` is a Qdrant
       `Scroll` with `MatchText` — no relevance ordering. Rank it (BM25 score
       or at least stable scoring) before it is used by any caller that
       matters.
-- [ ] `[testing]` **Production-topology load, Docling benchmark, and pprof.**
-      Re-run `make load-benchmark` on the intended topology, re-record the
+- [ ] `[testing]` **Docling re-record and pprof capture.** Re-record the
       Docling benchmark (its 2026-09-13 report file was removed; only
-      summaries survive), and capture pprof CPU/heap profiles — the module
-      exists and has never been used.
+      summaries survive) and capture pprof CPU/heap profiles during a load
+      run — the module exists and has never been used. The concurrent-load
+      re-run itself is done (see the capacity item above).
 - [ ] `[approach]` **Judge n-sample self-consistency.** One judge sample per
       query remains; evaluate an n-sample median once the human calibration
       above lands.
