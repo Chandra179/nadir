@@ -1,23 +1,22 @@
-// Package eval provides a repeatable Retrieval-quality evaluation Module.
-// It deliberately uses only the current search Interface and standard Go
-// serialization/timing primitives; the running server remains unchanged.
+// Package evaluation provides repeatable Retrieval-quality measurement.
 package evaluation
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"time"
-
-	"nadir/internal/core/retrieval/search"
-
 	"log/slog"
+	"math"
+	"nadir/internal/core/retrieval/search"
+	"os"
+	"sort"
+	"strings"
+	"time"
 )
 
-// Run evaluates every golden query. Each query is executed runs times;
-// ranking comes from the final run while latency is summarized by its median.
-// Cache use is explicitly disabled so a report measures the Retrieval path.
+// Run records every ranking. Quality is the median of dataset-level metrics
+// across runs; latency percentiles cover every actual request, at the recorded
+// RetrievalDepth. Requests bypass the semantic cache.
 func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*Report, error) {
 	if h == nil || h.searcher == nil {
 		return nil, fmt.Errorf("evaluation searcher is required")
@@ -31,133 +30,209 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 	if runs < 1 {
 		runs = 1
 	}
-
-	report := &Report{
-		Timestamp:            time.Now().UTC().Format(time.RFC3339),
-		Dataset:              golden.Metadata.Dataset,
-		DatasetSchemaVersion: golden.SchemaVersion,
-		DatasetReleaseGate:   golden.Metadata.ReleaseGate,
-		TopK:                 topK,
-		PerQuery:             make([]QueryResult, 0, len(golden.Queries)),
-	}
-	for _, goldenQuery := range golden.Queries {
-		result := QueryResult{
-			ID:                goldenQuery.ID,
-			Query:             goldenQuery.Query,
-			Type:              goldenQuery.Type,
-			FaithfulnessLabel: goldenQuery.FaithfulnessLabel,
-			NumRelevant:       len(goldenQuery.Relevant),
-			Latencies:         make([]float64, 0, runs),
-		}
-		var chunks []search.Chunk
-		for run := 0; run < runs; run++ {
+	depth := max(topK, 10)
+	report := &Report{ReportSchemaVersion: 2, Timestamp: time.Now().UTC().Format(time.RFC3339), Dataset: golden.Metadata.Dataset, DatasetSchemaVersion: golden.SchemaVersion, DatasetReleaseGate: golden.Metadata.ReleaseGate, TopK: topK, RetrievalDepth: depth, Runs: runs, Aggregation: "quality=median of dataset run metrics; latency=pooled request samples", PerQuery: make([]QueryResult, 0, len(golden.Queries))}
+	for _, query := range golden.Queries {
+		relevant := canonicalEvidence(query.Relevant)
+		result := QueryResult{ID: query.ID, Query: query.Query, Type: query.Type, FaithfulnessLabel: query.FaithfulnessLabel, NumRelevant: len(relevant), Latencies: make([]float64, 0, runs), Runs: make([]QueryRunResult, 0, runs)}
+		metrics := make([]QualityMetrics, 0, runs)
+		for run := 1; run <= runs; run++ {
 			started := time.Now()
-			searchResult, err := h.searcher.Query(ctx, search.Request{
-				Query:     goldenQuery.Query,
-				TopK:      topK,
-				SkipCache: true,
-				QueryType: search.QueryType(goldenQuery.Type),
-			})
+			found, err := h.searcher.Query(ctx, search.Request{Query: query.Query, TopK: depth, SkipCache: true, QueryType: search.QueryType(query.Type)})
 			latency := float64(time.Since(started).Microseconds()) / 1000
 			if err != nil {
-				return nil, fmt.Errorf("query %q: %w", goldenQuery.ID, err)
+				return nil, fmt.Errorf("query %q run %d: %w", query.ID, run, err)
 			}
+			observed := scoreRun(found.Chunks, relevant, query.Distractors, topK)
+			observed.Run = run
+			observed.LatencyMS = latency
+			observed.Rerank = found.Rerank
+			result.Runs = append(result.Runs, observed)
 			result.Latencies = append(result.Latencies, latency)
-			chunks = searchResult.Chunks
-			result.Rerank = searchResult.Rerank
+			metrics = append(metrics, observed.Metrics)
 		}
+		result.Distributions = metricDistributions(metrics)
+		result.Metrics = medianMetrics(result.Distributions)
 		result.LatencyMS = Percentile(result.Latencies, 50)
-		result.Hits, result.FirstHitRank, result.RelevantFound, result.DistractorHits = scoreResults(chunks, goldenQuery.Relevant, goldenQuery.Distractors)
+		// Preserve one concrete ranking for legacy consumers without presenting the
+		// final run as an aggregate. The complete rankings remain in Runs.
+		ordered := append([]QueryRunResult(nil), result.Runs...)
+		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Metrics.NDCGAtK < ordered[j].Metrics.NDCGAtK })
+		representative := ordered[(len(ordered)-1)/2]
+		result.RepresentativeRun = representative.Run
+		result.Hits = representative.Hits
+		result.FirstHitRank = representative.FirstHitRank
+		result.RelevantFound = representative.RelevantFound
+		result.DistractorHits = representative.DistractorHits
+		result.Rerank = representative.Rerank
 		report.PerQuery = append(report.PerQuery, result)
-		h.log.Debug("evaluation query completed",
-			slog.String("id", goldenQuery.ID),
-			slog.Int("first_hit_rank", result.FirstHitRank),
-			slog.Int("relevant_found", result.RelevantFound))
+		h.log.Debug("evaluation query completed", slog.String("id", query.ID), slog.Int("runs", runs))
 	}
-
-	report.Aggregate = aggregate(report.PerQuery, topK)
+	runMetrics := make([]QualityMetrics, 0, runs)
+	all := make([]QueryResult, 0, len(golden.Queries)*runs)
+	for run := 0; run < runs; run++ {
+		observations := make([]QueryResult, 0, len(golden.Queries))
+		for _, result := range report.PerQuery {
+			observed := result.Runs[run]
+			one := QueryResult{NumRelevant: result.NumRelevant, Metrics: observed.Metrics, LatencyMS: observed.LatencyMS, Rerank: observed.Rerank}
+			observations = append(observations, one)
+			all = append(all, one)
+		}
+		a := aggregate(observations, topK)
+		report.RunAggregates = append(report.RunAggregates, RunAggregate{Run: run + 1, Aggregate: a})
+		runMetrics = append(runMetrics, qualityFromAggregate(a))
+	}
+	report.Distributions = metricDistributions(runMetrics)
+	report.Aggregate = aggregate(all, topK)
+	report.Aggregate.Queries = len(golden.Queries)
+	report.Aggregate.AnswerableQueries /= runs
+	report.Aggregate.AbstentionQueries /= runs
+	medians := medianMetrics(report.Distributions)
+	report.Aggregate.HitRateAtK = medians.HitRateAtK
+	report.Aggregate.RecallAtK = medians.RecallAtK
+	report.Aggregate.MRRAt10 = medians.MRRAt10
+	report.Aggregate.NDCGAtK = medians.NDCGAtK
+	report.Aggregate.DistractorHitRateAtK = medians.DistractorHitRateAtK
 	return report, nil
 }
 
-func scoreResults(chunks []search.Chunk, relevant, distractors []RelevantChunk) ([]bool, int, int, int) {
-	hits := make([]bool, len(chunks))
-	found := make(map[int]struct{}, len(relevant))
-	firstRank := 0
-	distractorHits := 0
+// Canonical identity is normalized file+contains. Repeated annotations collapse
+// to one evidence item, retaining the strongest grade (omitted grade means 1).
+func canonicalEvidence(entries []RelevantChunk) []RelevantChunk {
+	out := make([]RelevantChunk, 0, len(entries))
+	indices := map[string]int{}
+	for _, entry := range entries {
+		key := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(entry.File, "\\", "/"))) + "\x00" + strings.ToLower(strings.TrimSpace(entry.Contains))
+		if entry.Grade == 0 {
+			entry.Grade = 1
+		}
+		if index, ok := indices[key]; ok {
+			if entry.Grade > out[index].Grade {
+				out[index].Grade = entry.Grade
+			}
+			continue
+		}
+		indices[key] = len(out)
+		out = append(out, entry)
+	}
+	return out
+}
+
+func scoreRun(chunks []search.Chunk, relevant, distractors []RelevantChunk, k int) QueryRunResult {
+	out := QueryRunResult{Ranking: make([]RankedChunk, 0, len(chunks)), Hits: make([]bool, min(k, len(chunks)))}
+	found := map[int]bool{}
+	credited := map[int]bool{}
+	gains := make([]float64, 0, len(chunks))
+	ideal := make([]float64, len(relevant))
+	for i, evidence := range relevant {
+		ideal[i] = math.Pow(2, float64(evidence.Grade)) - 1
+	}
 	for position, chunk := range chunks {
-		matched := MatchedRelevant(chunk, relevant)
-		for _, index := range matched {
-			found[index] = struct{}{}
+		matches := MatchedRelevant(chunk, relevant)
+		gain := 0.0
+		selected := -1
+		for _, index := range matches {
+			if !credited[index] && ideal[index] > gain {
+				gain = ideal[index]
+				selected = index
+			}
 		}
-		hits[position] = len(matched) > 0
-		if len(matched) == 0 && len(MatchedDistractors(chunk, distractors)) > 0 {
-			distractorHits++
+		if selected >= 0 {
+			credited[selected] = true
 		}
-		if firstRank == 0 && hits[position] {
-			firstRank = position + 1
+		gains = append(gains, gain)
+		out.Ranking = append(out.Ranking, RankedChunk{Rank: position + 1, FilePath: chunk.FilePath, SourceSHA: chunk.SourceSHA, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex, Score: chunk.Score, Evidence: matches, Gain: gain})
+		if position < 10 && out.FirstHitRank10 == 0 && len(matches) > 0 {
+			out.FirstHitRank10 = position + 1
+		}
+		if position >= k {
+			continue
+		}
+		for _, index := range matches {
+			found[index] = true
+		}
+		out.Hits[position] = len(matches) > 0
+		if out.FirstHitRank == 0 && len(matches) > 0 {
+			out.FirstHitRank = position + 1
+		}
+		if len(matches) == 0 && len(MatchedDistractors(chunk, distractors)) > 0 {
+			out.DistractorHits++
 		}
 	}
-	return hits, firstRank, len(found), distractorHits
+	out.RelevantFound = len(found)
+	out.Metrics.MRRAt10 = ReciprocalRankAt(out.FirstHitRank10, 10)
+	out.Metrics.NDCGAtK = gradedNDCG(gains, ideal, k)
+	if out.FirstHitRank > 0 {
+		out.Metrics.HitRateAtK = 1
+	}
+	if len(relevant) > 0 {
+		out.Metrics.RecallAtK = float64(out.RelevantFound) / float64(len(relevant))
+	}
+	if out.DistractorHits > 0 {
+		out.Metrics.DistractorHitRateAtK = 1
+	}
+	return out
+}
+
+func scoreResults(chunks []search.Chunk, relevant, distractors []RelevantChunk) ([]bool, int, int, int) {
+	result := scoreRun(chunks, canonicalEvidence(relevant), distractors, len(chunks))
+	return result.Hits, result.FirstHitRank, result.RelevantFound, result.DistractorHits
+}
+
+func qualityFromAggregate(a Aggregate) QualityMetrics {
+	return QualityMetrics{HitRateAtK: a.HitRateAtK, RecallAtK: a.RecallAtK, MRRAt10: a.MRRAt10, NDCGAtK: a.NDCGAtK, DistractorHitRateAtK: a.DistractorHitRateAtK}
 }
 
 func aggregate(results []QueryResult, topK int) Aggregate {
-	aggregate := Aggregate{Queries: len(results), TopK: topK}
-	firstRanks := make([]int, 0, len(results))
-	found := make([]int, 0, len(results))
-	total := make([]int, 0, len(results))
-	hitLists := make([][]bool, 0, len(results))
-	latencies := make([]float64, 0, len(results))
-	rerankLatencies := make([]float64, 0, len(results))
-	distractorQueries := 0
-	rerankReasons := make(map[string]int)
-	rerankCalls := 0
-	rerankCandidates := 0
-	rerankErrors := 0
+	out := Aggregate{Queries: len(results), Requests: len(results), TopK: topK, RerankReasons: map[string]int{}}
+	latencies := []float64{}
+	rerankLatencies := []float64{}
 	for _, result := range results {
-		firstRanks = append(firstRanks, result.FirstHitRank)
-		found = append(found, result.RelevantFound)
-		total = append(total, result.NumRelevant)
-		hitLists = append(hitLists, result.Hits)
 		latencies = append(latencies, result.LatencyMS)
+		if result.NumRelevant > 0 {
+			out.AnswerableQueries++
+			out.HitRateAtK += result.Metrics.HitRateAtK
+			out.RecallAtK += result.Metrics.RecallAtK
+			out.MRRAt10 += result.Metrics.MRRAt10
+			out.NDCGAtK += result.Metrics.NDCGAtK
+		} else {
+			out.AbstentionQueries++
+		}
+		out.DistractorHitRateAtK += result.Metrics.DistractorHitRateAtK
 		if result.Rerank.Enabled {
-			rerankReasons[result.Rerank.Reason]++
+			out.RerankReasons[result.Rerank.Reason]++
 		}
 		if result.Rerank.Attempted {
-			rerankCalls++
-			rerankCandidates += result.Rerank.Candidates
+			out.RerankDependencyCalls++
+			out.RerankCandidateTotal += result.Rerank.Candidates
 			rerankLatencies = append(rerankLatencies, result.Rerank.LatencyMS)
 			if result.Rerank.DependencyErr {
-				rerankErrors++
+				out.RerankErrors++
 			}
 		}
-		if result.DistractorHits > 0 {
-			distractorQueries++
-		}
 	}
-	aggregate.HitRateAtK = HitRate(firstRanks)
-	aggregate.RecallAtK = Recall(found, total)
-	aggregate.MRRAt10 = MRR(firstRanks)
-	aggregate.NDCGAtK = MeanNDCG(hitLists, total, topK)
-	aggregate.P50LatMS = Percentile(latencies, 50)
-	aggregate.P95LatMS = Percentile(latencies, 95)
-	if len(results) > 0 {
-		aggregate.RerankCoverage = float64(rerankCalls) / float64(len(results))
-	}
-	aggregate.RerankDependencyCalls = rerankCalls
-	aggregate.RerankCandidateTotal = rerankCandidates
-	aggregate.RerankP50LatMS = Percentile(rerankLatencies, 50)
-	aggregate.RerankP95LatMS = Percentile(rerankLatencies, 95)
-	aggregate.RerankErrors = rerankErrors
-	if len(rerankReasons) > 0 {
-		aggregate.RerankReasons = rerankReasons
+	if out.AnswerableQueries > 0 {
+		n := float64(out.AnswerableQueries)
+		out.HitRateAtK /= n
+		out.RecallAtK /= n
+		out.MRRAt10 /= n
+		out.NDCGAtK /= n
 	}
 	if len(results) > 0 {
-		aggregate.DistractorHitRateAtK = float64(distractorQueries) / float64(len(results))
+		out.DistractorHitRateAtK /= float64(len(results))
+		out.RerankCoverage = float64(out.RerankDependencyCalls) / float64(len(results))
 	}
-	return aggregate
+	out.P50LatMS = Percentile(latencies, 50)
+	out.P95LatMS = Percentile(latencies, 95)
+	out.RerankP50LatMS = Percentile(rerankLatencies, 50)
+	out.RerankP95LatMS = Percentile(rerankLatencies, 95)
+	if len(out.RerankReasons) == 0 {
+		out.RerankReasons = nil
+	}
+	return out
 }
 
-// WriteReport persists a report as stable, human-readable JSON.
+// WriteReport persists an auditable report as stable JSON.
 func WriteReport(path string, report *Report) error {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {

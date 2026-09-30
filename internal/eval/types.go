@@ -332,7 +332,7 @@ func validateQueryJudgments(query GoldenQuery, annotators map[string]AnnotatorMe
 				return fmt.Errorf("query %q judgment %q is not from a verified independent human annotator", query.ID, annotatorID)
 			}
 		}
-		if len(judgment.Relevant) == 0 {
+		if len(judgment.Relevant) == 0 && query.FaithfulnessLabel != FaithfulnessUnsupported {
 			return fmt.Errorf("query %q judgment %q has no relevant labels", query.ID, annotatorID)
 		}
 		for index, relevant := range judgment.Relevant {
@@ -476,8 +476,11 @@ func LoadGoldenSet(path string) (*GoldenSet, error) {
 			return nil, fmt.Errorf("golden set query #%d (%q) duplicates an id", i+1, q.ID)
 		}
 		seenIDs[q.ID] = struct{}{}
-		if strings.TrimSpace(q.Query) == "" || len(q.Relevant) == 0 {
-			return nil, fmt.Errorf("golden set query #%d (%q) needs a query and at least one relevant entry", i+1, q.ID)
+		if strings.TrimSpace(q.Query) == "" || (len(q.Relevant) == 0 && q.FaithfulnessLabel != FaithfulnessUnsupported) {
+			return nil, fmt.Errorf("golden set query #%d (%q) needs a query and relevant evidence, or an unsupported abstention label", i+1, q.ID)
+		}
+		if q.FaithfulnessLabel == FaithfulnessUnsupported && len(q.Relevant) != 0 {
+			return nil, fmt.Errorf("unsupported query %q must have no relevant evidence", q.ID)
 		}
 		if gs.SchemaVersion >= 2 {
 			if !validQueryType(q.Type) {
@@ -520,6 +523,9 @@ func LoadGoldenSet(path string) (*GoldenSet, error) {
 func validateMatch(queryID, kind string, index int, match RelevantChunk) error {
 	if strings.TrimSpace(match.File) == "" && strings.TrimSpace(match.Contains) == "" {
 		return fmt.Errorf("golden set query %q %s entry #%d needs file or contains", queryID, kind, index+1)
+	}
+	if match.Grade < 0 || match.Grade > 3 {
+		return fmt.Errorf("golden set query %q %s entry #%d grade must be in [0,3] (0 means unspecified/binary)", queryID, kind, index+1)
 	}
 	return nil
 }
@@ -589,16 +595,70 @@ type QueryResult struct {
 	LatencyMS         float64                `json:"latency_ms"`
 	Latencies         []float64              `json:"latencies"`
 	Rerank            search.RerankTelemetry `json:"rerank"`
+	// Legacy ranking fields are from RepresentativeRun, chosen by median nDCG.
+	// Metrics and Runs retain all observations, rather than only the final run.
+	RepresentativeRun int                     `json:"representative_run"`
+	Metrics           QualityMetrics          `json:"median_metrics"`
+	Distributions     map[string]Distribution `json:"metric_distributions"`
+	Runs              []QueryRunResult        `json:"runs"`
+}
+
+type QualityMetrics struct {
+	HitRateAtK           float64 `json:"hit_rate_at_k"`
+	RecallAtK            float64 `json:"recall_at_k"`
+	MRRAt10              float64 `json:"mrr_at_10"`
+	NDCGAtK              float64 `json:"ndcg_at_k"`
+	DistractorHitRateAtK float64 `json:"distractor_hit_rate_at_k"`
+}
+
+// RankedChunk persists provenance and evidence matches without source text.
+type RankedChunk struct {
+	Rank       int     `json:"rank"`
+	FilePath   string  `json:"file_path"`
+	SourceSHA  string  `json:"source_sha,omitempty"`
+	LineStart  int     `json:"line_start"`
+	ChunkIndex int     `json:"chunk_index"`
+	Score      float32 `json:"score"`
+	Evidence   []int   `json:"evidence_indices"`
+	Gain       float64 `json:"gain"`
+}
+
+type QueryRunResult struct {
+	Run            int                    `json:"run"`
+	Ranking        []RankedChunk          `json:"ranking"`
+	Hits           []bool                 `json:"hits"`
+	FirstHitRank   int                    `json:"first_hit_rank_at_k"`
+	FirstHitRank10 int                    `json:"first_hit_rank_at_10"`
+	RelevantFound  int                    `json:"relevant_found_at_k"`
+	DistractorHits int                    `json:"distractor_hits_at_k"`
+	LatencyMS      float64                `json:"latency_ms"`
+	Rerank         search.RerankTelemetry `json:"rerank"`
+	Metrics        QualityMetrics         `json:"metrics"`
+}
+
+type Distribution struct {
+	Samples []float64 `json:"samples"`
+	Min     float64   `json:"min"`
+	Median  float64   `json:"median"`
+	Max     float64   `json:"max"`
+}
+
+type RunAggregate struct {
+	Run       int       `json:"run"`
+	Aggregate Aggregate `json:"aggregate"`
 }
 
 // Aggregate contains quality and latency metrics across a golden set.
 type Aggregate struct {
-	Queries    int     `json:"queries"`
-	TopK       int     `json:"top_k"`
-	HitRateAtK float64 `json:"hit_rate_at_k"`
-	RecallAtK  float64 `json:"recall_at_k"`
-	MRRAt10    float64 `json:"mrr_at_10"`
-	NDCGAtK    float64 `json:"ndcg_at_k"`
+	Queries           int     `json:"queries"`
+	AnswerableQueries int     `json:"answerable_queries"`
+	AbstentionQueries int     `json:"abstention_queries"`
+	Requests          int     `json:"requests"`
+	TopK              int     `json:"top_k"`
+	HitRateAtK        float64 `json:"hit_rate_at_k"`
+	RecallAtK         float64 `json:"recall_at_k"`
+	MRRAt10           float64 `json:"mrr_at_10"`
+	NDCGAtK           float64 `json:"ndcg_at_k"`
 	// DistractorHitRateAtK is the fraction of queries with at least one
 	// annotated distractor in the top-k results.
 	DistractorHitRateAtK  float64        `json:"distractor_hit_rate_at_k,omitempty"`
@@ -615,21 +675,28 @@ type Aggregate struct {
 
 // Report is the persisted evaluation result for one evaluator run.
 type Report struct {
+	ReportSchemaVersion  int    `json:"report_schema_version"`
 	Timestamp            string `json:"timestamp"`
 	Dataset              string `json:"dataset,omitempty"`
 	DatasetSchemaVersion int    `json:"dataset_schema_version,omitempty"`
 	DatasetReleaseGate   bool   `json:"dataset_release_gate"`
 	TopK                 int    `json:"top_k"`
+	RetrievalDepth       int    `json:"retrieval_depth"`
+	Runs                 int    `json:"runs"`
+	Aggregation          string `json:"aggregation"`
 	Rerank               bool   `json:"reranker_enabled"`
 	AdaptiveRerank       bool   `json:"adaptive_reranker_enabled"`
 	// Serving reranker profile recorded from the sidecar health endpoint
 	// when reranking is enabled; empty when reranking is off or the probe
 	// failed. Distinguishes torch from onnx-int8 and cpu from cuda in
 	// committed evidence.
-	RerankerModel   string            `json:"reranker_model,omitempty"`
-	RerankerBackend string            `json:"reranker_backend,omitempty"`
-	RerankerDevice  string            `json:"reranker_device,omitempty"`
-	PerQuery        []QueryResult     `json:"per_query"`
-	Aggregate       Aggregate         `json:"aggregate"`
-	Generation      *GenerationReport `json:"generation,omitempty"`
+	RerankerModel   string                  `json:"reranker_model,omitempty"`
+	RerankerBackend string                  `json:"reranker_backend,omitempty"`
+	RerankerDevice  string                  `json:"reranker_device,omitempty"`
+	PerQuery        []QueryResult           `json:"per_query"`
+	Aggregate       Aggregate               `json:"aggregate"`
+	RunAggregates   []RunAggregate          `json:"run_aggregates"`
+	Distributions   map[string]Distribution `json:"metric_distributions"`
+	Provenance      *ReportProvenance       `json:"provenance,omitempty"`
+	Generation      *GenerationReport       `json:"generation,omitempty"`
 }

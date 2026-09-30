@@ -102,15 +102,15 @@ func formatIndex(index int) string {
 	return fmt.Sprintf("%03d", index)
 }
 
-func TestValidateGenerationOptionsRequiresExplicitLargerJudge(t *testing.T) {
+func TestValidateGenerationOptionsRequiresExplicitSuitability(t *testing.T) {
 	cfg := &config.Config{Generator: config.GeneratorConfig{Enabled: true, Model: "gemma3:1b"}}
-	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "gemma3:1b", JudgeLarger: true}); err == nil {
+	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "gemma3:1b", JudgeSuitability: "Separate judge; human calibration pending"}); err == nil {
 		t.Fatal("validateGenerationOptions accepted the answer model as judge")
 	}
 	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "phi4-mini:latest"}); err == nil {
-		t.Fatal("validateGenerationOptions accepted an unconfirmed larger judge")
+		t.Fatal("validateGenerationOptions accepted an unacknowledged judge suitability")
 	}
-	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "phi4-mini:latest", JudgeLarger: true}); err != nil {
+	if err := validateGenerationOptions(cfg, generationOptions{Enabled: true, JudgeAddr: "http://localhost:11434", JudgeModel: "phi4-mini:latest", JudgeSuitability: "Separate judge; human calibration pending"}); err != nil {
 		t.Fatalf("validateGenerationOptions(valid) = %v", err)
 	}
 }

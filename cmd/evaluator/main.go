@@ -7,7 +7,7 @@
 //	                         [--top-k N] [--no-rerank] [--runs N]
 //	                         [--report path] [--ensure-ingest]
 //	                         [--require-release-gate] [--validate-only]
-//	                         [--generation-eval --judge-addr URL --judge-model MODEL --judge-is-larger]
+//	                         [--generation-eval --judge-addr URL --judge-model MODEL --judge-suitability TEXT]
 package main
 
 import (
@@ -35,24 +35,24 @@ func main() {
 	goldenPath := flag.String("golden", "test/evaluation/golden.json", "path to golden query set")
 	topK := flag.Int("top-k", 0, "results per query (0 uses qdrant.top_k)")
 	noRerank := flag.Bool("no-rerank", false, "bypass the configured reranker")
-	runs := flag.Int("runs", 3, "runs per query; latency is reported as the median")
+	runs := flag.Int("runs", 3, "runs per query; retain all rankings, median run quality, pooled request latency")
 	reportPath := flag.String("report", "", "output report path (default: test/evaluation/reports/<unix_ts>.json)")
 	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over source.paths before evaluating")
 	requireReleaseGate := flag.Bool("require-release-gate", false, "reject synthetic/unconsented golden sets")
 	validateOnly := flag.Bool("validate-only", false, "validate the golden set and release-gate metadata without starting external services")
 	generationEval := flag.Bool("generation-eval", false, "also generate answers and judge faithfulness, answer relevancy, context precision, and context recall")
-	judgeAddr := flag.String("judge-addr", "", "required Ollama address for the larger generation judge when --generation-eval is set")
-	judgeModel := flag.String("judge-model", "", "required larger Ollama judge model when --generation-eval is set")
-	judgeIsLarger := flag.Bool("judge-is-larger", false, "explicitly confirm that --judge-model is larger than generator.model")
-	judgeNumCtx := flag.Int("judge-num-ctx", 4096, "Ollama context window for the judge model")
+	judgeAddr := flag.String("judge-addr", "", "required Ollama address for the independently configured generation judge")
+	judgeModel := flag.String("judge-model", "", "required Ollama judge model; serving metadata is recorded")
+	judgeSuitability := flag.String("judge-suitability", "", "required acknowledgement describing why the judge is suitable and its calibration limits")
+	judgeNumCtx := flag.Int("judge-num-ctx", 8192, "independent Ollama judge window; rejects prompts that would overflow")
 	flag.Parse()
 
 	if err := runWithOptions(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate, *validateOnly, generationOptions{
-		Enabled:     *generationEval,
-		JudgeAddr:   *judgeAddr,
-		JudgeModel:  *judgeModel,
-		JudgeLarger: *judgeIsLarger,
-		JudgeNumCtx: *judgeNumCtx,
+		Enabled:          *generationEval,
+		JudgeAddr:        *judgeAddr,
+		JudgeModel:       *judgeModel,
+		JudgeSuitability: *judgeSuitability,
+		JudgeNumCtx:      *judgeNumCtx,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "evaluator:", err)
 		os.Exit(1)
@@ -64,11 +64,11 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 }
 
 type generationOptions struct {
-	Enabled     bool
-	JudgeAddr   string
-	JudgeModel  string
-	JudgeLarger bool
-	JudgeNumCtx int
+	Enabled          bool
+	JudgeAddr        string
+	JudgeModel       string
+	JudgeSuitability string
+	JudgeNumCtx      int
 }
 
 func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) error {
@@ -82,10 +82,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 		}
 	}
 	if validateOnly {
-		if !requireReleaseGate {
-			return fmt.Errorf("--validate-only requires --require-release-gate")
-		}
-		fmt.Printf("golden set valid for release-gate review: %d queries (%s)\n", len(golden.Queries), golden.Metadata.Dataset)
+		fmt.Printf("golden set schema valid: %d queries (%s), release_gate=%v\n", len(golden.Queries), golden.Metadata.Dataset, golden.Metadata.ReleaseGate)
 		return nil
 	}
 
@@ -96,12 +93,31 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	if err := validateGenerationOptions(cfg, generationOptions); err != nil {
 		return err
 	}
+	if generationOptions.Enabled && generationOptions.JudgeNumCtx == 0 {
+		generationOptions.JudgeNumCtx = 8192
+	}
 	log, err := logger.New("info")
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 
 	ctx := context.Background()
+	if topK <= 0 {
+		topK = cfg.Qdrant.TopK
+	}
+	if topK > cfg.Search.MaxTopK {
+		topK = cfg.Search.MaxTopK
+	}
+	if runs < 1 {
+		runs = 1
+	}
+	if cfg.Search.MaxTopK < 10 {
+		return fmt.Errorf("evaluation MRR@10 requires search.max_top_k >= 10, got %d", cfg.Search.MaxTopK)
+	}
+	provenance, err := captureProvenance(ctx, cfg, goldenPath, golden, generationOptions, noRerank, topK, runs)
+	if err != nil {
+		return fmt.Errorf("report provenance: %w", err)
+	}
 	graph, err := runtime.NewDependencies(ctx, cfg, log, runtime.Options{
 		DisableReranker:      noRerank,
 		DisableSemanticCache: true,
@@ -123,13 +139,6 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 
 	rerankEnabled := cfg.Reranker.Enabled && !noRerank
 
-	if topK <= 0 {
-		topK = cfg.Qdrant.TopK
-	}
-	if topK > cfg.Search.MaxTopK {
-		topK = cfg.Search.MaxTopK
-	}
-
 	report, err := evaluation.NewDependencies(evaluation.DependenciesConfig{
 		Searcher: graph.Searcher,
 		Log:      log,
@@ -138,6 +147,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 		return err
 	}
 	report.Rerank = rerankEnabled
+	report.Provenance = provenance
 	report.AdaptiveRerank = rerankEnabled && cfg.Reranker.AdaptiveEnabled
 	if rerankEnabled {
 		recordRerankerProfile(ctx, graph.RerankerProbe, report, log)
@@ -168,15 +178,19 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			},
 		})
 		generationReport, generationErr := evaluation.NewGenerationDependencies(evaluation.GenerationDependenciesConfig{
-			Searcher:         graph.Searcher,
-			AnswerGenerator:  answerGenerator,
-			JudgeGenerator:   judgeGenerator,
-			AnswerModel:      answerEndpoint.Model,
-			JudgeModel:       strings.TrimSpace(generationOptions.JudgeModel),
-			JudgeModelLarger: generationOptions.JudgeLarger,
-			MaxContextTokens: cfg.Chat.MaxContextTokens,
-			RequestTimeout:   cfg.Generator.RequestTimeout,
-			Log:              log,
+			Searcher:                 graph.Searcher,
+			AnswerGenerator:          answerGenerator,
+			JudgeGenerator:           judgeGenerator,
+			AnswerModel:              answerEndpoint.Model,
+			JudgeModel:               strings.TrimSpace(generationOptions.JudgeModel),
+			JudgeSuitability:         generationOptions.JudgeSuitability,
+			ModelFingerprints:        provenance.Models,
+			MaxContextTokens:         cfg.Chat.MaxContextTokens,
+			ContextWindowTokens:      cfg.Generator.NumCtx,
+			ReservedOutputTokens:     cfg.Generator.MaxOutputTokens,
+			JudgeContextWindowTokens: generationOptions.JudgeNumCtx,
+			RequestTimeout:           cfg.Generator.RequestTimeout,
+			Log:                      log,
 		}).Run(ctx, golden, topK)
 		if generationErr != nil {
 			return generationErr
@@ -229,10 +243,13 @@ func validateGenerationOptions(cfg *config.Config, options generationOptions) er
 	if strings.TrimSpace(options.JudgeAddr) == "" || strings.TrimSpace(options.JudgeModel) == "" {
 		return fmt.Errorf("--generation-eval requires --judge-addr and --judge-model; judge configuration has no fallback")
 	}
-	if !options.JudgeLarger {
-		return fmt.Errorf("--generation-eval requires --judge-is-larger after verifying the judge model is larger than generator.model")
+	if strings.TrimSpace(options.JudgeSuitability) == "" {
+		return fmt.Errorf("--generation-eval requires --judge-suitability; judge size alone does not establish calibration")
 	}
-	if strings.EqualFold(strings.TrimSpace(options.JudgeModel), strings.TrimSpace(cfg.Generator.Model)) {
+	if options.JudgeNumCtx < 0 {
+		return fmt.Errorf("--judge-num-ctx must be positive (zero uses the 8192-token default)")
+	}
+	if evaluation.SameModelName(options.JudgeModel, cfg.Generator.Model) {
 		return fmt.Errorf("--judge-model must differ from generator.model")
 	}
 	return nil
@@ -284,14 +301,14 @@ func printReport(report *evaluation.Report) {
 	fmt.Printf("rerank coverage %.1f%% calls=%d candidates=%d p50/p95=%.1fms / %.1fms errors=%d\n",
 		aggregate.RerankCoverage*100, aggregate.RerankDependencyCalls, aggregate.RerankCandidateTotal,
 		aggregate.RerankP50LatMS, aggregate.RerankP95LatMS, aggregate.RerankErrors)
-	fmt.Printf("queries=%d reranker=%v adaptive=%v top_k=%d\n", aggregate.Queries, report.Rerank, report.AdaptiveRerank, aggregate.TopK)
+	fmt.Printf("queries=%d requests=%d reranker=%v adaptive=%v top_k=%d retrieval_depth=%d\n", aggregate.Queries, aggregate.Requests, report.Rerank, report.AdaptiveRerank, aggregate.TopK, report.RetrievalDepth)
 	if report.RerankerBackend != "" || report.RerankerDevice != "" {
 		fmt.Printf("reranker profile  model=%s backend=%s device=%s\n", report.RerankerModel, report.RerankerBackend, report.RerankerDevice)
 	}
 	if report.Generation != nil {
 		generation := report.Generation
-		fmt.Printf("generation answer=%s judge=%s larger=%v coverage=%.1f%% failures=%d\n",
-			generation.AnswerModel, generation.JudgeModel, generation.JudgeModelLarger,
+		fmt.Printf("generation answer=%s judge=%s calibration=%s coverage=%.1f%% failures=%d\n",
+			generation.AnswerModel, generation.JudgeModel, generation.CalibrationStatus,
 			generation.Aggregate.JudgeCoverage*100, generation.Aggregate.Failures)
 		fmt.Printf("faithfulness=%.3f relevancy=%.3f context_precision=%.3f context_recall=%.3f\n",
 			generation.Aggregate.Faithfulness, generation.Aggregate.AnswerRelevancy,

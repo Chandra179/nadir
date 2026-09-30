@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -330,4 +331,97 @@ func completeReleaseGateFixture() *GoldenSet {
 		}
 	}
 	return golden
+}
+
+type sequenceRetriever struct {
+	results  [][]search.Chunk
+	requests []search.Request
+}
+
+func (s *sequenceRetriever) Query(_ context.Context, request search.Request) (search.Result, error) {
+	s.requests = append(s.requests, request)
+	return search.Result{Chunks: s.results[len(s.requests)-1]}, nil
+}
+
+func TestHarnessRetainsAllRunsAndUsesMedianQuality(t *testing.T) {
+	retriever := &sequenceRetriever{results: [][]search.Chunk{
+		{{FilePath: "doc.md", Text: "answer"}}, {{FilePath: "doc.md", Text: "answer"}}, {{FilePath: "other.md", Text: "wrong"}},
+	}}
+	report, err := NewDependencies(DependenciesConfig{Searcher: retriever}).Run(context.Background(), &GoldenSet{Queries: []GoldenQuery{{ID: "q", Query: "q", Relevant: []RelevantChunk{{File: "doc.md"}}}}}, 5, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Aggregate.HitRateAtK != 1 || report.PerQuery[0].Metrics.HitRateAtK != 1 {
+		t.Fatalf("quality used final miss: %+v", report.Aggregate)
+	}
+	if len(report.PerQuery[0].Runs) != 3 || len(report.RunAggregates) != 3 || report.RunAggregates[2].Aggregate.HitRateAtK != 0 {
+		t.Fatalf("lost observations: %+v", report)
+	}
+	if report.Aggregate.Requests != 3 || report.RetrievalDepth != 10 {
+		t.Fatalf("request provenance: %+v", report.Aggregate)
+	}
+	if got := report.Distributions["hit_rate_at_k"].Samples; len(got) != 3 || got[0] != 1 || got[2] != 0 {
+		t.Fatalf("distribution=%v", got)
+	}
+	for _, r := range retriever.requests {
+		if r.TopK != 10 {
+			t.Fatalf("request depth=%d, want 10", r.TopK)
+		}
+	}
+}
+
+func TestMRRAt10IsIndependentOfTopK(t *testing.T) {
+	chunks := make([]search.Chunk, 12)
+	for i := range chunks {
+		chunks[i] = search.Chunk{FilePath: "irrelevant.md"}
+	}
+	chunks[6].FilePath = "doc.md"
+	result := scoreRun(chunks, canonicalEvidence([]RelevantChunk{{File: "doc.md"}}), nil, 5)
+	if result.Metrics.HitRateAtK != 0 || result.Metrics.RecallAtK != 0 || result.Metrics.NDCGAtK != 0 || result.Metrics.MRRAt10 != 1.0/7 {
+		t.Fatalf("metrics=%+v", result.Metrics)
+	}
+	chunks[6].FilePath = "irrelevant.md"
+	chunks[10].FilePath = "doc.md"
+	if got := scoreRun(chunks, canonicalEvidence([]RelevantChunk{{File: "doc.md"}}), nil, 12).Metrics.MRRAt10; got != 0 {
+		t.Fatalf("rank 11 MRR@10=%v", got)
+	}
+}
+
+func TestRepeatedChunkEvidenceCannotInflateNDCG(t *testing.T) {
+	relevant := canonicalEvidence([]RelevantChunk{{File: "doc.md", Contains: "answer", Grade: 1}, {File: "doc.md", Contains: "answer", Grade: 3}})
+	chunks := []search.Chunk{{FilePath: "doc.md", Text: "answer"}, {FilePath: "doc.md", Text: "answer"}, {FilePath: "doc.md", Text: "answer"}}
+	result := scoreRun(chunks, relevant, nil, 5)
+	if len(relevant) != 1 || relevant[0].Grade != 3 || result.Metrics.NDCGAtK != 1 || result.RelevantFound != 1 {
+		t.Fatalf("duplicate evidence inflated metrics: %+v", result)
+	}
+	if result.Ranking[1].Gain != 0 || result.Ranking[2].Gain != 0 {
+		t.Fatalf("duplicate gained credit: %+v", result.Ranking)
+	}
+}
+
+func TestUnsupportedQueriesAreSeparateFromRetrievalHitRate(t *testing.T) {
+	report, err := NewDependencies(DependenciesConfig{Searcher: &sequenceRetriever{results: [][]search.Chunk{{{FilePath: "doc.md"}}, nil}}}).Run(context.Background(), &GoldenSet{Queries: []GoldenQuery{{ID: "supported", Query: "q", Relevant: []RelevantChunk{{File: "doc.md"}}}, {ID: "unsupported", Query: "unknown", FaithfulnessLabel: FaithfulnessUnsupported}}}, 5, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Aggregate.HitRateAtK != 1 || report.Aggregate.AnswerableQueries != 1 || report.Aggregate.AbstentionQueries != 1 || report.PerQuery[1].Metrics.HitRateAtK != 0 {
+		t.Fatalf("abstention counted as hit/miss: %+v", report.Aggregate)
+	}
+}
+
+func TestGoldenLoaderAcceptsOnlyExplicitUnsupportedEmptyEvidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "golden.json")
+	good := `{"schema_version":2,"queries":[{"id":"unknown","query":"missing fact","type":"factoid","faithfulness_label":"unsupported","relevant":[],"expected_answer":"context cannot answer","required_claims":["abstain"]}]}`
+	if err := os.WriteFile(path, []byte(good), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadGoldenSet(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(strings.Replace(good, "unsupported", "fully_supported", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadGoldenSet(path); err == nil {
+		t.Fatal("accepted unsupported missing evidence without explicit label")
+	}
 }

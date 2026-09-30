@@ -1,0 +1,76 @@
+{
+  "files": [
+    {
+      "path": "samples/api-design-guidelines.md",
+      "sha256": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+      "bytes": 5078
+    },
+    {
+      "path": "samples/business.md",
+      "sha256": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+      "bytes": 11189
+    },
+    {
+      "path": "samples/cache.md",
+      "sha256": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+      "bytes": 12606
+    },
+    {
+      "path": "samples/calculus.md",
+      "sha256": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+      "bytes": 737
+    },
+    {
+      "path": "samples/change-data-capture.md",
+      "sha256": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+      "bytes": 17111
+    },
+    {
+      "path": "samples/knowledge-graph.md",
+      "sha256": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+      "bytes": 26397
+    },
+    {
+      "path": "samples/linear-algebra.md",
+      "sha256": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+      "bytes": 981
+    },
+    {
+      "path": "samples/numerical-methods.md",
+      "sha256": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+      "bytes": 1039
+    },
+    {
+      "path": "samples/os.md",
+      "sha256": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+      "bytes": 6839
+    },
+    {
+      "path": "samples/rabbitmq.md",
+      "sha256": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+      "bytes": 10901
+    },
+    {
+      "path": "samples/system-design-core.md",
+      "sha256": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+      "bytes": 1985
+    },
+    {
+      "path": "samples/trig-functions.md",
+      "sha256": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+      "bytes": 1362
+    },
+    {
+      "path": "samples/uber-architecture.md",
+      "sha256": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+      "bytes": 41106
+    },
+    {
+      "path": "samples/youtube-architecture.md",
+      "sha256": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+      "bytes": 16132
+    }
+  ],
+  "content_sha256": "6d0527d009e32f2f9661bab82ebb850c5641ef428331f8b7c6cc3dea3e3a3a5c",
+  "scope": "configured local source bytes; indexed-version equality is not verified"
+}

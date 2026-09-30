@@ -48,7 +48,7 @@ func TestGenerationHarnessScoresAnswerAndContext(t *testing.T) {
 		JudgeGenerator:   judge,
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 		MaxContextTokens: 100,
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
@@ -92,7 +92,7 @@ func TestGenerationHarnessRecordsJudgeFailures(t *testing.T) {
 		JudgeGenerator:   judge,
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
 		SchemaVersion: 2,
@@ -124,7 +124,7 @@ func TestGenerationHarnessClassifiesRetrievalMiss(t *testing.T) {
 		JudgeGenerator:   judge,
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 		RequestTimeout:   time.Second,
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
@@ -149,7 +149,7 @@ func TestGenerationHarnessClassifiesRetrievalError(t *testing.T) {
 		JudgeGenerator:   &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":1,"context_recall":1}`},
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 		RequestTimeout:   time.Second,
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
@@ -175,7 +175,7 @@ func TestGenerationHarnessClassifiesAnswerTimeout(t *testing.T) {
 		JudgeGenerator:   &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":1,"context_recall":1}`},
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 		RequestTimeout:   5 * time.Millisecond,
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
@@ -201,7 +201,7 @@ func TestGenerationHarnessClassifiesJudgeContractFailure(t *testing.T) {
 		JudgeGenerator:   &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":1,"context_recall":3}`},
 		AnswerModel:      "small-answer",
 		JudgeModel:       "large-judge",
-		JudgeModelLarger: true,
+		JudgeSuitability: "test judge configured for deterministic scoring",
 		RequestTimeout:   time.Second,
 	})
 	report, err := harness.Run(context.Background(), &GoldenSet{
@@ -245,7 +245,7 @@ func TestGenerationHarnessRecordsQualityDiagnosticCause(t *testing.T) {
 				JudgeGenerator:   &generationTestGenerator{response: fmt.Sprintf(`{"faithfulness":%v,"answer_relevancy":%v,"context_precision":1,"context_recall":%v}`, tt.faithful, tt.relevancy, tt.context)},
 				AnswerModel:      "small-answer",
 				JudgeModel:       "large-judge",
-				JudgeModelLarger: true,
+				JudgeSuitability: "test judge configured for deterministic scoring",
 				MaxContextTokens: tt.maxContext,
 				RequestTimeout:   time.Second,
 			})
@@ -272,7 +272,7 @@ func (blockingGenerationTestGenerator) Generate(context.Context, string) (<-chan
 	return make(chan conversationgeneration.Event), nil
 }
 
-func TestGenerationHarnessRequiresExplicitLargerJudge(t *testing.T) {
+func TestGenerationHarnessRequiresExplicitJudgeSuitability(t *testing.T) {
 	harness := NewGenerationDependencies(GenerationDependenciesConfig{
 		Searcher:        generationTestRetriever{},
 		AnswerGenerator: &generationTestGenerator{},
@@ -283,8 +283,8 @@ func TestGenerationHarnessRequiresExplicitLargerJudge(t *testing.T) {
 	_, err := harness.Run(context.Background(), &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{
 		ID: "q", Query: "q", ExpectedAnswer: "a", RequiredClaims: []string{"c"}, Relevant: []RelevantChunk{{File: "doc"}},
 	}}}, 1)
-	if err == nil || !strings.Contains(err.Error(), "larger judge") {
-		t.Fatalf("Run error = %v, want explicit larger-judge validation", err)
+	if err == nil || !strings.Contains(err.Error(), "judge suitability") {
+		t.Fatalf("Run error = %v, want explicit judge-suitability validation", err)
 	}
 }
 
@@ -329,5 +329,44 @@ func TestJudgePromptScoresTerseAnswersFairly(t *testing.T) {
 		if !strings.Contains(prompt, clause) {
 			t.Fatalf("judge prompt missing terseness-fairness clause %q", clause)
 		}
+	}
+}
+
+func TestGenerationEvaluatesAbstentionWithEmptyContext(t *testing.T) {
+	answer := &generationTestGenerator{response: "The provided context does not contain the answer."}
+	judge := &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":0,"context_recall":0,"abstention_score":1}`}
+	report, err := NewGenerationDependencies(GenerationDependenciesConfig{Searcher: generationTestRetriever{}, AnswerGenerator: answer, JudgeGenerator: judge, AnswerModel: "answer", JudgeModel: "judge", JudgeSuitability: "Uncalibrated independent test judge"}).Run(context.Background(), &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{ID: "unknown", Query: "What is the private production password?", FaithfulnessLabel: FaithfulnessUnsupported, ExpectedAnswer: "Context cannot answer.", RequiredClaims: []string{"abstain"}}}}, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(answer.prompts) != 1 || len(judge.prompts) != 1 {
+		t.Fatalf("empty evidence skipped generation: %+v", report)
+	}
+	result := report.PerQuery[0]
+	if result.AnswerStatus != "success" || result.JudgeStatus != "success" || result.DiagnosticCause != "" || result.AbstentionScore == nil || *result.AbstentionScore != 1 {
+		t.Fatalf("abstention result=%+v", result)
+	}
+	if report.Aggregate.AbstentionEvaluated != 1 || report.Aggregate.AbstentionScore != 1 {
+		t.Fatalf("aggregate=%+v", report.Aggregate)
+	}
+	if !strings.Contains(judge.prompts[0], "Expected support relationship: unsupported") {
+		t.Fatal("judge not told to measure abstention")
+	}
+}
+
+func TestUnsupportedJudgeRequiresAbstentionDecision(t *testing.T) {
+	report, err := NewGenerationDependencies(GenerationDependenciesConfig{Searcher: generationTestRetriever{}, AnswerGenerator: &generationTestGenerator{response: "I cannot answer from this context."}, JudgeGenerator: &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":0,"context_recall":0}`}, AnswerModel: "answer", JudgeModel: "judge", JudgeSuitability: "uncalibrated"}).Run(context.Background(), &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{ID: "unknown", Query: "unknown", FaithfulnessLabel: FaithfulnessUnsupported, ExpectedAnswer: "abstain", RequiredClaims: []string{"abstain"}}}}, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Aggregate.Failures != 1 || report.PerQuery[0].FailureClass != failureJudge {
+		t.Fatalf("missing abstention decision accepted: %+v", report)
+	}
+}
+
+func TestGenerationLatencyIncludesFailedCalls(t *testing.T) {
+	a := aggregateGeneration([]GenerationQueryResult{{AnswerLatencyMS: 10, JudgeLatencyMS: 20, Error: "judge failure", FailureClass: failureJudge}, {AnswerLatencyMS: 100, JudgeLatencyMS: 200}})
+	if a.AnswerP50LatMS != 55 || a.JudgeP50LatMS != 110 {
+		t.Fatalf("latency omitted failures: %+v", a)
 	}
 }
