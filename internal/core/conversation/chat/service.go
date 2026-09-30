@@ -85,6 +85,9 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 			turn.RewrittenQuery = retrievalQuery
 		}
 	}
+	// Staleness guard for the awaits above (session mint, follow-up
+	// rewrite): a concurrent delete or edit invalidates the captured
+	// mutation.
 	if d.mutationStale(mutation) {
 		operationErr = errors.New("conversation changed while turn was starting")
 		turn.Error = "Conversation changed while this turn was starting; please retry."
@@ -107,6 +110,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 	turn.Chunks = searchResult.Chunks
 	turn.ElapsedMS = time.Since(start).Milliseconds()
+	// Staleness guard for the retrieval await: history may have changed
+	// while the search ran.
 	if d.mutationStale(mutation) {
 		operationErr = errors.New("conversation changed while turn was running")
 		turn.Error = "Conversation changed while this turn was running; please retry."
@@ -133,6 +138,16 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	turn.Prompt = built.Prompt
 	turn.Citations = built.Context.Citations
 
+	turn, operationErr = d.startGeneration(ctx, req, turn, mutation)
+	return turn
+}
+
+// startGeneration owns everything after prompt assembly: it dials the
+// generator on a context detached from the starting request, registers the
+// turn's event stream with the broker, and spawns the supervisor that drains
+// the answer and persists the final turn. The returned error is StartTurn's
+// operation outcome; every failure path also fills turn.GenerateError.
+func (d *dependencies) startGeneration(ctx context.Context, req Request, turn Turn, mutation historyMutation) (Turn, error) {
 	// The generation context is detached from this POST: the request that
 	// starts a turn must not be the one that can kill it. CancelTurn (not
 	// browser disconnects) is what stops generation. The Ollama dial is
@@ -143,34 +158,34 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	events, err := d.generator.Generate(genCtx, turn.Prompt)
 	if err != nil {
 		cancel()
-		operationErr = err
 		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat generate failed", slog.String("query", req.Query), slog.Any("error", err))
 		turn.GenerateError = "Answer generation failed: " + err.Error()
 		d.persistStart(ctx, req, turn, mutation, false)
-		return turn
+		return turn, err
 	}
 
 	turn.ID = uuid.NewString()
 	stream, ok := d.broker.create(turn.ID)
 	if !ok {
 		cancel()
-		operationErr = errors.New("broker rejected generation")
-		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, operationErr)
+		err := errors.New("broker rejected generation")
+		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat broker rejected generation",
 			slog.String("query", req.Query), slog.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
 		d.persistStart(ctx, req, turn, mutation, false)
-		return turn
+		return turn, err
 	}
 	stream.setCancel(cancel)
+	// registerGeneration re-checks mutation currency atomically with the
+	// registration, closing the window the earlier staleness guards leave open.
 	if !d.mutations.registerGeneration(turn.ID, mutation, stream) {
 		cancel()
 		stream.finish()
-		operationErr = errors.New("conversation changed while generation was starting")
 		turn.ID = ""
 		turn.GenerateError = "Conversation changed while generation was starting; please retry."
-		return turn
+		return turn, errors.New("conversation changed while generation was starting")
 	}
 	turn.Streaming = true
 	d.generations.Add(1)
@@ -178,7 +193,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		defer d.generations.Done()
 		d.consumeGeneration(genCtx, stream, req, supervisorTurn, mutation, events, generationStarted)
 	}(turn)
-	return turn
+	return turn, nil
 }
 
 // CancelTurn aborts an in-flight generation. The supervisor observes the
@@ -418,46 +433,46 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 	return d.mutations.append(cctx, mutation, ht, req.Query)
 }
 
+// logPersistErr reports a failed history append. Stale mutations are
+// expected — the turn lost a race with a delete or edit — and are dropped;
+// anything else is logged.
+func (d *dependencies) logPersistErr(err error, sessionID string) {
+	if errors.Is(err, errStaleHistoryMutation) {
+		return
+	}
+	d.log.Warn("chat append turn failed", slog.String("session_id", sessionID), slog.Any("error", err))
+}
+
 // persistStart keeps an edited turn together with its prune before the UI
 // renders the replacement. Ordinary turns remain best-effort and detached
 // so a slow history store cannot delay the live response.
 func (d *dependencies) persistStart(ctx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) {
 	if req.Edit {
 		if err := d.persistTurn(ctx, req, turn, mutation, failed); err != nil {
-			if errors.Is(err, errStaleHistoryMutation) {
-				return
-			}
-			d.log.Warn("chat append edited turn failed", slog.String("session_id", turn.SessionID), slog.Any("error", err))
+			d.logPersistErr(err, turn.SessionID)
 		}
 		return
 	}
-	d.persist(ctx, req, turn, mutation, failed)
+	d.persistDetached(ctx, req, turn, mutation, failed)
 }
 
-// persist saves a turn in a best-effort, detached goroutine — a slow or
-// unreachable store must never delay the response the user is watching.
-func (d *dependencies) persist(reqCtx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) {
+// persistDetached saves a turn in a best-effort, detached goroutine — a slow
+// or unreachable store must never delay the response the user is watching.
+func (d *dependencies) persistDetached(reqCtx context.Context, req Request, turn Turn, mutation historyMutation, failed bool) {
 	if d.history == nil || turn.SessionID == "" {
 		return
 	}
 	d.persists.Go(func() {
 		if err := d.persistTurn(reqCtx, req, turn, mutation, failed); err != nil {
-			if errors.Is(err, errStaleHistoryMutation) {
-				return
-			}
-			d.log.Warn("chat append turn failed", slog.String("session_id", turn.SessionID), slog.Any("error", err))
+			d.logPersistErr(err, turn.SessionID)
 		}
 	})
 }
 
 // saveTurn persists a finished generation from the supervisor goroutine.
-
 func (d *dependencies) saveTurn(req Request, turn Turn, mutation historyMutation) {
 	if err := d.persistTurn(context.Background(), req, turn, mutation, false); err != nil {
-		if errors.Is(err, errStaleHistoryMutation) {
-			return
-		}
-		d.log.Warn("chat append turn failed", slog.String("session_id", turn.SessionID), slog.Any("error", err))
+		d.logPersistErr(err, turn.SessionID)
 	}
 }
 

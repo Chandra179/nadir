@@ -17,11 +17,11 @@ func TestBuildContextIncludesSectionHeaders(t *testing.T) {
 	if !strings.Contains(got, "source: linear-algebra.md > Special Matrices") {
 		t.Fatalf("context = %q, want section header in source citation", got)
 	}
-	prompt := BuildPrompt("what are special matrices", []search.Chunk{{
+	prompt := BuildPromptWithBudget("what are special matrices", []search.Chunk{{
 		FilePath: "linear-algebra.md",
 		Header:   "Special Matrices",
 		Text:     "Identity, diagonal, symmetric, and orthogonal matrices.",
-	}}, 100)
+	}}, PromptBudget{MaxContextTokens: 100}).Prompt
 	if !strings.Contains(prompt, "source: linear-algebra.md > Special Matrices") {
 		t.Fatalf("prompt = %q, want section header in generated context", prompt)
 	}
@@ -132,11 +132,11 @@ func TestContextDoesNotAdmitSourceLabelWithoutEvidence(t *testing.T) {
 }
 
 func TestBuildPromptShapesAnswersAndAbstention(t *testing.T) {
-	prompt := BuildPrompt("why add C to an indefinite integral", []search.Chunk{{
+	prompt := BuildPromptWithBudget("why add C to an indefinite integral", []search.Chunk{{
 		FilePath: "calculus.md",
 		Header:   "Antiderivatives",
 		Text:     "An antiderivative collects a constant of integration C.",
-	}}, 1000)
+	}}, PromptBudget{MaxContextTokens: 1000}).Prompt
 	for _, clause := range []string{
 		`"what is" question gets the value or formula itself`,
 		`"why" or "how" question gets the answer plus one to three short sentences`,

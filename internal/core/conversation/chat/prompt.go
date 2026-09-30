@@ -67,9 +67,10 @@ type PromptBuild struct {
 
 func promptSuffix(query string) string { return "\n\nQuestion: " + query + "\n\nAnswer:" }
 
-// BuildPromptWithBudget selects evidence by retrieval rank, then arranges only
-// the admitted chunks at the prompt edges. Lower-ranked evidence never takes
-// budget away from a higher-ranked chunk.
+// BuildPromptWithBudget is the sole generation prompt API: it selects
+// evidence by retrieval rank, then arranges only the admitted chunks at the
+// prompt edges. Lower-ranked evidence never takes budget away from a
+// higher-ranked chunk.
 func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBudget) PromptBuild {
 	contextTokens := max(0, budget.MaxContextTokens)
 	reserved := max(0, budget.ReservedOutputTokens)
@@ -88,16 +89,6 @@ func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBud
 	context.Stats.PromptTokens = estimateTokens(prompt)
 	context.Stats.ReservedOutputTokens = reserved
 	return PromptBuild{Prompt: prompt, Context: context}
-}
-
-// BuildPrompt preserves the evidence-only budget API for local callers. New
-// generation callers should also pass the model window and reserved output.
-func BuildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
-	return BuildPromptWithBudget(query, chunks, PromptBudget{MaxContextTokens: maxTokens}).Prompt
-}
-
-func buildPrompt(query string, chunks []search.Chunk, maxTokens int) string {
-	return BuildPrompt(query, chunks, maxTokens)
 }
 
 // lostInMiddleOrder interleaves chunks front/back so the best two occupy the
