@@ -7,6 +7,9 @@ import "context"
 // into the search orchestration layer.
 type SemanticCache interface {
 	Get(ctx context.Context, query string) ([]Candidate, bool, error)
-	Set(ctx context.Context, query string, candidates []Candidate) error
+	// PrepareWrite captures corpus freshness before Retrieval starts. The
+	// returned function remains safe when background execution is delayed
+	// across invalidation; obsolete writes are discarded.
+	PrepareWrite() func(context.Context, string, []Candidate) error
 	Clear(ctx context.Context) error
 }

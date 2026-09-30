@@ -31,6 +31,7 @@ type dependencies struct {
 	adaptiveSignals bool
 	dimensions      int
 	mu              sync.RWMutex
+	publicationMu   sync.Mutex
 }
 
 // NewDependencies constructs a document persistence Adapter over shared

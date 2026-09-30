@@ -18,6 +18,12 @@ type cacheInvalidator interface {
 	Clear(ctx context.Context) error
 }
 
+// A cache can suspend reuse throughout publication, independently from its
+// best-effort persistence cleanup. Clear-only invalidators remain supported.
+type cacheMutationGuard interface {
+	BeginMutation() func()
+}
+
 type lifecycleCoordinator interface {
 	BeginIngest(context.Context) error
 	EndIngest()

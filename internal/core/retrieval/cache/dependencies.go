@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
+
 	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
 )
@@ -37,6 +39,7 @@ type dependencies struct {
 	queryPrefix string
 	version     string
 	generation  atomic.Uint64
+	mutations   atomic.Int64
 	telemetry   *observability.Recorder
 }
 
@@ -60,7 +63,10 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		threshold:   threshold,
 		ttl:         cfg.TTL,
 		queryPrefix: cfg.QueryPrefix,
-		version:     cfg.Version,
-		telemetry:   cfg.Telemetry,
+		// Cache generations are process-local. A unique epoch prevents a
+		// restart from reviving persistent entries from an earlier corpus.
+		// This intentionally starts each process with a cold semantic cache.
+		version:   cfg.Version + ":" + uuid.NewString(),
+		telemetry: cfg.Telemetry,
 	}, nil
 }

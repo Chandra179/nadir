@@ -119,6 +119,10 @@ type failingReplacementPoints struct {
 	setCalls  int
 }
 
+func (p *failingReplacementPoints) Count(context.Context, *qdrant.CountPoints, ...grpc.CallOption) (*qdrant.CountResponse, error) {
+	return &qdrant.CountResponse{Result: &qdrant.CountResult{}}, nil
+}
+
 func (p *failingReplacementPoints) Upsert(_ context.Context, _ *qdrant.UpsertPoints, _ ...grpc.CallOption) (*qdrant.PointsOperationResponse, error) {
 	return &qdrant.PointsOperationResponse{}, p.upsertErr
 }

@@ -73,8 +73,8 @@ func TestSemanticCacheDelegatesPersistenceAndAppliesQueryPolicy(t *testing.T) {
 	if err := d.Set(context.Background(), "what is x?", want); err != nil {
 		t.Fatal(err)
 	}
-	if backend.query != "what is x?" || backend.entry.Version != "embed:v1:g0" {
-		t.Fatalf("backend entry = %+v, query=%q; want version embed:v1:g0", backend.entry, backend.query)
+	if backend.query != "what is x?" || backend.entry.Version != d.cacheVersion() {
+		t.Fatalf("backend entry = %+v, query=%q; want current cache version", backend.entry, backend.query)
 	}
 	if len(embedder.inputs) != 1 || embedder.inputs[0] != "query: what is x?" {
 		t.Fatalf("embed inputs = %q, want prefixed query", embedder.inputs)
@@ -133,6 +133,7 @@ func TestSemanticCacheExpiresOldEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	backend.entry.Version = d.cacheVersion()
 	if _, hit, err := d.Get(context.Background(), "query"); err != nil {
 		t.Fatal(err)
 	} else if hit {
@@ -150,5 +151,24 @@ func TestSemanticCacheWrapsEmbedderErrors(t *testing.T) {
 	}
 	if _, _, err := d.Get(context.Background(), "query"); err == nil {
 		t.Fatal("Get() succeeded despite embedder failure")
+	}
+}
+
+func TestSemanticCacheRestartDoesNotRevivePreviousProcessEntry(t *testing.T) {
+	backend := &cacheTestBackend{}
+	config := DependenciesConfig{Backend: backend, Embedder: &cacheTestEmbedder{}, Version: "embed:v1"}
+	first, err := NewDependencies(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Set(context.Background(), "query", []Candidate{{Text: "previous corpus"}}); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := NewDependencies(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, hit, err := restarted.Get(context.Background(), "query"); err != nil || hit {
+		t.Fatalf("restarted cache revived previous process entry: hit=%v err=%v", hit, err)
 	}
 }

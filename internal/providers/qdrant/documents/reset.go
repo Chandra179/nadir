@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"nadir/internal/core/documents/indexing"
+
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc/codes"
@@ -62,7 +64,7 @@ func resetCollection(ctx context.Context, baseName, aliasName string, ops resetC
 	}
 	collections, err := ops.list(ctx)
 	if err != nil {
-		return fmt.Errorf("reset published but could not list retired collections: %w", err)
+		return &indexing.PublicationError{Err: fmt.Errorf("reset published but could not list retired collections: %w", err)}
 	}
 	for _, name := range collections {
 		if name == staged || name == aliasName {
@@ -80,7 +82,7 @@ func resetCollection(ctx context.Context, baseName, aliasName string, ops resetC
 		}
 	}
 	if len(cleanupErrs) > 0 {
-		return fmt.Errorf("document reset published successfully; cleanup is retryable: %w", errors.Join(cleanupErrs...))
+		return &indexing.PublicationError{Err: fmt.Errorf("document reset published successfully; cleanup is retryable: %w", errors.Join(cleanupErrs...))}
 	}
 	return nil
 }

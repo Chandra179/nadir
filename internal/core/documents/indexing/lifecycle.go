@@ -2,6 +2,7 @@ package indexing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -128,15 +129,18 @@ func (d *dependencies) DeleteAll(ctx context.Context) error {
 		defer releaseGate()
 	}
 	operationErr = d.coordinator.Reset(ctx, func(ctx context.Context) error {
-		if err := d.reset(ctx); err != nil {
-			return err
+		finishMutation := d.beginCacheMutation()
+		defer finishMutation()
+		resetErr := d.reset(ctx)
+		if resetErr != nil && !WasPublished(resetErr) {
+			return resetErr
 		}
 		if d.clearCache != nil {
 			if err := d.clearCache(ctx); err != nil {
-				return fmt.Errorf("clear semantic cache: %w", err)
+				return errors.Join(resetErr, fmt.Errorf("clear semantic cache: %w", err))
 			}
 		}
-		return nil
+		return resetErr
 	})
 	return operationErr
 }

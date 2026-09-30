@@ -188,6 +188,11 @@ func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChun
 func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA string, chunks []indexing.IndexedChunk) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	// Serialize the published-version check with staging. Concurrent callers
+	// must not both observe an unpublished version and subsequently restage
+	// deterministic IDs after the other caller has activated them.
+	s.publicationMu.Lock()
+	defer s.publicationMu.Unlock()
 
 	if strings.TrimSpace(filePath) == "" {
 		return fmt.Errorf("document file path is required")
@@ -204,37 +209,65 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 		}
 	}
 
-	if len(chunks) > 0 {
+	// An activated version is complete and immutable. A retry after cleanup
+	// failure must not overwrite its deterministic point IDs with inactive
+	// staging payloads, which would hide the only remaining visible version.
+	visible, err := s.points.Count(ctx, &qdrant.CountPoints{
+		CollectionName: s.activeAlias,
+		Exact:          new(true),
+		Filter:         toQdrantFilter(documentVersionFilter(filePath, sourceSHA).Must),
+	})
+	if err != nil {
+		return fmt.Errorf("check published document version: %w", err)
+	}
+	published := visible.GetResult().GetCount() > 0
+	if published && visible.GetResult().GetCount() != uint64(len(chunks)) {
+		return fmt.Errorf("published document version contains %d chunks, expected %d; reset and reindex to change an existing version", visible.GetResult().GetCount(), len(chunks))
+	}
+	if !published && len(chunks) > 0 {
 		if err := s.upsert(ctx, chunks, false); err != nil {
 			return fmt.Errorf("stage document version: %w", err)
 		}
 	}
 
 	wait := true
-	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
-		CollectionName: s.activeAlias,
-		Wait:           &wait,
-		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(true)},
-		PointsSelector: qdrant.NewPointsSelectorFilter(documentVersionFilter(filePath, sourceSHA)),
-	}); err != nil {
-		return fmt.Errorf("activate document version: %w", err)
+	if !published && len(chunks) > 0 {
+		if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
+			CollectionName: s.activeAlias,
+			Wait:           &wait,
+			Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(true)},
+			PointsSelector: qdrant.NewPointsSelectorFilter(documentVersionFilter(filePath, sourceSHA)),
+		}); err != nil {
+			return fmt.Errorf("activate document version: %w", err)
+		}
+		published = true
 	}
 
+	retired := staleDocumentFilter(filePath, sourceSHA)
+	if len(chunks) == 0 {
+		// Empty source content publishes absence. Do not activate abandoned
+		// staging points for this SHA, and retire every version of the path.
+		retired = documentPathFilter(filePath)
+	}
 	if _, err := s.points.SetPayload(ctx, &qdrant.SetPayloadPoints{
 		CollectionName: s.activeAlias,
 		Wait:           &wait,
 		Payload:        map[string]*qdrant.Value{"active": qdrantutil.BoolValue(false)},
-		PointsSelector: qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
+		PointsSelector: qdrant.NewPointsSelectorFilter(retired),
 	}); err != nil {
-		return fmt.Errorf("deactivate previous document versions: %w", err)
+		mutationErr := fmt.Errorf("deactivate previous document versions: %w", err)
+		if published {
+			return &indexing.PublicationError{Err: mutationErr}
+		}
+		return mutationErr
 	}
 
 	if _, err := s.points.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: s.activeAlias,
 		Wait:           &wait,
-		Points:         qdrant.NewPointsSelectorFilter(staleDocumentFilter(filePath, sourceSHA)),
+		Points:         qdrant.NewPointsSelectorFilter(retired),
 	}); err != nil {
-		return fmt.Errorf("delete previous document versions: %w", err)
+		return &indexing.PublicationError{Err: fmt.Errorf("delete previous document versions: %w", err)}
 	}
 	return nil
 }
@@ -245,6 +278,8 @@ func (s *dependencies) ReplaceDocument(ctx context.Context, filePath, sourceSHA 
 func (s *dependencies) DeleteDocument(ctx context.Context, filePath string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	s.publicationMu.Lock()
+	defer s.publicationMu.Unlock()
 
 	if strings.TrimSpace(filePath) == "" {
 		return fmt.Errorf("document file path is required")

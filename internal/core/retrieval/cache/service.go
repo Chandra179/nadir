@@ -3,10 +3,27 @@ package cache
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"nadir/internal/core/observability"
 )
+
+// BeginMutation suspends cache reuse while a Document publication is in flight.
+// Each boundary invalidates outstanding read/write tokens, including searches
+// which observed the old corpus during a mutation that later failed. Multiple
+// concurrent file publications keep the cache suspended until all finish.
+func (c *dependencies) BeginMutation() func() {
+	c.mutations.Add(1)
+	c.generation.Add(1)
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			c.generation.Add(1)
+			c.mutations.Add(-1)
+		})
+	}
+}
 
 func (c *dependencies) Clear(ctx context.Context) error {
 	ctx, operation := observability.Start(ctx, c.telemetry, nil, "cache_invalidation")
@@ -27,6 +44,9 @@ func (c *dependencies) Clear(ctx context.Context) error {
 }
 
 func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool, error) {
+	if c.mutations.Load() > 0 {
+		return nil, false, nil
+	}
 	version := c.cacheVersion()
 	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
 	if err != nil {
@@ -41,7 +61,7 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool
 		return nil, false, nil
 	}
 
-	if c.cacheVersion() != version || entry.Version != version {
+	if c.mutations.Load() > 0 || c.cacheVersion() != version || entry.Version != version {
 		return nil, false, nil
 	}
 	if c.ttl > 0 {
@@ -53,17 +73,37 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool
 }
 
 func (c *dependencies) Set(ctx context.Context, query string, candidates []Candidate) error {
-	version := c.cacheVersion()
-	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
-	if err != nil {
-		return fmt.Errorf("semantic cache embed for set: %w", err)
-	}
+	return c.PrepareWrite()(ctx, query, candidates)
+}
 
-	return c.backend.Put(ctx, query, vec, Entry{
-		Version:  version,
-		CachedAt: time.Now().UTC(),
-		Results:  candidates,
-	})
+// PrepareWrite binds a result write to the corpus generation that Retrieval
+// will read. Capturing here, before Retrieval, also covers work whose detached
+// callback does not begin until after an invalidation.
+func (c *dependencies) PrepareWrite() func(context.Context, string, []Candidate) error {
+	version := c.cacheVersion()
+	if c.mutations.Load() > 0 {
+		return func(context.Context, string, []Candidate) error { return nil }
+	}
+	return func(ctx context.Context, query string, candidates []Candidate) error {
+		if c.mutations.Load() > 0 || c.cacheVersion() != version {
+			return nil
+		}
+		vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
+		if err != nil {
+			return fmt.Errorf("semantic cache embed for set: %w", err)
+		}
+		if c.mutations.Load() > 0 || c.cacheVersion() != version {
+			return nil
+		}
+
+		// Clear can still overlap persistence; the record carries the older
+		// generation and Get rejects it even if physical deletion failed.
+		return c.backend.Put(ctx, query, vec, Entry{
+			Version:  version,
+			CachedAt: time.Now().UTC(),
+			Results:  candidates,
+		})
+	}
 }
 
 func (c *dependencies) embedQuery(query string) string {

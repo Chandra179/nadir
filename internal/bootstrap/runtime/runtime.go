@@ -169,8 +169,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 				TTL:         cfg.SemanticCache.TTL,
 				Telemetry:   telemetry,
 				QueryPrefix: cfg.Embedder.QueryPrefix,
-				Version: "v1:" + cfg.Embedder.Model + ":" + fmt.Sprint(cfg.Embedder.Dimensions) +
-					":" + cfg.Embedder.QueryPrefix + ":" + cfg.Embedder.DocumentPrefix,
+				Version:     cachePolicyVersion(cfg, opts),
 			})
 			if candidateErr != nil {
 				log.Error("semantic cache init failed", slog.Any("error", candidateErr))

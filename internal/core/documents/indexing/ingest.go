@@ -139,7 +139,6 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 		d.log.Warn("source reconciliation skipped because indexing failed",
 			slog.Int64("failed", failed.Load()))
 	}
-	d.clearSemanticCache(ctx, processed.Load() > 0 || removed > 0)
 
 	result := Result{
 		Processed: int(processed.Load()),
@@ -197,7 +196,13 @@ func (d *dependencies) reconcileSources(ctx context.Context, files []UploadFile,
 		if _, present := desired[normalized]; present {
 			continue
 		}
-		if err := d.store.DeleteDocument(ctx, filePath); err != nil {
+		finishMutation := d.beginCacheMutation()
+		err = d.store.DeleteDocument(ctx, filePath)
+		if err == nil || WasPublished(err) {
+			d.clearSemanticCache(ctx, true)
+		}
+		finishMutation()
+		if err != nil {
 			return removed, fmt.Errorf("remove missing source %q: %w", filePath, err)
 		}
 		removed++
@@ -292,16 +297,31 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 
 func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
 	started := time.Now()
+	finishMutation := d.beginCacheMutation()
+	defer finishMutation()
+	published := false
 	// Store replacement is versioned: it stages the new points, makes that
 	// version visible, then deactivates and cleans up older versions. Retrying
 	// the whole operation is safe because the version identity is deterministic.
 	op := func() error {
-		if err := d.store.ReplaceDocument(ctx, plan.filePath, plan.sourceSHA, plan.chunks); err != nil {
+		err := d.store.ReplaceDocument(ctx, plan.filePath, plan.sourceSHA, plan.chunks)
+		// Invalidate at publication, including a failed cleanup. Doing this
+		// inside the retry loop preserves the outcome if a later attempt
+		// fails before publication and lets concurrent Retrieval observe the
+		// new corpus without waiting for the complete indexing pass.
+		if err == nil || WasPublished(err) {
+			published = true
+			d.clearSemanticCache(ctx, true)
+		}
+		if err != nil {
 			return fmt.Errorf("replace %s: %w", plan.filePath, err)
 		}
 		return nil
 	}
 	if err := backoff.RetryNotify(op, d.newBackoff(), nil); err != nil {
+		if published && !WasPublished(err) {
+			err = &PublicationError{Err: err}
+		}
 		observability.Stage(d.log, "ingest_commit", "error", started, err,
 			slog.String("path", plan.filePath), slog.Int("points", len(plan.chunks)))
 		return err
@@ -311,10 +331,16 @@ func (d *dependencies) commitPlan(ctx context.Context, plan indexPlan) error {
 	return nil
 }
 
+func (d *dependencies) beginCacheMutation() func() {
+	if cache, ok := d.cache.(cacheMutationGuard); ok {
+		return cache.BeginMutation()
+	}
+	return func() {}
+}
+
 // clearSemanticCache drops cached answers whose source content may have
-// changed. Only runs when something was actually ingested — an all-skipped
-// sweep has nothing stale to invalidate, and clearing unconditionally would
-// wipe a warm cache for no reason. Best-effort: failures are logged.
+// changed. Published mutations invalidate even when their cleanup fails; an
+// all-skipped sweep keeps a warm cache. Best-effort: failures are logged.
 func (d *dependencies) clearSemanticCache(ctx context.Context, changed bool) {
 	if d.cache == nil || !changed {
 		return

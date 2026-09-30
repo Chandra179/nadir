@@ -86,7 +86,15 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		return Result{Chunks: fromStoreChunks(chunks), Rerank: telemetry, OperationID: operation.ID()}, err
 	}
 
-	if cached, ok := s.getCached(ctx, query, topK, filter, request.SkipCache); ok {
+	// A typed fusion request can use a different ranking policy from the
+	// automatically classified query, so it cannot share query-only entries.
+	cacheEligible := s.cache != nil && !request.SkipCache && isEmptyFilter(filter) && query != "" &&
+		(!s.fusion.Enabled || request.QueryType == QueryTypeUnknown)
+	var cacheSet func(context.Context, string, []semanticcache.Candidate) error
+	if cacheEligible {
+		cacheSet = s.cache.PrepareWrite()
+	}
+	if cached, ok := s.getCached(ctx, query, topK, filter, !cacheEligible); ok {
 		finish("cache_hit", nil, slog.Bool("from_cache", true), slog.Int("results", len(cached)))
 		return Result{Chunks: fromStoreChunks(cached), FromCache: true, OperationID: operation.ID()}, nil
 	}
@@ -98,11 +106,11 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		return Result{}, err
 	}
 
-	if s.cache != nil && isEmptyFilter(filter) && query != "" && len(chunks) > 0 {
+	if cacheSet != nil && len(chunks) > 0 {
 		write := func(workCtx context.Context) {
 			cacheCtx, cacheOperation := observability.Start(workCtx, s.telemetry, s.log, "cache_write")
 			cacheStarted := time.Now()
-			err := s.cache.Set(cacheCtx, query, toCacheCandidates(chunks))
+			err := cacheSet(cacheCtx, query, toCacheCandidates(chunks))
 			outcome := "success"
 			if err != nil {
 				outcome = "error"
@@ -146,7 +154,7 @@ func (s *dependencies) getCached(ctx context.Context, query string, topK int, fi
 		observability.StageContext(ctx, s.log, "cache_read", "error", started, err)
 		return nil, false
 	}
-	if !hit {
+	if !hit || len(cached) < topK {
 		observability.StageContext(ctx, s.log, "cache_read", "miss", started, nil)
 		return nil, false
 	}

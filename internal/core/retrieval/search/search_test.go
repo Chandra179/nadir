@@ -62,17 +62,21 @@ func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string,
 var _ documentSearcher = (*searchTestStore)(nil)
 
 type searchTestCache struct {
-	chunks   []cache.Candidate
-	hit      bool
-	getCalls int
+	chunks       []cache.Candidate
+	hit          bool
+	getCalls     int
+	prepareCalls int
 }
 
 func (c *searchTestCache) Get(context.Context, string) ([]cache.Candidate, bool, error) {
 	c.getCalls++
 	return append([]cache.Candidate(nil), c.chunks...), c.hit, nil
 }
-func (c *searchTestCache) Set(context.Context, string, []cache.Candidate) error { return nil }
-func (c *searchTestCache) Clear(context.Context) error                          { return nil }
+func (c *searchTestCache) PrepareWrite() func(context.Context, string, []cache.Candidate) error {
+	c.prepareCalls++
+	return func(context.Context, string, []cache.Candidate) error { return nil }
+}
+func (c *searchTestCache) Clear(context.Context) error { return nil }
 
 var _ cache.SemanticCache = (*searchTestCache)(nil)
 

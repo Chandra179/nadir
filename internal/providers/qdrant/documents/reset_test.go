@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"nadir/internal/core/documents/indexing"
 )
 
 type resetTestOps struct {
@@ -15,6 +17,7 @@ type resetTestOps struct {
 	switchTarget string
 	switchErr    error
 	createErr    error
+	listErr      error
 	deleteErr    map[string]error
 }
 
@@ -41,7 +44,16 @@ func (f *resetTestOps) switchAlias(_ context.Context, _ string, target string, _
 }
 
 func (f *resetTestOps) list(context.Context) ([]string, error) {
-	return append([]string(nil), f.collections...), nil
+	return append([]string(nil), f.collections...), f.listErr
+}
+
+func TestResetCollectionReportsPublicationWhenRetiredListFails(t *testing.T) {
+	listErr := errors.New("collection listing unavailable")
+	f := &resetTestOps{current: "documents_chunks", listErr: listErr}
+	err := resetCollection(context.Background(), "documents_chunks", activeAliasName("documents_chunks"), f.callbacks())
+	if !indexing.WasPublished(err) || !errors.Is(err, listErr) || f.current == "documents_chunks" {
+		t.Fatalf("retired-list failure lost alias publication: current=%q err=%v", f.current, err)
+	}
 }
 
 func (f *resetTestOps) delete(_ context.Context, name string) error {
@@ -70,7 +82,7 @@ func TestResetCollectionFailedCreateKeepsPreviousActiveCollection(t *testing.T) 
 	}
 
 	err := resetCollection(context.Background(), "documents_chunks", "documents_chunks__active", f.callbacks())
-	if err == nil || !strings.Contains(err.Error(), "create staged document collection") {
+	if err == nil || indexing.WasPublished(err) || !strings.Contains(err.Error(), "create staged document collection") {
 		t.Fatalf("reset error = %v, want staged-create error", err)
 	}
 	if f.current != "documents_chunks" {
@@ -90,7 +102,7 @@ func TestResetCollectionFailedPublishCleansStageAndKeepsPreviousActiveCollection
 	}
 
 	err := resetCollection(context.Background(), "documents_chunks", "documents_chunks__active", f.callbacks())
-	if err == nil || !strings.Contains(err.Error(), "publish document collection generation") {
+	if err == nil || indexing.WasPublished(err) || !strings.Contains(err.Error(), "publish document collection generation") {
 		t.Fatalf("reset error = %v, want publish error", err)
 	}
 	if f.current != "documents_chunks" {
@@ -110,7 +122,7 @@ func TestResetCollectionPublishesBeforeRetryableCleanup(t *testing.T) {
 	}
 
 	err := resetCollection(context.Background(), old, activeAliasName(old), f.callbacks())
-	if err == nil || !strings.Contains(err.Error(), "cleanup is retryable") {
+	if err == nil || !indexing.WasPublished(err) || !strings.Contains(err.Error(), "cleanup is retryable") {
 		t.Fatalf("reset error = %v, want retryable cleanup error", err)
 	}
 	if f.current == old || f.switchTarget == "" {
