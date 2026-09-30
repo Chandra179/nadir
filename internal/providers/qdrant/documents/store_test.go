@@ -154,3 +154,67 @@ func TestFailedReplacementDoesNotDeactivatePreviousVersion(t *testing.T) {
 		})
 	}
 }
+
+type keywordSearchPoints struct {
+	qdrant.PointsClient
+	request  *qdrant.QueryPoints
+	response []*qdrant.ScoredPoint
+}
+
+func (p *keywordSearchPoints) Query(_ context.Context, request *qdrant.QueryPoints, _ ...grpc.CallOption) (*qdrant.QueryResponse, error) {
+	p.request = request
+	return &qdrant.QueryResponse{Result: p.response}, nil
+}
+
+func keywordScoredPoint(score float32, text string) *qdrant.ScoredPoint {
+	return &qdrant.ScoredPoint{
+		Score: score,
+		Payload: map[string]*qdrant.Value{
+			"text":        qdrantutil.StringValue(text),
+			"file_path":   qdrantutil.StringValue("doc.md"),
+			"line_start":  qdrantutil.IntValue(3),
+			"chunk_index": qdrantutil.IntValue(1),
+		},
+	}
+}
+
+func TestKeywordSearchRanksWithTheSparseLeg(t *testing.T) {
+	points := &keywordSearchPoints{response: []*qdrant.ScoredPoint{
+		keywordScoredPoint(0.031, "best match"),
+		keywordScoredPoint(0.012, "weaker match"),
+	}}
+	store := &dependencies{points: points, activeAlias: "docs__active"}
+	results, err := store.KeywordSearch(context.Background(), "secant derivative", 5, &search.Filter{FilePath: "doc.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 || results[0].Text != "best match" || results[1].Score != 0.012 {
+		t.Fatalf("keyword results lost BM25 ordering or scores: %+v", results)
+	}
+	request := points.request
+	if request.Using == nil || *request.Using != "bm25" {
+		t.Fatalf("keyword search did not query the bm25 sparse leg: %+v", request)
+	}
+	if len(request.Filter.GetMustNot()) != 1 || request.Filter.MustNot[0].GetField().GetKey() != "active" {
+		t.Fatalf("keyword search dropped the visibility filter: %+v", request.Filter)
+	}
+	if request.Filter.Must[0].GetField().GetKey() != "file_path" {
+		t.Fatalf("keyword search dropped the caller filter: %+v", request.Filter)
+	}
+	sparse := request.GetQuery().GetNearest().GetSparse()
+	if sparse == nil || len(sparse.GetIndices()) == 0 {
+		t.Fatalf("keyword query carried no sparse vector: %+v", request.GetQuery())
+	}
+	if request.GetLimit() != 5 {
+		t.Fatalf("keyword limit = %d, want 5", request.GetLimit())
+	}
+}
+
+func TestKeywordSearchRejectsEmptyKeywordWithoutRoundTrip(t *testing.T) {
+	points := &keywordSearchPoints{}
+	store := &dependencies{points: points, activeAlias: "docs__active"}
+	results, err := store.KeywordSearch(context.Background(), "  !? ", 5, nil)
+	if err != nil || results != nil || points.request != nil {
+		t.Fatalf("blank keyword searched: results=%v err=%v request=%+v", results, err, points.request)
+	}
+}

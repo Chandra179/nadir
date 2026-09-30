@@ -481,26 +481,31 @@ func scoredCandidates(points []*qdrant.ScoredPoint) []search.SearchCandidate {
 	return results
 }
 
+// KeywordSearch ranks a keyword-only query with the BM25 sparse leg. The
+// previous Scroll implementation carried no relevance ordering, so matching
+// chunks arrived in arbitrary storage order.
 func (s *dependencies) KeywordSearch(ctx context.Context, keyword string, topK int, filter *search.Filter) ([]search.SearchCandidate, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	qf := toQdrantFilter(buildFilterConditions(filter))
-	qf.Must = append(qf.Must, qdrant.NewMatchText("text", keyword))
-	resp, err := s.points.Scroll(ctx, &qdrant.ScrollPoints{
+	sparseIdx, sparseVal := vectorizeSparse(keyword)
+	if len(sparseIdx) == 0 {
+		return nil, nil
+	}
+	sparseName := sparseVectorName
+	limit := uint64(topK)
+	resp, err := s.points.Query(ctx, &qdrant.QueryPoints{
 		CollectionName: s.activeAlias,
-		Filter:         qf,
-		Limit:          new(uint32(topK)),
+		Query:          qdrant.NewQuerySparse(sparseIdx, sparseVal),
+		Using:          &sparseName,
+		Filter:         toQdrantFilter(buildFilterConditions(filter)),
+		Limit:          &limit,
 		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("keyword search: %w", err)
 	}
-	results := make([]search.SearchCandidate, len(resp.Result))
-	for i, r := range resp.Result {
-		results[i] = chunkFromPayload(r.Payload)
-	}
-	return results, nil
+	return scoredCandidates(resp.GetResult()), nil
 }
 
 func (s *dependencies) GetAllFileSHAs(ctx context.Context) (map[string]string, error) {
