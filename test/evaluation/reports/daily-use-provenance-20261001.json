@@ -1,0 +1,73 @@
+{
+  "measured_at": "2026-10-01T13:59:55.625330+00:00",
+  "config_sha256": "8b9e5b60210d661ceccc0f6d25b5b65d5ac7d55a22f598765288d218b67fa830",
+  "isolated_collections": true,
+  "hardware": {
+    "gpu": "RTX 4050 Laptop, 6 GiB",
+    "ram_gib": 15
+  },
+  "models": {
+    "gemma3:4b": {
+      "name": "gemma3:4b",
+      "model": "gemma3:4b",
+      "modified_at": "2026-09-29T23:10:12.532432137+07:00",
+      "size": 3338801804,
+      "digest": "a2af6cc3eb7fa8be8504abaf9b04e88f17a119ec3f04a3addf55f92841195f5a",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma3",
+        "families": [
+          "gemma3"
+        ],
+        "parameter_size": "4.3B",
+        "quantization_level": "Q4_K_M"
+      }
+    },
+    "gemma3:1b": {
+      "name": "gemma3:1b",
+      "model": "gemma3:1b",
+      "modified_at": "2026-03-19T14:45:51.316639985+07:00",
+      "size": 815319791,
+      "digest": "8648f39daa8fbf5b18c7b4e6a8fb4990c692751d49917417b8842ca5758e7ffc",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma3",
+        "families": [
+          "gemma3"
+        ],
+        "parameter_size": "999.89M",
+        "quantization_level": "Q4_K_M"
+      }
+    },
+    "embeddinggemma-300m-q8:latest": {
+      "name": "embeddinggemma-300m-q8:latest",
+      "model": "embeddinggemma-300m-q8:latest",
+      "modified_at": "2026-09-14T21:42:52.68587395+07:00",
+      "size": 333591230,
+      "digest": "267e44b13da41540fac617a517b1712fe58fde2ecd268ace4a9e072297c81011",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma-embedding",
+        "families": [
+          "gemma-embedding"
+        ],
+        "parameter_size": "307.58M",
+        "quantization_level": "Q8_0"
+      }
+    }
+  },
+  "api_binary_sha256": "87d53632f659db93fbe1341aebef861a42d6e469bae3644a7ac5bc44c0582392",
+  "git_head": "0ec7cbe73f6ffd8d56a97bdbbd9db3314dbbfa0e",
+  "dirty_source_diff_sha256": "d939f5bb2874ccde0e0a68100e17d3cbbfd907881ba4e1779b0297507256869a",
+  "answer_options": {
+    "temperature": 0,
+    "num_predict": 512,
+    "num_ctx": 4096
+  },
+  "reranker_enabled": false,
+  "rewriter_enabled": true,
+  "cache_bypassed": true
+}

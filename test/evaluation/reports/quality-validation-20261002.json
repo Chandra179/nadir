@@ -1,0 +1,183 @@
+{
+  "recorded_at": "2026-10-03T02:57:08.933924+00:00",
+  "run_identifier": "20261002",
+  "git_head": "0ec7cbe73f6ffd8d56a97bdbbd9db3314dbbfa0e",
+  "working_tree_changes": true,
+  "release_gate": false,
+  "checks": {
+    "go_short_all_cmd_internal": {
+      "status": "VERIFIED",
+      "command": "go test -short -count=1 ./cmd/... ./internal/...",
+      "exit_code": 0,
+      "evidence": "Tool session 54926 completed and was polled successfully; its original /tmp log was temporary."
+    },
+    "go_vet_all_cmd_internal": {
+      "status": "VERIFIED",
+      "command": "go vet ./cmd/... ./internal/...",
+      "exit_code": 0,
+      "evidence": "Same completed set-e session 54926."
+    },
+    "evaluator_build": {
+      "status": "VERIFIED",
+      "command": "go build -o /tmp/nadir-quality-final-evaluator ./cmd/evaluator",
+      "exit_code": 0,
+      "evidence": "Same completed set-e session 54926."
+    },
+    "affected_race_tests": {
+      "status": "VERIFIED",
+      "evidence": "Prefix regression failed before the fix and passed with affected race checks; CPU placement config/provider/runtime race session 10352 exited zero."
+    },
+    "dashboard_checks": {
+      "status": "VERIFIED",
+      "node": "25.6.1",
+      "unit_tests_passed": 11,
+      "evidence": "Completed session 45617: typecheck, lint, tests and production build. Browser verified rewrite details remain in Inspect."
+    },
+    "python_tests": {
+      "status": "VERIFIED",
+      "run": 38,
+      "skipped": 1,
+      "failures": 0,
+      "evidence": "Retained prior-stage verification; no Python code changed in the final resource fix."
+    },
+    "source_identity": {
+      "status": "VERIFIED",
+      "evidence": "Current cmd/internal Go SHA256 values match direct served-binary provenance."
+    },
+    "corpus_identity": {
+      "status": "VERIFIED",
+      "files": 14
+    },
+    "review_report_integrity": {
+      "status": "VERIFIED",
+      "evidence": "104 + 104 reviewed case IDs, report hashes and answer text match captured runs."
+    },
+    "json_parse": {
+      "status": "VERIFIED",
+      "files": 90
+    },
+    "local_document_links": {
+      "status": "VERIFIED",
+      "documents": 10,
+      "missing": 0
+    },
+    "git_diff_check": {
+      "status": "VERIFIED",
+      "exit_code": 0
+    }
+  },
+  "fitness": {
+    "lexical_query_prefix_boundary": "VERIFIED: failing-then-passing regression and live retrieval",
+    "optional_cpu_embedding_wiring": "VERIFIED: config/HTTP tests, 13-case live smoke, CPU/GPU coexistence",
+    "local_v1_answer_quality": "FAILED: default-model latest 28/30, 5/5, 2/5 plus semantic guard failure",
+    "installed_8b_model_adoption": "FAILED: 26/30, 5/5, 3/5 plus semantic guard failure",
+    "independent_human_calibration": "UNVERIFIED: no human labels supplied"
+  },
+  "environment": {
+    "existing_owner_collections_modified": false,
+    "isolated_container": "nadir-quality-20261002",
+    "qdrant_owned_container_absent": true,
+    "owned_api_and_dashboard_processes_absent": true,
+    "temporary_browser_tab_absent": true,
+    "evidence": "Approved host cleanup found no matching task processes and confirmed container absent. CUA iab tab list is empty.",
+    "ignored_helpers_removed": true
+  },
+  "approval_interruption": "One GitHub run-list request was not executed because approval review hit a Codex usage limit. A later approved read-only refresh completed; this interruption is resolved.",
+  "github": {
+    "pushed": false,
+    "merged": false,
+    "status_report": "test/evaluation/reports/quality-github-status-20261002.json",
+    "hosted_checks": "Newest listed run remains September 30; recorded annotation reports billing lock. Current billing balance unverified."
+  },
+  "artifact_sha256": {
+    "test/evaluation/reports/quality-agent-review-20261002.json": "2f97dc0eeac874f7b73923874c7731d60a6206c0dbdde2792cd1a204100c4f72",
+    "test/evaluation/reports/quality-anchor-probes-20261002.json": "3aded73b7cdf649e4a0491b43a2cf62cbe9055557f8a476dc36903a238fd6d4c",
+    "test/evaluation/reports/quality-bounded-daily-20261002.json": "7de0447bd8902d197995dda988c3616f3819b542a61fb5ab0c1e973ca8225750",
+    "test/evaluation/reports/quality-bounded-provenance-20261002.json": "b4ec9dfe02e2eb59baff23f4a59d19e9b0d01c17acc6c3bb39db741d6e923982",
+    "test/evaluation/reports/quality-bounded-representative-answers-20261002.json": "4465d97418921dc3d1ae3be7bec58229ffb65a2a254f840e00f0be5f1b34d033",
+    "test/evaluation/reports/quality-central-evidence-audit-20261002.json": "0902ce3c7a2a125738a3697604ca73ca36a7ac922ab6bf744520bc2fa977a17b",
+    "test/evaluation/reports/quality-clean-model-probes-20261002.json": "1da6738cbd86866a9e663a6adcbfb0ed24a3530a3a269674c854e8e289229382",
+    "test/evaluation/reports/quality-complete-daily-20261002.json": "8ab6b805dd244953d169e23eb302a1eda952c8f3c755f1beeda26785420b061d",
+    "test/evaluation/reports/quality-complete-provenance-20261002.json": "0d2be6d04dc65e94fbb8daab1164b9b2a264d09158fa958459c309ae13244a57",
+    "test/evaluation/reports/quality-complete-representative-answers-20261002.json": "d5badf567b54144323e511bfd47062cbf17a5403db0520a7821993c94f6b1ffa",
+    "test/evaluation/reports/quality-control-daily-20261002.json": "1be24c097d5d725142cb2022e8dc590db84437b07cb0f314684f1624220a05fd",
+    "test/evaluation/reports/quality-control-representative-answers-20261002.json": "a3bb44e908e1117d37141894daf54622cda5e91f4b7b4e8fa99f41b9be5a3915",
+    "test/evaluation/reports/quality-control-representative-retrieval-20261002.json": "3a85977d65996096beb36eef2aa35031687728983873bbc46363f82f159fe2a2",
+    "test/evaluation/reports/quality-control-retrieval-20261002.json": "ec14472ee98ebc89a679ec1c97d10a53d9087c32fc2ed72e91fca43a7337b0d3",
+    "test/evaluation/reports/quality-cpu-direct-provenance-20261002.json": "99feb5c04ff603b32ded03c27c0a6aa0eec4e53f8cb4d5d9cf0fac42fb5f15d0",
+    "test/evaluation/reports/quality-cpu-direct-residence-20261002.json": "b7463b4e2fd2c1d9fd766e2278a154cdd7097fa24657f161e79a2fc0eadf563f",
+    "test/evaluation/reports/quality-cpu-direct-smoke-20261002.json": "12095cb8aa0b45a24c3ba35dd0a84dc534270dd4490bfd28ca23f10fdae2d81e",
+    "test/evaluation/reports/quality-cpu-direct-smoke-review-20261002.json": "1d391ec64f2b305072dc47e9cfcdd819e94629be348a59dacbee135966481756",
+    "test/evaluation/reports/quality-cpue-model-agent-review-20261002.json": "538fec392a106c41ff70f6e0483db3825c6535ee8f1df45508a1390d914ed8a1",
+    "test/evaluation/reports/quality-cpue-model-daily-20261002.json": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+    "test/evaluation/reports/quality-cpue-model-provenance-20261002.json": "fce867c6a249ada869dd0a43676054dd3a5029415e0ad16d3b9e940feb2a9893",
+    "test/evaluation/reports/quality-cpue-model-representative-answers-20261002.json": "15a38e4f891e1604654c89d466965745db38afe87819e3bda66d96c51333b224",
+    "test/evaluation/reports/quality-cpue-model-representative-retrieval-20261002.json": "5a9cdae0e6010246c05e62832f417e5079c798f5781c553a0f24ed99be23ff1e",
+    "test/evaluation/reports/quality-cpue-model-retrieval-20261002.json": "ebc09a7720cadcb519a43f123ee30d82d8372b354a5b18ee7c5a6bcb5e426a56",
+    "test/evaluation/reports/quality-diagnostic-decisions-20261002.json": "8f93b51b97cdbc3424ca5d50a29f0eaba89d11fba36731d6bf1227aa5d8778a7",
+    "test/evaluation/reports/quality-explicit-reference-probes-20261002.json": "400090fbe23b2a67ad7d6d1c5b7ca5e323e8e10b772490eb39751a6c9270dec9",
+    "test/evaluation/reports/quality-focused-central-evidence-audit-20261002.json": "a4e152d603559f2de413b1a32fa692bc329c861d3fbdde771eb740a6201189a6",
+    "test/evaluation/reports/quality-focused-daily-20261002.json": "1641efbe275d93db050e37a0384c3b2f6107a72b4f6da156b21558fb01e6c570",
+    "test/evaluation/reports/quality-focused-provenance-20261002.json": "63feb611bfaf22867cfa81cd85f1d98dc083f4e5033bdf773f950aa7acf90a9a",
+    "test/evaluation/reports/quality-focused-representative-answers-20261002.json": "144a1a720976ba0a15a1198a2386ad4bfa4c1d5c83366eb6a9fd24d83e24859a",
+    "test/evaluation/reports/quality-focused-representative-retrieval-20261002.json": "f0f2b3931f7053337ead712325eacc6119dee7d2b26d4f5c512bf9c1e5067be1",
+    "test/evaluation/reports/quality-focused-retrieval-20261002.json": "faeef4648bbd4f326ccd326259cea0e8a44442a9c3afe27d151c24fc7a762475",
+    "test/evaluation/reports/quality-followup-scope-probes-20261002.json": "aad8494698eb948af5c83e168d41e61645ee691218f754d1f864dc16a9e3176f",
+    "test/evaluation/reports/quality-github-status-20261002.json": "6db0f43869a0e17c1c2f49f28fa15f74cf0e308e8056f5f0dac8475cc62d2b58",
+    "test/evaluation/reports/quality-heading-daily-20261002.json": "e35a07e55a10506a579ef1bc3acd08f7b88495f5d072eafd3cf9337eef331e4f",
+    "test/evaluation/reports/quality-heading-representative-answers-20261002.json": "7403bc2de3a04e32798948aa2433c5379dc519cb79e8fa93f3c79f58090403b9",
+    "test/evaluation/reports/quality-heading-representative-retrieval-20261002.json": "1a6e977b1738d31224402ded8577dde50afd4f117b99085a2a7584eb32dae7f8",
+    "test/evaluation/reports/quality-heading-retrieval-20261002.json": "843446536a2db6224956904c50c394ff4e556cc0b479c95e944ccac50331500a",
+    "test/evaluation/reports/quality-label-daily-20261002.json": "1fa1e6c83bb85c0e511759139e687f1ac3634d71fa456849f2325b2308a2f3cd",
+    "test/evaluation/reports/quality-label-provenance-20261002.json": "0beccb8e036acdb5e98037f3e59f26203e4eec10bebe6f6f63d0c441c5f7ae30",
+    "test/evaluation/reports/quality-label-representative-answers-20261002.json": "f8b9afd4f1931db3c00b766f06100564d6b75829763e0c74232c1c92ebeebc7d",
+    "test/evaluation/reports/quality-label-representative-retrieval-20261002.json": "5fbaedec4f8ff2a373deb2df5d9a05892980bd029267ccea10901076bf075c6b",
+    "test/evaluation/reports/quality-label-retrieval-20261002.json": "be7d6b50e23fe10be803b1b8c27cced80c4fdc496cd7db723b3a95c1e605571c",
+    "test/evaluation/reports/quality-layout-probes-20261002.json": "5c68f8accafca204dafce4cae96d4bdb672691ab2576d7a9698848752aad8094",
+    "test/evaluation/reports/quality-llama-daily-20261002.json": "3f1c86a7a076d0623b3e30956d22904cad49382324da42546aa8d9f101c19a6c",
+    "test/evaluation/reports/quality-llama-provenance-20261002.json": "8d43aa55f7db9ddc170c0928192129caada784619b7c67a844ac2ad77463f3c8",
+    "test/evaluation/reports/quality-message-role-probes-20261002.json": "19dcaed415bd5dc873813682a2b1c3a23b1fba733f2d4b80f1ed62026934872b",
+    "test/evaluation/reports/quality-model-probes-20261002.json": "22edabc6a3d5bd98337a4ed1351dfd09c943dac932eafa2d9c11e373e5df333d",
+    "test/evaluation/reports/quality-plan-20261002.json": "d07dbec181f0259d991d710a2c6c5f43eaa7fde63545ce4f1650c204a8393ca8",
+    "test/evaluation/reports/quality-prefix-agent-review-20261002.json": "59412f8aa1732d7861f7a2c85a58995bae53de36d5b3af2ba5aa35b4df999744",
+    "test/evaluation/reports/quality-prefix-central-evidence-audit-20261002.json": "2c30fe3ad942c5acc65e6d55b7eeff18ef9ac0ae292beaba876e15a34ddec28e",
+    "test/evaluation/reports/quality-prefix-daily-20261002.json": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+    "test/evaluation/reports/quality-prefix-provenance-20261002.json": "62ab334ea42813a0cd46f3957c26040422adbbcdfb89ae224ba92bb9de59c733",
+    "test/evaluation/reports/quality-prefix-representative-answers-20261002.json": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+    "test/evaluation/reports/quality-prefix-representative-retrieval-20261002.json": "1e8740033afa7adfb4661a97deef7ceb3db0dcafabc2e4f20d385a25f42862b5",
+    "test/evaluation/reports/quality-prefix-retrieval-20261002.json": "e63dd95ef774706e2e954765399124e13a208559970944d04cc4af3ac26f1f11",
+    "test/evaluation/reports/quality-prompt-daily-20261002.json": "7071ee310d5d073d9870e5a69884bcd5b6b5a14a8e6a88174c20a99f2b3cf2f4",
+    "test/evaluation/reports/quality-prompt-probes-20261002.json": "deb775f5f9f179a62371f0bd844679c0d24ed1505d9780e9284587c3a50bbb66",
+    "test/evaluation/reports/quality-prompt-provenance-20261002.json": "6d529e0f9d0679aa6a8fb1f0d2a3a6a73b8fd54334421183f83d074b708f4b72",
+    "test/evaluation/reports/quality-prompt-representative-answers-20261002.json": "caff8343100b1b15ce8821725863396654765bf0b38a66284b52b6335eefd6d1",
+    "test/evaluation/reports/quality-qualified-probes-20261002.json": "2be63fd73217dcdcb1ca08c987ae7a53ee5f01338429168ed6fd051f5e52111b",
+    "test/evaluation/reports/quality-question-first-probes-20261002.json": "7abe50c85fe883fa4cdaa61e267f61a6252d0319eb7f356d0efb7312e3e0a356",
+    "test/evaluation/reports/quality-quote-plan-probes-20261002.json": "06c583b773125e84b4d1421b4072010f6059821f70e5327036cc04417c0dd9c7",
+    "test/evaluation/reports/quality-reading-label-probes-20261002.json": "cffd822befb2eafba8edf83bfeb594c6bb32d2e935b23d028b48960058a0db8a",
+    "test/evaluation/reports/quality-repeat-questions-20261002.json": "e129629ba7fe3784604f334738eacf0404217c91590ca7278a60b7462b97a132",
+    "test/evaluation/reports/quality-resolved-followup-probes-20261002.json": "297197f32dc6a6d99e0a81dd14f8c8786f84d08715ac41e8bc7accddffc10988",
+    "test/evaluation/reports/quality-retained-daily-20261002.json": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+    "test/evaluation/reports/quality-retained-provenance-20261002.json": "b7984aa42ffc5bbd20e912e0a492edafa08b4712791e3c0d1333ff61e4d58a7e",
+    "test/evaluation/reports/quality-retained-repeat-1-20261002.json": "bbecea9cfc1b0044fcb57b78812a965b8b3d0d803a60499a892f0e866bfae155",
+    "test/evaluation/reports/quality-retained-repeat-2-20261002.json": "034e425076cf64cbcbc29844f2140242aec79360919411644e7b3e7e7fa6285f",
+    "test/evaluation/reports/quality-retained-repeat-3-20261002.json": "40ea8abbb27a7a6a55696674fb2e56e506e856172cb29b24843f0c764435869d",
+    "test/evaluation/reports/quality-retained-representative-answers-20261002.json": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+    "test/evaluation/reports/quality-rewrite-4b-20261002.json": "6a49ca305f0501ddaaf6f186406105d20ef8b87ae2f3e406a002beaf3f4d5475",
+    "test/evaluation/reports/quality-rewrite-fewshot-20261002.json": "99fbc175e3e6ed4f5bcd46a6e0800d6e2a8bd8caafe91867826897b6f8f384f1",
+    "test/evaluation/reports/quality-rewrite-probes-20261002.json": "f057ce42fa4770b975d3bdc3bbec235378f29a8a3036911b934b259e77950f41",
+    "test/evaluation/reports/quality-scope-prompt-probes-20261002.json": "f2d2c82a1a968489c15109b0a58d1421f7966999a073ebd811695d1d3bee4475",
+    "test/evaluation/reports/quality-scoped-daily-20261002.json": "922363e354542c5e1eadded5ca1631cdfee20b5fe863f0539d4ed4751c8f403e",
+    "test/evaluation/reports/quality-scoped-representative-retrieval-20261002.json": "756e51713b1f2d4dc670e4b2e1cfccf6f529b43a9dc8028dabc194039683908a",
+    "test/evaluation/reports/quality-scoped-retrieval-20261002.json": "f4d86d0cd18f84ad98785abfbea4560e6bdf50cd14e33bed231da89308d46b19",
+    "test/evaluation/reports/quality-scopedlabel-daily-20261002.json": "5a556cd74b7e38717db41c9a96d2f2269df1a72b215bb276d911f3c965d06e2d",
+    "test/evaluation/reports/quality-scopedlabel-provenance-20261002.json": "966d3ab7d18e309ee2e7ecf3839f14e933e07b93c5e781370ae2d0017036798e",
+    "test/evaluation/reports/quality-scopedlabel-representative-answers-20261002.json": "1e2838e4ed92d85d36c90346025a5f44ce6486976e0d3d6a7e6cd8f96f2c725d",
+    "test/evaluation/reports/quality-scopedlabel-representative-retrieval-20261002.json": "ad5435daa5e16049ad1c2951b71ff70db3368ee1c5d3583c8630d0e00065d8be",
+    "test/evaluation/reports/quality-scopedlabel-retrieval-20261002.json": "adf841612321307542e717fde8490b487e0ca2c47e96e2c97f2ec7c2c8852142",
+    "test/evaluation/reports/quality-selected-scope-probes-20261002.json": "88c099d225795bb130ba26e95a4c43a5273f8f3caeaeb9e42e07f3af9041e3ee",
+    "test/evaluation/reports/quality-window-daily-20261002.json": "708c6cd9145a3b0f3d03cb4ff72a207623d8ffc52399fec451364ea44a51a59c",
+    "test/evaluation/reports/quality-window-representative-answers-20261002.json": "8e72f73ac814c05c6e1ed0c14f4ea3270b7b68df9d3d076d4b02c58980d4f05b",
+    "test/evaluation/reports/quality-window-representative-retrieval-20261002.json": "c3be52dfbc6a8e1f970ddd0688e49141f99737203847116efba83e0e1e394ca4",
+    "test/evaluation/reports/quality-window-retrieval-20261002.json": "7b438c909abcc6d8bd4efca419a02b8fbdecad05967729ed23bb8a45bfe2794e"
+  }
+}

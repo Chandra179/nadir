@@ -89,7 +89,15 @@ export type IngestResponse = {
   failed: number;
   removed: number;
   names?: string[];
+  files?: { name: string; status: "processed" | "skipped" | "failed"; error?: string; published?: boolean }[];
   error?: string;
+};
+
+export type DocumentsResponse = {
+  documents: { file_path: string; source_sha: string }[];
+  count: number;
+  last_import?: { completed_at: string; result: IngestResponse };
+  last_import_scope: "since_process_start";
 };
 
 export type DeleteResponse = {

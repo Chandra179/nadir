@@ -29,6 +29,9 @@ func (d *dependencies) DeleteAllData(w http.ResponseWriter, r *http.Request) {
 		respond.JSON(w, http.StatusInternalServerError, deleteAllResponse{Error: msg})
 		return
 	}
+	d.importMu.Lock()
+	d.lastImport = nil
+	d.importMu.Unlock()
 
 	respond.JSON(w, http.StatusOK, deleteAllResponse{Deleted: true})
 }

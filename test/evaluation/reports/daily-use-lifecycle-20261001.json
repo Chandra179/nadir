@@ -1,0 +1,328 @@
+{
+  "measured_at": "2026-10-01T14:11:59.277504+00:00",
+  "isolated_database": true,
+  "checks": {
+    "enabled_models_ready": {
+      "ready": true,
+      "checks": {
+        "embedding": {
+          "ready": true,
+          "model": "embeddinggemma-300m-q8:latest",
+          "loaded_model": "embeddinggemma-300m-q8:latest",
+          "details": "dimensions=768"
+        },
+        "generator": {
+          "ready": true,
+          "model": "gemma3:4b",
+          "details": "installed model metadata; inference capacity is checked by actual turns"
+        },
+        "qdrant": {
+          "ready": true
+        },
+        "reranker": {
+          "ready": true,
+          "details": "disabled"
+        },
+        "rewriter": {
+          "ready": true,
+          "model": "gemma3:1b",
+          "details": "installed model metadata; inference capacity is checked by actual turns"
+        }
+      }
+    },
+    "partial_import": {
+      "operation_id": "op-4ae73c294449e0833b7af1ef",
+      "processed": 1,
+      "skipped": 0,
+      "failed": 2,
+      "removed": 0,
+      "names": [
+        "daily-use-canary-20261001.md"
+      ],
+      "files": [
+        {
+          "name": "daily-use-canary-20261001.md",
+          "status": "processed"
+        },
+        {
+          "name": "daily-use-disabled.pdf",
+          "status": "failed",
+          "error": "PDF intake is disabled; configure docling to ingest daily-use-disabled.pdf"
+        },
+        {
+          "name": "daily-use-unsupported.txt",
+          "status": "failed",
+          "error": "only .md and .pdf files can be ingested: daily-use-unsupported.txt"
+        }
+      ]
+    },
+    "inventory_after_partial_import": {
+      "documents": [
+        {
+          "file_path": "daily-use-canary-20261001.md",
+          "source_sha": "72bb226f54d4a8fd3eb5326e71fa63a067633a0c56f19c4addc402c82bd1c666"
+        },
+        {
+          "file_path": "samples/api-design-guidelines.md",
+          "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+        },
+        {
+          "file_path": "samples/business.md",
+          "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+        },
+        {
+          "file_path": "samples/cache.md",
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+        },
+        {
+          "file_path": "samples/calculus.md",
+          "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+        },
+        {
+          "file_path": "samples/change-data-capture.md",
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+        },
+        {
+          "file_path": "samples/knowledge-graph.md",
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+        },
+        {
+          "file_path": "samples/linear-algebra.md",
+          "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+        },
+        {
+          "file_path": "samples/numerical-methods.md",
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+        },
+        {
+          "file_path": "samples/os.md",
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+        },
+        {
+          "file_path": "samples/rabbitmq.md",
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+        },
+        {
+          "file_path": "samples/system-design-core.md",
+          "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+        },
+        {
+          "file_path": "samples/trig-functions.md",
+          "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+        },
+        {
+          "file_path": "samples/uber-architecture.md",
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+        },
+        {
+          "file_path": "samples/youtube-architecture.md",
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+        }
+      ],
+      "count": 15,
+      "last_import": {
+        "completed_at": "2026-10-01T14:11:59Z",
+        "result": {
+          "operation_id": "op-4ae73c294449e0833b7af1ef",
+          "processed": 1,
+          "skipped": 0,
+          "failed": 2,
+          "removed": 0,
+          "files": [
+            {
+              "name": "daily-use-canary-20261001.md",
+              "status": "processed"
+            },
+            {
+              "name": "daily-use-disabled.pdf",
+              "status": "failed",
+              "error": "PDF intake is disabled; configure docling to ingest daily-use-disabled.pdf"
+            },
+            {
+              "name": "daily-use-unsupported.txt",
+              "status": "failed",
+              "error": "only .md and .pdf files can be ingested: daily-use-unsupported.txt"
+            }
+          ]
+        }
+      },
+      "last_import_scope": "since_process_start"
+    },
+    "duplicate_skipped": {
+      "operation_id": "op-3916b6764e8cb70e9ba2dcc5",
+      "processed": 0,
+      "skipped": 1,
+      "failed": 0,
+      "removed": 0,
+      "names": [
+        "daily-use-canary-20261001.md"
+      ],
+      "files": [
+        {
+          "name": "daily-use-canary-20261001.md",
+          "status": "skipped"
+        }
+      ]
+    },
+    "original_source_sha": "72bb226f54d4a8fd3eb5326e71fa63a067633a0c56f19c4addc402c82bd1c666",
+    "cache_seed_hit": true,
+    "updated_source_sha": "6ce86ffe7aebee64c4e23d70ddac87ea1200b0e558f71bdc986d15df53dbb035",
+    "update_invalidated_cache": true,
+    "cancel_http_status": 204,
+    "cancelled_partial_answer": "Topology",
+    "cancelled_answer_persisted": true,
+    "restart_preserved_sources_and_partial_history": true,
+    "recent_import_scope_expires_on_restart": true,
+    "isolated_reset_clears_inventory": true,
+    "reingest_samples_after_reset": {
+      "operation_id": "op-f74e6f84ef2b7178a30eab93",
+      "processed": 14,
+      "skipped": 0,
+      "failed": 0,
+      "removed": 0,
+      "names": [
+        "samples/api-design-guidelines.md",
+        "samples/business.md",
+        "samples/cache.md",
+        "samples/calculus.md",
+        "samples/change-data-capture.md",
+        "samples/knowledge-graph.md",
+        "samples/linear-algebra.md",
+        "samples/numerical-methods.md",
+        "samples/os.md",
+        "samples/rabbitmq.md",
+        "samples/system-design-core.md",
+        "samples/trig-functions.md",
+        "samples/uber-architecture.md",
+        "samples/youtube-architecture.md"
+      ],
+      "files": [
+        {
+          "name": "samples/api-design-guidelines.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/business.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/cache.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/calculus.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/change-data-capture.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/knowledge-graph.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/linear-algebra.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/numerical-methods.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/os.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/rabbitmq.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/system-design-core.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/trig-functions.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/uber-architecture.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/youtube-architecture.md",
+          "status": "processed"
+        }
+      ]
+    }
+  },
+  "owned_sessions": [
+    "034ccba9-1a14-4871-bf9d-b89a8b843fc9",
+    "28e31162-df3d-4510-a617-246039a353b3",
+    "8b737b5a-485d-4323-8162-391cd2a1ae67",
+    "ab19c117-6b2f-4c02-a5dc-c9f6a65deeb6"
+  ],
+  "restart_session_id": "28e31162-df3d-4510-a617-246039a353b3",
+  "restart_inventory": [
+    {
+      "file_path": "daily-use-canary-20261001.md",
+      "source_sha": "6ce86ffe7aebee64c4e23d70ddac87ea1200b0e558f71bdc986d15df53dbb035"
+    },
+    {
+      "file_path": "samples/api-design-guidelines.md",
+      "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+    },
+    {
+      "file_path": "samples/business.md",
+      "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+    },
+    {
+      "file_path": "samples/cache.md",
+      "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+    },
+    {
+      "file_path": "samples/calculus.md",
+      "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+    },
+    {
+      "file_path": "samples/change-data-capture.md",
+      "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+    },
+    {
+      "file_path": "samples/knowledge-graph.md",
+      "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+    },
+    {
+      "file_path": "samples/linear-algebra.md",
+      "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+    },
+    {
+      "file_path": "samples/numerical-methods.md",
+      "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+    },
+    {
+      "file_path": "samples/os.md",
+      "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+    },
+    {
+      "file_path": "samples/rabbitmq.md",
+      "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+    },
+    {
+      "file_path": "samples/system-design-core.md",
+      "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+    },
+    {
+      "file_path": "samples/trig-functions.md",
+      "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+    },
+    {
+      "file_path": "samples/uber-architecture.md",
+      "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+    },
+    {
+      "file_path": "samples/youtube-architecture.md",
+      "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+    }
+  ]
+}

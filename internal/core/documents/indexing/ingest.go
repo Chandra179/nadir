@@ -70,15 +70,21 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 	sem := make(chan struct{}, d.workers)
 	var wg sync.WaitGroup
 	seenNames := make(map[string]struct{}, len(files))
+	outcomes := make([]FileResult, len(files))
+	failFile := func(index int, name string, err error) {
+		failed.Add(1)
+		outcomes[index] = FileResult{Name: name, Status: "failed", Error: err.Error(), Published: WasPublished(err)}
+	}
 
-	for _, f := range files {
+	for index, f := range files {
 		if _, seen := seenNames[f.Name]; seen {
 			skipped.Add(1)
+			outcomes[index] = FileResult{Name: f.Name, Status: "skipped"}
 			continue
 		}
 		seenNames[f.Name] = struct{}{}
 		if d.maxFileBytes > 0 && int64(len(f.Data)) > d.maxFileBytes {
-			failed.Add(1)
+			failFile(index, f.Name, fmt.Errorf("source exceeds max file size of %d bytes", d.maxFileBytes))
 			d.log.Warn("skipping oversized file",
 				slog.String("path", f.Name), slog.Int64("bytes", int64(len(f.Data))),
 				slog.Int64("max_bytes", d.maxFileBytes))
@@ -87,36 +93,37 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 		sha := contentSHA(f.Data)
 		if storedSHAs[f.Name] == sha {
 			skipped.Add(1)
+			outcomes[index] = FileResult{Name: f.Name, Status: "skipped"}
 			continue
 		}
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(f UploadFile, sha string) {
+		go func(index int, f UploadFile, sha string) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
 			if !isSupportedSource(f.Name) {
 				err := fmt.Errorf("only .md and .pdf files can be ingested: %s", f.Name)
-				failed.Add(1)
+				failFile(index, f.Name, err)
 				d.log.Warn("skipping unsupported source file", slog.String("path", f.Name), slog.Any("error", err))
 				return
 			}
 			if strings.EqualFold(filepath.Ext(f.Name), ".pdf") {
 				if d.converter == nil {
 					err := fmt.Errorf("PDF intake is disabled; configure docling to ingest %s", f.Name)
-					failed.Add(1)
+					failFile(index, f.Name, err)
 					d.log.Warn("skipping PDF without document converter", slog.String("path", f.Name), slog.Any("error", err))
 					return
 				}
 				markdown, err := d.converter.Convert(ctx, f.Name, f.Data)
 				if err != nil {
-					failed.Add(1)
+					failFile(index, f.Name, err)
 					d.log.Error("document intake failed", slog.String("path", f.Name), slog.Any("error", err))
 					return
 				}
 				if d.maxFileBytes > 0 && int64(len(markdown)) > d.maxFileBytes {
 					err := fmt.Errorf("converted document exceeds max file size of %d bytes", d.maxFileBytes)
-					failed.Add(1)
+					failFile(index, f.Name, err)
 					d.log.Warn("skipping oversized converted document", slog.String("path", f.Name), slog.Any("error", err))
 					return
 				}
@@ -124,11 +131,12 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 			}
 			if err := d.indexFile(ctx, f.Name, string(f.Data), sha); err != nil {
 				d.log.Error("ingest failed", slog.String("path", f.Name), slog.Any("error", err))
-				failed.Add(1)
+				failFile(index, f.Name, err)
 				return
 			}
 			processed.Add(1)
-		}(f, sha)
+			outcomes[index] = FileResult{Name: f.Name, Status: "processed"}
+		}(index, f, sha)
 	}
 	wg.Wait()
 	removed := 0
@@ -141,6 +149,7 @@ func (d *dependencies) run(ctx context.Context, files []UploadFile, options RunO
 	}
 
 	result := Result{
+		Files:     outcomes,
 		Processed: int(processed.Load()),
 		Skipped:   int(skipped.Load()),
 		Failed:    int(failed.Load()),
@@ -278,15 +287,16 @@ func (d *dependencies) planFile(ctx context.Context, filePath, text, sourceSHA s
 	indexed := make([]IndexedChunk, 0, len(chunks))
 	for i, c := range chunks {
 		indexed = append(indexed, IndexedChunk{
-			Text:       c.Text,
-			WindowText: c.WindowText,
-			FilePath:   c.FilePath,
-			Header:     c.Header,
-			LineStart:  c.LineStart,
-			ChunkIndex: c.ChunkIndex,
-			Vector:     vecs[i],
-			SparseText: ctxTexts[i],
-			SourceSHA:  sourceSHA,
+			Text:        c.Text,
+			WindowText:  c.WindowText,
+			FilePath:    c.FilePath,
+			Header:      c.Header,
+			SectionPath: c.SectionPath,
+			LineStart:   c.LineStart,
+			ChunkIndex:  c.ChunkIndex,
+			Vector:      vecs[i],
+			SparseText:  ctxTexts[i],
+			SourceSHA:   sourceSHA,
 		})
 	}
 

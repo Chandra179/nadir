@@ -80,7 +80,7 @@ export default function SessionList({ sessions, activeSessionId, onSelect, onNew
         <div className="w-6 h-6 rounded-full bg-[#e4e1d5] border border-[#dcd8c9] flex-none" />
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-[#5c6156]">Local</div>
-          <div className="text-[11px] text-[#8b8f81] font-mono-ui truncate">nomic-embed-text</div>
+          <div className="text-[11px] text-[#8b8f81] truncate">Indexed notes</div>
         </div>
         <button
           type="button"

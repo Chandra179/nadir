@@ -14,13 +14,14 @@ import (
 )
 
 type ingestResponse struct {
-	OperationID string   `json:"operation_id,omitempty"`
-	Processed   int      `json:"processed"`
-	Skipped     int      `json:"skipped"`
-	Failed      int      `json:"failed"`
-	Removed     int      `json:"removed"`
-	Names       []string `json:"names,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	OperationID string                `json:"operation_id,omitempty"`
+	Processed   int                   `json:"processed"`
+	Skipped     int                   `json:"skipped"`
+	Failed      int                   `json:"failed"`
+	Removed     int                   `json:"removed"`
+	Names       []string              `json:"names,omitempty"`
+	Files       []indexing.FileResult `json:"files,omitempty"`
+	Error       string                `json:"error,omitempty"`
 }
 
 // Ingest accepts multipart/form-data uploads (field "files") — the chat
@@ -34,6 +35,9 @@ func (d *dependencies) Ingest(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(32 << 20)
 	form := r.MultipartForm
+	if form != nil {
+		defer func() { _ = form.RemoveAll() }()
+	}
 	if err != nil {
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			d.respondIngestError(w, http.StatusRequestEntityTooLarge, "upload exceeds the configured size limit")
@@ -96,12 +100,16 @@ func (d *dependencies) Ingest(w http.ResponseWriter, r *http.Request) {
 		options = indexing.RunOptions{MirrorSources: true, SourceRoots: d.documentsPaths}
 	}
 	result, err := d.ingest.Run(ctx, files, options)
+	d.recordImport(result, err)
 	if err != nil {
 		d.log.Error("ingest run failed", slog.Int("files", len(files)), slog.Any("error", err))
 		d.respondIngestError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	if result.Files != nil {
+		names = importedNames(result.Files)
+	}
 	respond.JSON(w, http.StatusOK, ingestResponse{
 		OperationID: result.OperationID,
 		Processed:   result.Processed,
@@ -109,6 +117,7 @@ func (d *dependencies) Ingest(w http.ResponseWriter, r *http.Request) {
 		Failed:      result.Failed,
 		Removed:     result.Removed,
 		Names:       names,
+		Files:       result.Files,
 	})
 }
 

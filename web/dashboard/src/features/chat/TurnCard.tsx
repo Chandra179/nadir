@@ -156,14 +156,6 @@ function ThinkTrace({ turn }: { turn: Turn }) {
           <span className="font-semibold text-[#5c6156]">Think</span><span className="text-[#8b8f81]"> · </span>
           <span className="text-[#8b8f81]">Selecting relevant evidence and generating the answer.</span>
         </div>
-        {turn.rewritten_query && (
-          <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5 font-mono-ui text-[12.5px] leading-relaxed">
-            <span className="text-[#8b8f81]">Rewrite · </span>
-            <span className="text-[#8b8f81]">&quot;{turn.query}&quot; </span>
-            <span className="text-[#8b8f81]">→ </span>
-            <b className="text-[#20241f] font-medium">&quot;{turn.rewritten_query}&quot;</b>
-          </div>
-        )}
         {turn.generate_error && <div className="ml-0.5 mt-1.5 text-[14px] text-[#b04a3f]">{turn.generate_error}</div>}
         {turn.prompt && (
           <div className="ml-0.5 mt-1.5 border-l-[1.5px] border-[#e3e2d8] pl-3.5">
@@ -190,19 +182,23 @@ function PendingTrace() {
 
 function AnswerText({ text, citations, sourcePrefix, onCitation }: { text: string; citations: Citation[]; sourcePrefix: string; onCitation: (number: number) => void }) {
   const byNumber = new Map(citations.map((citation) => [citation.number, citation]));
-  const parts = text.split(/(\[\d+\])/g);
-  return parts.map((part, index) => {
-    const number = /^\[(\d+)\]$/.exec(part)?.[1];
-    const citation = number ? byNumber.get(Number(number)) : undefined;
+  const link = (number: string, label: string, key: string) => {
+    const citation = byNumber.get(Number(number));
     return citation ? (
       <a
-        key={index}
+        key={key}
         href={`#${sourcePrefix}-${citation.number}`}
         onClick={() => onCitation(citation.number)}
         aria-label={`Source ${citation.number}: ${citation.file_path}${citation.line_start > 0 ? `, line ${citation.line_start}` : ""}`}
         className="text-[#2f5d50] underline decoration-[#2f5d5066] underline-offset-2 hover:decoration-[#2f5d50]"
-      >{part}</a>
-    ) : part;
+      >{label}</a>
+    ) : label;
+  };
+  return text.split(/(\[\s*\d+(?:\s*,\s*\d+)*\s*\])/g).map((part, index) => {
+    const group = /^\[([\d,\s]+)\]$/.exec(part)?.[1];
+    if (!group) return part;
+    if (!group.includes(",")) return link(group.trim(), part, String(index));
+    return <span key={index}>[{group.split(/(\d+)/g).map((token, position) => /^\d+$/.test(token) ? link(token, token, `${index}-${position}`) : token)}]</span>;
   });
 }
 

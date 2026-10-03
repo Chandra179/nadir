@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"io"
+	"sync"
 	"time"
 
 	"log/slog"
@@ -20,8 +21,9 @@ const defaultTopK = 8
 // DependenciesConfig groups everything needed to construct the API
 // dependencies.
 type DependenciesConfig struct {
-	Ingest indexing.Ingest
-	Reset  func(context.Context) error
+	Ingest           indexing.Ingest
+	Reset            func(context.Context) error
+	DocumentVersions func(context.Context) (map[string]string, error)
 	// History is optional: when nil, session pages 404, sessions are not
 	// minted and the sidebar's chat list is simply empty.
 	History                conversationhistory.Reader
@@ -47,6 +49,9 @@ type DependenciesConfig struct {
 type dependencies struct {
 	ingest                  indexing.Ingest
 	reset                   func(context.Context) error
+	documentVersions        func(context.Context) (map[string]string, error)
+	importMu                sync.RWMutex
+	lastImport              *importSummary
 	topK                    int
 	documentsPaths          []string
 	documentsIgnorePatterns []string
@@ -81,6 +86,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
 		ingest:                  cfg.Ingest,
 		reset:                   cfg.Reset,
+		documentVersions:        cfg.DocumentVersions,
 		topK:                    topK,
 		documentsPaths:          cfg.DocumentsPaths,
 		documentsIgnorePatterns: cfg.DocumentsIgnorePatterns,

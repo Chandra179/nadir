@@ -5,6 +5,10 @@ candidate handling, optional calibrated fusion, confidence-gated optional
 reranking, diversity caps, and semantic-cache lookup. Storage and provider
 details arrive through narrow injected seams.
 
+Embedding task prefixes apply to a separate dense-input slice. Hybrid lexical
+search and optional fusion scoring receive the original query fragments, so
+embedding instructions cannot become document search terms.
+
 The default path keeps Qdrant's single-request RRF result for low resource use.
 The opt-in `search.fusion` path asks the Qdrant Adapter for dense and BM25 leg
 rankings, then applies weighted rank-RRF in this module. Raw dense and sparse

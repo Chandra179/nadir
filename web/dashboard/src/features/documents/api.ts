@@ -1,5 +1,9 @@
 import { request } from "../../lib/http";
-import type { IngestResponse } from "../../lib/api-contract";
+import type { DocumentsResponse, IngestResponse } from "../../lib/api-contract";
+
+export function listDocuments(): Promise<DocumentsResponse> {
+  return request<DocumentsResponse>("/api/v1/documents");
+}
 
 export function resetDocuments(): Promise<void> {
   return request<void>("/api/v1/documents/reset", { method: "POST" });

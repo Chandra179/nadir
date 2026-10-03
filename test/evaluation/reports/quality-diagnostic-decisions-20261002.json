@@ -1,0 +1,56 @@
+{
+  "reviewed_at": "2026-10-03T02:49:07.240176+00:00",
+  "reviewer": "Codex direct diagnostic review",
+  "human": false,
+  "release_gate": false,
+  "mode": "Captured-evidence probes, not end-to-end app acceptance",
+  "decisions": [
+    {
+      "report": "test/evaluation/reports/quality-anchor-probes-20261002.json",
+      "sha256": "3aded73b7cdf649e4a0491b43a2cf62cbe9055557f8a476dc36903a238fd6d4c",
+      "case_count": 6,
+      "disposition": "rejected",
+      "reason": "Moving prior selected Manual evidence first still returned Auto loss in all three runs; excluding sibling Auto sections gave a misattributed source number without answering the conditional. Reject both source-selection variants."
+    },
+    {
+      "report": "test/evaluation/reports/quality-quote-plan-probes-20261002.json",
+      "sha256": "06c583b773125e84b4d1421b4072010f6059821f70e5327036cc04417c0dd9c7",
+      "case_count": 15,
+      "disposition": "rejected",
+      "reason": "Exact quote validation rejected invented or misattributed selections, but remaining quotations still selected the wrong mode and caused new CDC/status-code/storage-tier errors. No quote-plan implementation adopted."
+    },
+    {
+      "report": "test/evaluation/reports/quality-message-role-probes-20261002.json",
+      "sha256": "19dcaed415bd5dc873813682a2b1c3a23b1fba733f2d4b80f1ed62026934872b",
+      "case_count": 15,
+      "disposition": "rejected",
+      "reason": "System/user role separation with the same instructions and no Answer completion cue did not preserve Manual mode in three runs; it introduced wrong Newton and cold-storage citation IDs and missed the polling cause. No native message-role change adopted."
+    },
+    {
+      "report": "test/evaluation/reports/quality-reading-label-probes-20261002.json",
+      "sha256": "cffd822befb2eafba8edf83bfeb594c6bb32d2e935b23d028b48960058a0db8a",
+      "case_count": 19,
+      "disposition": "rejected",
+      "reason": "Removing source path/line/chunk metadata from labels did not preserve Manual mode or resolve missing manifest/ontology alternatives or the unnamed method comparison; wrong-source citations remain. Do not change source rendering on this evidence."
+    },
+    {
+      "report": "test/evaluation/reports/quality-selected-scope-probes-20261002.json",
+      "sha256": "88c099d225795bb130ba26e95a4c43a5273f8f3caeaeb9e42e07f3af9041e3ee",
+      "case_count": 7,
+      "disposition": "rejected",
+      "reason": "History-derived scope filtering with renumbered sources removed the Auto warning, but all three conditional answers assert crash no-loss/requeue/dead-letter behavior not established by the Manual section. Another token-risk repetition cited its definition rather than the risk passage. Do not adopt the scope filter or weaken the unchanged question criteria."
+    },
+    {
+      "report": "test/evaluation/reports/quality-cpue-model-agent-review-20261002.json",
+      "sha256": "538fec392a106c41ff70f6e0483db3825c6535ee8f1df45508a1390d914ed8a1",
+      "disposition": "rejected as default model",
+      "reason": "Full 104-case app review fails the unchanged local and semantic no-regression bars. Larger-model resource feasibility does not establish answer fidelity."
+    },
+    {
+      "report": "test/evaluation/reports/quality-cpu-direct-smoke-review-20261002.json",
+      "sha256": "1d391ec64f2b305072dc47e9cfcdd819e94629be348a59dacbee135966481756",
+      "disposition": "retain optional hardware configuration only",
+      "reason": "Direct provider/config wiring passes operational and residence checks; keep placement unset and model defaults unchanged. The smoke repeats semantic failures and cannot establish local-v1 acceptance."
+    }
+  ]
+}

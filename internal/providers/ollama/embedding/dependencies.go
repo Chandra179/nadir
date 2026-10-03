@@ -12,6 +12,7 @@ type DependenciesConfig struct {
 	Addr           string
 	Model          string
 	Dimensions     int
+	NumGPU         *int
 	RequestTimeout time.Duration
 	KeepAlive      string
 }
@@ -23,6 +24,7 @@ type dependencies struct {
 	dimensions int
 	client     *http.Client
 	keepAlive  string
+	numGPU     *int
 }
 
 var _ embedding.Embedder = (*dependencies)(nil)
@@ -33,11 +35,17 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
+	var numGPU *int
+	if cfg.NumGPU != nil {
+		layers := *cfg.NumGPU
+		numGPU = &layers
+	}
 	return &dependencies{
 		addr:       cfg.Addr,
 		model:      cfg.Model,
 		dimensions: cfg.Dimensions,
 		client:     &http.Client{Timeout: timeout},
 		keepAlive:  cfg.KeepAlive,
+		numGPU:     numGPU,
 	}
 }

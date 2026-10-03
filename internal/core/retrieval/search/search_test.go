@@ -33,20 +33,22 @@ func (e *searchTestEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]
 }
 
 type searchTestStore struct {
-	mu          sync.Mutex
-	hybridCalls int
-	lastFilter  *Filter
-	results     []SearchCandidate
-	signals     HybridSearchResult
+	mu            sync.Mutex
+	hybridCalls   int
+	hybridQueries []string
+	lastFilter    *Filter
+	results       []SearchCandidate
+	signals       HybridSearchResult
 }
 
 func (s *searchTestStore) KeywordSearch(context.Context, string, int, *Filter) ([]SearchCandidate, error) {
 	return nil, nil
 }
 
-func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, filter *Filter) (HybridSearchResult, error) {
+func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, query string, _ int, filter *Filter) (HybridSearchResult, error) {
 	s.mu.Lock()
 	s.hybridCalls++
+	s.hybridQueries = append(s.hybridQueries, query)
 	if filter != nil {
 		copyFilter := *filter
 		s.lastFilter = &copyFilter
@@ -147,6 +149,16 @@ func TestQueryBatchesFragmentsAndCapsResultsPerFile(t *testing.T) {
 	}
 	if st.hybridCalls != 3 {
 		t.Fatalf("hybrid calls = %d, want 3 (original query + one per sentence)", st.hybridCalls)
+	}
+	wantSearchQueries := map[string]bool{"alpha. beta": true, "alpha": true, "beta": true}
+	for _, query := range st.hybridQueries {
+		if !wantSearchQueries[query] {
+			t.Errorf("hybrid query = %q: embedding task instructions must not become lexical search terms", query)
+		}
+		delete(wantSearchQueries, query)
+	}
+	if len(wantSearchQueries) != 0 {
+		t.Errorf("missing raw hybrid queries: %v", wantSearchQueries)
 	}
 }
 

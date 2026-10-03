@@ -1,229 +1,130 @@
 # TODO
 
-This is the active engineering backlog. Completed work and historical
-measurements are preserved in git history and in the committed reports under
-[`test/evaluation/reports/`](test/evaluation/reports/). The condensed
-evidence table lives in [`docs/OVERVIEW.md`](docs/OVERVIEW.md); decisions live
-in [`docs/adr/`](docs/adr/index.md).
+The current finish line is a personal/local technical-notes app on the existing
+laptop, with one interactive user operating the services. See
+[LOCAL_V1.md](docs/LOCAL_V1.md) for the finite acceptance checklist and evidence.
+Research experiments and public/multiuser deployment are outside this release.
 
-The backlog is ordered by risk and evidence dependency. Do not change a
-Retrieval or model default from the synthetic fixture alone. Quality work must
-be measured with HitRate@k, Recall@k, MRR@10, nDCG@k, answer faithfulness,
-answer relevancy, context precision, and context recall. Every default change
-needs a pre-registered bar and a same-session control (ADR 0005).
+## P1 — Finish semantic correctness before accepting the working candidate
 
-Items are tagged: `[bug]` correctness defect, `[testing]` missing evidence,
-`[research]` needs investigation before a decision, `[approach]` possible
-change to an existing method, `[method]` candidate new technique.
+- [ ] Preserve the selected subject/mode across follow-ups. `followup-02` still
+  changes the preceding Manual choice to the Auto crash-loss warning. Diagnose
+  rewrite loss and generation selection separately. Scope filtering was rejected
+  because it replaced the error with an unsupported recovery guarantee.
+- [ ] Make material inline claims use their actual supporting section. Latest
+  failures include Secant's derivative property (`followup-01`), the expired-lock
+  warning (`followup-03`), backpressure (`notes-27`) and sine at 45 degrees.
+- [ ] Complete expressly requested alternatives and preserve restrictions:
+  manifest formats (`notes-23`), structural/causal relations, location/AP versus
+  matching/CP, and embedded-fintech delivery. Review unsupported lock conditions,
+  unnamed convergence comparisons and private-IP declines in the broader pack.
+- [ ] Decline conditional details absent from the source rather than infer them.
+  Save the Manual crash-recovery source-coverage question for owner testing.
+- [ ] Re-run both unchanged full app packs and fragile-case repetitions after a
+  candidate. The bar stays 27/30 supported, 5/5 declines, 5/5 follow-ups and no new
+  material regressions. A correct count or mapped citation ID is insufficient.
+- [ ] Migrate an existing index only after acceptance, using a copied config and
+  fresh document/cache collections with all originals available. See the
+  [safe reindex steps](docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely).
 
-## Current state
+The latest [default-model review](test/evaluation/reports/quality-prefix-agent-review-20261002.json)
+records **28/30 supported, 5/5 unsupported and 2/5 follow-ups**, versus the fresh
+control's 23/30, 5/5 and 4/5. Broader results are **49/56 supported and 7/8 declines**,
+versus 47/56 and 5/8. All 104 turns complete without operational failures or
+unmapped IDs, but the semantic no-regression guard fails. The earlier retained
+candidate's 26/30, 4/5 and 52/56 counts belong to a different arm.
 
-The local workflow is implemented end to end: intake, chunking, embedding,
-hybrid Retrieval, optional reranking, grounded Chat generation, history,
-SSE replay, cancellation, reset, and process-local gates. As of 2026-09-30
-(on top of [ADR 0034](docs/adr/0034-chunker-fixes-and-size.md)):
+The full installed-8B/CPU-embedding [comparison](test/evaluation/reports/quality-cpue-model-agent-review-20261002.json)
+reviews at 26/30, 5/5, 3/5 and 49/56, 8/8. It still adds unsupported guarantees,
+omits conditions and falsely declines available evidence. Keep model defaults.
+CPU placement solves an observed resource problem, not these answer failures.
 
-- Startup defaults are consistent everywhere: `config.yaml`, Compose, and
-  `.env.example` all use EmbeddingGemma-300m with its task prefixes and the
-  gemma3:4b generator, guarded by a deployment-consistency test
-  (`internal/bootstrap/configuration/deployment_test.go`). Reranking is
-  opt-in (`reranker.enabled: false` everywhere); the reranker sidecar moved
-  behind the Compose `rerank` profile, no longer gates API startup, and
-  `scripts/local.sh` starts it only when enabled (`--startup-config` prints
-  the effective local settings). Changing the embedding space requires
-  reset-and-reindex.
-- The evaluator was repaired (report schema v2): quality is the median of
-  dataset-level metrics across runs while latency pools every request;
-  retrieval depth is at least 10 with an explicit MRR@10 cutoff; nDCG is
-  graded and identity-aware with duplicate evidence collapsed (no more >1.0
-  scores); unsupported/abstention queries are first-class with an
-  `abstention_score`; reports carry per-run distributions and full
-  provenance — golden-set SHA, corpus manifest verification, effective-config
-  hash, and model metadata observed from the serving endpoint. The judge
-  prompt scores terse complete answers fairly and requires an explicit
-  suitability acknowledgement plus a judge model distinct from the answer
-  model (by name and observed digest).
-- A representative evaluation pack covers all 14 sample documents:
-  `test/evaluation/representative.json` (64 queries, including 8 genuine
-  unsupported queries, with a content-hashed corpus manifest). The original
-  133-query math pack is preserved unchanged as the fixed regression set.
-- Publication and cache freshness are failure-safe at the Document seam:
-  `indexing.PublicationError` distinguishes a visible mutation with
-  unfinished cleanup from an unpublished failure; replacement retries never
-  restage over an activated version (`publicationMu` plus a visible-version
-  check); the semantic cache suspends reuse during any publication, binds
-  writes to the generation observed before retrieval, and starts each
-  process on a fresh cache epoch; reset invalidates the cache even when
-  cleanup fails. Fault-injection tests cover replace, reset, and
-  mirror-removal paths (`publication_guards_test.go`,
-  `replacement_retry_test.go`, `concurrency_test.go`,
-  `cache_freshness_test.go`).
-- Prompt construction selects evidence by retrieval rank before edge
-  arrangement (a lower-ranked chunk can no longer steal budget from a
-  higher-ranked one), carries a citation map — number, retrieval rank, path,
-  header, line, chunk index — through history and the HTTP contract to the
-  dashboard, and budgets the complete model request (instructions, question,
-  reserved output, template allowance) against the pinned `num_ctx` with a
-  conservative estimator. Chunker output now carries real per-chunk source
-  lines (span-based mapping through extraction, splitting, and overlap).
-- The generation gate (faithfulness ≥ 0.65 **and** relevancy ≥ 0.75) passed
-  for the first time with the pre-repair judge: gemma3:4b 0.881/0.803 (now
-  the default generator), gemma3:1b 0.750/0.756 as the low-latency fallback.
-  Chunk size stays 512 runes: the 2048-rune arm failed both pre-registered
-  ranking bars.
-- Known co-existence constraint: on a 6 GiB GPU, gemma3:4b resident in
-  Ollama and a CUDA reranker sidecar do not fit together; the local sidecar
-  runs the CPU profile when opted in (ADR 0031 default).
-- Live evidence recorded 2026-09-30, all in
-  [`docs/OVERVIEW.md`](docs/OVERVIEW.md): schema-v2 retrieval and generation
-  reports on both packs; concurrent-load re-run (retrieval head-of-line
-  resolved at p95 2.0 s; the remaining queue is model serving at
-  concurrency 8); semantic cache traps rejected 7/7 with true paraphrases
-  4/4; streaming first token 0.59 s (4b) / 0.50 s (1b); the 1400-token
-  context-budget arm failed its pre-registered bar, so trimming admitted
-  context is rejected. Keyword-only searches are BM25-ranked via the sparse
-  leg, the container build runs golang:1.27.1-alpine + alpine:3.24, and the
-  blind judge-calibration packet (39 cases) awaits human review.
+## Implemented and measured working changes (2026-10-02)
 
-Nadir is still a single-node system; gates, retention, and cache invalidation
-are process-local ([ADR 0029](docs/adr/0029-ollama-scheduler-owns-llm-concurrency.md)).
+- [x] Fix dense task-prefix mutation leaking into lexical search/fusion, with a
+  failing-then-passing regression. No reindex required for this query-only fix.
+- [x] Extend existing embedding config/provider with optional `EMBEDDER_NUM_GPU`;
+  verify explicit CPU zero, default omission, validation and real model coexistence.
+- [x] Keep repeated rewrite details inside Inspect for the normal reading view.
+- [x] Preserve bounded short-section windows, standalone bold-label scopes,
+  parent heading identity and exact source anchors through indexing/cache/citations.
+- [x] Qualify repeated leaf headings only under distinct Markdown parent paths;
+  remove the all-ancestor policy that failed broader retrieval.
+- [x] Focus hybrid English sparse queries without changing document vectors,
+  literal keyword lookup, native fusion or configured models.
+- [x] Present sources in retrieval order and distinguish source-local footnotes
+  from application source numbering without changing the stored source.
+- [x] Retain bounded prior answer context for unchanged unresolved references;
+  verify named standalone queries do not inherit unrelated history.
+- [x] Compare a fresh control against 133 golden and 64 broader queries, three
+  runs each, and audit central text separately from expanded windows.
+- [x] Review full app answers and repeat 13 fragile cases three times. Remove
+  prompt/model candidates that introduce false facts or citations.
 
-## Active priority backlog
+Corrected-prefix golden retrieval has Hit@5 1.000, Recall@5 0.986,
+MRR@10 0.842 and nDCG@5 0.860 versus control 0.977/0.969/0.817/0.837.
+Distractor hits rise 0.226 → 0.278. Broader Hit@5 remains 0.946; MRR/nDCG
+rise 0.774/0.818 → 0.823/0.854. Registered retrieval bars pass; semantic
+acceptance does not. Do not change reranker, fusion or model defaults from this.
 
-### P1 — Release confidence and measurement credibility
+Direct CPU-placement smoke completes 13/13 without operational failures. The
+embedding model uses zero GPU bytes while 8B generation uses 5,277,982,720 bytes;
+both remain resident. This optional setting avoids repeated embedding/answer
+runner eviction on the measured laptop. Its semantic review is 9/13 and it does
+not establish readiness to ship. Full CPU comparison cold daily p95 is 13.097 s;
+subsequent broader p95 is 1.161 s. Do not report only the warm percentile.
 
-- [ ] `[testing]` **Re-record live evidence with the repaired evaluator on
-      the corrected defaults.** The 2026-09-30 default-path evidence is
-      recorded (golden HitRate@5 0.977 / MRR@10 0.817 at 99 ms p50;
-      representative 0.946 / 0.774; generation faithfulness 0.822 /
-      relevancy 0.811 with 8/8 abstentions;
-      [reports](test/evaluation/reports/retrieval-golden-defaults-20260930.json)).
-      Still open: the with-reranker control pair (the CPU sidecar needed
-      ~11.5 s per rerank call, so the full arm was aborted — re-run on GPU
-      hardware or accept the ADR 0034 GPU measurement as the standing
-      control), and a context_selection follow-up: the representative pack's
-      largest diagnostic cause (12/64).
-- [ ] `[testing]` **Calibrate the judge against human judgments.** The judge
-      prompt now handles terse answers and abstention, but its calibration
-      status stays `unreviewed` until a human pass lands. Verify the
-      deployed judge's serving fingerprint (observed parameter count, not
-      the model tag), then run
-      [scripts/calibrate_evaluation_judge.py](scripts/calibrate_evaluation_judge.py):
-      blind human scoring of the persisted answer/context/judge bundles,
-      agreement analysis, and prompt or threshold adjustment before any
-      release-gate use. Refresh annotator metadata on the golden pack at the
-      same time.
-- [ ] `[testing]` **Run the ARQMath Task 1 pack through live Retrieval.** The
-      importer and review tooling exist
-      ([scripts/import_arqmath.py](scripts/import_arqmath.py)); the pack has
-      never been evaluated against the live stack. Human review, adjudication,
-      and privacy/legal approval remain pre-conditions for release-gate use.
+## Completed local-use priorities (2026-10-01)
 
-### P2 — Correctness debt, production measurements, maintainability
+- [x] Save simulated general-user questions before testing, with corpus hashes,
+  expected evidence, full answer/citation capture and explicit provenance.
+- [x] Preserve the original follow-up question for generation; bound reference
+  context separately and keep the current question after that context.
+- [x] Strip prior-turn citation markers from reference answers; retain subject
+  context for unchanged ordinal rewrites without contaminating standalone queries.
+- [x] Decline explicit requests for an owned system's live state without turning
+  sample values into observations. The English capability guard is narrow;
+  it does not establish general answerability or correctness.
+- [x] Check each enabled answer/rewrite model at its own endpoint during
+  readiness, without loading a runner; fix model-install instructions.
+- [x] Show indexed files, process-scoped last import and individual import errors;
+  attach only successful imports and preserve publication/cleanup distinctions.
+- [x] Fix the disabled-Docling typed-nil crash found by a real mixed upload.
+- [x] Open grouped citations such as `[1, 2]` in the dashboard.
+- [x] Verify duplicate skip, source replacement, cache invalidation, cancellation,
+  restart history, persisted inventory, isolated reset/reindex and browser replay.
+- [x] Verify the coordinated tooling batch locally, including current UI changes;
+  apply the compatible brace-expansion audit patch to the current lockfile and
+  save a patch for PR #15's lockfile.
+- [x] Remove unsupported cache/latency claims and stale checked-in ARQMath claims.
 
-- [ ] `[testing]` **Decide the concurrent-chat capacity posture.** The
-      2026-09-30 load run shows retrieval head-of-line resolved
-      (`long_retrieval` p95 2.0 s at concurrency 8; zero failures across all
-      workloads) while chat-stream first-token p50 is 10.8 s at concurrency 8
-      — eight concurrent gemma3:4b generations serialize inside Ollama.
-      Decide whether raising `OLLAMA_NUM_PARALLEL` (VRAM cost on 6 GiB) or
-      documenting single-stream interactivity (0.6 s first token) is the
-      product answer. [Report](test/evaluation/reports/load-defaults-20260930.json).
-      The older user-path evidence is recorded: cache traps rejected 7/7,
-      paraphrases hit 4/4, rewriting 3/4 with 1 regression — re-run with
-      larger samples before tuning the 0.90 threshold.
-- [ ] `[approach]` **Context-selection quality.** The budget arm is settled:
-      cutting admitted context from 2800 to 1400 tokens LOWERED context
-      precision (0.541 vs 0.578) and recall while raising `context_selection`
-      misses (15 vs 12), so tail chunks carry usable evidence —
-      [arm](test/evaluation/reports/generation-representative-ctx1400-20260930.json)
-      vs [control](test/evaluation/reports/generation-representative-defaults-20260930.json).
-      The precision problem is which mid-ranked chunks get admitted, not how
-      many. Next candidates, each pre-registered against a same-session
-      control: distractor/low-signal filtering before prompt assembly, or
-      stricter per-file diversification (`search.max_chunks_per_file`).
-      Persisted admitted-context and citations make misses auditable.
-- [ ] `[testing]` **Docling re-record and pprof capture.** Re-record the
-      Docling benchmark (its 2026-09-13 report file was removed; only
-      summaries survive) and capture pprof CPU/heap profiles during a load
-      run — the module exists and has never been used. The concurrent-load
-      re-run itself is done (see the capacity item above).
-- [ ] `[approach]` **Judge n-sample self-consistency.** One judge sample per
-      query remains; evaluate an n-sample median once the human calibration
-      above lands.
-- [ ] `[testing]` **Dependency updates.** Routine work is done: the
-      typescript-eslint patch merged (#6), and the base-image bumps landed
-      directly on the live `Containerfile` (golang:1.27.1-alpine,
-      alpine:3.24, container-build verified) after #4/#5 turned out to
-      target a root Dockerfile removed in the layer refactor. Remaining:
-      review and merge the coordinated frontend batch
-      ([#15](https://github.com/Chandra179/nadir/pull/15) — vite 8,
-      @vitejs/plugin-react 6, vitest 5, jest-dom 7; all dashboard gates
-      green locally), which supersedes #7–#10.
-- [ ] Choose the canonical HTTP contract (carried). Restore an authoritative
-      OpenAPI source with CI verification if external clients appear;
-      otherwise remove this item.
+## Administrative work
 
-### P3 — Conditional experiments and new methods
+- [ ] Restore hosted Actions access and verify current status. The latest observed
+  job annotation records a billing lock. A later approved read-only refresh shows
+  the newest run remains September 30; current account balance is unverified. See the [saved status](test/evaluation/reports/quality-github-status-20261002.json). Jobs were not
+  started; they are not evidence of test failures. Local development continues.
+- [ ] Refresh and merge [PR #15](https://github.com/Chandra179/nadir/pull/15) once
+  hosted checks can run. Rebase it over the brace-expansion lockfile fix; its
+  original lockfile still contains that audit finding. The batch also removes
+  the remaining Vitest 3 mocker advisory; do not apply `audit fix --force` ad hoc.
+- [ ] Human review of the 39-case judge packet is required only before treating
+  judge scores as calibrated release evidence ([issue #13](https://github.com/Chandra179/nadir/issues/13)).
+  It does not block implementing or directly reviewing the local app.
 
-- [ ] `[method]` **Small-to-big / parent-document retrieval.** The uniform
-      2048 chunk failed retrieval ranking (ADR 0034), but that does not test
-      the multipass mechanism: embed 512-rune chunks, feed a merged
-      2048-rune parent window to the generator (Onyx-style). Targets the
-      context-precision problem from P1 without touching retrieval ranking.
-- [ ] `[method]` **Contextual retrieval upgrade.** The flag exists but the
-      contextualizer is gemma3:1b and the corpus is clean; Anthropic reports
-      −35/−49/−67% retrieval failures with a Haiku-class model. Only worth
-      measuring with a stronger local contextualizer and an explicit
-      ingest-cost budget.
-- [ ] `[method]` **Multi-query expansion.** The original-query fragment is
-      now always searched (ADR 0034); LLM-generated query variants merged by
-      RRF (original weighted 2×) remain untested. Cost: +1 LLM call.
-- [ ] `[testing]` **Representative-hardware reranker comparison.** Only worth
-      doing if the reranker returns to the product path (it is opt-in
-      today): BGE v2 M3 CPU/GPU was measured on laptop hardware;
-      MiniLM/GTE and production-like hardware remain open.
-- [ ] `[research]` Collect explicit relevance/user-selection labels, then
-      evaluate a small learned-to-rank model over dense score, BM25 score,
-      RRF rank, metadata, exact-match, and position features. Require an
-      out-of-sample gain before adding the lifecycle complexity.
-- [ ] `[research]` Prototype SPLADE-v3 as an optional learned-sparse leg
-      behind a flag; measure inference cost, RAM, sparse index size, and
-      quality against BM25.
-- [ ] `[research]` Prototype ColBERT-style late interaction only when corpus
-      scale or quality evidence justifies precomputed token vectors + MaxSim.
-- [ ] `[research]` Answer-confidence, unsupported-answer, and filter-miss
-      telemetry; evaluate Retrieval fallback or abstention against
-      false-confidence rates.
+## Optional follow-up work
 
-## Deployment-gated work
+- Validate usefulness on the owner's actual notes and saved questions when
+  available. Simulated sample questions cannot establish personal usefulness.
+- Conditional experiments: parent windows, distractor filtering, contextual
+  enrichment, query expansion and alternative rerankers. Require measured gains.
+- Optional PDF benchmark and profiling; Docling remains off for Markdown v1.
+- Optional ARQMath/public-math and judge self-consistency research.
+- Add an authoritative OpenAPI source when external clients actually need it.
 
-Do not implement these for the current local single-node product. Start them
-only when the corresponding operational requirement is accepted and measured.
+## Future deployment requirements
 
-- [ ] For horizontal Chat: shared ordered event-log Adapter, global turn
-      routing, replay/fan-out tests, and a failure policy for a disappearing
-      generation owner.
-- [ ] For distributed Session mutations: shared conditional writes or fencing
-      tokens instead of process-local revisions.
-- [ ] For distributed Indexing: shared source storage/manifest, leases,
-      generation-aware commits, deletion ownership, recoverable jobs.
-- [ ] Before untrusted users: authentication, authorization, CSRF protection
-      where applicable, audit logging, rate limits, backup/restore drills,
-      tenant isolation.
-- [ ] For multi-instance deployments: centralized OpenTelemetry-compatible
-      traces/metrics, dependency saturation metrics, and alerts.
-
-## Rejected for the current domain
-
-- HyPE: removed from the codebase; ingest-time LLM cost per chunk was not
-  justified by measured gain.
-- Semantic chunking: 2024–2026 benchmarks (NAACL 2025; FloTorch 2026) show no
-  consistent gain over recursive splitting; not pursued here.
-- Uniform chunk_size 2048 runes: failed both pre-registered ranking bars
-  (ADR 0034). Do not revisit without new corpus evidence.
-- Late chunking: requires token-level long-context embedding (incompatible
-  with the Ollama-hosted EmbeddingGemma path) and has not justified its
-  tradeoffs here.
-- HyDE and GraphRAG/RAPTOR: excessive machinery or brittleness for the
-  current precise numeric/entity workload and corpus size.
+Authentication, tenant isolation, shared event logs, distributed mutation
+fencing, indexing leases, central telemetry and backup/restore work start only
+when public or multi-instance deployment becomes an accepted goal. Current
+operation gates, retention and cache epochs coordinate one API process.

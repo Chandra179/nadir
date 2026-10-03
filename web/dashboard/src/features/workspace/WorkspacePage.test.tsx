@@ -49,4 +49,24 @@ describe("WorkspacePage", () => {
     }));
     await waitFor(() => expect(screen.queryByText("Retrieving relevant passages…")).not.toBeInTheDocument());
   });
+
+  it("shows a partial import failure and attaches only the successful file", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/v1/documents") && init?.method === "POST") return Promise.resolve(jsonResponse({
+        processed: 1, skipped: 0, failed: 1, removed: 0, names: ["good.md"], files: [
+          { name: "good.md", status: "processed" }, { name: "bad.pdf", status: "failed", error: "PDF intake is disabled" },
+        ],
+      }));
+      return Promise.resolve(jsonResponse({ enabled: true, sessions: [] }));
+    }));
+    const { container } = render(<WorkspacePage />);
+    await user.click(screen.getByRole("button", { name: "Add files" }));
+    await user.upload(container.querySelector('input[type="file"]') as HTMLInputElement, [
+      new File(["note"], "good.md", { type: "text/markdown" }), new File(["pdf"], "bad.pdf", { type: "application/pdf" }),
+    ]);
+    expect(await screen.findByText(/bad.pdf: PDF intake is disabled/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss good.md" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dismiss bad.pdf" })).not.toBeInTheDocument();
+  });
 });

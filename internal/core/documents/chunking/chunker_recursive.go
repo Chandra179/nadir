@@ -1,6 +1,9 @@
 package chunking
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 func (c *dependencies) isTOCChunk(text string) bool {
 	if c.tocThreshold <= 0 {
@@ -25,14 +28,25 @@ func (c *dependencies) chunkRecursive(rawText, filePath string) ([]Chunk, error)
 	var chunks []Chunk
 	for _, sec := range extractSections(rawText) {
 		idx := 0
+		// Overlap can carry the end of one qualified statement into another
+		// chunk without its subject. Preserve short sections as answer context;
+		// the central text remains the bounded embedding/retrieval unit.
+		window := ""
+		if utf8.RuneCountInString(sec.text) <= 2*max(1, c.chunkSize) {
+			window = strings.TrimSpace(sec.text)
+		}
 		for _, span := range c.splitRanges(sec.text) {
 			span = trimSpan(sec.text, span)
 			part := sec.text[span.start:span.end]
 			if part == "" || c.isTOCChunk(part) {
 				continue
 			}
-			chunks = append(chunks, Chunk{Text: part, FilePath: filePath,
-				Header: sec.header, LineStart: sec.lineAt(span), ChunkIndex: idx})
+			context := window
+			if context == part {
+				context = ""
+			}
+			chunks = append(chunks, Chunk{Text: part, WindowText: context, FilePath: filePath,
+				Header: sec.header, SectionPath: sec.path, indexHeading: sec.indexHeading, LineStart: sec.lineAt(span), ChunkIndex: idx})
 			idx++
 		}
 	}

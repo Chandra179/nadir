@@ -23,8 +23,8 @@ func TestGenerationAndHistoryShareAdmittedCitationSnapshots(t *testing.T) {
 	if len(turn.Citations) != 3 || generator.got != turn.Prompt {
 		t.Fatalf("generation lost admitted evidence: %+v", turn)
 	}
-	if strings.Index(turn.Prompt, "[3] (source:") > strings.Index(turn.Prompt, "[2] (source:") {
-		t.Fatalf("expected edge placement without renumbering: %q", turn.Prompt)
+	if strings.Index(turn.Prompt, "[2] (source:") > strings.Index(turn.Prompt, "[3] (source:") {
+		t.Fatalf("expected retrieval order without renumbering: %q", turn.Prompt)
 	}
 	second := turn.Citations[1]
 	if second.Number != 2 || second.RetrievalRank != 2 || second.FilePath != "second.md" || second.ChunkIndex != 2 || second.SourceSHA != "version-2" || second.Text != chunks[1].WindowText {

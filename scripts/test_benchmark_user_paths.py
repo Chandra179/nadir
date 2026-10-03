@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import pathlib
 import sys
 import unittest
@@ -11,6 +12,16 @@ spec.loader.exec_module(probe)
 
 
 class UserPathProbeTest(unittest.TestCase):
+    def test_final_immediate_answer_does_not_require_an_event_stream(self):
+        client = probe.Probe("http://test", 1, 5, True)
+        body = json.dumps({"has_answer": True, "answer": "I cannot observe live systems.", "session_id": "owned"}).encode()
+        with patch.object(probe, "request_json", return_value=(200, body)), patch.object(probe, "read_stream_result") as stream:
+            turn = client.turn("What is my queue depth right now?", generate=True)
+        self.assertEqual(turn["answer_delivery"], "immediate")
+        self.assertIsNone(turn["first_token_ms"])
+        stream.assert_not_called()
+        self.assertEqual(client.sessions, {"owned"})
+
     def test_duplicate_chunks_do_not_inflate_recall(self):
         chunk = {"file_path": "samples/calculus.md", "text": "derivative sine"}
         score = probe.evidence_scores([chunk, chunk], [{"file": "calculus.md", "contains": "sine"}, {"file": "calculus.md", "contains": "cosine"}])

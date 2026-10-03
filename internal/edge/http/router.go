@@ -20,7 +20,16 @@ const (
 // NewRouter maps HTTP requests to the use-case transport. The method check
 // preserves the previous router's 404 for an unsupported method.
 func NewRouter(mux *http.ServeMux, deps *dependencies) *http.ServeMux {
-	mux.HandleFunc(RouteDocuments, method(http.MethodPost, deps.Ingest))
+	mux.HandleFunc(RouteDocuments, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			deps.Documents(w, r)
+		case http.MethodPost:
+			deps.Ingest(w, r)
+		default:
+			legacyNotFound(w, r)
+		}
+	})
 	mux.HandleFunc(RouteDocumentsReset, method(http.MethodPost, deps.DeleteAllData))
 	mux.HandleFunc(RouteTurns, method(http.MethodPost, deps.turns.StartTurn))
 	mux.HandleFunc(RouteTurnEvents, method(http.MethodGet, deps.turns.StreamTurn))

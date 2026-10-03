@@ -16,7 +16,7 @@ import (
 	conversationrewriting "nadir/internal/core/conversation/rewriting"
 )
 
-const systemPrompt = `You rewrite a follow-up question into a standalone search query for a search engine. Use the conversation to resolve pronouns, ellipsis, and references like "it", "that", or "the second one". Keep the original topic and wording; never answer the question. If the follow-up is already standalone, return it unchanged. Reply with ONLY the rewritten query — no quotes, no labels, no explanation.`
+const systemPrompt = `Copy the follow-up question, replacing only unresolved references with their specific named subject from the conversation. Preserve the intent, wording and conditions. If the subject is already named in the follow-up, return that question unchanged. Never answer it. Output only the question.`
 
 // maxAnswerChars bounds each assistant reply in the rewrite prompt: answers
 // only serve as context for resolving references, not as documents to read.
@@ -58,6 +58,7 @@ func buildPrompt(turns []conversationrewriting.Turn, query string) string {
 	}
 	sb.WriteString("\n\nFollow-up question: ")
 	sb.WriteString(strings.TrimSpace(query))
+	sb.WriteString("\n\nCopy the follow-up, replacing only unresolved references with the named subject. For an ordered comparison, resolve first and second by their order. Keep why/how/what happens and every condition. If the subject is already named, leave the question unchanged. Return a complete question, not keywords.")
 	sb.WriteString("\nStandalone search query:")
 	return sb.String()
 }
@@ -97,6 +98,7 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0,
+			"num_predict": 128,
 		},
 	}
 	if d.keepAlive != "" {

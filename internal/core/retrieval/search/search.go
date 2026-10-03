@@ -360,13 +360,17 @@ func sortCandidates(candidates map[string]SearchCandidate) []SearchCandidate {
 // task prefix (if configured) is applied to every fragment.
 func (s *dependencies) embedFragments(ctx context.Context, fragments []string) ([][]float32, error) {
 	started := time.Now()
+	inputs := fragments
 	if s.queryPrefix != "" {
-		for i := range fragments {
-			fragments[i] = s.queryPrefix + fragments[i]
+		// Embedding task instructions belong only to the dense input. Preserve
+		// the original fragments used by lexical search and fusion scoring.
+		inputs = make([]string, len(fragments))
+		for i, fragment := range fragments {
+			inputs[i] = s.queryPrefix + fragment
 		}
 	}
 	if be, ok := s.embedder.(batchEmbedder); ok {
-		vecs, err := be.EmbedBatch(ctx, fragments)
+		vecs, err := be.EmbedBatch(ctx, inputs)
 		outcome := "success"
 		if err != nil {
 			outcome = "error"
@@ -374,8 +378,8 @@ func (s *dependencies) embedFragments(ctx context.Context, fragments []string) (
 		observability.StageContext(ctx, s.log, "query_embedding", outcome, started, err, slog.Int("fragments", len(fragments)))
 		return vecs, err
 	}
-	vecs := make([][]float32, len(fragments))
-	for i, frag := range fragments {
+	vecs := make([][]float32, len(inputs))
+	for i, frag := range inputs {
 		vec, err := s.embedder.Embed(ctx, frag)
 		if err != nil {
 			observability.StageContext(ctx, s.log, "query_embedding", "error", started, err, slog.Int("fragments", len(fragments)))
@@ -411,7 +415,7 @@ func toCacheCandidates(candidates []SearchCandidate) []semanticcache.Candidate {
 	for i, c := range candidates {
 		out[i] = semanticcache.Candidate{
 			Text: c.Text, WindowText: c.WindowText, FilePath: c.FilePath,
-			Header: c.Header, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
+			Header: c.Header, SectionPath: c.SectionPath, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
 			SourceSHA: c.SourceSHA, Score: c.Score,
 		}
 	}
@@ -426,7 +430,7 @@ func fromCacheCandidates(candidates []semanticcache.Candidate) []SearchCandidate
 	for i, c := range candidates {
 		out[i] = SearchCandidate{
 			Text: c.Text, WindowText: c.WindowText, FilePath: c.FilePath,
-			Header: c.Header, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
+			Header: c.Header, SectionPath: c.SectionPath, LineStart: c.LineStart, ChunkIndex: c.ChunkIndex,
 			SourceSHA: c.SourceSHA, Score: c.Score,
 		}
 	}

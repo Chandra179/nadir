@@ -1,0 +1,288 @@
+{
+  "measured_at": "2026-10-02T12:42:34.500037+00:00",
+  "mode": "Captured-prompt replay with measured 4b rewrite; retrieval unchanged; not complete app validation",
+  "human": false,
+  "release_gate": false,
+  "cases": [
+    {
+      "run": 1,
+      "id": "followup-01",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Secant Method (line 5, chunk 0))\nThe secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function.\n\n[3] (source: samples/calculus.md > Calculus Derivatives and Integrals > Trigonometric Derivatives (line 19, chunk 0))\nd/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec\u00b2(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc\u00b2(x)\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[5] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n\nPrior user question (reference context only): Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\nPrior answer (reference context only; verify claims against the document evidence): Requires derivative computation .\nSearch rewrite (reference resolution only): Does the second one need derivatives?\nPrevious user question: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\nQuestion: Does the second one need derivatives?\n\nFor this follow-up, resolve the subject and any selected mode from the prior answer. If the current question names a different subject or mode, use that instead. Answer only for the applicable subject and mode; label alternatives explicitly if needed.\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Secant Method > Properties",
+          "line_start": 17,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)"
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Secant Method",
+          "line_start": 5,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/calculus.md",
+          "header": "Calculus Derivatives and Integrals > Trigonometric Derivatives",
+          "line_start": 19,
+          "chunk_index": 0,
+          "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+          "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec\u00b2(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc\u00b2(x)"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Newton-Raphson Method > Properties",
+          "line_start": 27,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+        }
+      ],
+      "answer": "The secant method needs derivatives [5]."
+    },
+    {
+      "run": 1,
+      "id": "followup-02",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 108, chunk 1))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 164, chunk 8))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 141, chunk 5))\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgements  should be used. With manual acknowledgements, the application must explicitly call channel.ack(deliveryTag) after successful processing. This gives full control over at-least-once delivery semantics, preventing messages from being lost if the consumer crashes before processing.\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nFor this follow-up, resolve the subject and any selected mode from the prior answer. If the current question names a different subject or mode, use that instead. Answer only for the applicable subject and mode; label alternatives explicitly if needed.\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 108,
+          "chunk_index": 1,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 164,
+          "chunk_index": 8,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 141,
+          "chunk_index": 5,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "The connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D"
+        }
+      ],
+      "answer": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket. Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing [1, 2]."
+    },
+    {
+      "run": 1,
+      "id": "followup-03",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Cross-Document Fact Coreference > Slot & Attribute Matching (Verifying Reality Boundaries) (line 119, chunk 1))\nJust because two companies had an acquisition relation doesn't mean three sentences describe the same acquisition (e.g., Company A might have bought a subsidiary of Company B in 2010, and another in 2022).\nThe system checks Contextual Slots:\nTemporal Overlap: Do timestamps (2016) match or fit within the same timeframe window?\nNumerical Alignment: Do values ($2.6B, all-stock) reinforce or at least not contradict each other?\nDirectional Consistency: Was Subject \u2192 Object active, or Object \u2190 Subject passive?\n\nIf the slots align without logical contradictions, the confidence that these three sources refer to the same event approaches 100%.\n\n[2] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 121, chunk 5))\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires\n\n[4] (source: samples/knowledge-graph.md > Knowledge Graph > Confidence Scoring & Provenance Weighting (line 33, chunk 0))\nNot all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0\u20131.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise.\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Security, OAuth2 & Identity Engineering (line 879, chunk 0))\nThe identity pipeline uses external OAuth2 tokens for clients and internal Passports for microservices.\nExternal authentication (OAuth2): On login, the Identity Service issues a short-lived access token and a refresh token. Mobile clients send the access token in the Authorization header.\nIdentity Passport pattern: The Edge Gateway exchanges the public token for a signed Passport containing validated user metadata. Services can verify it locally instead of calling the Identity Service.\n{\n  \"user_id\": \"usr_9921_sf\",\n  \"user_type\": \"DRIVER\",\n  \"device_id\": \"dev_iphone_8832\",\n  \"authenticated_at\": 1770562800,\n  \"scopes\": [\"trips:read\", \"location:write\"]\n}\n\nThe Passport is HMAC-signed with a key shared across the internal mesh. Services verify the signature locally.\nService-to-service security (SPIFFE/SPIRE and mTLS): Each workload receives a cryptographic identity. SPIRE issues short-lived X.509 certificates, and sidecar proxies enforce which services may communicate.\n\n\nPrior user question (reference context only): A worker finished after its Redis lock expired. Is it safe for it to delete the lock key now?\nPrior answer (reference context only; verify claims against the document evidence): No, it is not safe . A worker whose lock has expired could accidentally delete a newer worker's lock .\n\nQuestion: Why does the token comparison matter?\n\nFor this follow-up, resolve the subject and any selected mode from the prior answer. If the current question names a different subject or mode, use that instead. Answer only for the applicable subject and mode; label alternatives explicitly if needed.\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Cross-Document Fact Coreference > Slot & Attribute Matching (Verifying Reality Boundaries)",
+          "line_start": 119,
+          "chunk_index": 1,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Just because two companies had an acquisition relation doesn't mean three sentences describe the same acquisition (e.g., Company A might have bought a subsidiary of Company B in 2010, and another in 2022).\nThe system checks Contextual Slots:\nTemporal Overlap: Do timestamps (2016) match or fit within the same timeframe window?\nNumerical Alignment: Do values ($2.6B, all-stock) reinforce or at least not contradict each other?\nDirectional Consistency: Was Subject \u2192 Object active, or Object \u2190 Subject passive?\n\nIf the slots align without logical contradictions, the confidence that these three sources refer to the same event approaches 100%."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+          "line_start": 121,
+          "chunk_index": 5,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Confidence Scoring & Provenance Weighting",
+          "line_start": 33,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0\u20131.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Security, OAuth2 & Identity Engineering",
+          "line_start": 879,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "The identity pipeline uses external OAuth2 tokens for clients and internal Passports for microservices.\nExternal authentication (OAuth2): On login, the Identity Service issues a short-lived access token and a refresh token. Mobile clients send the access token in the Authorization header.\nIdentity Passport pattern: The Edge Gateway exchanges the public token for a signed Passport containing validated user metadata. Services can verify it locally instead of calling the Identity Service.\n{\n  \"user_id\": \"usr_9921_sf\",\n  \"user_type\": \"DRIVER\",\n  \"device_id\": \"dev_iphone_8832\",\n  \"authenticated_at\": 1770562800,\n  \"scopes\": [\"trips:read\", \"location:write\"]\n}\n\nThe Passport is HMAC-signed with a key shared across the internal mesh. Services verify the signature locally.\nService-to-service security (SPIFFE/SPIRE and mTLS): Each workload receives a cryptographic identity. SPIRE issues short-lived X.509 certificates, and sidecar proxies enforce which services may communicate."
+        }
+      ],
+      "answer": "The token comparison matters because a worker whose lock has expired could accidentally delete a newer worker\u2019s lock [3]."
+    },
+    {
+      "run": 1,
+      "id": "followup-04",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes (line 36, chunk 0))\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details[^5]) across internal APIs so clients can parse code, message, and details uniformly.\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 316, chunk 0))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Recommendation & Search Engine (line 56, chunk 0))\nYouTube uses a two-stage Deep Neural Network (DNN) to build personalized feeds:\nCandidate generation: The model uses user history, search tokens, and other signals to reduce millions of videos to a few hundred candidates.\nRanking: The model scores candidates with signals such as click-through rate, watch time, and satisfaction, then orders the feed.\n\n[5] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 323, chunk 1))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n\nPrior user question (reference context only): Should an empty search result and a missing resource ID both return 404? What do the API notes say?\nPrior answer (reference context only; verify claims against the document evidence): No, an empty search result and a missing resource ID do not both return 404 . A search that finds nothing returns 200 OK with an empty list []. A request for a specific entity that is missing must return 404 Not Found .\n\nQuestion: And what should the empty search return instead?\n\nFor this follow-up, resolve the subject and any selected mode from the prior answer. If the current question names a different subject or mode, use that instead. Answer only for the applicable subject and mode; label alternatives explicitly if needed.\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/api-design-guidelines.md",
+          "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+          "line_start": 36,
+          "chunk_index": 0,
+          "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+          "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details[^5]) across internal APIs so clients can parse code, message, and details uniformly."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines)",
+          "line_start": 316,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Modern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Recommendation & Search Engine",
+          "line_start": 56,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "YouTube uses a two-stage Deep Neural Network (DNN) to build personalized feeds:\nCandidate generation: The model uses user history, search tokens, and other signals to reduce millions of videos to a few hundred candidates.\nRanking: The model scores candidates with signals such as click-through rate, watch time, and satisfaction, then orders the feed."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines)",
+          "line_start": 323,
+          "chunk_index": 1,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Modern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision."
+        }
+      ],
+      "answer": "200 OK with an empty list []. [1]"
+    },
+    {
+      "run": 1,
+      "id": "followup-05",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/os.md > Operating System > Virtualization > Memory virtualization (line 59, chunk 0))\nEach process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |\n\n[2] (source: samples/os.md > Operating System > Process Memory Layout (line 113, chunk 3))\nthread\u2019s stack memory if it has a valid pointer to that memory.\nSeparate processes have separate address spaces, so their heaps, global data, and stacks are isolated from one another unless they explicitly use an inter-process sharing mechanism.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 316, chunk 0))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n\nPrior user question (reference context only): If I create two threads in one process, which memory do they share and which part stays private?\nPrior answer (reference context only; verify claims against the document evidence): They share the code, heap, and global/static variables , and each thread has its own private stack .\n\nQuestion: What about separate processes: can they share the same virtual address?\n\nFor this follow-up, resolve the subject and any selected mode from the prior answer. If the current question names a different subject or mode, use that instead. Answer only for the applicable subject and mode; label alternatives explicitly if needed.\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Virtualization > Memory virtualization",
+          "line_start": 59,
+          "chunk_index": 0,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |"
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Process Memory Layout",
+          "line_start": 113,
+          "chunk_index": 3,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "thread\u2019s stack memory if it has a valid pointer to that memory.\nSeparate processes have separate address spaces, so their heaps, global data, and stacks are isolated from one another unless they explicitly use an inter-process sharing mechanism."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines)",
+          "line_start": 316,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Modern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision."
+        }
+      ],
+      "answer": "Yes, separate processes can share the same virtual address [1]. Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address [1]."
+    }
+  ]
+}

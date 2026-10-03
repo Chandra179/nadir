@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,6 +16,8 @@ const promptInstructions = "You are a precise assistant. Answer the question usi
 	"If the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\n" +
 	"Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n"
 
+var sourceFootnote = regexp.MustCompile(`\[\^(\d+)\]`)
+
 // PromptBudget bounds evidence and, when configured, the complete model
 // request. ContextWindowTokens includes the reserved answer and a small
 // allowance for the provider's chat template. Counts are conservative estimates.
@@ -22,6 +25,9 @@ type PromptBudget struct {
 	MaxContextTokens     int
 	ContextWindowTokens  int
 	ReservedOutputTokens int
+	// ReferenceContext resolves conversation subjects but supplies no evidence.
+	// Place it before the current question so the current intent stays last.
+	ReferenceContext string
 }
 
 // ContextStats describes the actual evidence admitted to the prompt.
@@ -35,8 +41,7 @@ type ContextStats struct {
 }
 
 // Citation identifies one admitted piece of evidence. Number is assigned in
-// retrieval order before arranging the prompt, so it never refers to a
-// different source merely because the prompt order changed. Text snapshots
+// retrieval order, which is also the prompt presentation order. Text snapshots
 // exactly the evidence presented to the model, including any truncation.
 type Citation struct {
 	Number        int
@@ -65,16 +70,19 @@ type PromptBuild struct {
 	Err     error
 }
 
-func promptSuffix(query string) string { return "\n\nQuestion: " + query + "\n\nAnswer:" }
+func promptSuffix(query, reference string) string {
+	return reference + "\n\nQuestion: " + query +
+		"\n\nAnswer:"
+}
 
 // BuildPromptWithBudget is the sole generation prompt API: it selects
-// evidence by retrieval rank, then arranges only the admitted chunks at the
-// prompt edges. Lower-ranked evidence never takes budget away from a
+// evidence by retrieval rank and presents that same order. Lower-ranked
+// evidence never takes budget away from a
 // higher-ranked chunk.
 func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBudget) PromptBuild {
 	contextTokens := max(0, budget.MaxContextTokens)
 	reserved := max(0, budget.ReservedOutputTokens)
-	suffix := promptSuffix(query)
+	suffix := promptSuffix(query, budget.ReferenceContext)
 	if budget.ContextWindowTokens > 0 {
 		// Ollama adds a model-specific chat template outside the prompt.
 		const templateAllowance = 64
@@ -91,27 +99,6 @@ func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBud
 	return PromptBuild{Prompt: prompt, Context: context}
 }
 
-// lostInMiddleOrder interleaves chunks front/back so the best two occupy the
-// prompt edges. Admission must always precede this presentation transform.
-func lostInMiddleOrder(chunks []search.Chunk) []search.Chunk {
-	return edgeOrder(chunks)
-}
-
-func edgeOrder[T any](items []T) []T {
-	result := make([]T, len(items))
-	front, back := 0, len(items)-1
-	for i, item := range items {
-		if i%2 == 0 {
-			result[front] = item
-			front++
-		} else {
-			result[back] = item
-			back--
-		}
-	}
-	return result
-}
-
 func citationEntry(c Citation) string {
 	source := c.FilePath
 	if c.Header != "" {
@@ -125,7 +112,7 @@ func citationEntry(c Citation) string {
 
 // BuildContextWithStats selects a ranked prefix. The last admitted chunk may
 // contain a text prefix; its source label is always complete. Citations stay
-// in retrieval order even though Text is arranged for model attention.
+// in retrieval order, matching their presentation in Text.
 func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
 	built := ContextBuild{Stats: ContextStats{BudgetTokens: max(0, maxTokens)}}
 	used := 0
@@ -134,8 +121,16 @@ func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
 		if text == "" {
 			text = chunk.Text
 		}
+		// Source-local footnote numbers must not become app source IDs. Stored
+		// text and ordinary bracketed values remain intact; Citation.Text records
+		// the exact normalized evidence shown to the model and reader.
+		text = sourceFootnote.ReplaceAllString(text, " (document footnote)")
+		heading := chunk.SectionPath
+		if heading == "" {
+			heading = chunk.Header
+		}
 		citation := Citation{Number: i + 1, RetrievalRank: i + 1, FilePath: chunk.FilePath,
-			Header: chunk.Header, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex,
+			Header: heading, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex,
 			SourceSHA: chunk.SourceSHA, Text: text}
 		entryTokens := estimateTokens(citationEntry(citation))
 		if used+entryTokens > maxTokens {
@@ -154,7 +149,7 @@ func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
 		built.Citations = append(built.Citations, citation)
 	}
 	var sb strings.Builder
-	for _, citation := range edgeOrder(built.Citations) {
+	for _, citation := range built.Citations {
 		sb.WriteString(citationEntry(citation))
 	}
 	built.Text = sb.String()

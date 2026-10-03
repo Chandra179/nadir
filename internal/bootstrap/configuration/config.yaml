@@ -48,6 +48,7 @@ embedder:
   dimensions: 768
   request_timeout: 60s
   query_prefix: "task: search result | query: "   # prepended to queries at search time (EmbeddingGemma task instruction; empty = off)
+  # num_gpu: 0               # optional: keep embeddings on CPU when a larger answer model occupies the GPU; omitted = Ollama placement
   document_prefix: "title: none | text: "          # prepended to chunks at ingest time; requires reindex when changed
   max_input_chars: 8000                            # rune-clamp on dense embed inputs so Ollama never truncates silently (0 = off)
 

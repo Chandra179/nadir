@@ -11,7 +11,7 @@ export default defineConfig({
     port: dashboardPort,
     strictPort: true,
     proxy: {
-      "/api": "http://localhost:8100",
+      "/api": process.env.VITE_API_PROXY_TARGET || "http://localhost:8100",
     },
   },
   test: {

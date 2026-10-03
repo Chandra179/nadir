@@ -154,15 +154,16 @@ func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChun
 			ingestedAt = time.Now().UTC().Format(time.RFC3339)
 		}
 		payload := map[string]*qdrant.Value{
-			"file_path":   qdrantutil.StringValue(c.FilePath),
-			"header":      qdrantutil.StringValue(c.Header),
-			"line_start":  qdrantutil.IntValue(int64(c.LineStart)),
-			"chunk_index": qdrantutil.IntValue(int64(c.ChunkIndex)),
-			"text":        qdrantutil.StringValue(c.Text),
-			"window_text": qdrantutil.StringValue(c.WindowText),
-			"source_sha":  qdrantutil.StringValue(c.SourceSHA),
-			"ingested_at": qdrantutil.StringValue(ingestedAt),
-			"active":      qdrantutil.BoolValue(active),
+			"file_path":    qdrantutil.StringValue(c.FilePath),
+			"header":       qdrantutil.StringValue(c.Header),
+			"section_path": qdrantutil.StringValue(c.SectionPath),
+			"line_start":   qdrantutil.IntValue(int64(c.LineStart)),
+			"chunk_index":  qdrantutil.IntValue(int64(c.ChunkIndex)),
+			"text":         qdrantutil.StringValue(c.Text),
+			"window_text":  qdrantutil.StringValue(c.WindowText),
+			"source_sha":   qdrantutil.StringValue(c.SourceSHA),
+			"ingested_at":  qdrantutil.StringValue(ingestedAt),
+			"active":       qdrantutil.BoolValue(active),
 		}
 		points[i] = &qdrant.PointStruct{
 			Id: qdrant.NewIDUUID(id),
@@ -374,7 +375,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 	fetchN := uint64(topK * s.prefetchMul)
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
-	sparseIdx, sparseVal := vectorizeSparse(query)
+	sparseIdx, sparseVal := vectorizeSparseQuery(query)
 
 	denseQuery := &qdrant.QueryPoints{
 		CollectionName: s.activeAlias,
@@ -445,7 +446,7 @@ func (s *dependencies) hybridSearchFused(ctx context.Context, vector []float32, 
 	fetchN := uint64(topK * s.prefetchMul)
 	limit := uint64(topK)
 	qf := toQdrantFilter(buildFilterConditions(filter))
-	sparseIdx, sparseVal := vectorizeSparse(query)
+	sparseIdx, sparseVal := vectorizeSparseQuery(query)
 	prefetch := []*qdrant.PrefetchQuery{
 		{Query: qdrant.NewQueryDense(vector), Filter: qf, Limit: &fetchN},
 	}
@@ -618,13 +619,14 @@ func contextualSparseText(filePath, header, text string) string {
 
 func chunkFromPayload(p map[string]*qdrant.Value) search.SearchCandidate {
 	return search.SearchCandidate{
-		Text:       qdrantutil.StringFromPayload(p, "text"),
-		WindowText: qdrantutil.StringFromPayload(p, "window_text"),
-		FilePath:   qdrantutil.StringFromPayload(p, "file_path"),
-		Header:     qdrantutil.StringFromPayload(p, "header"),
-		LineStart:  int(qdrantutil.IntFromPayload(p, "line_start")),
-		ChunkIndex: int(qdrantutil.IntFromPayload(p, "chunk_index")),
-		SourceSHA:  qdrantutil.StringFromPayload(p, "source_sha"),
+		Text:        qdrantutil.StringFromPayload(p, "text"),
+		WindowText:  qdrantutil.StringFromPayload(p, "window_text"),
+		FilePath:    qdrantutil.StringFromPayload(p, "file_path"),
+		Header:      qdrantutil.StringFromPayload(p, "header"),
+		SectionPath: qdrantutil.StringFromPayload(p, "section_path"),
+		LineStart:   int(qdrantutil.IntFromPayload(p, "line_start")),
+		ChunkIndex:  int(qdrantutil.IntFromPayload(p, "chunk_index")),
+		SourceSHA:   qdrantutil.StringFromPayload(p, "source_sha"),
 	}
 }
 
@@ -633,8 +635,29 @@ func chunkFromPayload(p map[string]*qdrant.Value) search.SearchCandidate {
 // ingest and query-time encodings match; IDF is applied server-side by
 // Qdrant's Idf modifier.
 func vectorizeSparse(text string) (indices []uint32, values []float32) {
+	return vectorizeSparseTokens(tokenize(text))
+}
+
+// Natural questions need their topic words in the lexical leg. Common English
+// function words otherwise give unrelated passages an RRF rank contribution.
+// Document vectors and explicit keyword lookups retain every indexed term.
+func vectorizeSparseQuery(query string) (indices []uint32, values []float32) {
+	var terms []string
+	for _, term := range tokenize(query) {
+		switch term {
+		case "a", "an", "the", "i", "it", "its", "we", "our", "my", "me", "you", "your",
+			"what", "which", "how", "why", "do", "does", "did", "is", "are", "was", "were",
+			"can", "could", "should", "would", "to", "of", "for", "from", "at", "on", "in", "and", "or", "with", "while", "when":
+			continue
+		}
+		terms = append(terms, term)
+	}
+	return vectorizeSparseTokens(terms)
+}
+
+func vectorizeSparseTokens(terms []string) (indices []uint32, values []float32) {
 	counts := make(map[uint32]float32)
-	for _, tok := range tokenize(text) {
+	for _, tok := range terms {
 		h := fnv.New32a()
 		h.Write([]byte(tok))
 		counts[h.Sum32()]++

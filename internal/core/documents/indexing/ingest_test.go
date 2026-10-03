@@ -6,6 +6,7 @@ import (
 	"io"
 	"maps"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -85,6 +86,26 @@ func (f *fakeEnricher) ContextualIntro(context.Context, string, string) (string,
 }
 
 var _ enrichment.Enricher = (*fakeEnricher)(nil)
+
+func TestRunReportsEachInputOutcomeInOrder(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{
+		Chunker: &fakeChunker{}, Embedder: fakeEmbedder{}, Store: &fakeStore{stored: map[string]string{"same.md": contentSHA([]byte("same"))}},
+		Workers: 1, MaxFileBytes: 32,
+	})
+	result, err := d.Run(context.Background(), []UploadFile{
+		{Name: "new.md", Data: []byte("new")}, {Name: "same.md", Data: []byte("same")},
+		{Name: "bad.pdf", Data: []byte("pdf")}, {Name: "bad.txt", Data: []byte("text")},
+		{Name: "large.md", Data: []byte(strings.Repeat("x", 33))},
+	}, RunOptions{})
+	if err != nil || result.Processed != 1 || result.Skipped != 1 || result.Failed != 3 || len(result.Files) != 5 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	for i, want := range []string{"processed", "skipped", "failed", "failed", "failed"} {
+		if result.Files[i].Status != want || (want == "failed" && result.Files[i].Error == "") {
+			t.Fatalf("outcome %d=%+v", i, result.Files[i])
+		}
+	}
+}
 
 func TestRunUsesDocumentIntakeBeforeIndexingPDF(t *testing.T) {
 	intake := &fakeIntake{}

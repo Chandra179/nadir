@@ -1,0 +1,746 @@
+{
+  "registered_at": "2026-10-02T16:27:21.030444+00:00",
+  "mode": "Diagnostic replay of captured prefix-fix evidence; not an app or acceptance run.",
+  "hypothesis": "An already-installed alternative may follow scope, requested alternatives and source IDs more reliably after correcting retrieval task-prefix contamination.",
+  "change": "Use the existing local Llama 3.1 8B q4 model with the exact captured prompts, temperature zero, 4096 context and 512 output tokens. No download, source/fixture edits or default configuration change.",
+  "model": "llama3.1:8b-instruct-q4_K_M",
+  "human": false,
+  "release_gate": false,
+  "cases": [
+    {
+      "id": "notes-06",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ (line 11, chunk 0))\nThis document describes the core building blocks of our RabbitMQ / AMQP 0-9-1 client library. The implementation offers robust message delivery with automatic recovery, publisher confirms, and efficient resource management.\ngraph TD\n TM[Topology Manager]\n TM --> Qdecl[Queue Declaration]\n TM --> Edecl[Exchange Declaration]\n TM --> Bind[Binding]\n\n Qdecl --> DlxCfg[Configure DLX/Retry/Parking Lot]\n\n DlxCfg --> Q[Primary Queue]\n DlxCfg --> DLX[Dead-Letter Exchange]\n DlxCfg --> RQ[Retry Queue<br/>x-message-ttl<br/>x-dead-letter-exchange \u2192 EX]\n DlxCfg --> PL[Parking Lot Queue]\n\n TM --> Cache[(In-Memory Cache)]\n Cache --> Reconnect[Re-declare on Reconnection]\n Reconnect --> Q\n Reconnect --> DLX\n Reconnect --> RQ\n Reconnect --> PL\n\n P[Producer] --> CP[Channel Pool]\n CP --> P\n CP --> Ch[AMQP Channel]\n P --> EX[Exchange<br/>type: direct/topic/fanout]\n EX --> Q\n\n C[Consumer] --> Q\n C --> Acknowledge[Ack/Nack/Reject]\n Acknowledge --> Q\n Acknowledge --> DLX\n\n DLX --> RQ\n DLX --> PL\n RQ --> EX\n\n[4] (source: samples/api-design-guidelines.md > API Design Guidelines > Performance & Efficiency (line 21, chunk 0))\nDon't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks.\n\n\n\nQuestion: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\n\nAnswer:",
+      "answer": "You should use manual acknowledgement (autoAck: false) [1]. This gives full control over at-least-once delivery semantics, which means that even if the consumer crashes, the message will not be lost and can be requeued or dead-lettered. \n\nNote: Manual acknowledgement requires the application to explicitly call channel.ack(deliveryTag) after successful processing.",
+      "prompt_eval_count": 887,
+      "eval_count": 75,
+      "load_duration_ns": 6766198602,
+      "elapsed_ms": 10918.469,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:31.95049407+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-09",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback) (line 181, chunk 0))\nThe application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous): (line 185, chunk 1))\nB. Real-time analytics / surge pricing (asynchronous):\nAnalytics is outside the matching request-response loop.\nFlink and Pinot consume raw location and search pings directly from Kafka in the background.\nStream 1: Driver location updates \u2192 calculate available supply per H3 cell.\nStream 2: Rider app opens/searches \u2192 calculate demand per H3 cell.\nFlink computes the surge multiplier (e.g., 1.4x) and writes it to a cache. DISCO reads the cached rate without waiting for analytics.\n\n| Action | Protocol / Tech | Sync or Async? | |--------|----------------|----------------| | Driver Ingestion | WebSocket \u2192 API Gateway \u2192 Kafka \u2192 Redis | Async (event-driven) | | Rider Search / Match | HTTPS \u2192 DISCO \u2192 Direct Redis Query | Sync (sub-second RPC) | | ETA Calculation | DISCO \u2192 ETA Engine (gRPC) | Sync (inline during match) | | Surge / Analytics | Kafka Stream \u2192 Flink \u2192 Surge Cache | Async (out-of-band) |\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT) (line 42, chunk 0))\nStep-by-step: What happens when you save data (INSERT)\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk, because writing to structured table files (B-Trees, data pages) requires slow random disk I/O. Instead, imagine you run INSERT INTO users (id, name) VALUES (1, 'Alex'):\nStep 1 (RAM): The database writes the row into its in-memory Buffer Pool in RAM.\n\n[4] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Comments, Community & Notifications > Live Chat at Scale > Read path: adaptive HTTP batch polling. (line 206, chunk 3))\nrites full (unsampled) chat logs for Live Chat Replay on VODs. |\nMost poll requests are served from L1/L2, avoiding primary database reads.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 173, chunk 3))\nWhy Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events.\n\n\n\nQuestion: We poll updated_at to sync a search index. Why do deleted rows stay in the index?\n\nAnswer:",
+      "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1]",
+      "prompt_eval_count": 987,
+      "eval_count": 19,
+      "load_duration_ns": 131923578,
+      "elapsed_ms": 1564.058,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:33.515513887+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-14",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes (line 36, chunk 0))\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly.\n\n[2] (source: samples/api-design-guidelines.md > API Design Guidelines (line 11, chunk 0))\nThis document defines mandatory API design conventions for all internal services. Every endpoint must conform to these rules unless an exemption is approved. Intended for backend engineers building or maintaining HTTP APIs.\n\n[3] (source: samples/api-design-guidelines.md > API Design Guidelines > References (line 57, chunk 0))\n (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 1. The Pointer: What is an LSN / Log Position? (line 117, chunk 0))\n1. The Pointer: What is an LSN / Log Position?\nEvery single byte written to a database's Write-Ahead Log is given an incremental 64-bit integer address. Think of the WAL file as a continuous tape marked with line numbers:\nflowchart TD\n  L100[\"LSN 100: INSERT INTO users (id=1, name='Alex')\"]\n  L250[\"LSN 250: UPDATE users SET name='Alexander' WHERE id=1\"]\n  L410[\"LSN 410: DELETE FROM users WHERE id=2 (CDC processed this)\"]\n  L580[\"LSN 580: INSERT INTO orders (id=99, user_id=1)\"]\n  L100 --> L250 --> L410 --> L580\n\nWhen the CDC engine (e.g., Debezium) reads the database log, it parses LSN 410, converts it into a JSON event, and sends it to Kafka.\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Data Model > Redis Structures: (line 250, chunk 0))\nRedis Structures:\nDriver State (Hash): driver:state:{driver_id} \u2192 { status, lat, lng, s2_cell_id, last_ping }\nSpatial Index (Sorted Set): s2:cell:{s2_cell_id} \u2192 {driver_id} (only AVAILABLE drivers)\n\n\n\nQuestion: Should an empty search result and a missing resource ID both return 404? What do the API notes say?\n\nAnswer:",
+      "answer": "No. According to [1], a search that finds nothing is a success, returning 200 OK with an empty list [], while a request for a specific entity that is missing must return 404 Not Found.",
+      "prompt_eval_count": 886,
+      "eval_count": 43,
+      "load_duration_ns": 95891631,
+      "elapsed_ms": 2617.531,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:36.133921517+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-22",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Semantic Inference & Formal Reasoning (The Logic Layer) (line 273, chunk 0))\nYou do not need an LLM or an extraction pipeline to explicitly extract every single connection. Formal KGs use Semantic Reasoners (Inference Engines using OWL/RDFS rules) to mathematically deduce unwritten edges:\nTransitive Rules: If $A \\xrightarrow{\\text{LOCATED\\_IN}} B$ and $B \\xrightarrow{\\text{LOCATED\\_IN}} C$, the reasoner automatically materializes $A \\xrightarrow{\\text{LOCATED\\_IN}} C$.\nInverse Properties: Defining parentOf automatically infers childOf in the reverse direction without doubling storage input.\nSymmetric & Asymmetric Constraints: Defining CO_FOUNDED_WITH as symmetric means an edge $A \\rightarrow B$ implicitly creates $B \\rightarrow A$.\nSubsumption (Ontology Inheritance): If TechStartup is defined as a subclass of Organization, any rule, property, or security permission applied to Organization automatically inherits down to every TechStartup node.\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy (line 21, chunk 0))\nA graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST).\n\n[3] (source: samples/knowledge-graph.md > Knowledge Graph > Graph-RAG Architecture: Hierarchical Summarization (line 282, chunk 0))\nWhen you connect a Knowledge Graph to a downstream LLM or reasoning system, you face a scaling bottleneck: you cannot fit a 50,000-node graph into a context window. Modern GraphRAG architectures solve this through two sub-graph retrieval patterns:\nflowchart TD\n    A[Full Knowledge Graph] --> B[Global Query]\n    A --> C[Local Query]\n    B --> D[Hierarchical Community Summarization<br>Leiden Clusters]\n    C --> E[k-Hop Subgraph Expansion<br>Ego-Graph Pruning]\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Change Data Capture (CDC): operational to analytical bridge > Key Engineering Challenges & Solutions (line 561, chunk 1))\n| CDC Challenge | How Uber Solved It | |---------------|--------------------| | Schema Evolution | Upstream table schemas change over time (e.g., adding new columns). Uber uses an Avro Schema Registry. If a breaking schema change occurs, StorageTapper flags it and prevents invalid data from corrupting the Data Lake. | | Data Ordering & Deduplication | Distributed Kafka topics can sometimes deliver events out-of-order or duplicate them. Every CDC event contains the source database transaction timestamp and sequence ID. Hudi uses these fields to apply changes in exact chronological order. | | Cross-Region Replication | Uber built uReplicator (an optimized alternative to Kafka MirrorMaker) to mirror CDC Kafka topics between geographically distant datacenters without losing offsets or introducing lag. |\n\n\n\nQuestion: Our graph uses RELATED_TO everywhere. What reasoning capability are we losing?\n\nAnswer:",
+      "answer": "You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship [2]. \n\nThis is because a graph where 90% of edges are generic loses its reasoning power, specifically in running \"what-if\" counterfactual simulations.",
+      "prompt_eval_count": 955,
+      "eval_count": 58,
+      "load_duration_ns": 100429573,
+      "elapsed_ms": 3435.043,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:39.569409677+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-23",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging? (line 296, chunk 0))\nWhy separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk.\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding (line 26, chunk 1))\nWhen a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2\u20135 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance.\n\n[3] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) (line 63, chunk 0))\nLive streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     \u2502 RTMP/WebRTC\n     v\nLive ingress \u2192 Transcoder \u2192 LL-DASH \u2192 CDN \u2192 Viewer (1\u20133 s)\n                   \u2502\n                   \u2514\u2500\u2192 DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind.\n\n\n\nQuestion: What are the DASH and HLS manifest file formats in our video design notes, and what do they index?\n\nAnswer:",
+      "answer": "The DASH and HLS manifest file formats are .mpd for MPEG-DASH and .m3u8 for HLS. They contain:\n* The web addresses (URLs) of every audio chunk.\n* The web addresses of every video chunk broken down by resolution and codec.\n* The exact timestamp alignment for every chunk.\n\n[1]",
+      "prompt_eval_count": 680,
+      "eval_count": 69,
+      "load_duration_ns": 93247166,
+      "elapsed_ms": 3745.314,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:43.314855275+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-25",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming. (line 102, chunk 0))\n2. CDN Mechanics: Pull vs. Push/Chunked Streaming.\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\nVOD:  full 4 s chunks \u2192 Origin \u2192 CDN edge \u2192 Viewer\nLive: 100 ms chunks    \u2192 CDN edge \u2192 Viewer\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy) (line 47, chunk 0))\nVideo is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone.\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold (line 482, chunk 0))\nKeeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0\u201330 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis.\n\n[4] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection (line 216, chunk 0))\nWidevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME). Encrypted segments sit on the CDN; the browser must fetch a hardware-backed decryption key from Google's License Server.\nSigned CDN URLs: CDN media URLs carry short-lived cryptographic tokens bound to the user's IP address and session ID to prevent unauthorized hotlinking or scraping.\n\n\n\nQuestion: Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?\n\nAnswer:",
+      "answer": "According to [2], hot content is cached on NVMe/SSD edge servers near the user. Warm content is kept in regional Google data-center caches. Cold content is read from central blob storage over Google's backbone.",
+      "prompt_eval_count": 698,
+      "eval_count": 46,
+      "load_duration_ns": 115618274,
+      "elapsed_ms": 2696.073,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:46.01184314+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-26",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch (line 15, chunk 0))\nThis conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\nIt uses Uber's publicly discussed terminology as a reference point, but the diagrams and capacity choices below are an engineering model rather than an official description of Uber's current implementation.\nThe sections below cover the main parts.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System (line 100, chunk 0))\nThe platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow | |--------|-------------|----------------|----------------|------| | Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | \u2192 feeds into \u2192 | | Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) | |\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional: (line 134, chunk 0))\nNon-functional:\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\nHigh throughput: Handle 1,000,000+ active drivers sending pings continuously.\nConsistency: Assign each driver to at most one rider at a time.\nHigh availability: 99.99% uptime without a single point of failure.\n\n\n\nQuestion: In the ride-service design notes, where is availability favored and where do we need stricter consistency?\n\nAnswer:",
+      "answer": "The Location Tracking Engine favors High Availability [2], while the Matching & Trip State Engine requires Strong Consistency for Financial Integrity [2]. \n\nAvailability is also mentioned as a requirement in the Non-functional section [3] with a goal of 99.99% uptime, but this is not specific to either engine.",
+      "prompt_eval_count": 546,
+      "eval_count": 64,
+      "load_duration_ns": 100317367,
+      "elapsed_ms": 3394.49,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:49.406604748+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-27",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/system-design-core.md > System Design Core (line 26, chunk 3))\nrebuilds state or falls back to durable storage.\nSource of truth\n\nPush and pull event\nat-least-once vs exactly-once delivery\nBackpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work.\nReservation or hold with expiry: protect scarce inventory\nTransactional outbox\nChange Data Capture (CDC)\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Producer (line 125, chunk 0))\nProducers are responsible for publishing messages to an exchange. The library provides both single and batched publish operations.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 164, chunk 1))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Borrow / Return (line 167, chunk 0))\nBorrow / Return\nA producer borrows a channel, uses it for one or more publish operations, and returns it to the pool.\nThe pool tracks which channels are in use to prevent concurrent access (an AMQP channel is not thread-safe).\n\n[5] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Common cache patterns > Warm the cache before traffic (line 127, chunk 0))\nCache warmup loads frequently needed values before users request them, for example after a service starts or a cache is replaced. It can reduce misses during a traffic spike. Loading too much at once can overload the source database, so warm only useful data and control the rate.\n\n\n\nQuestion: A producer is sending work faster than consumers can handle. What is backpressure supposed to do?\n\nAnswer:",
+      "answer": "Limit queues and concurrent work [1].",
+      "prompt_eval_count": 678,
+      "eval_count": 9,
+      "load_duration_ns": 115870617,
+      "elapsed_ms": 909.79,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:50.317455279+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "notes-29",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/calculus.md > Calculus Derivatives and Integrals > Trigonometric Derivatives (line 19, chunk 0))\nd/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec\u00b2(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc\u00b2(x)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Secant Method (line 5, chunk 0))\nThe secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function.\n\n[4] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling (line 434, chunk 0))\nHistorical trip storage differs from live driver tracking. Live tracking needs low latency and temporary memory; historical data needs durable, scalable storage and high write throughput.\nUber built Schemaless, a distributed datastore on MySQL, with a Hadoop/Data Lake tier for long-term analysis.\n\n\n\nQuestion: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\nAnswer:",
+      "answer": "Newton-Raphson method requires derivative computation [4]. The secant method does not require computing derivatives [2].",
+      "prompt_eval_count": 543,
+      "eval_count": 24,
+      "load_duration_ns": 96231686,
+      "elapsed_ms": 1497.046,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:51.815193916+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup-01",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/calculus.md > Calculus Derivatives and Integrals > Trigonometric Derivatives (line 19, chunk 0))\nd/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec\u00b2(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc\u00b2(x)\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Secant Method (line 5, chunk 0))\nThe secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function.\n\n[4] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[5] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Where Redis runs (line 48, chunk 3))\nEven when Redis and the app run on one machine or in one container host, they remain separate processes communicating over a socket. A separate Redis service is useful when app instances need shared state or when Redis needs independent memory, scaling, and operations.\n\n\nPrior user question (reference context only): Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\nPrior answer (reference context only; verify claims against the document evidence): Newton-Raphson needs derivative computation , while the secant method does not require computing derivatives .\nSearch rewrite (reference resolution only): Does the second one need derivatives?\nPrevious user question: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\nPrevious answer (reference only): Newton-Raphson needs derivative computation , while the secant method does not require computing derivatives .\n\nQuestion: Does the second one need derivatives?\n\nAnswer:",
+      "answer": "No, it does not require computing derivatives [1].",
+      "prompt_eval_count": 642,
+      "eval_count": 12,
+      "load_duration_ns": 93597188,
+      "elapsed_ms": 943.922,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:52.759724891+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup-02",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 3. What Happens During a Crash? (line 147, chunk 0))\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Producer > Publisher Confirms > Without Publisher Confirms (line 151, chunk 1))\nWithout Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing \u2192 message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length \u2192 message dead-lettered or dropped.\nBroker crash before fsync \u2192 durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message.\n\n[5] (source: samples/api-design-guidelines.md > API Design Guidelines > Performance & Efficiency (line 21, chunk 0))\nDon't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement (autoAck: false) .\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement (autoAck: false) .\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Messages can be lost if the consumer crashes before processing [1].",
+      "prompt_eval_count": 1099,
+      "eval_count": 14,
+      "load_duration_ns": 92227803,
+      "elapsed_ms": 1353.731,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:54.113880886+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup-02",
+      "run": 2,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 3. What Happens During a Crash? (line 147, chunk 0))\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Producer > Publisher Confirms > Without Publisher Confirms (line 151, chunk 1))\nWithout Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing \u2192 message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length \u2192 message dead-lettered or dropped.\nBroker crash before fsync \u2192 durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message.\n\n[5] (source: samples/api-design-guidelines.md > API Design Guidelines > Performance & Efficiency (line 21, chunk 0))\nDon't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement (autoAck: false) .\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement (autoAck: false) .\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Messages can be lost if the consumer crashes before processing [1].",
+      "prompt_eval_count": 1099,
+      "eval_count": 14,
+      "load_duration_ns": 99274423,
+      "elapsed_ms": 775.404,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:54.889912376+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup-02",
+      "run": 3,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 3. What Happens During a Crash? (line 147, chunk 0))\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Producer > Publisher Confirms > Without Publisher Confirms (line 151, chunk 1))\nWithout Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing \u2192 message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length \u2192 message dead-lettered or dropped.\nBroker crash before fsync \u2192 durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message.\n\n[5] (source: samples/api-design-guidelines.md > API Design Guidelines > Performance & Efficiency (line 21, chunk 0))\nDon't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement (autoAck: false) .\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement (autoAck: false) .\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Messages can be lost if the consumer crashes before processing [1].",
+      "prompt_eval_count": 1099,
+      "eval_count": 14,
+      "load_duration_ns": 107149776,
+      "elapsed_ms": 799.362,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:55.68999958+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup-03",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "source_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Cross-Document Fact Coreference > Slot & Attribute Matching (Verifying Reality Boundaries) (line 119, chunk 1))\nJust because two companies had an acquisition relation doesn't mean three sentences describe the same acquisition (e.g., Company A might have bought a subsidiary of Company B in 2010, and another in 2022).\nThe system checks Contextual Slots:\nTemporal Overlap: Do timestamps (2016) match or fit within the same timeframe window?\nNumerical Alignment: Do values ($2.6B, all-stock) reinforce or at least not contradict each other?\nDirectional Consistency: Was Subject \u2192 Object active, or Object \u2190 Subject passive?\n\nIf the slots align without logical contradictions, the confidence that these three sources refer to the same event approaches 100%.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Security, OAuth2 & Identity Engineering (line 879, chunk 0))\nThe identity pipeline uses external OAuth2 tokens for clients and internal Passports for microservices.\nExternal authentication (OAuth2): On login, the Identity Service issues a short-lived access token and a refresh token. Mobile clients send the access token in the Authorization header.\nIdentity Passport pattern: The Edge Gateway exchanges the public token for a signed Passport containing validated user metadata. Services can verify it locally instead of calling the Identity Service.\n{\n  \"user_id\": \"usr_9921_sf\",\n  \"user_type\": \"DRIVER\",\n  \"device_id\": \"dev_iphone_8832\",\n  \"authenticated_at\": 1770562800,\n  \"scopes\": [\"trips:read\", \"location:write\"]\n}\n\nThe Passport is HMAC-signed with a key shared across the internal mesh. Services verify the signature locally.\nService-to-service security (SPIFFE/SPIRE and mTLS): Each workload receives a cryptographic identity. SPIRE issues short-lived X.509 certificates, and sidecar proxies enforce which services may communicate.\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 118, chunk 4))\nA Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker.\n\n[4] (source: samples/knowledge-graph.md > Knowledge Graph > Confidence Scoring & Provenance Weighting (line 33, chunk 0))\nNot all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0\u20131.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise.\n\n[5] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 121, chunk 5))\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires\n\n\nPrior user question (reference context only): A worker finished after its Redis lock expired. Is it safe for it to delete the lock key now?\nPrior answer (reference context only; verify claims against the document evidence): No, it is not safe for it to delete the lock key now . A worker whose lock has expired could accidentally delete a newer worker's lock . The lock can also expire while work is still running, allowing another worker to start the same job .\n\nQuestion: Why does the token comparison matter?\n\nAnswer:",
+      "answer": "The token comparison matters because if the token no longer matches, it means that the lock has been acquired by another worker, and deleting the lock key could result in a newer worker's lock being deleted. [3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe)",
+      "prompt_eval_count": 1021,
+      "eval_count": 67,
+      "load_duration_ns": 113556873,
+      "elapsed_ms": 3877.207,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:32:59.568454128+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "sin-45-degrees",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/trig-functions.md > Trigonometric Functions > Key Angles (line 45, chunk 0))\n| Degrees | Radians | sin | cos | tan | |---------|---------|-----|-----|-----| | 0\u00b0      | 0       | 0   | 1   | 0   | | 30\u00b0     | \u03c0/6     | 1/2 | \u221a3/2| 1/\u221a3| | 45\u00b0     | \u03c0/4     | \u221a2/2| \u221a2/2| 1   | | 60\u00b0     | \u03c0/3     | \u221a3/2| 1/2 | \u221a3  | | 90\u00b0     | \u03c0/2     | 1   | 0   | \u221e   |\n\n[2] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Sine (sin) (line 6, chunk 0))\nThe sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(\u03b8) = opposite / hypotenuse\n\n[3] (source: samples/trig-functions.md > Trigonometric Functions > Reciprocal Functions > Cosecant (csc) (line 23, chunk 0))\nThe cosecant is the reciprocal of sine.\nFormula: csc(\u03b8) = 1 / sin(\u03b8) = hypotenuse / opposite\n\n[4] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 150, chunk 13))\nSocial commerce changes where purchases happen. Customers can discover, ask about, and buy products without leaving a messaging or social app. Business platforms provide catalogs, AI chatbots, and checkout links in chat. Sirclo (Indonesia), Omnichat (Hong Kong and Southeast Asia), and Shopline (Hong Kong and Taiwan) earn subscriptions and a share of social gross merchandise value (GMV), the total value of goods sold through the platform.\nA purchase can follow these steps:\n\n\n\nQuestion: value of sine at 45 degrees\n\nAnswer:",
+      "answer": "\u221a2/2 [1]",
+      "prompt_eval_count": 586,
+      "eval_count": 8,
+      "load_duration_ns": 101996947,
+      "elapsed_ms": 756.123,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:00.328784552+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Bisection Method > Algorithm (line 34, chunk 0))\nChoose interval [a, b] where f(a) \u00b7 f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Formula (line 24, chunk 0))\nx_{n+1} = x_n - f(x_n) / f'(x_n)\n\n\n\nQuestion: which converges faster bisection or Newton's method\n\nAnswer:",
+      "answer": "Newton's method [3] converges faster than both.",
+      "prompt_eval_count": 369,
+      "eval_count": 13,
+      "load_duration_ns": 105956528,
+      "elapsed_ms": 853.698,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:01.182803137+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "business-embedded-fintech",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 93, chunk 1))\now what is changing, but not who pays or how the providers earn.\nFinance changes where a service is delivered. The services remain banking, custody, payments, and lending. Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software. Standalone neobanks such as N26, Chime, Varo, and Monzo compete through their brands, user experience, and additional services. Established banks can copy those services.\n\n[2] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 100, chunk 2))\nadditional services. Established banks can copy those services.\nThe clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing. Subscriptions provide recurring revenue; transaction fees grow with volume.\n\n[3] (source: samples/business.md > How Business Works > Institutions become tools (line 34, chunk 0))\nInstitutions become business tools when people apply them to everyday needs.\n| Institution | Business tool | |---|---| | Trust, through money and contracts | Banking, credit, buy now, pay later (BNPL), payments | | Coordination, through markets | Trade and exchange, logistics, supply chains | | Incentives, through property rights | Ownership models, leasing, subscriptions | | Institutions applied to physical output | Production, factories, robotics, automation |\n\n\n\nQuestion: How does embedded fintech differ from a standalone digital bank in the business map?\n\nAnswer:",
+      "answer": "Embedded fintech differs from a standalone digital bank in that it combines subscriptions with a share of fees from payment gateways, loan origination, or credit processing [2]. This revenue model is described as \"the clearest\" for embedded fintech. Subscriptions provide recurring revenue; transaction fees grow with volume [2].",
+      "prompt_eval_count": 524,
+      "eval_count": 65,
+      "load_duration_ns": 91415009,
+      "elapsed_ms": 3520.461,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:04.703926807+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "redis-lock-release",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 118, chunk 4))\nA Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker.\n\n[2] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 121, chunk 5))\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Dispatch Flow: Four-Phase Sequence > Phase 3: Lock and dispatch offer (line 210, chunk 0))\nPhase 3: Lock and dispatch offer The selected driver has not accepted yet.\nAcquire atomic lock: DISCO uses Redis (SETNX lock:driver_123 ride_999 EX 15) to reserve the top-ranked driver for 15 seconds.\nSend the offer: If the lock succeeds, the notification service sends an offer to the Driver App.\nDriver decision:If accepted: The lock becomes an active trip record in the primary database.\nIf declined or timed out: The lock expires and DISCO tries Candidate #2.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state (line 313, chunk 1))\nSETNX works on one Redis node. In a multi-region cluster, a primary could crash before replicating the lock.\nRedlock: DISCO writes to five independent Redis masters. It grants a lock when at least three confirm SETNX within the timeout.\nDatabase check: Before writing the trip record to Schemaless, DISCO runs a conditional update:\nUPDATE drivers\nSET status = 'ON_TRIP', current_trip_id = 'ride_111'\nWHERE driver_id = 'drv_98765' AND status = 'AVAILABLE';\n\nIf affected_rows == 0, another request updated the driver first, so the transaction aborts.\n| Scenario | Solution | |----------|---------| | Simultaneous match requests | Atomic SETNX lock prevents double-assignment | | Driver unresponsive (15s) | Redis TTL auto-releases lock for next driver | | Delayed execution | Lua script validates trip_id before releasing lock | | Redis master failover | Redlock multi-node consensus or DB conditional update |\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state (line 302, chunk 0))\nSETNX works on one Redis node. In a multi-region cluster, a primary could crash before replicating the lock.\nRedlock: DISCO writes to five independent Redis masters. It grants a lock when at least three confirm SETNX within the timeout.\nDatabase check: Before writing the trip record to Schemaless, DISCO runs a conditional update:\nUPDATE drivers\nSET status = 'ON_TRIP', current_trip_id = 'ride_111'\nWHERE driver_id = 'drv_98765' AND status = 'AVAILABLE';\n\nIf affected_rows == 0, another request updated the driver first, so the transaction aborts.\n| Scenario | Solution | |----------|---------| | Simultaneous match requests | Atomic SETNX lock prevents double-assignment | | Driver unresponsive (15s) | Redis TTL auto-releases lock for next driver | | Delayed execution | Lua script validates trip_id before releasing lock | | Redis master failover | Redlock multi-node consensus or DB conditional update |\n\n\n\nQuestion: Why must a worker compare its token before releasing a Redis lock?\n\nAnswer:",
+      "answer": "Because otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock [2].",
+      "prompt_eval_count": 1043,
+      "eval_count": 21,
+      "load_duration_ns": 103984141,
+      "elapsed_ms": 1654.768,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:06.360059142+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "graph-ontology-categories",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy (line 21, chunk 0))\nA graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST).\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > When Do You Need Predefined Rules? (line 172, chunk 0))\nYou need predefined rules (or a predefined schema/ontology) for three critical tasks:\nSchema Guardrails (Ontology): Define what node types (e.g., Person, Company, Event) and relationship predicates are legal. Without a strict ontology rule, an LLM might invent 50 different variations for the same action (bought, purchased, acquired_majority_stake_in), breaking graph queries.\nDeterministic Data Normalization: Rules (like Regular Expressions) parse standardized data\u2014timestamps (YYYY-MM-DD), monetary values ($2.6B \u2192 2,600,000,000 USD), and legal IDs (tax numbers, stock tickers). Using an LLM for standard regex work wastes tokens and risks arithmetic errors.\nGraph Integrity Checks: Logical rules prevent invalid connections (e.g., a rule stating a Person cannot be a SUBSIDIARY_OF another Person). If an extraction model proposes an invalid triple, rule-based validation drops it before it enters the database.\n\n[3] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy (line 26, chunk 1))\nA graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST).\n\n\n\nQuestion: Which examples distinguish structural and causal edges in the graph ontology?\n\nAnswer:",
+      "answer": "Structural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED [1]",
+      "prompt_eval_count": 798,
+      "eval_count": 41,
+      "load_duration_ns": 91987924,
+      "elapsed_ms": 2438.218,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:08.798884368+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "ride-ap-vs-cp",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System (line 100, chunk 0))\nThe platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow | |--------|-------------|----------------|----------------|------| | Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | \u2192 feeds into \u2192 | | Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) | |\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System (line 109, chunk 2))\non ping is dropped; the next ping arrives about 4 seconds later.\nCP engine (matching and dispatch): Double-booking a driver loses trust and money, so consistency takes priority. Matching uses distributed locks, atomic Lua scripts, and relational ACID transactions. During a network partition, the request fails and the rider tries again instead of risking a double booking.\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System (line 105, chunk 1))\nong Consistency | Distributed RDBMS (CockroachDB / Postgres) | |\nAP engine (location streaming): A stale driver location does not affect a completed payment. Redis and Kafka favor speed over strict ACID guarantees. A failed location ping is dropped; the next ping arrives about 4 seconds later.\n\n\n\nQuestion: Why does the conceptual ride design choose AP for locations and CP for matching?\n\nAnswer:",
+      "answer": "The conceptual ride design chooses AP for locations because a stale driver location does not affect a completed payment [3]. It favors speed over strict ACID guarantees. A failed location ping is dropped; the next ping arrives about 4 seconds later.\n\nIt chooses CP for matching because Double-booking a driver loses trust and money, so consistency takes priority [2]. Matching uses distributed locks, atomic Lua scripts, and relational ACID transactions.",
+      "prompt_eval_count": 573,
+      "eval_count": 87,
+      "load_duration_ns": 97452084,
+      "elapsed_ms": 4524.758,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:13.324556011+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "unsupported-cache-production-address",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "source_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Redis Infrastructure & Network Topology > Redis Cluster Node Topology (line 337, chunk 0))\nIn production, each Redis master or replica runs on its own VM. Putting three masters on one VM would make one hardware failure affect the whole cluster.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Distributed Rate Limiting (Radix Engine) > Multi-Dimensional Rate Limit Keys: (line 926, chunk 0))\nMulti-Dimensional Rate Limit Keys:\n| Target Scope | Key Definition | Purpose | |-------------|----------------|---------| | IP-Based (Global) | ip:{client_ip}:all | Blocks botnets and global scraping | | Authentication | ip:{client_ip}:endpoint:/v1/login | Brute-force prevention (max 5 attempts/min) | | Per-User Endpoint | user:{user_id}:endpoint:/v1/payment | Prevents duplicate credit card charge attempts | | Partner API | client_id:{partner_app}:all | Enforces tier-based B2B developer API limits |\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster (line 68, chunk 1))\nlots. It calculates a key's slot as:\nslot = CRC16(key) mod 16384\n\nEach primary owns a range of slots. A cluster-aware client calculates a key's slot and sends the command to its owner.\nApplication client\n  \u2502 calculate slot for key\n  \u251c\u2500\u2500 slot 0\u20135,000 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba Primary A\n  \u251c\u2500\u2500 slot 5,001\u201310,500 \u2500\u25ba Primary B\n  \u2514\u2500\u2500 remaining slots \u2500\u2500\u2500\u25ba Primary C\n                              \u2502\n                         assigned keys\n\n[4] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster (line 86, chunk 3))\ny the text inside braces:\ndriver:{123}:status\ndriver:{123}:match\n\nBoth keys above use {123} for slot calculation. See the official Redis Cluster specification for routing and redirection details.\n\n[5] (source: samples/os.md > Operating System > Virtualization > Memory virtualization (line 59, chunk 0))\nEach process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |\n\n\n\nQuestion: What is the IP address of our production Redis primary?\n\nAnswer:",
+      "answer": "The context does not contain the answer to this question.",
+      "prompt_eval_count": 775,
+      "eval_count": 12,
+      "load_duration_ns": 92390191,
+      "elapsed_ms": 1093.194,
+      "resident_models": {
+        "models": [
+          {
+            "name": "llama3.1:8b-instruct-q4_K_M",
+            "model": "llama3.1:8b-instruct-q4_K_M",
+            "size": 5864652800,
+            "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+            "details": {
+              "parent_model": "",
+              "format": "gguf",
+              "family": "llama",
+              "families": [
+                "llama"
+              ],
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M"
+            },
+            "expires_at": "2026-10-02T23:33:14.418030285+07:00",
+            "size_vram": 5277982720,
+            "context_length": 4096
+          }
+        ]
+      }
+    }
+  ]
+}

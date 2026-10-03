@@ -25,6 +25,9 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Generator.MaxOutputTokens != 512 {
 		t.Fatalf("shipped generator.max_output_tokens = %d, want 512", cfg.Generator.MaxOutputTokens)
 	}
+	if cfg.Embedder.NumGPU != nil {
+		t.Fatal("shipped embedder placement must remain unspecified")
+	}
 	if cfg.Documents.Mode != DocumentsModeUploadOnly {
 		t.Fatalf("shipped config documents mode = %q, want %q", cfg.Documents.Mode, DocumentsModeUploadOnly)
 	}
@@ -44,6 +47,52 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Gates.Indexing.MaxConcurrent != 1 || cfg.Gates.Destructive.MaxConcurrent != 1 {
 		t.Fatalf("shipped gate budgets = %+v, want explicit process-wide limits", cfg.Gates)
 	}
+}
+
+func TestEmbedderGPUPlacementConfiguration(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    int
+		wantErr bool
+	}{
+		{"0", 0, false}, {"-1", -1, false}, {"8", 8, false}, {"-2", 0, true}, {"wide", 0, true},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			t.Setenv("EMBEDDER_NUM_GPU", tt.value)
+			cfg, err := Load("config.yaml")
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "num_gpu") && !strings.Contains(err.Error(), "EMBEDDER_NUM_GPU") {
+					t.Fatalf("error = %v, want invalid embedder placement", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Embedder.NumGPU == nil || *cfg.Embedder.NumGPU != tt.want {
+				t.Fatalf("num_gpu = %v, want explicit %d", cfg.Embedder.NumGPU, tt.want)
+			}
+		})
+	}
+	t.Run("YAML zero survives defaults", func(t *testing.T) {
+		t.Setenv("EMBEDDER_NUM_GPU", "")
+		raw, err := os.ReadFile("config.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		raw = []byte(strings.Replace(string(raw), "embedder:\n", "embedder:\n  num_gpu: 0\n", 1))
+		if err := os.WriteFile(path, raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Embedder.NumGPU == nil || *cfg.Embedder.NumGPU != 0 {
+			t.Fatalf("num_gpu = %v, want explicit CPU placement", cfg.Embedder.NumGPU)
+		}
+	})
 }
 
 func TestApplyEnvOverrides(t *testing.T) {

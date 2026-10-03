@@ -1,0 +1,1091 @@
+{
+  "registered_at": "2026-10-02T16:05:04.894628+00:00",
+  "mode": "Diagnostic quote-select-then-answer replay of previously captured evidence. Exact whitespace-normalized quotations must belong to their original source. Renumber only validated selected evidence for the final prompt; no new retrieval or independent acceptance.",
+  "hypothesis": "Selecting applicable exact quotations before streaming the answer may preserve conditions and complete requested alternatives without unsupported source references.",
+  "models": "existing gemma3:4b only; two serial operations, no new model or resource",
+  "human": false,
+  "release_gate": false,
+  "cases": [
+    {
+      "id": "notes-09",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback) (line 181, chunk 0))\nThe application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous): (line 185, chunk 1))\nB. Real-time analytics / surge pricing (asynchronous):\nAnalytics is outside the matching request-response loop.\nFlink and Pinot consume raw location and search pings directly from Kafka in the background.\nStream 1: Driver location updates \u2192 calculate available supply per H3 cell.\nStream 2: Rider app opens/searches \u2192 calculate demand per H3 cell.\nFlink computes the surge multiplier (e.g., 1.4x) and writes it to a cache. DISCO reads the cached rate without waiting for analytics.\n\n| Action | Protocol / Tech | Sync or Async? | |--------|----------------|----------------| | Driver Ingestion | WebSocket \u2192 API Gateway \u2192 Kafka \u2192 Redis | Async (event-driven) | | Rider Search / Match | HTTPS \u2192 DISCO \u2192 Direct Redis Query | Sync (sub-second RPC) | | ETA Calculation | DISCO \u2192 ETA Engine (gRPC) | Sync (inline during match) | | Surge / Analytics | Kafka Stream \u2192 Flink \u2192 Surge Cache | Async (out-of-band) |\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT) (line 42, chunk 0))\nStep-by-step: What happens when you save data (INSERT)\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk, because writing to structured table files (B-Trees, data pages) requires slow random disk I/O. Instead, imagine you run INSERT INTO users (id, name) VALUES (1, 'Alex'):\nStep 1 (RAM): The database writes the row into its in-memory Buffer Pool in RAM.\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 173, chunk 3))\nWhy Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events.\n\n\n\nQuestion: We poll updated_at to sync a search index. Why do deleted rows stay in the index?\n\n",
+      "plan": {
+        "subject": "deleted rows stay in the index",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Misses deleted rows (a deleted row no longer exists to be queried)"
+          },
+          {
+            "source": 2,
+            "quote": "Analytics is outside the matching request-response loop."
+          },
+          {
+            "source": 3,
+            "quote": "When you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk"
+          },
+          {
+            "source": 5,
+            "quote": "Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback)",
+          "line_start": 181,
+          "chunk_index": 0,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "Misses deleted rows (a deleted row no longer exists to be queried)",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous):",
+          "line_start": 185,
+          "chunk_index": 1,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "Analytics is outside the matching request-response loop.",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT)",
+          "line_start": 42,
+          "chunk_index": 0,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "When you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk",
+          "original_number": 3
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 5,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+          "line_start": 173,
+          "chunk_index": 3,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.",
+          "original_number": 5
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback))\nMisses deleted rows (a deleted row no longer exists to be queried)\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous):)\nAnalytics is outside the matching request-response loop.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT))\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data)\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\n\n\nConversation reference only: \nResolved subject (reference only): deleted rows stay in the index\n\nQuestion: We poll updated_at to sync a search index. Why do deleted rows stay in the index?\n\nAnswer:",
+      "answer": "Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event [4].",
+      "elapsed_ms": 7071.968,
+      "selection_prompt_tokens": 1250,
+      "selection_output_tokens": 143
+    },
+    {
+      "id": "notes-14",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes (line 36, chunk 0))\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly.\n\n[2] (source: samples/api-design-guidelines.md > API Design Guidelines (line 11, chunk 0))\nThis document defines mandatory API design conventions for all internal services. Every endpoint must conform to these rules unless an exemption is approved. Intended for backend engineers building or maintaining HTTP APIs.\n\n[3] (source: samples/api-design-guidelines.md > API Design Guidelines > References (line 57, chunk 0))\n (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[5] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 316, chunk 0))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n\n\nQuestion: Should an empty search result and a missing resource ID both return 404? What do the API notes say?\n\n",
+      "plan": {
+        "subject": "Should an empty search result and a missing resource ID both return 404? What do the API notes say?",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list []."
+          },
+          {
+            "source": 1,
+            "quote": "Resources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/api-design-guidelines.md",
+          "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+          "line_start": 36,
+          "chunk_index": 0,
+          "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+          "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 1,
+          "file_path": "samples/api-design-guidelines.md",
+          "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+          "line_start": 36,
+          "chunk_index": 0,
+          "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+          "text": "Resources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.",
+          "original_number": 1
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes)\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\n\n[2] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes)\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\n\n\nConversation reference only: \nResolved subject (reference only): Should an empty search result and a missing resource ID both return 404? What do the API notes say?\n\nQuestion: Should an empty search result and a missing resource ID both return 404? What do the API notes say?\n\nAnswer:",
+      "answer": "Yes, according to the API notes, an empty search result [1] returns 200 OK with an empty list [], while a missing resource ID [2] returns 404 Not Found.",
+      "elapsed_ms": 4014.815,
+      "selection_prompt_tokens": 994,
+      "selection_output_tokens": 131
+    },
+    {
+      "id": "notes-22",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Graph-RAG Architecture: Hierarchical Summarization (line 282, chunk 0))\nWhen you connect a Knowledge Graph to a downstream LLM or reasoning system, you face a scaling bottleneck: you cannot fit a 50,000-node graph into a context window. Modern GraphRAG architectures solve this through two sub-graph retrieval patterns:\nflowchart TD\n    A[Full Knowledge Graph] --> B[Global Query]\n    A --> C[Local Query]\n    B --> D[Hierarchical Community Summarization<br>Leiden Clusters]\n    C --> E[k-Hop Subgraph Expansion<br>Ego-Graph Pruning]\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy (line 21, chunk 0))\nA graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST).\n\n[3] (source: samples/knowledge-graph.md > Knowledge Graph > Semantic Inference & Formal Reasoning (The Logic Layer) (line 273, chunk 0))\nYou do not need an LLM or an extraction pipeline to explicitly extract every single connection. Formal KGs use Semantic Reasoners (Inference Engines using OWL/RDFS rules) to mathematically deduce unwritten edges:\nTransitive Rules: If $A \\xrightarrow{\\text{LOCATED\\_IN}} B$ and $B \\xrightarrow{\\text{LOCATED\\_IN}} C$, the reasoner automatically materializes $A \\xrightarrow{\\text{LOCATED\\_IN}} C$.\nInverse Properties: Defining parentOf automatically infers childOf in the reverse direction without doubling storage input.\nSymmetric & Asymmetric Constraints: Defining CO_FOUNDED_WITH as symmetric means an edge $A \\rightarrow B$ implicitly creates $B \\rightarrow A$.\nSubsumption (Ontology Inheritance): If TechStartup is defined as a subclass of Organization, any rule, property, or security permission applied to Organization automatically inherits down to every TechStartup node.\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[5] (source: samples/os.md > Operating System > Scheduling (line 215, chunk 0))\nThe scheduler decides how long a runnable task gets to execute before it may be preempted. The duration is influenced by the scheduling policy, task priority, system load, and whether the task blocks.\n\n\n\nQuestion: Our graph uses RELATED_TO everywhere. What reasoning capability are we losing?\n\n",
+      "plan": {
+        "subject": "loss of reasoning capability",
+        "facts": [
+          {
+            "source": 2,
+            "quote": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power."
+          },
+          {
+            "source": 2,
+            "quote": "You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 2,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+          "line_start": 21,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power.",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+          "line_start": 21,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.",
+          "original_number": 2
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy)\nA graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power.\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > Ontology Enforcement & Edge Hierarchy)\nYou cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\n\n\nConversation reference only: \nResolved subject (reference only): loss of reasoning capability\n\nQuestion: Our graph uses RELATED_TO everywhere. What reasoning capability are we losing?\n\nAnswer:",
+      "answer": "You are losing its reasoning power [1] if 90% of edges are generic RELATED_TO.",
+      "elapsed_ms": 2894.648,
+      "selection_prompt_tokens": 1113,
+      "selection_output_tokens": 88
+    },
+    {
+      "id": "notes-23",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging? (line 296, chunk 0))\nWhy separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk.\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding (line 26, chunk 1))\nWhen a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2\u20135 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance.\n\n[3] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) (line 63, chunk 0))\nLive streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     \u2502 RTMP/WebRTC\n     v\nLive ingress \u2192 Transcoder \u2192 LL-DASH \u2192 CDN \u2192 Viewer (1\u20133 s)\n                   \u2502\n                   \u2514\u2500\u2192 DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind.\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\n\nQuestion: What are the DASH and HLS manifest file formats in our video design notes, and what do they index?\n\n",
+      "plan": {
+        "subject": "DASH and HLS manifest file formats",
+        "facts": [
+          {
+            "source": 2,
+            "quote": "The manifest contains: The web addresses (URLs) of every audio chunk. The web addresses of every video chunk broken down by resolution and codec."
+          },
+          {
+            "source": 2,
+            "quote": "The manifest contains: The exact timestamp alignment for every chunk."
+          },
+          {
+            "source": 1,
+            "quote": "It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [
+        {
+          "source": 2,
+          "quote": "The manifest contains: The web addresses (URLs) of every audio chunk. The web addresses of every video chunk broken down by resolution and codec."
+        },
+        {
+          "source": 2,
+          "quote": "The manifest contains: The exact timestamp alignment for every chunk."
+        }
+      ],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging?",
+          "line_start": 296,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks.",
+          "original_number": 1
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging?)\nIt does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks.\n\n\nConversation reference only: \nResolved subject (reference only): DASH and HLS manifest file formats\n\nQuestion: What are the DASH and HLS manifest file formats in our video design notes, and what do they index?\n\nAnswer:",
+      "answer": "It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks [1].",
+      "elapsed_ms": 4570.669,
+      "selection_prompt_tokens": 977,
+      "selection_output_tokens": 166
+    },
+    {
+      "id": "notes-25",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming. (line 102, chunk 0))\n2. CDN Mechanics: Pull vs. Push/Chunked Streaming.\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\nVOD:  full 4 s chunks \u2192 Origin \u2192 CDN edge \u2192 Viewer\nLive: 100 ms chunks    \u2192 CDN edge \u2192 Viewer\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy) (line 47, chunk 0))\nVideo is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold (line 482, chunk 0))\nKeeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0\u201330 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis.\n\n[5] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection (line 216, chunk 0))\nWidevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME). Encrypted segments sit on the CDN; the browser must fetch a hardware-backed decryption key from Google's License Server.\nSigned CDN URLs: CDN media URLs carry short-lived cryptographic tokens bound to the user's IP address and session ID to prevent unauthorized hotlinking or scraping.\n\n\n\nQuestion: Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?\n\n",
+      "plan": {
+        "subject": "Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "VOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss."
+          },
+          {
+            "source": 1,
+            "quote": "Live (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded."
+          },
+          {
+            "source": 2,
+            "quote": "Hot content: Cached on NVMe/SSD edge servers near the user."
+          },
+          {
+            "source": 4,
+            "quote": "Hot (Schemaless / NVMe SSDs): Active and recent trips (0\u201330 days) for fast API reads."
+          },
+          {
+            "source": 5,
+            "quote": "Widevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME)."
+          },
+          {
+            "source": 2,
+            "quote": "Warm content: Kept in regional Google data-center caches."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming.",
+          "line_start": 102,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "VOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 1,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming.",
+          "line_start": 102,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "Live (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.",
+          "original_number": 1
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 2,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy)",
+          "line_start": 47,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "Hot content: Cached on NVMe/SSD edge servers near the user.",
+          "original_number": 2
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold",
+          "line_start": 482,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "Hot (Schemaless / NVMe SSDs): Active and recent trips (0\u201330 days) for fast API reads.",
+          "original_number": 4
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection",
+          "line_start": 216,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "Widevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME).",
+          "original_number": 5
+        },
+        {
+          "number": 6,
+          "retrieval_rank": 2,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy)",
+          "line_start": 47,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "Warm content: Kept in regional Google data-center caches.",
+          "original_number": 2
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming.)\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming.)\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\n[3] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy))\nHot content: Cached on NVMe/SSD edge servers near the user.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold)\nHot (Schemaless / NVMe SSDs): Active and recent trips (0\u201330 days) for fast API reads.\n\n[5] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection)\nWidevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME).\n\n[6] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy))\nWarm content: Kept in regional Google data-center caches.\n\n\nConversation reference only: \nResolved subject (reference only): Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?\n\nQuestion: Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?\n\nAnswer:",
+      "answer": "Hot content is cached on NVMe/SSD edge servers near the user [3]. Warm content is kept in regional Google data-center caches [6]. Rarely watched videos are not mentioned in the provided documents.",
+      "elapsed_ms": 7245.028,
+      "selection_prompt_tokens": 1012,
+      "selection_output_tokens": 310
+    },
+    {
+      "id": "notes-26",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch (line 15, chunk 0))\nThis conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\nIt uses Uber's publicly discussed terminology as a reference point, but the diagrams and capacity choices below are an engineering model rather than an official description of Uber's current implementation.\nThe sections below cover the main parts.\n\n[2] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional: (line 134, chunk 0))\nNon-functional:\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\nHigh throughput: Handle 1,000,000+ active drivers sending pings continuously.\nConsistency: Assign each driver to at most one rider at a time.\nHigh availability: 99.99% uptime without a single point of failure.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the 1:10 Driver-to-Rider Ratio Shapes the System (line 81, chunk 0))\nThe ratio creates an asymmetric Read/Write profile:\n$$\\text{Writes} = 250,000 \\text{ pings/sec (Drivers sending updates)}$$ $$\\text{Reads} = 50,000\\text{--}100,000 \\text{ queries/sec (Riders opening maps, searching, polling)}$$\nDrivers write far more often than riders query because they send updates every 4 seconds. This leads to three design choices:\n1. Ingestion protocol (gRPC over HTTP/2 vs. REST): REST over HTTP/1.1 would create too many connection handshakes at 250,000 writes/sec. Long-lived gRPC streams over HTTP/2 let up to 1,000,000 drivers keep persistent sockets open and send small Protobuf payloads.\n2. CQRS: Driver updates and rider searches use separate paths. Writes go from drivers through Kafka to Redis primaries; reads use Redis replicas. Rider searches do not block location writes.\n\n\n\nQuestion: In the ride-service design notes, where is availability favored and where do we need stricter consistency?\n\n",
+      "plan": {
+        "subject": "availability and consistency in ride-service design",
+        "facts": [
+          {
+            "source": 3,
+            "quote": "High availability: 99.99% uptime without a single point of failure."
+          },
+          {
+            "source": 3,
+            "quote": "Low latency: Location ingestion < 50ms; matching decision < 1 second."
+          },
+          {
+            "source": 2,
+            "quote": "Context-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again."
+          },
+          {
+            "source": 1,
+            "quote": "This conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern."
+          },
+          {
+            "source": 4,
+            "quote": "Drivers write far more often than riders query because they send updates every 4 seconds."
+          },
+          {
+            "source": 1,
+            "quote": "The sections below cover the main parts."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 3,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional:",
+          "line_start": 134,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "High availability: 99.99% uptime without a single point of failure.",
+          "original_number": 3
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional:",
+          "line_start": 134,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "Low latency: Location ingestion < 50ms; matching decision < 1 second.",
+          "original_number": 3
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 2,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "Context-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.",
+          "original_number": 2
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 1,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch",
+          "line_start": 15,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "This conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.",
+          "original_number": 1
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 4,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the 1:10 Driver-to-Rider Ratio Shapes the System",
+          "line_start": 81,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "Drivers write far more often than riders query because they send updates every 4 seconds.",
+          "original_number": 4
+        },
+        {
+          "number": 6,
+          "retrieval_rank": 1,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch",
+          "line_start": 15,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "The sections below cover the main parts.",
+          "original_number": 1
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional:)\nHigh availability: 99.99% uptime without a single point of failure.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional:)\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching)\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch)\nThis conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the 1:10 Driver-to-Rider Ratio Shapes the System)\nDrivers write far more often than riders query because they send updates every 4 seconds.\n\n[6] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch)\nThe sections below cover the main parts.\n\n\nConversation reference only: \nResolved subject (reference only): availability and consistency in ride-service design\n\nQuestion: In the ride-service design notes, where is availability favored and where do we need stricter consistency?\n\nAnswer:",
+      "answer": "Availability is favored with a 99.99% uptime requirement [1], while low latency is critical \u2013 location ingestion < 50ms and matching decisions < 1 second [2]. Context switching has a microsecond cost, but can become more expensive due to cache warming [3]. The system matches driver supply with rider demand using geospatial indexing and low-latency dispatch [4], and drivers write far more often than riders query [5].",
+      "elapsed_ms": 6307.904,
+      "selection_prompt_tokens": 974,
+      "selection_output_tokens": 213
+    },
+    {
+      "id": "notes-29",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method (line 5, chunk 0))\nThe secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function.\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[3] (source: samples/calculus.md > Calculus Derivatives and Integrals > Trigonometric Derivatives (line 19, chunk 0))\nd/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec\u00b2(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc\u00b2(x)\n\n[4] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[5] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\n\nQuestion: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\n",
+      "plan": {
+        "subject": "Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?",
+        "facts": [
+          {
+            "source": 2,
+            "quote": "Requires derivative computation"
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [
+        {
+          "source": 2,
+          "quote": "Requires derivative computation"
+        }
+      ],
+      "validated_citations": [],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n\nConversation reference only: \nResolved subject (reference only): Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\nQuestion: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\nAnswer:",
+      "answer": "The indexed evidence does not contain an answer for the requested case or actual value.",
+      "elapsed_ms": 1493.556,
+      "selection_prompt_tokens": 753,
+      "selection_output_tokens": 49
+    },
+    {
+      "id": "followup-02",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle (line 171, chunk 0))\nChannel lifecycle\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\nAfter connection loss, the pool re-creates all channels on the new connection, resetting any confirm mode state.\n\n[4] (source: samples/os.md > Operating System > System Calls (line 252, chunk 0))\nSystem calls are the interface that an application can use to requests services from the OS kernel.\nApplication\n    v\nSystem call\n    v\nOperating-system kernel\n    v\nHardware / resource\n\nNot every OS primitive is exposed directly through an application programming interface. Some functionality is provided indirectly by libraries or language packages, which may call the OS on the application's behalf.\n\n[5] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\n",
+      "plan": {
+        "subject": "RabbitMQ consumer crash and acknowledgement",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "The broker considers a message delivered as soon as it sends it over the socket."
+          },
+          {
+            "source": 1,
+            "quote": "Messages can be lost if the consumer crashes before processing."
+          },
+          {
+            "source": 2,
+            "quote": "The application must explicitly call channel.ack(deliveryTag) after successful processing."
+          },
+          {
+            "source": 2,
+            "quote": "Gives full control over at-least-once delivery semantics."
+          },
+          {
+            "source": 3,
+            "quote": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently."
+          },
+          {
+            "source": 5,
+            "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [
+        {
+          "source": 5,
+          "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+        }
+      ],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The broker considers a message delivered as soon as it sends it over the socket.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Messages can be lost if the consumer crashes before processing.",
+          "original_number": 1
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The application must explicitly call channel.ack(deliveryTag) after successful processing.",
+          "original_number": 2
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Gives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle",
+          "line_start": 171,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.",
+          "original_number": 3
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nThe broker considers a message delivered as soon as it sends it over the socket.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nMessages can be lost if the consumer crashes before processing.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nThe application must explicitly call channel.ack(deliveryTag) after successful processing.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nGives full control over at-least-once delivery semantics.\n\n[5] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle)\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\n\n\nConversation reference only:  (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nResolved subject (reference only): RabbitMQ consumer crash and acknowledgement\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Messages can be lost if the consumer crashes before processing [2]. The application must explicitly call channel.ack(deliveryTag) after successful processing [3] to avoid this loss.",
+      "elapsed_ms": 5205.669,
+      "selection_prompt_tokens": 1012,
+      "selection_output_tokens": 200
+    },
+    {
+      "id": "followup-02",
+      "run": 2,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle (line 171, chunk 0))\nChannel lifecycle\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\nAfter connection loss, the pool re-creates all channels on the new connection, resetting any confirm mode state.\n\n[4] (source: samples/os.md > Operating System > System Calls (line 252, chunk 0))\nSystem calls are the interface that an application can use to requests services from the OS kernel.\nApplication\n    v\nSystem call\n    v\nOperating-system kernel\n    v\nHardware / resource\n\nNot every OS primitive is exposed directly through an application programming interface. Some functionality is provided indirectly by libraries or language packages, which may call the OS on the application's behalf.\n\n[5] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\n",
+      "plan": {
+        "subject": "RabbitMQ consumer crash and acknowledgement",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket."
+          },
+          {
+            "source": 1,
+            "quote": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing."
+          },
+          {
+            "source": 2,
+            "quote": "The application must explicitly call channel.ack(deliveryTag) after successful processing."
+          },
+          {
+            "source": 2,
+            "quote": "nack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics."
+          },
+          {
+            "source": 3,
+            "quote": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently."
+          },
+          {
+            "source": 5,
+            "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [
+        {
+          "source": 5,
+          "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+        }
+      ],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing.",
+          "original_number": 1
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The application must explicitly call channel.ack(deliveryTag) after successful processing.",
+          "original_number": 2
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "nack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle",
+          "line_start": 171,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.",
+          "original_number": 3
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nFastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nThe application must explicitly call channel.ack(deliveryTag) after successful processing.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics.\n\n[5] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle)\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\n\n\nConversation reference only:  (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nResolved subject (reference only): RabbitMQ consumer crash and acknowledgement\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing [2].",
+      "elapsed_ms": 6009.848,
+      "selection_prompt_tokens": 1012,
+      "selection_output_tokens": 259
+    },
+    {
+      "id": "followup-02",
+      "run": 3,
+      "source_report": "test/evaluation/reports/quality-retained-daily-20261002.json",
+      "source_sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle (line 171, chunk 0))\nChannel lifecycle\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\nAfter connection loss, the pool re-creates all channels on the new connection, resetting any confirm mode state.\n\n[4] (source: samples/os.md > Operating System > System Calls (line 252, chunk 0))\nSystem calls are the interface that an application can use to requests services from the OS kernel.\nApplication\n    v\nSystem call\n    v\nOperating-system kernel\n    v\nHardware / resource\n\nNot every OS primitive is exposed directly through an application programming interface. Some functionality is provided indirectly by libraries or language packages, which may call the OS on the application's behalf.\n\n[5] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\n",
+      "plan": {
+        "subject": "RabbitMQ consumer crash and acknowledgement",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket."
+          },
+          {
+            "source": 1,
+            "quote": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing."
+          },
+          {
+            "source": 2,
+            "quote": "The application must explicitly call channel.ack(deliveryTag) after successful processing."
+          },
+          {
+            "source": 2,
+            "quote": "nack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics."
+          },
+          {
+            "source": 3,
+            "quote": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently."
+          },
+          {
+            "source": 5,
+            "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [
+        {
+          "source": 5,
+          "quote": "A task typically follows this lifecycle: Task is runnable, Task executes, One of these happens: Task finishes, Task blocks, Task voluntarily yields, Scheduler preempts it."
+        }
+      ],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing.",
+          "original_number": 1
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The application must explicitly call channel.ack(deliveryTag) after successful processing.",
+          "original_number": 2
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "nack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle",
+          "line_start": 171,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "If a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.",
+          "original_number": 3
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true))\nFastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nThe application must explicitly call channel.ack(deliveryTag) after successful processing.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false))\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured). Gives full control over at-least-once delivery semantics.\n\n[5] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Channel lifecycle)\nIf a channel encounters an error (e.g., channel.close from broker), it is discarded and a new channel is created transparently.\n\n\nConversation reference only:  (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nPrevious user question: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrevious answer (reference only): Manual acknowledgement . Messages can be lost if the consumer crashes before processing when using auto acknowledgement . The application must explicitly call channel.ack(deliveryTag) after successful processing to avoid this loss.\nResolved subject (reference only): RabbitMQ consumer crash and acknowledgement\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "Fastest, no risk of forgetting to ack. Messages can be lost if the consumer crashes before processing [2].",
+      "elapsed_ms": 6069.752,
+      "selection_prompt_tokens": 1012,
+      "selection_output_tokens": 259
+    },
+    {
+      "id": "sin-45-degrees",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
+      "source_sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Sine (sin) (line 6, chunk 0))\nThe sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(\u03b8) = opposite / hypotenuse\n\n[2] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[3] (source: samples/trig-functions.md > Trigonometric Functions > Key Angles (line 45, chunk 0))\n| Degrees | Radians | sin | cos | tan | |---------|---------|-----|-----|-----| | 0\u00b0      | 0       | 0   | 1   | 0   | | 30\u00b0     | \u03c0/6     | 1/2 | \u221a3/2| 1/\u221a3| | 45\u00b0     | \u03c0/4     | \u221a2/2| \u221a2/2| 1   | | 60\u00b0     | \u03c0/3     | \u221a3/2| 1/2 | \u221a3  | | 90\u00b0     | \u03c0/2     | 1   | 0   | \u221e   |\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 222, chunk 0))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[5] (source: samples/trig-functions.md > Trigonometric Functions > Reciprocal Functions > Cosecant (csc) (line 23, chunk 0))\nThe cosecant is the reciprocal of sine.\nFormula: csc(\u03b8) = 1 / sin(\u03b8) = hypotenuse / opposite\n\n\n\nQuestion: value of sine at 45 degrees\n\n",
+      "plan": {
+        "subject": "value of sine at 45 degrees",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse."
+          },
+          {
+            "source": 3,
+            "quote": "| 45\u00b0     | \u03c0/4     | \u221a2/2| \u221a2/2| 1   |"
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/trig-functions.md",
+          "header": "Trigonometric Functions > Basic Functions > Sine (sin)",
+          "line_start": 6,
+          "chunk_index": 0,
+          "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+          "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/trig-functions.md",
+          "header": "Trigonometric Functions > Key Angles",
+          "line_start": 45,
+          "chunk_index": 0,
+          "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+          "text": "| 45\u00b0     | \u03c0/4     | \u221a2/2| \u221a2/2| 1   |",
+          "original_number": 3
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Sine (sin))\nThe sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\n\n[2] (source: samples/trig-functions.md > Trigonometric Functions > Key Angles)\n| 45\u00b0     | \u03c0/4     | \u221a2/2| \u221a2/2| 1   |\n\n\nConversation reference only: \nResolved subject (reference only): value of sine at 45 degrees\n\nQuestion: value of sine at 45 degrees\n\nAnswer:",
+      "answer": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse [1]. At 45\u00b0 (\u03c0/4), the sine is \u221a2/2 [2].",
+      "elapsed_ms": 3407.698,
+      "selection_prompt_tokens": 928,
+      "selection_output_tokens": 93
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
+      "source_sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Bisection Method > Algorithm (line 34, chunk 0))\nChoose interval [a, b] where f(a) \u00b7 f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\n\nQuestion: which converges faster bisection or Newton's method\n\n",
+      "plan": {
+        "subject": "which converges faster bisection or Newton's method",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Converges faster than bisection but slower than Newton's method"
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Secant Method > Properties",
+          "line_start": 17,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "Converges faster than bisection but slower than Newton's method",
+          "original_number": 1
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties)\nConverges faster than bisection but slower than Newton's method\n\n\nConversation reference only: \nResolved subject (reference only): which converges faster bisection or Newton's method\n\nQuestion: which converges faster bisection or Newton's method\n\nAnswer:",
+      "answer": "Converges faster than bisection but slower than Newton\u2019s method [1].",
+      "elapsed_ms": 2046.659,
+      "selection_prompt_tokens": 654,
+      "selection_output_tokens": 49
+    },
+    {
+      "id": "business-embedded-fintech",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
+      "source_sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 93, chunk 1))\now what is changing, but not who pays or how the providers earn.\nFinance changes where a service is delivered. The services remain banking, custody, payments, and lending. Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software. Standalone neobanks such as N26, Chime, Varo, and Monzo compete through their brands, user experience, and additional services. Established banks can copy those services.\n\n[2] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 100, chunk 2))\nadditional services. Established banks can copy those services.\nThe clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing. Subscriptions provide recurring revenue; transaction fees grow with volume.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/business.md > How Business Works > Institutions become tools (line 34, chunk 0))\nInstitutions become business tools when people apply them to everyday needs.\n| Institution | Business tool | |---|---| | Trust, through money and contracts | Banking, credit, buy now, pay later (BNPL), payments | | Coordination, through markets | Trade and exchange, logistics, supply chains | | Incentives, through property rights | Ownership models, leasing, subscriptions | | Institutions applied to physical output | Production, factories, robotics, automation |\n\n\n\nQuestion: How does embedded fintech differ from a standalone digital bank in the business map?\n\n",
+      "plan": {
+        "subject": "How does embedded fintech differ from a standalone digital bank in the business map?",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software."
+          },
+          {
+            "source": 2,
+            "quote": "The clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/business.md",
+          "header": "How Business Works > What changes, and how does it make money?",
+          "line_start": 93,
+          "chunk_index": 1,
+          "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+          "text": "Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/business.md",
+          "header": "How Business Works > What changes, and how does it make money?",
+          "line_start": 100,
+          "chunk_index": 2,
+          "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+          "text": "The clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing.",
+          "original_number": 2
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/business.md > How Business Works > What changes, and how does it make money?)\nDigital banks offer them through their own apps, while embedded fintech puts them inside other companies' software.\n\n[2] (source: samples/business.md > How Business Works > What changes, and how does it make money?)\nThe clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing.\n\n\nConversation reference only: \nResolved subject (reference only): How does embedded fintech differ from a standalone digital bank in the business map?\n\nQuestion: How does embedded fintech differ from a standalone digital bank in the business map?\n\nAnswer:",
+      "answer": "Digital banks offer services through their own apps, while embedded fintech puts them inside other companies\u2019 software [1]. The clearest revenue model here is embedded fintech, with B2B providers combining subscriptions with a share of fees from payment gateways, loan origination, or credit processing [2].",
+      "elapsed_ms": 4403.034,
+      "selection_prompt_tokens": 814,
+      "selection_output_tokens": 139
+    },
+    {
+      "id": "redis-lock-release",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
+      "source_sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 118, chunk 4))\nA Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker.\n\n[2] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 121, chunk 5))\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Dispatch Flow: Four-Phase Sequence > Phase 3: Lock and dispatch offer (line 210, chunk 0))\nPhase 3: Lock and dispatch offer The selected driver has not accepted yet.\nAcquire atomic lock: DISCO uses Redis (SETNX lock:driver_123 ride_999 EX 15) to reserve the top-ranked driver for 15 seconds.\nSend the offer: If the lock succeeds, the notification service sends an offer to the Driver App.\nDriver decision:If accepted: The lock becomes an active trip record in the primary database.\nIf declined or timed out: The lock expires and DISCO tries Candidate #2.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state (line 302, chunk 0))\nSETNX works on one Redis node. In a multi-region cluster, a primary could crash before replicating the lock.\nRedlock: DISCO writes to five independent Redis masters. It grants a lock when at least three confirm SETNX within the timeout.\nDatabase check: Before writing the trip record to Schemaless, DISCO runs a conditional update:\nUPDATE drivers\nSET status = 'ON_TRIP', current_trip_id = 'ride_111'\nWHERE driver_id = 'drv_98765' AND status = 'AVAILABLE';\n\nIf affected_rows == 0, another request updated the driver first, so the transaction aborts.\n| Scenario | Solution | |----------|---------| | Simultaneous match requests | Atomic SETNX lock prevents double-assignment | | Driver unresponsive (15s) | Redis TTL auto-releases lock for next driver | | Delayed execution | Lua script validates trip_id before releasing lock | | Redis master failover | Redlock multi-node consensus or DB conditional update |\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state (line 313, chunk 1))\nSETNX works on one Redis node. In a multi-region cluster, a primary could crash before replicating the lock.\nRedlock: DISCO writes to five independent Redis masters. It grants a lock when at least three confirm SETNX within the timeout.\nDatabase check: Before writing the trip record to Schemaless, DISCO runs a conditional update:\nUPDATE drivers\nSET status = 'ON_TRIP', current_trip_id = 'ride_111'\nWHERE driver_id = 'drv_98765' AND status = 'AVAILABLE';\n\nIf affected_rows == 0, another request updated the driver first, so the transaction aborts.\n| Scenario | Solution | |----------|---------| | Simultaneous match requests | Atomic SETNX lock prevents double-assignment | | Driver unresponsive (15s) | Redis TTL auto-releases lock for next driver | | Delayed execution | Lua script validates trip_id before releasing lock | | Redis master failover | Redlock multi-node consensus or DB conditional update |\n\n\n\nQuestion: Why must a worker compare its token before releasing a Redis lock?\n\n",
+      "plan": {
+        "subject": "Why must a worker compare its token before releasing a Redis lock?",
+        "facts": [
+          {
+            "source": 2,
+            "quote": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock."
+          },
+          {
+            "source": 4,
+            "quote": "If affected_rows == 0, another request updated the driver first, so the transaction aborts."
+          }
+        ],
+        "gap": ""
+      },
+      "invalid_quotes": [],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 2,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+          "line_start": 121,
+          "chunk_index": 5,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock.",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 4,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state",
+          "line_start": 302,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "If affected_rows == 0, another request updated the driver first, so the transaction aborts.",
+          "original_number": 4
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe)\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Redlock and distributed state)\nIf affected_rows == 0, another request updated the driver first, so the transaction aborts.\n\n\nConversation reference only: \nResolved subject (reference only): Why must a worker compare its token before releasing a Redis lock?\n\nQuestion: Why must a worker compare its token before releasing a Redis lock?\n\nAnswer:",
+      "answer": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock [1].",
+      "elapsed_ms": 3880.728,
+      "selection_prompt_tokens": 1211,
+      "selection_output_tokens": 125
+    },
+    {
+      "id": "unsupported-cache-production-address",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
+      "source_sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
+      "selection_prompt": "Select exact document quotations for another assistant. Do not answer the question. Resolve the current subject and selected mode from conversation references. Select quotations that support the requested cause, action, value or each alternative FOR THAT CASE. Do not substitute a different mode or an illustrative value for an actual system value. Copy quotations verbatim, with their source IDs. Identify any missing evidence as gap; use an empty facts list when the actual value or applicable case is unavailable. Return only JSON matching this schema: {\"type\": \"object\", \"properties\": {\"subject\": {\"type\": \"string\"}, \"facts\": {\"type\": \"array\", \"maxItems\": 6, \"items\": {\"type\": \"object\", \"properties\": {\"source\": {\"type\": \"integer\", \"enum\": [1, 2, 3, 4, 5]}, \"quote\": {\"type\": \"string\"}}, \"required\": [\"source\", \"quote\"], \"additionalProperties\": false}}, \"gap\": {\"type\": \"string\"}}, \"required\": [\"subject\", \"facts\", \"gap\"], \"additionalProperties\": false}\n\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Redis Infrastructure & Network Topology > Redis Cluster Node Topology (line 337, chunk 0))\nIn production, each Redis master or replica runs on its own VM. Putting three masters on one VM would make one hardware failure affect the whole cluster.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Distributed Rate Limiting (Radix Engine) > Multi-Dimensional Rate Limit Keys: (line 926, chunk 0))\nMulti-Dimensional Rate Limit Keys:\n| Target Scope | Key Definition | Purpose | |-------------|----------------|---------| | IP-Based (Global) | ip:{client_ip}:all | Blocks botnets and global scraping | | Authentication | ip:{client_ip}:endpoint:/v1/login | Brute-force prevention (max 5 attempts/min) | | Per-User Endpoint | user:{user_id}:endpoint:/v1/payment | Prevents duplicate credit card charge attempts | | Partner API | client_id:{partner_app}:all | Enforces tier-based B2B developer API limits |\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster (line 68, chunk 1))\nlots. It calculates a key's slot as:\nslot = CRC16(key) mod 16384\n\nEach primary owns a range of slots. A cluster-aware client calculates a key's slot and sends the command to its owner.\nApplication client\n  \u2502 calculate slot for key\n  \u251c\u2500\u2500 slot 0\u20135,000 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba Primary A\n  \u251c\u2500\u2500 slot 5,001\u201310,500 \u2500\u25ba Primary B\n  \u2514\u2500\u2500 remaining slots \u2500\u2500\u2500\u25ba Primary C\n                              \u2502\n                         assigned keys\n\n[4] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster (line 86, chunk 3))\ny the text inside braces:\ndriver:{123}:status\ndriver:{123}:match\n\nBoth keys above use {123} for slot calculation. See the official Redis Cluster specification for routing and redirection details.\n\n[5] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n\n\nQuestion: What is the IP address of our production Redis primary?\n\n",
+      "plan": {
+        "subject": "IP address of our production Redis primary",
+        "facts": [
+          {
+            "source": 1,
+            "quote": "In production, each Redis master or replica runs on its own VM."
+          },
+          {
+            "source": 2,
+            "quote": "Multi-Dimensional Rate Limit Keys: | Target Scope | Key Definition | Purpose | | IP-Based (Global) | ip:{client_ip}:all | Blocks botnets and global scraping |"
+          },
+          {
+            "source": 3,
+            "quote": "Application client\n  \u2502 calculate slot for key\n  \u251c\u2500\u2500 slot 0\u20135,000 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba Primary A"
+          },
+          {
+            "source": 4,
+            "quote": "Both keys above use {123} for slot calculation."
+          },
+          {
+            "source": 5,
+            "quote": "A task typically follows this lifecycle: Task is runnable\n  v\nScheduler chooses it\n  v\nTask executes\n  v\nOne of these happens:  - Task finishes - Task blocks - Task voluntarily yields - Scheduler preempts it"
+          }
+        ],
+        "gap": "The IP address is not explicitly stated in the provided documents."
+      },
+      "invalid_quotes": [
+        {
+          "source": 2,
+          "quote": "Multi-Dimensional Rate Limit Keys: | Target Scope | Key Definition | Purpose | | IP-Based (Global) | ip:{client_ip}:all | Blocks botnets and global scraping |"
+        }
+      ],
+      "validated_citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Redis Infrastructure & Network Topology > Redis Cluster Node Topology",
+          "line_start": 337,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "In production, each Redis master or replica runs on its own VM.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster",
+          "line_start": 68,
+          "chunk_index": 1,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "Application client\n  \u2502 calculate slot for key\n  \u251c\u2500\u2500 slot 0\u20135,000 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba Primary A",
+          "original_number": 3
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 4,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster",
+          "line_start": 86,
+          "chunk_index": 3,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "Both keys above use {123} for slot calculation.",
+          "original_number": 4
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 5,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "A task typically follows this lifecycle: Task is runnable\n  v\nScheduler chooses it\n  v\nTask executes\n  v\nOne of these happens:  - Task finishes - Task blocks - Task voluntarily yields - Scheduler preempts it",
+          "original_number": 5
+        }
+      ],
+      "generation_prompt": "Answer the current question concisely and completely, using ONLY the validated document quotations below. Preserve each named subject and mode. If the answer is missing, say so and stop. Cite these quotation IDs inline as [1], [2], etc.\n\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Redis Infrastructure & Network Topology > Redis Cluster Node Topology)\nIn production, each Redis master or replica runs on its own VM.\n\n[2] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster)\nApplication client\n  \u2502 calculate slot for key\n  \u251c\u2500\u2500 slot 0\u20135,000 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba Primary A\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster)\nBoth keys above use {123} for slot calculation.\n\n[4] (source: samples/os.md > Operating System > Scheduling > Context Switching)\nA task typically follows this lifecycle: Task is runnable\n  v\nScheduler chooses it\n  v\nTask executes\n  v\nOne of these happens:  - Task finishes - Task blocks - Task voluntarily yields - Scheduler preempts it\n\n\nConversation reference only: \nResolved subject (reference only): IP address of our production Redis primary\n\nQuestion: What is the IP address of our production Redis primary?\n\nAnswer:",
+      "answer": "The document does not provide the IP address of the production Redis primary [1].",
+      "elapsed_ms": 5471.102,
+      "selection_prompt_tokens": 965,
+      "selection_output_tokens": 236
+    }
+  ]
+}

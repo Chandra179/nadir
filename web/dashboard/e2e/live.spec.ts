@@ -1,7 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 // This suite deliberately has no API mocks. It is opt-in because it mutates a
-// configured Qdrant collection and needs the real Qdrant, Ollama, reranker,
+// configured Qdrant collection and needs the real Qdrant, Ollama, any enabled reranker,
 // and (for the PDF case) Docling services.
 const live = process.env.E2E_LIVE === "1";
 
@@ -15,42 +15,50 @@ test.describe("full-stack browser flows", () => {
     test.skip(!live, "set E2E_LIVE=1 to run against Qdrant and Ollama");
     await requireReady(request);
 
-    const deleteAll = await request.delete("/api/v1/sessions");
-    expect(deleteAll.status()).toBe(200);
+    let sessionID = "";
+    try {
+      await page.goto("/");
+      const composer = page.getByPlaceholder("Ask about your documents…");
+      await composer.fill("What is the secant formula?");
+      await page.locator('button[aria-label="Send message"]').click();
 
-    await page.goto("/");
-    const composer = page.getByPlaceholder("Ask about your documents…");
-    await composer.fill("What is the secant formula?");
-    await page.locator('button[aria-label="Send message"]').click();
+      await expect(page.locator(".nadir-turn-a p").first()).toHaveText(/\S+/, { timeout: 180_000 });
+      await expect(page).toHaveURL(/\/sessions\/[^/]+/);
+      sessionID = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");
+      expect(sessionID).not.toBe("");
 
-    await expect(page.locator(".nadir-turn-a p").first()).toHaveText(/\S+/, { timeout: 180_000 });
-    await expect(page).toHaveURL(/\/sessions\/[^/]+/);
-    const sessionID = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");
-    expect(sessionID).not.toBe("");
+      const detailURL = `/api/v1/sessions/${encodeURIComponent(sessionID)}`;
+      await expect.poll(async () => {
+        const response = await request.get(detailURL);
+        if (response.status() !== 200) return 0;
+        const detail = await response.json() as { turns: unknown[] };
+        return detail.turns.length;
+      }, { timeout: 30_000 }).toBe(1);
+      const detailResponse = await request.get(detailURL);
+      expect(detailResponse.status()).toBe(200);
+      const detail = await detailResponse.json() as { turns: Array<{ turn_id?: string; query: string }> };
+      expect(detail.turns).toHaveLength(1);
+      expect(detail.turns[0].query).toBe("What is the secant formula?");
+      expect(detail.turns[0].turn_id).toBeTruthy();
 
-    const detailURL = `/api/v1/sessions/${encodeURIComponent(sessionID)}`;
-    await expect.poll(async () => {
-      const response = await request.get(detailURL);
-      if (response.status() !== 200) return 0;
-      const detail = await response.json() as { turns: unknown[] };
-      return detail.turns.length;
-    }, { timeout: 30_000 }).toBe(1);
-    const detailResponse = await request.get(detailURL);
-    expect(detailResponse.status()).toBe(200);
-    const detail = await detailResponse.json() as { turns: Array<{ turn_id?: string; query: string }> };
-    expect(detail.turns).toHaveLength(1);
-    expect(detail.turns[0].query).toBe("What is the secant formula?");
-    expect(detail.turns[0].turn_id).toBeTruthy();
+      const replay = await request.get(`/api/v1/turns/${detail.turns[0].turn_id}/events`, {
+        headers: { "Last-Event-ID": "1" },
+      });
+      expect([200, 204]).toContain(replay.status());
+      if (replay.status() === 200) expect(await replay.text()).toContain("event: done");
 
-    const replay = await request.get(`/api/v1/turns/${detail.turns[0].turn_id}/events`, {
-      headers: { "Last-Event-ID": "1" },
-    });
-    expect([200, 204]).toContain(replay.status());
-    if (replay.status() === 200) expect(await replay.text()).toContain("event: done");
+      const citation = page.getByRole("link", { name: /^Source \d+:/ }).first();
+      await expect(citation).toBeVisible();
+      await citation.click();
+      await expect(page.locator('section[aria-label="Answer sources"] pre:visible')).toHaveText(/\S+/);
 
-    await page.reload();
-    await expect(page.locator("#reader-inner").getByText("What is the secant formula?", { exact: true })).toBeVisible();
-    await expect(page.locator(".nadir-turn-a p").first()).toHaveText(/\S+/, { timeout: 30_000 });
+      await page.reload();
+      await expect(page.locator("#reader-inner").getByText("What is the secant formula?", { exact: true })).toBeVisible();
+      await expect(page.locator(".nadir-turn-a p").first()).toHaveText(/\S+/, { timeout: 30_000 });
+    } finally {
+      if (!sessionID) sessionID = new URL(page.url()).pathname.match(/^\/sessions\/([^/]+)$/)?.[1] ?? "";
+      if (sessionID) await request.delete(`/api/v1/sessions/${encodeURIComponent(sessionID)}`);
+    }
   });
 
   test("indexes a PDF through the real Docling sidecar", async ({ request }) => {

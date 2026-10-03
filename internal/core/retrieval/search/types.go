@@ -12,14 +12,15 @@ type Filter struct {
 // SearchCandidate is the Retrieval-owned candidate exchanged with the
 // document store, reranker, and semantic cache boundaries.
 type SearchCandidate struct {
-	Text       string
-	WindowText string
-	FilePath   string
-	Header     string
-	LineStart  int
-	ChunkIndex int
-	SourceSHA  string
-	Score      float32
+	Text        string
+	WindowText  string
+	FilePath    string
+	Header      string
+	SectionPath string
+	LineStart   int
+	ChunkIndex  int
+	SourceSHA   string
+	Score       float32
 }
 
 // HybridSearchResult contains the fused ranking and the two component legs
@@ -97,14 +98,15 @@ func (c SearchCandidate) Key() string {
 // transport. Storage-specific vectors and sparse-index fields stay behind the
 // store Adapter.
 type Chunk struct {
-	Text       string
-	WindowText string
-	FilePath   string
-	Header     string
-	LineStart  int
-	ChunkIndex int
-	SourceSHA  string
-	Score      float32
+	Text        string
+	WindowText  string
+	FilePath    string
+	Header      string
+	SectionPath string
+	LineStart   int
+	ChunkIndex  int
+	SourceSHA   string
+	Score       float32
 }
 
 // Request is one bounded retrieval request.

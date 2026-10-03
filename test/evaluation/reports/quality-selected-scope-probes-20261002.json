@@ -1,0 +1,414 @@
+{
+  "registered_at": "2026-10-02T16:56:59.422756+00:00",
+  "mode": "Diagnostic replay of captured evidence; not app acceptance.",
+  "hypothesis": "A conditional pronoun following an explicit single choice should retain that evidence scope. Competing sibling scopes can be omitted while retaining source identity and renumbering admitted citations.",
+  "change": "Infer a scope only when the prior first sentence names the leaf label of its first cited source and not a competing sibling label. For conditional pronouns only, remove contradictory sibling scopes from the same file and source version; keep other topics. Renumber admitted sources and retain original retrieval ranks. Add the chosen section as reference only. No new facts or question edits.",
+  "human": false,
+  "release_gate": false,
+  "cases": [
+    {
+      "id": "followup-01",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": null,
+      "omitted_sources": [],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Secant Method > Properties",
+          "line_start": 17,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Newton-Raphson Method > Properties",
+          "line_start": 27,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/numerical-methods.md",
+          "header": "Numerical Methods > Newton-Raphson Method > Formula",
+          "line_start": 24,
+          "chunk_index": 0,
+          "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+          "text": "x_{n+1} = x_n - f(x_n) / f'(x_n)",
+          "original_number": 3
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) \u2248 f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Formula (line 24, chunk 0))\nx_{n+1} = x_n - f(x_n) / f'(x_n)\n\n\nPrior user question (reference context only): Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\nPrior answer (reference context only; verify claims against the document evidence): Newton-Raphson method requires derivative computation . The secant method does not require computing derivatives .\nSearch rewrite (reference resolution only): Does the Newton-Raphson method need derivatives?\n\nQuestion: Does the second one need derivatives?\n\nAnswer:",
+      "answer": "The secant method does not require computing derivatives [1].",
+      "elapsed_ms": 7339.038
+    },
+    {
+      "id": "followup-02",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": {
+        "number": 1,
+        "retrieval_rank": 1,
+        "file_path": "samples/rabbitmq.md",
+        "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+        "line_start": 110,
+        "chunk_index": 0,
+        "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+        "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+      },
+      "omitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+        }
+      ],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer",
+          "line_start": 102,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.",
+          "original_number": 3
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer (line 102, chunk 0))\nThe consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): You should use manual acknowledgement (autoAck: false) . This gives full control over at-least-once delivery semantics, which means that even if the consumer crashes, messages will not be lost and can be requeued or dead-lettered. \n\nNote: Manual acknowledgement requires the application to explicitly call channel.ack(deliveryTag) after successful processing.\nSearch rewrite (reference resolution only): What happens if RabbitMQ consumer crashes before sending the acknowledgement?\nSelected section for the current conditional (reference only): RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "If the RabbitMQ consumer crashes before sending the acknowledgement, messages will not be lost and can be requeued or dead-lettered. \n\n[1]",
+      "elapsed_ms": 1850.377
+    },
+    {
+      "id": "followup-02",
+      "run": 2,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": {
+        "number": 1,
+        "retrieval_rank": 1,
+        "file_path": "samples/rabbitmq.md",
+        "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+        "line_start": 110,
+        "chunk_index": 0,
+        "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+        "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+      },
+      "omitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+        }
+      ],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer",
+          "line_start": 102,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.",
+          "original_number": 3
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer (line 102, chunk 0))\nThe consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): You should use manual acknowledgement (autoAck: false) . This gives full control over at-least-once delivery semantics, which means that even if the consumer crashes, messages will not be lost and can be requeued or dead-lettered. \n\nNote: Manual acknowledgement requires the application to explicitly call channel.ack(deliveryTag) after successful processing.\nSearch rewrite (reference resolution only): What happens if RabbitMQ consumer crashes before sending the acknowledgement?\nSelected section for the current conditional (reference only): RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "If the RabbitMQ consumer crashes before sending the acknowledgement, messages will not be lost and can be requeued or dead-lettered. \n\n[1]",
+      "elapsed_ms": 1683.776
+    },
+    {
+      "id": "followup-02",
+      "run": 3,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": {
+        "number": 1,
+        "retrieval_rank": 1,
+        "file_path": "samples/rabbitmq.md",
+        "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+        "line_start": 110,
+        "chunk_index": 0,
+        "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+        "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+      },
+      "omitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+        }
+      ],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+          "line_start": 110,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 3,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer",
+          "line_start": 102,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "The consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.",
+          "original_number": 3
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer (line 102, chunk 0))\nThe consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): You should use manual acknowledgement (autoAck: false) . This gives full control over at-least-once delivery semantics, which means that even if the consumer crashes, messages will not be lost and can be requeued or dead-lettered. \n\nNote: Manual acknowledgement requires the application to explicitly call channel.ack(deliveryTag) after successful processing.\nSearch rewrite (reference resolution only): What happens if RabbitMQ consumer crashes before sending the acknowledgement?\nSelected section for the current conditional (reference only): RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "answer": "If the RabbitMQ consumer crashes before sending the acknowledgement, messages will not be lost and can be requeued or dead-lettered. \n\n[1]",
+      "elapsed_ms": 1664.122
+    },
+    {
+      "id": "followup-03",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": null,
+      "omitted_sources": [],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Cross-Document Fact Coreference > Slot & Attribute Matching (Verifying Reality Boundaries)",
+          "line_start": 119,
+          "chunk_index": 1,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Just because two companies had an acquisition relation doesn't mean three sentences describe the same acquisition (e.g., Company A might have bought a subsidiary of Company B in 2010, and another in 2022).\nThe system checks Contextual Slots:\nTemporal Overlap: Do timestamps (2016) match or fit within the same timeframe window?\nNumerical Alignment: Do values ($2.6B, all-stock) reinforce or at least not contradict each other?\nDirectional Consistency: Was Subject \u2192 Object active, or Object \u2190 Subject passive?\n\nIf the slots align without logical contradictions, the confidence that these three sources refer to the same event approaches 100%.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Security, OAuth2 & Identity Engineering",
+          "line_start": 879,
+          "chunk_index": 0,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": "The identity pipeline uses external OAuth2 tokens for clients and internal Passports for microservices.\nExternal authentication (OAuth2): On login, the Identity Service issues a short-lived access token and a refresh token. Mobile clients send the access token in the Authorization header.\nIdentity Passport pattern: The Edge Gateway exchanges the public token for a signed Passport containing validated user metadata. Services can verify it locally instead of calling the Identity Service.\n{\n  \"user_id\": \"usr_9921_sf\",\n  \"user_type\": \"DRIVER\",\n  \"device_id\": \"dev_iphone_8832\",\n  \"authenticated_at\": 1770562800,\n  \"scopes\": [\"trips:read\", \"location:write\"]\n}\n\nThe Passport is HMAC-signed with a key shared across the internal mesh. Services verify the signature locally.\nService-to-service security (SPIFFE/SPIRE and mTLS): Each workload receives a cryptographic identity. SPIRE issues short-lived X.509 certificates, and sidecar proxies enforce which services may communicate.",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+          "line_start": 118,
+          "chunk_index": 4,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "A Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker.",
+          "original_number": 3
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Confidence Scoring & Provenance Weighting",
+          "line_start": 33,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0\u20131.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise.",
+          "original_number": 4
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+          "line_start": 121,
+          "chunk_index": 5,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires",
+          "original_number": 5
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/knowledge-graph.md > Knowledge Graph > Cross-Document Fact Coreference > Slot & Attribute Matching (Verifying Reality Boundaries) (line 119, chunk 1))\nJust because two companies had an acquisition relation doesn't mean three sentences describe the same acquisition (e.g., Company A might have bought a subsidiary of Company B in 2010, and another in 2022).\nThe system checks Contextual Slots:\nTemporal Overlap: Do timestamps (2016) match or fit within the same timeframe window?\nNumerical Alignment: Do values ($2.6B, all-stock) reinforce or at least not contradict each other?\nDirectional Consistency: Was Subject \u2192 Object active, or Object \u2190 Subject passive?\n\nIf the slots align without logical contradictions, the confidence that these three sources refer to the same event approaches 100%.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Edge Infrastructure, Identity & Rate Limiting > Security, OAuth2 & Identity Engineering (line 879, chunk 0))\nThe identity pipeline uses external OAuth2 tokens for clients and internal Passports for microservices.\nExternal authentication (OAuth2): On login, the Identity Service issues a short-lived access token and a refresh token. Mobile clients send the access token in the Authorization header.\nIdentity Passport pattern: The Edge Gateway exchanges the public token for a signed Passport containing validated user metadata. Services can verify it locally instead of calling the Identity Service.\n{\n  \"user_id\": \"usr_9921_sf\",\n  \"user_type\": \"DRIVER\",\n  \"device_id\": \"dev_iphone_8832\",\n  \"authenticated_at\": 1770562800,\n  \"scopes\": [\"trips:read\", \"location:write\"]\n}\n\nThe Passport is HMAC-signed with a key shared across the internal mesh. Services verify the signature locally.\nService-to-service security (SPIFFE/SPIRE and mTLS): Each workload receives a cryptographic identity. SPIRE issues short-lived X.509 certificates, and sidecar proxies enforce which services may communicate.\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 118, chunk 4))\nA Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker.\n\n[4] (source: samples/knowledge-graph.md > Knowledge Graph > Confidence Scoring & Provenance Weighting (line 33, chunk 0))\nNot all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0\u20131.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise.\n\n[5] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 121, chunk 5))\nWhen the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires\n\n\nPrior user question (reference context only): A worker finished after its Redis lock expired. Is it safe for it to delete the lock key now?\nPrior answer (reference context only; verify claims against the document evidence): No, it is not safe for a worker whose lock has expired to delete the lock key immediately . The lock can also expire while work is still running, allowing another worker to start the same job . A lock alone cannot prevent duplicate work after it expires . \n\nNote: This answer only includes information from the provided context and does not add any external facts.\n\nQuestion: Why does the token comparison matter?\n\nAnswer:",
+      "answer": "The token comparison matters because if a worker whose lock has expired tries to delete the marker, it may accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. [3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe)",
+      "elapsed_ms": 4425.493
+    },
+    {
+      "id": "followup-04",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": null,
+      "omitted_sources": [],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/api-design-guidelines.md",
+          "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+          "line_start": 36,
+          "chunk_index": 0,
+          "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+          "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines)",
+          "line_start": 316,
+          "chunk_index": 0,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Modern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/youtube-architecture.md",
+          "header": "YouTube-Style Video Ingestion and Delivery Architecture > Recommendation & Search Engine",
+          "line_start": 56,
+          "chunk_index": 0,
+          "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+          "text": "YouTube uses a two-stage Deep Neural Network (DNN) to build personalized feeds:\nCandidate generation: The model uses user history, search tokens, and other signals to reduce millions of videos to a few hundred candidates.\nRanking: The model scores candidates with signals such as click-through rate, watch time, and satisfaction, then orders the feed.",
+          "original_number": 3
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/uber-architecture.md",
+          "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Durable execution and financial ledger > Concrete Example: Uber Eats Order Fulfillment > Production Go Implementation:",
+          "line_start": 832,
+          "chunk_index": 4,
+          "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+          "text": ", orderID)\n        saga.Compensate(ctx)\n        return err\n    }\n\n    // Phase 4: Delivery & Payment Capture\n    var deliverySignal DeliveryConfirmationSignal\n    workflow.GetSignalChannel(ctx, \"delivery-channel\").Receive(ctx, &deliverySignal)\n\n    if deliverySignal.Status == \"DELIVERED\" {\n        return workflow.ExecuteActivity(ctx, CapturePayment, orderID, paymentAuth.AuthCode).Get(ctx, nil)\n    }\n    saga.Compensate(ctx)\n    return fmt.Errorf(\"delivery failed\")\n}",
+          "original_number": 4
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/knowledge-graph.md",
+          "header": "Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines)",
+          "line_start": 323,
+          "chunk_index": 1,
+          "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+          "text": "Modern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.",
+          "original_number": 5
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes (line 36, chunk 0))\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly.\n\n[2] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 316, chunk 0))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n[3] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Recommendation & Search Engine (line 56, chunk 0))\nYouTube uses a two-stage Deep Neural Network (DNN) to build personalized feeds:\nCandidate generation: The model uses user history, search tokens, and other signals to reduce millions of videos to a few hundred candidates.\nRanking: The model scores candidates with signals such as click-through rate, watch time, and satisfaction, then orders the feed.\n\n[4] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Durable execution and financial ledger > Concrete Example: Uber Eats Order Fulfillment > Production Go Implementation: (line 832, chunk 4))\n, orderID)\n        saga.Compensate(ctx)\n        return err\n    }\n\n    // Phase 4: Delivery & Payment Capture\n    var deliverySignal DeliveryConfirmationSignal\n    workflow.GetSignalChannel(ctx, \"delivery-channel\").Receive(ctx, &deliverySignal)\n\n    if deliverySignal.Status == \"DELIVERED\" {\n        return workflow.ExecuteActivity(ctx, CapturePayment, orderID, paymentAuth.AuthCode).Get(ctx, nil)\n    }\n    saga.Compensate(ctx)\n    return fmt.Errorf(\"delivery failed\")\n}\n\n[5] (source: samples/knowledge-graph.md > Knowledge Graph > Vector-Graph Fusion (Hybrid Search Engines) (line 323, chunk 1))\nModern AI architectures no longer treat Vector Databases and Graph Databases as separate silos. They merge them into Graph-Vector Hybrid Engines:\nflowchart LR\n    A[User Query] --> B[Dense Vector Search]\n    B --> C[\"Land on top 3 candidate nodes\"]\n    C --> D[Graph Traversal]\n    D --> E[\"Walk 2-hops outward to gather structural context\"]\n\nVector embeddings excel at fuzzy, semantic \"landing\" (finding where to start looking), while Knowledge Graphs excel at precise, deterministic \"walking\" (following explicit causal paths). Unifying them gives you both deep intuition and strict logical precision.\n\n\nPrior user question (reference context only): Should an empty search result and a missing resource ID both return 404? What do the API notes say?\nPrior answer (reference context only; verify claims against the document evidence): No. According to , a search that finds nothing is a success, returning 200 OK with an empty list [], while a request for a specific entity that is missing must return 404 Not Found.\n\nQuestion: And what should the empty search return instead?\n\nAnswer:",
+      "answer": "According to [1], a search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list []. \n\nTherefore, the empty search result should return 200 OK with an empty list.",
+      "elapsed_ms": 3284.687
+    },
+    {
+      "id": "followup-05",
+      "run": 1,
+      "source_report": "test/evaluation/reports/quality-cpue-model-daily-20261002.json",
+      "source_sha256": "787b1b8434e6bfa56b59faa77774cc7eeab0c59355a20df6e3702fcedd242b08",
+      "selected_scope": null,
+      "omitted_sources": [],
+      "admitted_sources": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Process Memory Layout",
+          "line_start": 113,
+          "chunk_index": 3,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "thread\u2019s stack memory if it has a valid pointer to that memory.\nSeparate processes have separate address spaces, so their heaps, global data, and stacks are isolated from one another unless they explicitly use an inter-process sharing mechanism.",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Virtualization > Memory virtualization",
+          "line_start": 59,
+          "chunk_index": 0,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/cache.md",
+          "header": "Redis: Internals, Deployment, Operations, and Patterns > Where Redis runs",
+          "line_start": 48,
+          "chunk_index": 3,
+          "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+          "text": "Even when Redis and the app run on one machine or in one container host, they remain separate processes communicating over a socket. A separate Redis service is useful when app instances need shared state or when Redis needs independent memory, scaling, and operations.",
+          "original_number": 3
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Process Memory Layout",
+          "line_start": 91,
+          "chunk_index": 0,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "The memory of one process is shared by all of its threads, but each thread has its own private stack:\nProcess A: one shared address space\n+--------------------------------------+\n| Shared by Thread A and Thread B      |\n|                                      |\n| Code                                 |\n| Global / static variables            |\n| Heap                                 |\n+--------------------------------------+\n| Thread A: private stack              |\n+--------------------------------------+",
+          "original_number": 4
+        }
+      ],
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/os.md > Operating System > Process Memory Layout (line 113, chunk 3))\nthread\u2019s stack memory if it has a valid pointer to that memory.\nSeparate processes have separate address spaces, so their heaps, global data, and stacks are isolated from one another unless they explicitly use an inter-process sharing mechanism.\n\n[2] (source: samples/os.md > Operating System > Virtualization > Memory virtualization (line 59, chunk 0))\nEach process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Where Redis runs (line 48, chunk 3))\nEven when Redis and the app run on one machine or in one container host, they remain separate processes communicating over a socket. A separate Redis service is useful when app instances need shared state or when Redis needs independent memory, scaling, and operations.\n\n[4] (source: samples/os.md > Operating System > Process Memory Layout (line 91, chunk 0))\nThe memory of one process is shared by all of its threads, but each thread has its own private stack:\nProcess A: one shared address space\n+--------------------------------------+\n| Shared by Thread A and Thread B      |\n|                                      |\n| Code                                 |\n| Global / static variables            |\n| Heap                                 |\n+--------------------------------------+\n| Thread A: private stack              |\n+--------------------------------------+\n\n\nPrior user question (reference context only): If I create two threads in one process, which memory do they share and which part stays private?\nPrior answer (reference context only; verify claims against the document evidence): According to , the shared memory between Thread A and Thread B is:\n\n* Code\n* Global / static variables\n* Heap\n\nThe private stack for each thread is:\n \n* Thread A: private stack\n* Thread B: private stack\nSearch rewrite (reference resolution only): What about separate processes: can they share the same virtual address space?\n\nQuestion: What about separate processes: can they share the same virtual address?\n\nAnswer:",
+      "answer": "According to [2], different processes can use the same virtual address without referring to the same physical address. This means that separate processes can indeed share the same virtual address space, but it will be mapped to different physical memory addresses by the OS and hardware.",
+      "elapsed_ms": 3127.961
+    }
+  ]
+}

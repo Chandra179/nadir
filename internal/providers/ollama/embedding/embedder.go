@@ -28,6 +28,9 @@ func (e *dependencies) Embed(ctx context.Context, text string) ([]float32, error
 
 func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	payload := map[string]any{"model": e.model, "input": texts}
+	if e.numGPU != nil {
+		payload["options"] = map[string]any{"num_gpu": *e.numGPU}
+	}
 	if e.keepAlive != "" {
 		payload["keep_alive"] = e.keepAlive
 	}

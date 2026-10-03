@@ -1,0 +1,34 @@
+{
+  "reviewed_at": "2026-10-01T14:49:11.118179+00:00",
+  "pull_request": "https://github.com/Chandra179/nadir/pull/15",
+  "head_sha": "408211d4bc8cc04f66281c6c080300c1f15a9b41",
+  "local_scope": "PR tooling package files plus current local UI changes, with the compatible brace-expansion patch; validation does not claim the untouched PR lockfile has zero advisories.",
+  "node": "24.19.0",
+  "checks": {
+    "typecheck": "passed",
+    "eslint": "passed",
+    "unit_tests": {
+      "passed": 11
+    },
+    "production_build": "passed",
+    "mock_browser_workflow": "passed",
+    "npm_audit_after_patch": {
+      "vulnerabilities": 0
+    }
+  },
+  "audit_patch": "test/evaluation/reports/frontend-pr15-audit-fix.patch",
+  "hosted_checks": {
+    "status": "not_started",
+    "reason": "The job was not started because your account is locked due to a billing issue.",
+    "run_id": 36742917489,
+    "check_run_id": 109981667966
+  },
+  "merged": false,
+  "pushed": false,
+  "required_owner_action": "Resolve the GitHub account billing lock, refresh the PR lockfile, then rerun hosted checks.",
+  "current_lockfile_audit": {
+    "high": 0,
+    "moderate": 2,
+    "remaining": "Vitest 3 / @vitest/mocker advisory; the coordinated PR removes it."
+  }
+}

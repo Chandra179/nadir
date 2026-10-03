@@ -47,20 +47,42 @@ func TestTokenizeAndVectorizeSparseAreStableByTermFrequency(t *testing.T) {
 	}
 }
 
+func TestNaturalQuestionSparseLegPreservesTopicNegationAndNumbers(t *testing.T) {
+	indices, values := vectorizeSparseQuery("Why does our HTTP response not use 404 for an empty search?")
+	wantIndices, wantValues := vectorizeSparse("HTTP response not use 404 empty search")
+	frequencies := func(indices []uint32, values []float32) map[uint32]float32 {
+		out := make(map[uint32]float32)
+		for i, index := range indices {
+			out[index] = values[i]
+		}
+		return out
+	}
+	if !reflect.DeepEqual(frequencies(indices, values), frequencies(wantIndices, wantValues)) {
+		t.Fatalf("question filler diluted the topic or discarded negation: %v/%v", indices, values)
+	}
+	if indices, _ := vectorizeSparseQuery("what is it"); len(indices) != 0 {
+		t.Fatalf("filler-only question should use the dense leg: %v", indices)
+	}
+	if indices, _ := vectorizeSparse("is"); len(indices) != 1 {
+		t.Fatal("document and literal keyword encoding lost a searchable word")
+	}
+}
+
 func TestStorePayloadAndPointIdentity(t *testing.T) {
-	chunk := indexing.IndexedChunk{Text: "text", WindowText: "window", FilePath: "doc.md", Header: "Intro", LineStart: 4, ChunkIndex: 2, SourceSHA: "sha", IngestedAt: "time"}
+	chunk := indexing.IndexedChunk{Text: "text", WindowText: "window", FilePath: "doc.md", Header: "Intro", SectionPath: "Document > Intro", LineStart: 4, ChunkIndex: 2, SourceSHA: "sha", IngestedAt: "time"}
 	payload := map[string]*qdrant.Value{
-		"text":        qdrantutil.StringValue(chunk.Text),
-		"window_text": qdrantutil.StringValue(chunk.WindowText),
-		"file_path":   qdrantutil.StringValue(chunk.FilePath),
-		"header":      qdrantutil.StringValue(chunk.Header),
-		"line_start":  qdrantutil.IntValue(int64(chunk.LineStart)),
-		"chunk_index": qdrantutil.IntValue(int64(chunk.ChunkIndex)),
-		"source_sha":  qdrantutil.StringValue(chunk.SourceSHA),
-		"ingested_at": qdrantutil.StringValue(chunk.IngestedAt),
+		"text":         qdrantutil.StringValue(chunk.Text),
+		"window_text":  qdrantutil.StringValue(chunk.WindowText),
+		"file_path":    qdrantutil.StringValue(chunk.FilePath),
+		"header":       qdrantutil.StringValue(chunk.Header),
+		"section_path": qdrantutil.StringValue(chunk.SectionPath),
+		"line_start":   qdrantutil.IntValue(int64(chunk.LineStart)),
+		"chunk_index":  qdrantutil.IntValue(int64(chunk.ChunkIndex)),
+		"source_sha":   qdrantutil.StringValue(chunk.SourceSHA),
+		"ingested_at":  qdrantutil.StringValue(chunk.IngestedAt),
 	}
 	got := chunkFromPayload(payload)
-	want := search.SearchCandidate{Text: chunk.Text, WindowText: chunk.WindowText, FilePath: chunk.FilePath, Header: chunk.Header, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex, SourceSHA: chunk.SourceSHA}
+	want := search.SearchCandidate{Text: chunk.Text, WindowText: chunk.WindowText, FilePath: chunk.FilePath, Header: chunk.Header, SectionPath: chunk.SectionPath, LineStart: chunk.LineStart, ChunkIndex: chunk.ChunkIndex, SourceSHA: chunk.SourceSHA}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("chunkFromPayload() = %+v, want %+v", got, chunk)
 	}

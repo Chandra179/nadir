@@ -7,6 +7,7 @@ import { cancelTurn, startTurn } from "../chat/api";
 import Composer from "../chat/Composer";
 import TurnCard from "../chat/TurnCard";
 import { ingestDocuments } from "../documents/api";
+import DocumentPanel from "../documents/DocumentPanel";
 import { deleteAllSessions, deleteSession, getSession, listSessions } from "../history/api";
 import SessionList from "../history/SessionList";
 
@@ -37,6 +38,7 @@ export default function WorkspacePage() {
   const [uploading, setUploading] = useState(false);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [documentRevision, setDocumentRevision] = useState(0);
   const readerRef = useRef<HTMLDivElement | null>(null);
 
   const refreshSessions = useCallback(async () => {
@@ -210,12 +212,15 @@ export default function WorkspacePage() {
     setDocumentMessage(null);
     try {
       const response = await ingestDocuments(files);
-      setAttachedFiles((current) => [...current, ...(response.names ?? files.map((file) => file.name))]);
-      if (response.failed > 0) setDocumentMessage(`${response.processed} processed, ${response.skipped} skipped, ${response.failed} failed.`);
+      const imported = response.names ?? (response.failed === 0 ? files.map((file) => file.name) : []);
+      setAttachedFiles((current) => [...new Set([...current, ...imported])]);
+      const failures = response.files?.filter((file) => file.status === "failed").map((file) => `${file.name}: ${file.error ?? "Import failed"}${file.published ? " (update is visible; cleanup needs a retry)" : ""}`) ?? [];
+      setDocumentMessage(`${response.processed} processed, ${response.skipped} unchanged, ${response.failed} failed.${failures.length ? ` ${failures.join(" ")}` : ""}`);
     } catch (cause) {
       setDocumentMessage(messageFrom(cause, "Import failed"));
     } finally {
       setUploading(false);
+      setDocumentRevision((value) => value + 1);
     }
   }, []);
 
@@ -302,6 +307,7 @@ export default function WorkspacePage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
           <div className="font-serif-display font-semibold text-[17px]">New chat</div>
+          <DocumentPanel revision={documentRevision} />
         </div>
 
         <div id="reader" ref={readerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
@@ -310,7 +316,7 @@ export default function WorkspacePage() {
             {turns.length === 0 && !pendingTurn ? (
               <div id="empty-state" className="pt-16 text-center">
                 <div className="font-serif-display text-[24px] font-semibold mb-2">Ask your documents</div>
-                <p className="text-[14.5px] text-[#8b8f81] mb-6">Retrieval runs through Qdrant hybrid search before every generated answer.</p>
+                <p className="text-[14.5px] text-[#8b8f81] mb-6">Ask a question about your indexed notes. Open a citation to check the source.</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   <button type="button" onClick={() => void submit("What's the secant formula, and when do I use it instead of tangent?", null)} className="text-[14px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:border-[#2f5d50] hover:text-[#234840] transition">What&apos;s the secant formula, and when do I use it instead of tangent?</button>
                   <button type="button" onClick={() => void submit("How does chunk overlap affect retrieval quality?", null)} className="text-[14px] text-[#5c6156] border border-[#dcd8c9] rounded-lg px-3.5 py-2 hover:border-[#2f5d50] hover:text-[#234840] transition">How does chunk overlap affect retrieval quality?</button>

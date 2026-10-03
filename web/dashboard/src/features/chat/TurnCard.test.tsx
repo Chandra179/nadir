@@ -93,6 +93,18 @@ describe("TurnCard", () => {
     expect(screen.getByText("notes.md · L4")).toBeVisible();
   });
 
+  it("opens each mapped source in a grouped citation and leaves unknown numbers unlinked", async () => {
+    const user = userEvent.setup();
+    render(<TurnCard turn={{ ...turn, answer: "A combined claim [1, 7, 2].", citations: [
+      { number: 1, retrieval_rank: 1, file_path: "one.md", line_start: 1, chunk_index: 0, text: "First evidence" },
+      { number: 2, retrieval_rank: 2, file_path: "two.md", line_start: 2, chunk_index: 0, text: "Second evidence" },
+    ] }} onEdit={vi.fn()} />);
+    expect(screen.getAllByRole("link")).toHaveLength(2);
+    await user.click(screen.getByRole("link", { name: "Source 2: two.md, line 2" }));
+    expect(screen.getByText("Second evidence")).toBeVisible();
+    expect(screen.getByText(/A combined claim/)).toHaveTextContent("A combined claim [1, 7, 2].");
+  });
+
   it("keeps citation targets unique across turns and stable while streaming", () => {
     const cited = { ...turn, citations: [{ number: 1, retrieval_rank: 3, file_path: "one.md", line_start: 4, chunk_index: 0, text: "Evidence" }], answer: "Partial [1]", streaming: true };
     const { rerender } = render(<><TurnCard turn={cited} onEdit={vi.fn()} /><TurnCard turn={cited} onEdit={vi.fn()} /></>);

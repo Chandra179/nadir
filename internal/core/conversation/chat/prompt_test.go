@@ -27,6 +27,28 @@ func TestBuildContextIncludesSectionHeaders(t *testing.T) {
 	}
 }
 
+func TestCitationLabelRetainsTheParentOfAnAmbiguousHeading(t *testing.T) {
+	chunk := search.Chunk{FilePath: "methods.md", Header: "Properties", SectionPath: "Methods > First method > Properties", Text: "Requires a derivative.", LineStart: 7}
+	built := BuildContextWithStats([]search.Chunk{chunk}, 200)
+	if len(built.Citations) != 1 || built.Citations[0].Header != chunk.SectionPath || built.Citations[0].Text != chunk.Text || built.Citations[0].LineStart != 7 {
+		t.Fatalf("citation lost its subject, evidence or source location: %+v", built)
+	}
+	if chunk.Header != "Properties" {
+		t.Fatalf("citation presentation changed the filterable leaf: %+v", chunk)
+	}
+}
+
+func TestSourceFootnotesCannotMasqueradeAsApplicationCitationIDs(t *testing.T) {
+	chunk := search.Chunk{Text: "singleflight[^7] coalesces calls. The value [7] is an array.", FilePath: "api.md", SourceSHA: "version", LineStart: 9}
+	built := BuildPromptWithBudget("How are calls coalesced?", []search.Chunk{chunk}, PromptBudget{MaxContextTokens: 300})
+	if len(built.Context.Citations) != 1 || strings.Contains(built.Context.Citations[0].Text, "[^7]") || !strings.Contains(built.Context.Citations[0].Text, "document footnote)") || strings.Contains(built.Context.Citations[0].Text, "footnote 7") || !strings.Contains(built.Context.Citations[0].Text, "value [7]") {
+		t.Fatalf("source-local numbering is ambiguous or an ordinary value changed: %+v", built.Context)
+	}
+	if !strings.Contains(built.Prompt, citationEntry(built.Context.Citations[0])) || chunk.Text != "singleflight[^7] coalesces calls. The value [7] is an array." || built.Context.Citations[0].LineStart != 9 || built.Context.Citations[0].SourceSHA != "version" {
+		t.Fatalf("presented snapshot differs or stored source identity changed: %+v", built)
+	}
+}
+
 func TestBuildContextWithStatsReportsTruncation(t *testing.T) {
 	got := BuildContextWithStats([]search.Chunk{{
 		FilePath: "calculus.md",
@@ -63,15 +85,15 @@ func TestContextAdmissionPreservesRankBeforePresentation(t *testing.T) {
 	}
 }
 
-func TestCitationNumbersSurvivePromptReordering(t *testing.T) {
+func TestCitationPresentationMatchesRankAndSourceNumbers(t *testing.T) {
 	chunks := []search.Chunk{
 		{FilePath: "first.md", Text: "First", LineStart: 3, ChunkIndex: 7},
 		{FilePath: "second.md", Text: "Second", LineStart: 9, ChunkIndex: 2},
 		{FilePath: "third.md", Text: "Third", LineStart: 20, ChunkIndex: 4},
 	}
 	built := BuildPromptWithBudget("which", chunks, PromptBudget{MaxContextTokens: 500})
-	if strings.Index(built.Context.Text, "[3]") > strings.Index(built.Context.Text, "[2]") {
-		t.Fatalf("expected edge arrangement: %q", built.Context.Text)
+	if strings.Index(built.Context.Text, "[1]") > strings.Index(built.Context.Text, "[2]") || strings.Index(built.Context.Text, "[2]") > strings.Index(built.Context.Text, "[3]") {
+		t.Fatalf("source presentation does not match citation order: %q", built.Context.Text)
 	}
 	if !strings.Contains(built.Context.Text, "[2] (source: second.md (line 9, chunk 2))") {
 		t.Fatalf("citation #2 lost its provenance: %q", built.Context.Text)

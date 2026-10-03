@@ -2,6 +2,7 @@ package chunking
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -70,9 +71,56 @@ func nodeSourceText(n ast.Node, src []byte, sourceLines []int) sourceText {
 }
 
 type section struct {
-	header string
-	text   string
-	lines  []int
+	header       string
+	path         string
+	headingPath  string
+	label        string
+	indexHeading string
+	text         string
+	lines        []int
+}
+
+// A short, fully bold first line is a conventional Markdown label even when
+// its body starts on the following line of the same paragraph. Inline emphasis
+// stays ordinary body text. Keep the label itself in the evidence, too.
+func paragraphLabel(n ast.Node, src []byte, sourceLines []int) string {
+	paragraph, ok := n.(*ast.Paragraph)
+	if !ok {
+		return ""
+	}
+	label, ok := paragraph.FirstChild().(*ast.Emphasis)
+	if !ok || label.Level != 2 {
+		return ""
+	}
+	title := nodeSourceText(label, src, sourceLines)
+	value := strings.TrimSpace(title.text.String())
+	if value == "" || utf8.RuneCountInString(value) > 120 {
+		return ""
+	}
+	line := 0
+	for _, at := range title.lines {
+		if at > 0 {
+			if line > 0 && at != line {
+				return ""
+			}
+			line = at
+		}
+	}
+	if line == 0 {
+		return ""
+	}
+	for sibling := label.NextSibling(); sibling != nil; sibling = sibling.NextSibling() {
+		tail := nodeSourceText(sibling, src, sourceLines)
+		for _, at := range tail.lines {
+			if at > 0 {
+				if at <= line {
+					return ""
+				}
+				return value
+			}
+		}
+	}
+	return value
 }
 
 func (s section) lineAt(span textSpan) int {
@@ -109,10 +157,15 @@ func extractSections(rawText string) []section {
 	doc := goldmark.DefaultParser().Parse(text.NewReader(src))
 	var sections []section
 	currentHeader := ""
+	currentPath := ""
+	currentHeadingPath := ""
+	currentLabel := ""
+	var ancestors [6]string
 	var current sourceText
 	flush := func() {
 		if current.text.Len() > 0 {
-			sections = append(sections, section{header: currentHeader,
+			sections = append(sections, section{header: currentHeader, path: currentPath,
+				headingPath: currentHeadingPath, label: currentLabel,
 				text: current.text.String(), lines: current.lines})
 		}
 		current = sourceText{}
@@ -126,8 +179,30 @@ func extractSections(rawText string) []section {
 			flush()
 			heading := nodeSourceText(n, src, sourceLines)
 			currentHeader = strings.TrimSpace(heading.text.String())
+			level := n.(*ast.Heading).Level
+			ancestors[level-1] = currentHeader
+			for i := level; i < len(ancestors); i++ {
+				ancestors[i] = ""
+			}
+			var path []string
+			for _, title := range ancestors {
+				if title != "" {
+					path = append(path, title)
+				}
+			}
+			currentPath = strings.Join(path, " > ")
+			currentHeadingPath = currentPath
+			currentLabel = ""
 			return ast.WalkSkipChildren, nil
 		case *ast.Paragraph, *ast.List, *ast.Blockquote, *ast.FencedCodeBlock, *ast.CodeBlock:
+			if label := paragraphLabel(n, src, sourceLines); label != "" {
+				flush()
+				currentLabel = label
+				currentPath = label
+				if currentHeadingPath != "" {
+					currentPath = currentHeadingPath + " > " + label
+				}
+			}
 			block := nodeSourceText(n, src, sourceLines)
 			if current.text.Len() > 0 {
 				current.generated("\n")
@@ -139,5 +214,24 @@ func extractSections(rawText string) []section {
 		return ast.WalkContinue, nil
 	})
 	flush()
+	// Qualify repeated leaf headings for indexing. Unique headings keep the
+	// established embedding input so a broad document title does not overwhelm
+	// a precise section heading.
+	paths := make(map[string]map[string]bool)
+	for _, sec := range sections {
+		if paths[sec.header] == nil {
+			paths[sec.header] = make(map[string]bool)
+		}
+		paths[sec.header][sec.headingPath] = true
+	}
+	for i := range sections {
+		sections[i].indexHeading = sections[i].header
+		if sections[i].label != "" {
+			sections[i].indexHeading = strings.TrimPrefix(sections[i].header+" > "+sections[i].label, " > ")
+		}
+		if sections[i].header != "" && len(paths[sections[i].header]) > 1 {
+			sections[i].indexHeading = sections[i].path
+		}
+	}
 	return sections
 }

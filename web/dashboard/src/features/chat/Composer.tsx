@@ -113,7 +113,7 @@ export default function Composer({
                   <label className="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[14px] text-[#5c6156] cursor-pointer hover:bg-[#eeece3] hover:text-[#20241f]">
                     <input
                       type="file"
-                      accept=".md,.markdown"
+                      accept=".md,.pdf"
                       multiple
                       className="hidden"
                       disabled={busy || uploading}
@@ -124,13 +124,9 @@ export default function Composer({
                         setFileMenuOpen(false);
                       }}
                     />
-                    <span className="w-4 text-center text-[#8b8f81]">▤</span> Import Markdown
+                    <span className="w-4 text-center text-[#8b8f81]">▤</span> Import Markdown or PDF
                   </label>
-                  <div className="flex items-center gap-2 px-2.5 py-2 rounded-[7px] text-[14px] text-[#8b8f81]">
-                    <span className="w-4 text-center text-[#8b8f81]">▥</span> Import PDF
-                    <span className="ml-auto text-[10px] tracking-wide uppercase border border-[#e3e2d8] rounded-full px-1.5 py-0.5">Soon</span>
-                  </div>
-                  <div className="px-2.5 pt-1.5 pb-0.5 text-[12px] text-[#8b8f81]">More formats later</div>
+                  <div className="px-2.5 pt-1.5 pb-0.5 text-[12px] text-[#8b8f81]">PDF requires Docling to be enabled.</div>
                 </div>
               )}
             </div>
@@ -144,8 +140,8 @@ export default function Composer({
             </button>
           </div>
         </div>
-        {uploadMessage && <div className="feedback feedback-err mt-2 text-center">{uploadMessage}</div>}
-        <div id="composer-hint" className="text-center text-[12px] text-[#8b8f81] mt-2">Every answer is grounded in retrieved passages, shown above it.</div>
+        {uploadMessage && <div className="feedback mt-2 text-center" role="status">{uploadMessage}</div>}
+        <div id="composer-hint" className="text-center text-[12px] text-[#8b8f81] mt-2">Check citations against your notes. Nadir cannot observe live system state.</div>
       </form>
     </div>
   );

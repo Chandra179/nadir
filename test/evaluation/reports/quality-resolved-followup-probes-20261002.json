@@ -1,0 +1,182 @@
+{
+  "measured_at": "2026-10-02T12:39:32.616054+00:00",
+  "mode": "Captured-prompt replay with measured 4b rewrite; retrieval unchanged; not complete app validation",
+  "human": false,
+  "release_gate": false,
+  "cases": [
+    {
+      "run": 1,
+      "id": "followup-02",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 108, chunk 1))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 164, chunk 8))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 141, chunk 5))\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgements  should be used. With manual acknowledgements, the application must explicitly call channel.ack(deliveryTag) after successful processing. This gives full control over at-least-once delivery semantics, preventing messages from being lost if the consumer crashes before processing.\nSearch rewrite (reference resolution only): What happens if the consumer crashes before explicitly calling channel.ack(deliveryTag) after successful processing, given that manual acknowledgements should be used to prevent message loss?\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 108,
+          "chunk_index": 1,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 164,
+          "chunk_index": 8,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 141,
+          "chunk_index": 5,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "The connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D"
+        }
+      ],
+      "answer": "Messages can be lost if the consumer crashes before processing [1, 2]. With auto acknowledgement (autoAck: true), the broker considers a message delivered as soon as it sends it over the socket [1, 2]. However, manual acknowledgement (autoAck: false) requires the application to explicitly call channel.ack(deliveryTag) after successful processing [1, 2]."
+    },
+    {
+      "run": 2,
+      "id": "followup-02",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 108, chunk 1))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 164, chunk 8))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 141, chunk 5))\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgements  should be used. With manual acknowledgements, the application must explicitly call channel.ack(deliveryTag) after successful processing. This gives full control over at-least-once delivery semantics, preventing messages from being lost if the consumer crashes before processing.\nSearch rewrite (reference resolution only): What happens if the consumer crashes before explicitly calling channel.ack(deliveryTag) after successful processing, given that manual acknowledgements should be used to prevent message loss?\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 108,
+          "chunk_index": 1,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 164,
+          "chunk_index": 8,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 141,
+          "chunk_index": 5,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "The connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D"
+        }
+      ],
+      "answer": "Messages can be lost if the consumer crashes before processing [1, 2]. With auto acknowledgement (autoAck: true), the broker considers a message delivered as soon as it sends it over the socket [1, 2]. If a consumer crashes before processing a message with auto acknowledgement, the message is lost [1, 2]."
+    },
+    {
+      "run": 3,
+      "id": "followup-02",
+      "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nAnswer every part of the question, including the requested cause, action, or named alternatives. Preserve qualifiers such as mode and scope; do not substitute a nearby statement about a different case.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 108, chunk 1))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/os.md > Operating System > Scheduling > Context Switching (line 231, chunk 1))\n0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 164, chunk 8))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) (line 141, chunk 5))\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgements  should be used. With manual acknowledgements, the application must explicitly call channel.ack(deliveryTag) after successful processing. This gives full control over at-least-once delivery semantics, preventing messages from being lost if the consumer crashes before processing.\nSearch rewrite (reference resolution only): What happens if the consumer crashes before explicitly calling channel.ack(deliveryTag) after successful processing, given that manual acknowledgements should be used to prevent message loss?\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+      "citations": [
+        {
+          "number": 1,
+          "retrieval_rank": 1,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 108,
+          "chunk_index": 1,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 2,
+          "retrieval_rank": 2,
+          "file_path": "samples/rabbitmq.md",
+          "header": "RabbitMQ > Consumer > Acknowledgement Modes",
+          "line_start": 105,
+          "chunk_index": 0,
+          "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+          "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+        },
+        {
+          "number": 3,
+          "retrieval_rank": 3,
+          "file_path": "samples/os.md",
+          "header": "Operating System > Scheduling > Context Switching",
+          "line_start": 231,
+          "chunk_index": 1,
+          "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+          "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+        },
+        {
+          "number": 4,
+          "retrieval_rank": 4,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 164,
+          "chunk_index": 8,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+        },
+        {
+          "number": 5,
+          "retrieval_rank": 5,
+          "file_path": "samples/change-data-capture.md",
+          "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets)",
+          "line_start": 141,
+          "chunk_index": 5,
+          "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+          "text": "The connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }\n\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here \ud83d\udca5\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D"
+        }
+      ],
+      "answer": "Messages can be lost if the consumer crashes before processing [1, 2]. With auto acknowledgement (autoAck: true), the broker considers a message delivered as soon as it sends it over the socket [1, 2]. If a consumer crashes before processing a message with auto acknowledgement, the message is lost [1, 2]."
+    }
+  ]
+}

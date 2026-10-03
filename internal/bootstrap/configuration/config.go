@@ -114,11 +114,14 @@ type QdrantConfig struct {
 
 // EmbedderConfig selects the embedding provider and vector contract.
 type EmbedderConfig struct {
-	Provider       string        `yaml:"provider"`
-	Model          string        `yaml:"model"`
-	APIKey         string        `yaml:"api_key"`
-	OllamaAddr     string        `yaml:"ollama_addr"`
-	Dimensions     int           `yaml:"dimensions"`
+	Provider   string `yaml:"provider"`
+	Model      string `yaml:"model"`
+	APIKey     string `yaml:"api_key"`
+	OllamaAddr string `yaml:"ollama_addr"`
+	Dimensions int    `yaml:"dimensions"`
+	// NumGPU leaves Ollama placement unspecified when nil. Zero keeps the
+	// embedder on CPU; -1 delegates GPU layer selection to Ollama.
+	NumGPU         *int          `yaml:"num_gpu"`
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 	QueryPrefix    string        `yaml:"query_prefix"`    // prepended to search queries (e.g. "search_query: " for nomic-embed-text)
 	DocumentPrefix string        `yaml:"document_prefix"` // prepended to chunks at ingest (e.g. "search_document: ")
@@ -335,6 +338,13 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
 	if err := c.envInt(&c.Embedder.Dimensions, "EMBEDDER_DIMENSIONS"); err != nil {
 		return err
+	}
+	if os.Getenv("EMBEDDER_NUM_GPU") != "" {
+		var layers int
+		if err := c.envInt(&layers, "EMBEDDER_NUM_GPU"); err != nil {
+			return err
+		}
+		c.Embedder.NumGPU = &layers
 	}
 	c.envStr(&c.Embedder.QueryPrefix, "EMBEDDER_QUERY_PREFIX")
 	c.envStr(&c.Embedder.DocumentPrefix, "EMBEDDER_DOCUMENT_PREFIX")
@@ -720,6 +730,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Embedder.Dimensions <= 0 {
 		return fmt.Errorf("config: embedder.dimensions must be > 0")
+	}
+	if c.Embedder.NumGPU != nil && *c.Embedder.NumGPU < -1 {
+		return fmt.Errorf("config: embedder.num_gpu must be -1 (automatic), 0 (CPU), or a positive layer count")
 	}
 	if c.Qdrant.Addr == "" {
 		return fmt.Errorf("config: qdrant.addr must not be empty")

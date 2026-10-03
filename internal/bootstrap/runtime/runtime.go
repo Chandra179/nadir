@@ -19,7 +19,6 @@ import (
 	"nadir/internal/core/observability"
 	"nadir/internal/core/retrieval/cache"
 	"nadir/internal/core/retrieval/search"
-	"nadir/internal/providers/docling"
 	ollamaembedding "nadir/internal/providers/ollama/embedding"
 	ollamaenrichment "nadir/internal/providers/ollama/enrichment"
 	qdrantcache "nadir/internal/providers/qdrant/cache"
@@ -45,18 +44,19 @@ type Options struct {
 // deliberately narrow Seams: callers receive capabilities without depending
 // on adapter implementations or storage lifecycle details.
 type Runtime struct {
-	Clients        qdrantutil.Clients
-	Gates          *gates.Controller
-	Telemetry      *observability.Recorder
-	Embedder       embedding.Embedder
-	Searcher       search.Retriever
-	Ingest         indexing.Ingest
-	Reset          func(context.Context) error
-	Stats          func(context.Context) (qdrantstore.Stats, error)
-	QdrantHealth   func(context.Context) error
-	EmbeddingProbe func(context.Context) (ollamaembedding.ProbeResult, error)
-	RerankerProbe  func(context.Context) (reranker.ProbeResult, error)
-	Close          func() error
+	Clients          qdrantutil.Clients
+	Gates            *gates.Controller
+	Telemetry        *observability.Recorder
+	Embedder         embedding.Embedder
+	Searcher         search.Retriever
+	Ingest           indexing.Ingest
+	Reset            func(context.Context) error
+	Stats            func(context.Context) (qdrantstore.Stats, error)
+	DocumentVersions func(context.Context) (map[string]string, error)
+	QdrantHealth     func(context.Context) error
+	EmbeddingProbe   func(context.Context) (ollamaembedding.ProbeResult, error)
+	RerankerProbe    func(context.Context) (reranker.ProbeResult, error)
+	Close            func() error
 }
 
 func retrievalFusionConfig(cfg config.FusionConfig) search.FusionConfig {
@@ -144,6 +144,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		Addr:           cfg.Embedder.OllamaAddr,
 		Model:          cfg.Embedder.Model,
 		Dimensions:     cfg.Embedder.Dimensions,
+		NumGPU:         cfg.Embedder.NumGPU,
 		RequestTimeout: cfg.Embedder.RequestTimeout,
 		KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 	})
@@ -245,14 +246,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		})
 	}
 
-	var converter *docling.Converter
-	if cfg.Docling.Enabled {
-		converter = docling.NewDependencies(docling.DependenciesConfig{
-			Addr:           cfg.Docling.Addr,
-			RequestTimeout: cfg.Docling.RequestTimeout,
-			Log:            log,
-		})
-	}
+	converter := documentIntake(cfg.Docling, log)
 
 	lifecycle := indexing.NewDocumentLifecycle()
 	var clearCache func(context.Context) error
@@ -301,14 +295,15 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	}
 	closed = true
 	return &Runtime{
-		Clients:   clients,
-		Gates:     operationGates,
-		Telemetry: telemetry,
-		Embedder:  emb,
-		Searcher:  searcher,
-		Ingest:    ingestService,
-		Reset:     ingestService.DeleteAll,
-		Stats:     store.Stats,
+		Clients:          clients,
+		Gates:            operationGates,
+		Telemetry:        telemetry,
+		Embedder:         emb,
+		Searcher:         searcher,
+		Ingest:           ingestService,
+		Reset:            ingestService.DeleteAll,
+		Stats:            store.Stats,
+		DocumentVersions: store.GetAllFileSHAs,
 		QdrantHealth: func(ctx context.Context) error {
 			_, err := qdrantHealth.HealthCheck(ctx, &qdrant.HealthCheckRequest{})
 			return err

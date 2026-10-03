@@ -467,6 +467,12 @@ func TestStartTurnRewritesFollowUpAgainstPriorTurns(t *testing.T) {
 	if !strings.Contains(gen.got, "what is the derivative of cos(x)?") {
 		t.Fatalf("generation prompt must embed the rewritten query, got %q", gen.got)
 	}
+	if !strings.Contains(gen.got, "Question: what about the second one?") {
+		t.Fatalf("generation must preserve the user's question as well as the retrieval rewrite, got %q", gen.got)
+	}
+	if strings.LastIndex(gen.got, "Question: what about the second one?") < strings.LastIndex(gen.got, "what is the derivative of cos(x)?") {
+		t.Fatal("conversation references must precede the current question, so generation does not answer the prior topic")
+	}
 }
 
 func TestStartTurnSkipsRewriteWithoutPriorTurns(t *testing.T) {

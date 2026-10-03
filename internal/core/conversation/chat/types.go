@@ -19,9 +19,9 @@ type Request struct {
 
 // Turn is the outcome of starting a chat turn: everything needed to render
 // the trace, plus — when generation was started — the ID of its event
-// stream. The answer itself is never carried here at start time; it arrives
-// as events on the stream and lands on the persisted turn when generation
-// finishes.
+// stream. Generated answers arrive as events and land on the persisted turn
+// when generation finishes. A capability decline can carry a final answer
+// immediately without starting a stream.
 type Turn struct {
 	OperationID    string // structured correlation ID for this Chat start
 	ID             string // event-stream id; empty when nothing streams

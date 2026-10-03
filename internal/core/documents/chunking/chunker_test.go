@@ -1,10 +1,107 @@
 package chunking
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
+
+func TestRecursiveOverlapRetainsAcknowledgementModeScope(t *testing.T) {
+	raw, err := os.ReadFile("../../../../samples/rabbitmq.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := NewDependencies(DependenciesConfig{ChunkSize: 512, ChunkOverlap: 64})
+	chunks, err := d.Chunk(string(raw), "rabbitmq.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, chunk := range chunks {
+		if chunk.Header != "Acknowledgement Modes" || !strings.Contains(chunk.Text, "Manual acknowledgement") {
+			continue
+		}
+		found = true
+		evidence := chunk.WindowText
+		if evidence == "" {
+			evidence = chunk.Text
+		}
+		if strings.Contains(evidence, "Messages can be lost") && !strings.Contains(evidence, "Auto acknowledgement (autoAck: true)") {
+			t.Fatalf("automatic-mode warning lost its qualifier in manual evidence: %q", evidence)
+		}
+		if strings.Contains(evidence, "Auto acknowledgement") || !strings.Contains(chunk.SectionPath, "Manual acknowledgement") {
+			t.Fatalf("manual evidence mixes distinct labelled modes: %+v", chunk)
+		}
+	}
+	if !found {
+		t.Fatal("manual acknowledgement evidence missing")
+	}
+}
+
+func TestStandaloneBoldLabelsKeepEvidenceScopesAndSourceAnchors(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{ChunkSize: 512, ChunkOverlap: 64})
+	chunks, err := d.Chunk("# Modes\n\n**First mode**\n\nFirst applies here.\n\n**Second mode**\n\nSecond applies elsewhere.\n\n## Next\n\nAn **emphasized** word is ordinary paragraph text.", "modes.md")
+	if err != nil || len(chunks) != 3 {
+		t.Fatalf("chunks=%+v err=%v", chunks, err)
+	}
+	for i, label := range []string{"First mode", "Second mode"} {
+		if chunks[i].Header != "Modes" || chunks[i].SectionPath != "Modes > "+label || chunks[i].LineStart != 3+4*i || strings.Contains(chunks[i].Text, []string{"Second", "First"}[i]) {
+			t.Fatalf("label scope changed its filter, source anchor or evidence: %+v", chunks[i])
+		}
+	}
+	if chunks[2].SectionPath != "Modes > Next" || !strings.Contains(chunks[2].Text, "An emphasized word") {
+		t.Fatalf("inline emphasis became a heading or previous label leaked: %+v", chunks[2])
+	}
+}
+
+func TestLabelsUnderOneHeadingKeepItsPreciseIndexPrefix(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{ChunkSize: 512, ChunkOverlap: 64})
+	chunks, err := d.Chunk("# Broad topic\n\n## Specific section\n\n**First label**\nFirst body.\n\n**Second label**\nSecond body.", "labels.md")
+	if err != nil || len(chunks) != 2 {
+		t.Fatalf("chunks=%+v err=%v", chunks, err)
+	}
+	for i, label := range []string{"First label", "Second label"} {
+		if !strings.HasPrefix(d.ContextualText(chunks[i]), "labels.md > Specific section > "+label+"\n") || chunks[i].SectionPath != "Broad topic > Specific section > "+label {
+			t.Fatalf("label scopes turned a unique leaf into broad ancestry indexing: %+v indexed=%q", chunks[i], d.ContextualText(chunks[i]))
+		}
+	}
+	inline, err := d.Chunk("## Section\n\n**Important** text on the same line.\n\nOrdinary body.", "inline.md")
+	if err != nil || len(inline) != 1 || inline[0].SectionPath != "Section" {
+		t.Fatalf("leading inline emphasis became a label scope: %+v err=%v", inline, err)
+	}
+}
+
+func TestRecursiveSectionWindowIsBoundedAndPreservesCentralLocation(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{ChunkSize: 20, ChunkOverlap: 4})
+	for _, body := range []string{"αβγδεζηθικλμνξοπρστυφχψωαβγδεζηθ", strings.Repeat("long words ", 30)} {
+		chunks, err := d.Chunk("# Heading\n\n"+body, "bounded.md")
+		if err != nil || len(chunks) < 2 {
+			t.Fatalf("chunks=%+v err=%v", chunks, err)
+		}
+		for _, chunk := range chunks {
+			if !utf8.ValidString(chunk.WindowText) || utf8.RuneCountInString(chunk.WindowText) > 40 || chunk.LineStart != 3 {
+				t.Fatalf("unbounded or misplaced section window: %+v", chunk)
+			}
+			if utf8.RuneCountInString(body) > 40 && chunk.WindowText != "" {
+				t.Fatalf("long section expanded into answer context: %+v", chunk)
+			}
+		}
+	}
+}
+
+func TestRepeatedLeafHeadingsRetainTheirParentSubject(t *testing.T) {
+	d := NewDependencies(DependenciesConfig{ChunkSize: 512, ChunkOverlap: 64})
+	chunks, err := d.Chunk("# Methods\n\n## First method\n\n### Properties\n\nRequires a derivative.\n\n## Second method\n\n### Properties\n\nAvoids derivative computation.", "methods.md")
+	if err != nil || len(chunks) != 2 {
+		t.Fatalf("chunks=%+v err=%v", chunks, err)
+	}
+	for i, subject := range []string{"First method", "Second method"} {
+		if chunks[i].Header != "Properties" || !strings.Contains(d.ContextualText(chunks[i]), subject+" > Properties") {
+			t.Fatalf("leaf heading lost its subject or changed the header filter: %+v, indexed=%q", chunks[i], d.ContextualText(chunks[i]))
+		}
+	}
+}
 
 func TestRecursiveChunkerPreservesDocumentContextAndSkipsTOC(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{Provider: "recursive", ChunkSize: 80, ChunkOverlap: 10})
@@ -18,7 +115,7 @@ func TestRecursiveChunkerPreservesDocumentContextAndSkipsTOC(t *testing.T) {
 	if chunks[0].Header != "Derivatives" || chunks[0].FilePath != "math.md" {
 		t.Fatalf("chunk metadata = %+v, want Derivatives/math.md", chunks[0])
 	}
-	if got := d.ContextualText(chunks[0]); !strings.HasPrefix(got, "math.md > Derivatives\n") {
+	if got := d.ContextualText(chunks[0]); !strings.HasPrefix(got, "math.md > Derivatives\n") || chunks[0].SectionPath != "Calculus > Derivatives" {
 		t.Fatalf("contextual text = %q, want path and heading prefix", got)
 	}
 }

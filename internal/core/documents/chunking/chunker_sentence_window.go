@@ -18,12 +18,14 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 			hi := min(i+c.windowSize+1, len(sentences))
 			window := strings.TrimSpace(strings.Join(sentences[lo:hi], " "))
 			chunks = append(chunks, Chunk{
-				Text:       sent,
-				WindowText: window,
-				FilePath:   filePath,
-				Header:     sec.header,
-				LineStart:  sec.lineAt(spans[i]),
-				ChunkIndex: i,
+				Text:         sent,
+				WindowText:   window,
+				FilePath:     filePath,
+				Header:       sec.header,
+				SectionPath:  sec.path,
+				indexHeading: sec.indexHeading,
+				LineStart:    sec.lineAt(spans[i]),
+				ChunkIndex:   i,
 			})
 		}
 	}

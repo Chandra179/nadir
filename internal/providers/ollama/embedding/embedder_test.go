@@ -80,6 +80,41 @@ func TestEmbedBatchSendsKeepAlive(t *testing.T) {
 	}
 }
 
+func TestEmbedBatchGPUPlacement(t *testing.T) {
+	cpu, automatic, layers := 0, -1, 8
+	for _, tt := range []struct {
+		name   string
+		numGPU *int
+	}{
+		{"unspecified", nil}, {"CPU", &cpu}, {"automatic", &automatic}, {"partial offload", &layers},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct {
+					Model   string         `json:"model"`
+					Options map[string]int `json:"options"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Errorf("decode request: %v", err)
+				}
+				if request.Model != "embed" {
+					t.Errorf("model = %q, want embed", request.Model)
+				}
+				got, present := request.Options["num_gpu"]
+				if present != (tt.numGPU != nil) || tt.numGPU != nil && got != *tt.numGPU {
+					t.Errorf("num_gpu = %d (present=%v), requested %v", got, present, tt.numGPU)
+				}
+				_, _ = w.Write([]byte(`{"embeddings":[[1,2,3]]}`))
+			}))
+			defer srv.Close()
+			d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "embed", NumGPU: tt.numGPU})
+			if _, err := d.EmbedBatch(context.Background(), []string{"one"}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestEmbedBatchHonorsTimeoutAndCancellation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {

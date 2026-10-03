@@ -1,0 +1,999 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "dataset": "representative-app-replay-20261002",
+    "human": false,
+    "independent_human_review": false,
+    "release_gate": false,
+    "provenance": "Adapter of the existing synthetic representative pack for real app answer replay. Existing questions, expectations and source hashes are retained, not rewritten after observing failures.",
+    "corpus": [
+      {
+        "path": "samples/api-design-guidelines.md",
+        "sha256": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+      },
+      {
+        "path": "samples/business.md",
+        "sha256": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+      },
+      {
+        "path": "samples/cache.md",
+        "sha256": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+      },
+      {
+        "path": "samples/calculus.md",
+        "sha256": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+      },
+      {
+        "path": "samples/change-data-capture.md",
+        "sha256": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+      },
+      {
+        "path": "samples/knowledge-graph.md",
+        "sha256": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+      },
+      {
+        "path": "samples/linear-algebra.md",
+        "sha256": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+      },
+      {
+        "path": "samples/numerical-methods.md",
+        "sha256": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+      },
+      {
+        "path": "samples/os.md",
+        "sha256": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+      },
+      {
+        "path": "samples/rabbitmq.md",
+        "sha256": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+      },
+      {
+        "path": "samples/system-design-core.md",
+        "sha256": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+      },
+      {
+        "path": "samples/trig-functions.md",
+        "sha256": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+      },
+      {
+        "path": "samples/uber-architecture.md",
+        "sha256": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+      },
+      {
+        "path": "samples/youtube-architecture.md",
+        "sha256": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "secant-trig-definition",
+      "kind": "answerable",
+      "query": "what is the secant of an angle",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "reciprocal of cosine"
+        }
+      ],
+      "expected_answer": "The secant is the reciprocal of cosine: sec(theta) = 1 / cos(theta).",
+      "required_claims": [
+        "secant is the reciprocal of cosine"
+      ]
+    },
+    {
+      "id": "tangent-ratio",
+      "kind": "answerable",
+      "query": "tangent as a ratio of sine and cosine",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "sin(\u03b8) / cos(\u03b8)"
+        }
+      ],
+      "expected_answer": "tan(\u03b8) = sin(\u03b8) / cos(\u03b8).",
+      "required_claims": [
+        "tangent equals sine divided by cosine"
+      ]
+    },
+    {
+      "id": "sin-45-degrees",
+      "kind": "answerable",
+      "query": "value of sine at 45 degrees",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "\u221a2/2"
+        }
+      ],
+      "expected_answer": "sin(45\u00b0) = \u221a2/2.",
+      "required_claims": [
+        "sine of 45 degrees is \u221a2/2"
+      ]
+    },
+    {
+      "id": "degrees-to-radians-30",
+      "kind": "answerable",
+      "query": "30 degrees expressed in radians",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "\u03c0/6"
+        }
+      ],
+      "expected_answer": "30 degrees is \u03c0/6 radians.",
+      "required_claims": [
+        "30 degrees maps to \u03c0/6"
+      ]
+    },
+    {
+      "id": "secant-method-root-finding",
+      "kind": "answerable",
+      "query": "how does the secant method approximate a root",
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "root-finding algorithm that uses a succession"
+        }
+      ],
+      "expected_answer": "It uses successive secant-line roots to approximate a function root.",
+      "required_claims": [
+        "secant method uses successive secant-line roots",
+        "method approximates a function root"
+      ]
+    },
+    {
+      "id": "secant-formula-iteration",
+      "kind": "answerable",
+      "query": "secant method iteration formula x_{n+1}",
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "(x_n - x_{n-1})"
+        }
+      ],
+      "expected_answer": "x_{n+1} = x_n - f(x_n) * (x_n - x_{n-1}) / (f(x_n) - f(x_{n-1})).",
+      "required_claims": [
+        "formula uses the current and previous iterates",
+        "denominator is f(x_n) - f(x_{n-1})"
+      ]
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "kind": "answerable",
+      "query": "which converges faster bisection or Newton's method",
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "faster than bisection but slower than Newton"
+        }
+      ],
+      "expected_answer": "Bisection is slower than Newton; the secant method is faster than bisection but slower than Newton.",
+      "required_claims": [
+        "secant is faster than bisection",
+        "secant is slower than Newton"
+      ]
+    },
+    {
+      "id": "secant-no-derivative",
+      "kind": "answerable",
+      "query": "does the secant method require derivatives",
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "Does not require computing derivatives"
+        }
+      ],
+      "expected_answer": "No; it does not require computing derivatives.",
+      "required_claims": [
+        "secant method does not require derivatives"
+      ]
+    },
+    {
+      "id": "derivative-power-rule",
+      "kind": "answerable",
+      "query": "how do I take the derivative of x^n",
+      "relevant": [
+        {
+          "file": "calculus.md",
+          "contains": "x^(n-1)"
+        }
+      ],
+      "expected_answer": "The derivative is n times x^(n-1).",
+      "required_claims": [
+        "power rule derivative is n \u00b7 x^(n-1)"
+      ]
+    },
+    {
+      "id": "derivative-chain-rule",
+      "kind": "answerable",
+      "query": "differentiate a composition f(g(x))",
+      "relevant": [
+        {
+          "file": "calculus.md",
+          "contains": "f'(g(x)) \u00b7 g'(x)"
+        }
+      ],
+      "expected_answer": "The chain rule gives f'(g(x)) \u00b7 g'(x).",
+      "required_claims": [
+        "differentiate the outer function at g(x)",
+        "multiply by the inner derivative"
+      ]
+    },
+    {
+      "id": "integral-natural-log",
+      "kind": "answerable",
+      "query": "what is the integral of 1 over x",
+      "relevant": [
+        {
+          "file": "calculus.md",
+          "contains": "ln|x|"
+        }
+      ],
+      "expected_answer": "The integral of 1/x is ln|x| + C.",
+      "required_claims": [
+        "integral of 1/x uses ln|x|",
+        "include an arbitrary constant C"
+      ]
+    },
+    {
+      "id": "integral-power-rule",
+      "kind": "answerable",
+      "query": "general antiderivative of a power function",
+      "relevant": [
+        {
+          "file": "calculus.md",
+          "contains": "x^(n+1)/(n+1)"
+        }
+      ],
+      "expected_answer": "For n not equal to -1, the antiderivative is x^(n+1)/(n+1) + C.",
+      "required_claims": [
+        "power antiderivative raises the exponent by one",
+        "rule excludes n = -1"
+      ]
+    },
+    {
+      "id": "vector-definition",
+      "kind": "answerable",
+      "query": "what is a vector in n-dimensional space",
+      "relevant": [
+        {
+          "file": "linear-algebra.md",
+          "contains": "ordered n-tuple"
+        }
+      ],
+      "expected_answer": "It is an ordered n-tuple of numbers.",
+      "required_claims": [
+        "vector is an ordered n-tuple"
+      ]
+    },
+    {
+      "id": "dot-product",
+      "kind": "answerable",
+      "query": "compute the dot product of two vectors",
+      "relevant": [
+        {
+          "file": "linear-algebra.md",
+          "contains": "Dot product"
+        }
+      ],
+      "expected_answer": "The dot product is the sum of pairwise component products: u \u00b7 v = \u03a3 u\u1d62 \u00b7 v\u1d62.",
+      "required_claims": [
+        "multiply corresponding components",
+        "sum the component products"
+      ]
+    },
+    {
+      "id": "matrix-multiplication-dimensions",
+      "kind": "answerable",
+      "query": "if A is m by n and B is n by p what size is the product AB",
+      "relevant": [
+        {
+          "file": "linear-algebra.md",
+          "contains": "C_{ij}"
+        }
+      ],
+      "expected_answer": "AB is an m by p matrix.",
+      "required_claims": [
+        "inner dimensions n must agree",
+        "product has m rows and p columns"
+      ]
+    },
+    {
+      "id": "eigenvalues-characteristic-polynomial",
+      "kind": "answerable",
+      "query": "how do you find eigenvalues",
+      "relevant": [
+        {
+          "file": "linear-algebra.md",
+          "contains": "det(A - \u03bbI)"
+        }
+      ],
+      "expected_answer": "Solve det(A - \u03bbI) = 0, the characteristic equation.",
+      "required_claims": [
+        "form det(A - \u03bbI)",
+        "solve the characteristic equation for \u03bb"
+      ]
+    },
+    {
+      "id": "api-currency-type",
+      "kind": "answerable",
+      "query": "How do the internal API guidelines represent currency without rounding errors?",
+      "relevant": [
+        {
+          "file": "api-design-guidelines.md",
+          "contains": "Use **Integers** as currency"
+        }
+      ],
+      "expected_answer": "Use integers for currency and pair the value with an ISO 4217 currency code.",
+      "required_claims": [
+        "Use integers for currency and pair the value with an ISO 4217 currency code."
+      ]
+    },
+    {
+      "id": "api-empty-vs-missing",
+      "kind": "answerable",
+      "query": "What HTTP responses do the guidelines require for an empty search and a missing specific resource?",
+      "relevant": [
+        {
+          "file": "api-design-guidelines.md",
+          "contains": "HTTP Semantics & Status Codes"
+        }
+      ],
+      "expected_answer": "An empty collection search returns 200 OK with []; a missing specific resource returns 404 Not Found.",
+      "required_claims": [
+        "An empty collection search returns 200 OK with []; a missing specific resource returns 404 Not Found."
+      ]
+    },
+    {
+      "id": "api-long-running",
+      "kind": "answerable",
+      "query": "How should an API handle a long running operation without blocking the HTTP request?",
+      "relevant": [
+        {
+          "file": "api-design-guidelines.md",
+          "contains": "For long running operations"
+        }
+      ],
+      "expected_answer": "Return 202 Accepted with a Location header pointing to a status endpoint, or use webhooks.",
+      "required_claims": [
+        "Return 202 Accepted with a Location header pointing to a status endpoint, or use webhooks."
+      ]
+    },
+    {
+      "id": "api-coalescing",
+      "kind": "answerable",
+      "query": "How does request coalescing handle concurrent identical upstream requests?",
+      "relevant": [
+        {
+          "file": "api-design-guidelines.md",
+          "contains": "When a request arrives for key"
+        }
+      ],
+      "expected_answer": "Check for an in-flight call for that key and subscribe to its result instead of creating another connection.",
+      "required_claims": [
+        "Check for an in-flight call for that key and subscribe to its result instead of creating another connection."
+      ]
+    },
+    {
+      "id": "business-trust-institutions",
+      "kind": "answerable",
+      "query": "Which institutions does the business map associate with trust?",
+      "relevant": [
+        {
+          "file": "business.md",
+          "contains": "Money, contracts, reputation, law"
+        }
+      ],
+      "expected_answer": "Money, contracts, reputation, and law address trust.",
+      "required_claims": [
+        "Money, contracts, reputation, and law address trust."
+      ]
+    },
+    {
+      "id": "business-embedded-fintech",
+      "kind": "answerable",
+      "query": "How does embedded fintech differ from a standalone digital bank in the business map?",
+      "relevant": [
+        {
+          "file": "business.md",
+          "contains": "embedded fintech puts them inside"
+        }
+      ],
+      "expected_answer": "A digital bank delivers banking through its own app; embedded fintech puts financial services inside another company's software.",
+      "required_claims": [
+        "A digital bank delivers banking through its own app; embedded fintech puts financial services inside another company's software."
+      ]
+    },
+    {
+      "id": "business-fintech-revenue",
+      "kind": "answerable",
+      "query": "How can the embedded fintech providers in the business map combine recurring and volume-based revenue?",
+      "relevant": [
+        {
+          "file": "business.md",
+          "contains": "Subscriptions provide"
+        }
+      ],
+      "expected_answer": "They combine subscriptions for recurring revenue with a share of transaction fees that grow with volume.",
+      "required_claims": [
+        "They combine subscriptions for recurring revenue with a share of transaction fees that grow with volume."
+      ]
+    },
+    {
+      "id": "business-inventory-pricing",
+      "kind": "answerable",
+      "query": "What drives subscription tiers for inventory tools in the business map?",
+      "relevant": [
+        {
+          "file": "business.md",
+          "contains": "Inventory tools"
+        }
+      ],
+      "expected_answer": "Product count, connected sales channels, and monthly orders drive the subscription tiers.",
+      "required_claims": [
+        "Product count, connected sales channels, and monthly orders drive the subscription tiers."
+      ]
+    },
+    {
+      "id": "redis-execution",
+      "kind": "answerable",
+      "query": "How does the Redis guide distinguish command execution from network I/O?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "main execution thread"
+        }
+      ],
+      "expected_answer": "Redis mainly executes commands one at a time on its main thread; network I/O and background work can use other threads.",
+      "required_claims": [
+        "Redis mainly executes commands one at a time on its main thread; network I/O and background work can use other threads."
+      ]
+    },
+    {
+      "id": "redis-slot-formula",
+      "kind": "answerable",
+      "query": "What is the formula and total slot count used by Redis Cluster?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "slot = CRC16(key) mod 16384"
+        }
+      ],
+      "expected_answer": "Redis Cluster uses 16,384 hash slots and slot = CRC16(key) mod 16384.",
+      "required_claims": [
+        "Redis Cluster uses 16,384 hash slots and slot = CRC16(key) mod 16384."
+      ]
+    },
+    {
+      "id": "redis-lock-release",
+      "kind": "answerable",
+      "query": "Why must a worker compare its token before releasing a Redis lock?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "delete the marker only if the token still matches"
+        }
+      ],
+      "expected_answer": "An expired worker must not delete a newer worker's lock; delete only if the token still matches.",
+      "required_claims": [
+        "An expired worker must not delete a newer worker's lock; delete only if the token still matches."
+      ]
+    },
+    {
+      "id": "redis-lua-transaction-limit",
+      "kind": "answerable",
+      "query": "Does a Redis Lua script make a later SQL write atomic too?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "not general rollback or a transaction with another service"
+        }
+      ],
+      "expected_answer": "No. Redis scripts provide atomic execution in Redis, without general rollback or a transaction with another service.",
+      "required_claims": [
+        "No. Redis scripts provide atomic execution in Redis, without general rollback or a transaction with another service."
+      ]
+    },
+    {
+      "id": "cdc-polling-deletes",
+      "kind": "answerable",
+      "query": "Why can polling-based CDC miss hard deletes while log-based CDC captures them?",
+      "relevant": [
+        {
+          "file": "change-data-capture.md",
+          "contains": "Misses deleted rows"
+        }
+      ],
+      "expected_answer": "Polling cannot query a deleted row; log-based CDC records the DELETE event in the transaction log.",
+      "required_claims": [
+        "Polling cannot query a deleted row; log-based CDC records the DELETE event in the transaction log."
+      ]
+    },
+    {
+      "id": "cdc-offset-storage",
+      "kind": "answerable",
+      "query": "Where does Debezium with Kafka Connect persist its source-log position?",
+      "relevant": [
+        {
+          "file": "change-data-capture.md",
+          "contains": "connect-offsets"
+        }
+      ],
+      "expected_answer": "It persists the source-log position in a dedicated durable Kafka topic called connect-offsets.",
+      "required_claims": [
+        "It persists the source-log position in a dedicated durable Kafka topic called connect-offsets."
+      ]
+    },
+    {
+      "id": "cdc-duplicates",
+      "kind": "answerable",
+      "query": "How can a CDC consumer reject duplicate events after a connector crash?",
+      "relevant": [
+        {
+          "file": "change-data-capture.md",
+          "contains": "incoming_lsn <= last_processed_lsn"
+        }
+      ],
+      "expected_answer": "Use idempotent writes or compare LSNs, discarding an incoming LSN less than or equal to the last processed LSN.",
+      "required_claims": [
+        "Use idempotent writes or compare LSNs, discarding an incoming LSN less than or equal to the last processed LSN."
+      ]
+    },
+    {
+      "id": "cdc-ordering",
+      "kind": "answerable",
+      "query": "How does the CDC design preserve the order of updates to one order?",
+      "relevant": [
+        {
+          "file": "change-data-capture.md",
+          "contains": "partition_key = order_id"
+        }
+      ],
+      "expected_answer": "Use the order's primary key as the Kafka partition key so all its updates use one ordered partition.",
+      "required_claims": [
+        "Use the order's primary key as the Kafka partition key so all its updates use one ordered partition."
+      ]
+    },
+    {
+      "id": "graph-canonicalization",
+      "kind": "answerable",
+      "query": "What happens to graph edges when duplicate entity nodes are merged?",
+      "relevant": [
+        {
+          "file": "knowledge-graph.md",
+          "contains": "All incoming and outgoing edges redirect"
+        }
+      ],
+      "expected_answer": "Incoming and outgoing edges redirect to a single canonical master node.",
+      "required_claims": [
+        "Incoming and outgoing edges redirect to a single canonical master node."
+      ]
+    },
+    {
+      "id": "graph-generic-edge-limit",
+      "kind": "answerable",
+      "query": "Why do generic RELATED_TO or MENTIONS edges weaken a knowledge graph?",
+      "relevant": [
+        {
+          "file": "knowledge-graph.md",
+          "contains": "loses its reasoning power"
+        }
+      ],
+      "expected_answer": "They fail to specify the relationship's nature, weakening reasoning and counterfactual simulations.",
+      "required_claims": [
+        "They fail to specify the relationship's nature, weakening reasoning and counterfactual simulations."
+      ]
+    },
+    {
+      "id": "graph-ontology-categories",
+      "kind": "answerable",
+      "query": "Which examples distinguish structural and causal edges in the graph ontology?",
+      "relevant": [
+        {
+          "file": "knowledge-graph.md",
+          "contains": "Structural/Ownership"
+        }
+      ],
+      "expected_answer": "SUBSIDIARY_OF, INVESTED_IN, and EMPLOYED_BY are structural; TRIGGERED, SUPPRESSED, and ACCELERATED are causal.",
+      "required_claims": [
+        "SUBSIDIARY_OF, INVESTED_IN, and EMPLOYED_BY are structural; TRIGGERED, SUPPRESSED, and ACCELERATED are causal."
+      ]
+    },
+    {
+      "id": "graph-source-authority",
+      "kind": "answerable",
+      "query": "Why should a tweet and an SEC filing not give graph edges identical authority?",
+      "relevant": [
+        {
+          "file": "knowledge-graph.md",
+          "contains": "unverified tweet and an official SEC filing"
+        }
+      ],
+      "expected_answer": "Their source authority and verification differ, so extracted edges should not receive identical weight.",
+      "required_claims": [
+        "Their source authority and verification differ, so extracted edges should not receive identical weight."
+      ]
+    },
+    {
+      "id": "os-thread-memory",
+      "kind": "answerable",
+      "query": "Which parts of process memory are shared by threads and which part is private?",
+      "relevant": [
+        {
+          "file": "os.md",
+          "contains": "each thread has its own private stack"
+        }
+      ],
+      "expected_answer": "Threads share code, heap, and global/static data; each has its own stack.",
+      "required_claims": [
+        "Threads share code, heap, and global/static data; each has its own stack."
+      ]
+    },
+    {
+      "id": "os-virtual-addresses",
+      "kind": "answerable",
+      "query": "Can different processes use the same virtual address for different physical memory?",
+      "relevant": [
+        {
+          "file": "os.md",
+          "contains": "same virtual"
+        }
+      ],
+      "expected_answer": "Yes. Each process has a virtual address space mapped separately to physical memory.",
+      "required_claims": [
+        "Yes. Each process has a virtual address space mapped separately to physical memory."
+      ]
+    },
+    {
+      "id": "os-file-metadata",
+      "kind": "answerable",
+      "query": "What file metadata does the operating systems guide list besides the file contents?",
+      "relevant": [
+        {
+          "file": "os.md",
+          "contains": "File metadata can include"
+        }
+      ],
+      "expected_answer": "File size, owner, permissions, timestamps, data-block locations, and file type.",
+      "required_claims": [
+        "File size, owner, permissions, timestamps, data-block locations, and file type."
+      ]
+    },
+    {
+      "id": "os-context-switch-cost",
+      "kind": "answerable",
+      "query": "Why can a context switch cost more than the direct switching time?",
+      "relevant": [
+        {
+          "file": "os.md",
+          "contains": "caches, TLBs, and CPU"
+        }
+      ],
+      "expected_answer": "Caches, TLBs, and CPU pipelines may need to warm up again, adding indirect cost.",
+      "required_claims": [
+        "Caches, TLBs, and CPU pipelines may need to warm up again, adding indirect cost."
+      ]
+    },
+    {
+      "id": "rabbit-topology-order",
+      "kind": "answerable",
+      "query": "In what order does the RabbitMQ topology manager redeclare cached objects after reconnecting?",
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "exchanges first, then queues, then bindings"
+        }
+      ],
+      "expected_answer": "It redeclares exchanges first, then queues, then bindings.",
+      "required_claims": [
+        "It redeclares exchanges first, then queues, then bindings."
+      ]
+    },
+    {
+      "id": "rabbit-ack-modes",
+      "kind": "answerable",
+      "query": "How do RabbitMQ automatic and manual acknowledgements differ when a consumer crashes?",
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "Acknowledgement Modes"
+        }
+      ],
+      "expected_answer": "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing.",
+      "required_claims": [
+        "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing."
+      ]
+    },
+    {
+      "id": "rabbit-retry-cycle",
+      "kind": "answerable",
+      "query": "How do RabbitMQ retry queues delay a dead-lettered message before returning it?",
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "After the TTL expires"
+        }
+      ],
+      "expected_answer": "A negative acknowledgement without requeue routes to the DLX and retry queue; after its TTL expires the message is republished to the primary exchange.",
+      "required_claims": [
+        "A negative acknowledgement without requeue routes to the DLX and retry queue; after its TTL expires the message is republished to the primary exchange."
+      ]
+    },
+    {
+      "id": "rabbit-parking-lot",
+      "kind": "answerable",
+      "query": "What happens after the RabbitMQ retry budget is exhausted?",
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "manual inspection"
+        }
+      ],
+      "expected_answer": "The message moves to a parking lot queue for manual inspection.",
+      "required_claims": [
+        "The message moves to a parking lot queue for manual inspection."
+      ]
+    },
+    {
+      "id": "system-backpressure",
+      "kind": "answerable",
+      "query": "What should a design do when producers are faster than consumers?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "Backpressure: limit queues"
+        }
+      ],
+      "expected_answer": "Limit queues and concurrent work, deciding whether to delay, drop, or reject work.",
+      "required_claims": [
+        "Limit queues and concurrent work, deciding whether to delay, drop, or reject work."
+      ]
+    },
+    {
+      "id": "system-capacity-inputs",
+      "kind": "answerable",
+      "query": "Which workload estimates belong in the system design capacity checklist?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "estimate average and peak requests"
+        }
+      ],
+      "expected_answer": "Estimate average/peak RPS, object size, storage growth, read/write volume, bandwidth, concurrent users, and retention.",
+      "required_claims": [
+        "Estimate average/peak RPS, object size, storage growth, read/write volume, bandwidth, concurrent users, and retention."
+      ]
+    },
+    {
+      "id": "system-recovery",
+      "kind": "answerable",
+      "query": "What does the checklist ask about temporary state and recovery after an outage?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "Temporary state and recovery"
+        }
+      ],
+      "expected_answer": "Decide what can be lost from memory and how node, database, or cache outages rebuild state or fall back to durable storage.",
+      "required_claims": [
+        "Decide what can be lost from memory and how node, database, or cache outages rebuild state or fall back to durable storage."
+      ]
+    },
+    {
+      "id": "system-cost-limit",
+      "kind": "answerable",
+      "query": "Which cost limits should be identified before selecting a design?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "which cost limit matters most"
+        }
+      ],
+      "expected_answer": "Identify whether compute, memory, storage, bandwidth, operations, or third-party usage is the most important limit.",
+      "required_claims": [
+        "Identify whether compute, memory, storage, bandwidth, operations, or third-party usage is the most important limit."
+      ]
+    },
+    {
+      "id": "ride-s2-neighbors",
+      "kind": "answerable",
+      "query": "How does the conceptual ride matching design narrow the geospatial search for a rider?",
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "queries that cell and its eight neighbors"
+        }
+      ],
+      "expected_answer": "Map the rider to an S2 Cell ID, then query that cell and its eight neighbors.",
+      "required_claims": [
+        "Map the rider to an S2 Cell ID, then query that cell and its eight neighbors."
+      ]
+    },
+    {
+      "id": "ride-eta-vs-distance",
+      "kind": "answerable",
+      "query": "Does the conceptual ride design match by straight-line distance or ETA?",
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "not straight-line distance"
+        }
+      ],
+      "expected_answer": "It selects a driver by ETA based on real drive times, rather than straight-line distance.",
+      "required_claims": [
+        "It selects a driver by ETA based on real drive times, rather than straight-line distance."
+      ]
+    },
+    {
+      "id": "ride-ap-vs-cp",
+      "kind": "answerable",
+      "query": "Why does the conceptual ride design choose AP for locations and CP for matching?",
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "How the AP vs. CP Trade-Off"
+        }
+      ],
+      "expected_answer": "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition.",
+      "required_claims": [
+        "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition."
+      ]
+    },
+    {
+      "id": "ride-doma-layers",
+      "kind": "answerable",
+      "query": "Which five DOMA service layers are listed in the ride architecture document?",
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "DOMA organizes"
+        }
+      ],
+      "expected_answer": "Edge, Presentation, Product, Business, and Infrastructure.",
+      "required_claims": [
+        "Edge, Presentation, Product, Business, and Infrastructure."
+      ]
+    },
+    {
+      "id": "video-transcode-dag",
+      "kind": "answerable",
+      "query": "What does the conceptual video ingestion DAG process in parallel besides video encoding?",
+      "relevant": [
+        {
+          "file": "youtube-architecture.md",
+          "contains": "Other DAG nodes"
+        }
+      ],
+      "expected_answer": "Other nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.",
+      "required_claims": [
+        "Other nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID."
+      ]
+    },
+    {
+      "id": "video-abr-manifests",
+      "kind": "answerable",
+      "query": "Which manifest formats does the conceptual video design use for adaptive bitrate?",
+      "relevant": [
+        {
+          "file": "youtube-architecture.md",
+          "contains": "MPEG-DASH and HLS manifests"
+        }
+      ],
+      "expected_answer": "MPEG-DASH .mpd and HLS .m3u8 manifests index encoded chunks.",
+      "required_claims": [
+        "MPEG-DASH .mpd and HLS .m3u8 manifests index encoded chunks."
+      ]
+    },
+    {
+      "id": "video-live-vs-vod",
+      "kind": "answerable",
+      "query": "Why does live streaming use a continuous pipeline instead of the conceptual VOD DAG?",
+      "relevant": [
+        {
+          "file": "youtube-architecture.md",
+          "contains": "frames must be processed as they arrive"
+        }
+      ],
+      "expected_answer": "VOD can take minutes to optimize compression and quality; live favors 1\u20133 second delay and must process frames as they arrive.",
+      "required_claims": [
+        "VOD can take minutes to optimize compression and quality; live favors 1\u20133 second delay and must process frames as they arrive."
+      ]
+    },
+    {
+      "id": "video-storage-tiers",
+      "kind": "answerable",
+      "query": "Where does the conceptual video CDN keep hot, warm, and cold content?",
+      "relevant": [
+        {
+          "file": "youtube-architecture.md",
+          "contains": "Hot content"
+        }
+      ],
+      "expected_answer": "Hot content uses nearby NVMe/SSD edge servers, warm content uses regional caches, and cold content comes from central blob storage.",
+      "required_claims": [
+        "Hot content uses nearby NVMe/SSD edge servers, warm content uses regional caches, and cold content comes from central blob storage."
+      ]
+    },
+    {
+      "id": "unsupported-api-private-key",
+      "kind": "unsupported",
+      "query": "What exact production TLS private key do our internal API services use?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-business-real-revenue",
+      "kind": "unsupported",
+      "query": "What was StoreHub's exact audited revenue in September 2026?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-cache-production-address",
+      "kind": "unsupported",
+      "query": "What is the IP address of our production Redis primary?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-cdc-live-offset",
+      "kind": "unsupported",
+      "query": "What is the current committed LSN of our running production CDC connector?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-os-machine-pid",
+      "kind": "unsupported",
+      "query": "What is the PID of the process currently using the most memory on this machine?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-rabbit-queue-depth",
+      "kind": "unsupported",
+      "query": "How many messages are waiting in our production RabbitMQ queue right now?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-ride-current-official-scale",
+      "kind": "unsupported",
+      "query": "What exact current driver count does Uber officially report for today?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    },
+    {
+      "id": "unsupported-video-current-official-codec",
+      "kind": "unsupported",
+      "query": "What exact percentage of today's YouTube uploads uses AV1 in the actual production system?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    }
+  ]
+}

@@ -65,10 +65,17 @@ class Probe:
             raise ValueError(turn.get("error") or turn["generate_error"])
         if generate:
             stream_url = turn.get("stream_url")
-            if not stream_url:
+            if not stream_url and turn.get("has_answer") and turn.get("answer"):
+                turn["first_token_ms"] = None
+                turn["answer_delivery"] = "immediate"
+            elif not stream_url:
                 raise ValueError("generation requested but no stream was started")
-            stream = read_stream_result(self.base + stream_url, self.timeout)
-            turn["answer"] = stream.answer
+            else:
+                retrieval_ms = (time.monotonic() - started) * 1000
+                stream = read_stream_result(self.base + stream_url, self.timeout)
+                turn["answer"] = stream.answer
+                turn["first_token_ms"] = None if stream.first_token_ms is None else round(retrieval_ms + stream.first_token_ms, 3)
+                turn["answer_delivery"] = "stream"
         turn["measured_latency_ms"] = round((time.monotonic() - started) * 1000, 3)
         return turn
 

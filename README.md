@@ -8,13 +8,14 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 |------|-----------|---------|
 | [Podman](https://podman.io) + podman-compose | **Required for the provided local/Compose flow** | Qdrant and optional containerized reranker (rootless; `./scripts/setup_podman_host.sh` sets the laptop up) |
 | Go 1.27+ | **Required** | Server + CLI |
-| Python 3.12+ | **Required for the host reranker/PDF sidecar** | Reranker sidecar and optional PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
-| Node.js 22+ | **Required for dashboard** | React dashboard and browser tests |
+| Python 3.12+ | **Required for `local.sh`; sidecars require 3.12+** | Local startup config parsing, optional reranker and PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
+| Node.js 22.12+ or 24 LTS | **Required for dashboard** | React dashboard and browser tests |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`embeddinggemma-300m-q8`) and optional LLM features |
 
 ```bash
 ollama pull embeddinggemma-300m-q8
-ollama pull gemma3:1b   # for answer generation
+ollama pull gemma3:4b   # configured answer model
+ollama pull gemma3:1b   # configured follow-up rewrite model
 ```
 
 ## Quick start
@@ -27,7 +28,7 @@ Edit `internal/bootstrap/configuration/config.yaml` → `documents.paths` to poi
 documents:
   mode: "upload-only"     # upload-only | mirror
   paths:
-    - "samples"           # ships with sample math docs
+    - "samples"           # 14 sample technical notes
     - "~/my-documents"    # your own data
 ```
 
@@ -42,8 +43,9 @@ directories. Multipart uploads never trigger mirror deletion.
 ./scripts/local.sh
 ```
 
-This starts Qdrant, the host-side reranker, and the Go API, ingests all source
-files, and blocks on the server. Run the React dashboard separately:
+This starts Qdrant and the Go API, starts the host reranker only when enabled,
+ingests the configured sources, and blocks on the server. Reranking is off
+by default. Run the React dashboard separately:
 
 ```bash
 cd web/dashboard
@@ -77,6 +79,24 @@ curl -X POST localhost:8100/api/v1/turns \
   -d '{"query":"secant formula","generate":true}'
 ```
 
+## Daily use and corpus visibility
+
+Open **Knowledge base** in the dashboard to see indexed file names. Imports
+report processed, unchanged and failed files, including failure reasons.
+Only successful imports appear as attached files. PDF uploads fail clearly
+when Docling is disabled. The inventory survives restart; the last-import
+summary describes only the current server run.
+
+`GET /api/v1/documents` returns this inventory. `/api/v1/ready` also verifies
+that each enabled answer/rewrite model is installed at its configured Ollama
+endpoint, with an installation hint for missing models. This metadata check
+does not load the models or prove inference capacity; actual turns test that.
+
+Nadir reads indexed notes and cannot observe live system state. Explicit
+English requests for an owned system's current state receive a capability
+decline; this is a narrow guard, not a general proof of answerability.
+Check source citations before relying on an answer.
+
 ## Source data
 
 The server reads Markdown and, when Docling is enabled, PDF source files from
@@ -103,8 +123,8 @@ Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/api/v1/docu
 ## Run separately
 
 ```bash
-# 1. Start Podman services (Qdrant + reranker)
-podman compose -f deploy/compose/compose.yaml up -d qdrant reranker
+# 1. Start Qdrant (reranker is optional and off by default)
+podman compose -f deploy/compose/compose.yaml up -d qdrant
 
 # 2. Start Go server
 go run ./cmd/api
@@ -116,7 +136,7 @@ curl -X POST localhost:8100/api/v1/documents
 ## Podman Compose (Linux, Windows, macOS)
 
 The default Compose stack is CPU-safe and does not require NVIDIA. It runs the
-Go API, Qdrant, and the CPU reranker under rootless Podman on Linux, or inside
+Go API and Qdrant under rootless Podman on Linux, or inside
 a `podman machine` VM on Windows and macOS; Ollama runs on the host and the
 container reaches it through `host.containers.internal` (injected by Podman).
 
@@ -183,13 +203,14 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
 | `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
 | `OLLAMA_ADDR` | `http://host.containers.internal:11434` | Ollama host |
-| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:1b` | Explicit answer-generation endpoint and model |
+| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:4b` | Explicit answer-generation endpoint and model |
 | `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
 | `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
 | `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `gemma3:1b` | Explicit contextual-enrichment endpoint and model |
+| `EMBEDDER_NUM_GPU` | unset | Optional Ollama embedder placement: `0` CPU, `-1` automatic, positive GPU layer count |
 | `EMBEDDER_API_KEY` | — | Embedder API key, if required |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
-| `RERANKER_ENABLED` | — | `true`/`1` to force-enable the reranker |
+| `RERANKER_ENABLED` | `false` | `true`/`1` to force-enable the reranker |
 | `RERANKER_ADAPTIVE_ENABLED` | `false` | Gate reranking on dense/lexical disagreement or a weak fused margin; keep off until release-gated quality evidence supports the tradeoff |
 | `RERANKER_ADAPTIVE_MARGIN_THRESHOLD` | `0.01` | Relative fused top-result margin below which adaptive reranking is required |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
@@ -218,10 +239,13 @@ When an LLM role is enabled, its address and model are required explicitly:
 inherit another role's endpoint or model. Compose supplies explicit role
 environment overrides even when roles share one Ollama server.
 
-The shipped `inference.profile: local` serializes Ollama work across embedding,
-rewriting, enrichment, and streaming generation, and runs one CPU reranker
-operation at a time. This is a process-local safety profile for laptops, not a
-distributed rate limiter. Set an explicit CUDA device and `torch` backend only
+The shipped `inference.profile: local` delegates embedding and LLM concurrency
+to Ollama and runs one CPU reranker operation at a time. The profile uses role
+timeouts and finite model retention. It coordinates one API process.
+Optional `embedder.num_gpu: 0` (`EMBEDDER_NUM_GPU=0`) keeps the small embedding
+model on CPU when an answer model fills GPU memory, avoiding repeated runner
+reloads. Omission preserves normal Ollama placement; measure the hardware profile
+and retrieval before adopting it. Set an explicit CUDA device and `torch` backend only
 with the GPU Compose override after measuring GPU capacity.
 
 > `./scripts/local.sh` runs the server against `internal/bootstrap/configuration/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Podman-internal service names and a portable CPU reranker by default.
@@ -307,13 +331,11 @@ data and is not a release gate. Historical reports still contain the original
 approval, and independent expert judgments before treating a score as a
 production release gate.
 
-A public ARQMath Task 1 candidate is also checked in under
-[`test/evaluation/arqmath/`](test/evaluation/arqmath/). It contains 120
-selected math questions—40 from each 2020–2022 edition—plus pinned source
-metadata and fixed qrel candidate pools. It remains `release_gate: false`:
-the full licensed corpus, two genuine independent reviewer passes,
-adjudication, and privacy/legal approval must be supplied externally. Build
-and review instructions are in its README.
+The optional [ARQMath importer](scripts/import_arqmath.py) can build a public
+math research pack. That pack and its licensed corpus are not checked in.
+ARQMath and independent judge calibration are optional research for the
+personal/local v1; the [local acceptance checklist](docs/LOCAL_V1.md) uses
+saved questions and direct answer/source review.
 
 ## PDF ingestion
 
@@ -381,7 +403,8 @@ document reindex.
 
 ```bash
 ollama pull embeddinggemma-300m-q8
-ollama pull gemma3:1b   # for answer generation
+ollama pull gemma3:4b   # configured answer model
+ollama pull gemma3:1b   # configured follow-up rewrite model
 ```
 
 ### Qdrant gRPC errors

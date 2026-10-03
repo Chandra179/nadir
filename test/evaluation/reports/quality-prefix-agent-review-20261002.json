@@ -1,0 +1,2638 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-02T16:37:09.732552+00:00",
+  "reviewer": "Codex direct review of all 104 answers, actual questions and cited evidence",
+  "human": false,
+  "independent_human_review": false,
+  "release_gate": false,
+  "criteria": [
+    "Answer the actual requested cause, action or distinction.",
+    "Preserve material modes, subjects and mathematical conditions.",
+    "Inline cited evidence must support material claims; a mapped number is insufficient.",
+    "Do not require unasked fixture extras or an exhaustive list unless the question requests it. Mark unsupported additions and explicitly requested omitted alternatives as failures."
+  ],
+  "reviews": [
+    {
+      "arm": "prefix_boundary",
+      "pack": "daily",
+      "report": "test/evaluation/reports/quality-prefix-daily-20261002.json",
+      "report_sha256": "304bc3b1fb27749e594f6e9174707da85c97a021096983d9885a7227b65ea2c9",
+      "groups": {
+        "answerable": {
+          "correct": 28,
+          "total": 30
+        },
+        "followup": {
+          "correct": 2,
+          "total": 5
+        },
+        "unsupported": {
+          "correct": 5,
+          "total": 5
+        }
+      },
+      "new_failures_against_control": [
+        "notes-23",
+        "followup-01",
+        "followup-03"
+      ],
+      "fixed_failures_against_control": [
+        "notes-06",
+        "notes-09",
+        "notes-12",
+        "notes-22",
+        "notes-26",
+        "notes-29"
+      ],
+      "cases": [
+        {
+          "id": "notes-01",
+          "kind": "answerable",
+          "query": "My Redis requests slow down while a long Lua script runs. Why can one script delay other clients?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Identifies the Redis command thread as the cause of interference; the cited Lua section supports it.",
+          "answer": "It can save round-trips when it replaces several client-server exchanges, but script execution also uses the Redis command thread [3].",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > When to use Lua",
+              "line_start": 173,
+              "chunk_index": 7,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "Use the simplest option that protects the state transition. A script is not inherently faster for every operation: it can save round-trips when it replaces several client-server exchanges, but script execution also uses the Redis command thread.\nRedis scripts provide atomic execution, not general rollback or a transaction with another service. For Redis 7 and later, Redis Functions are also available for server-side logic. See the official Lua scripting documentation and Redis Functions overview."
+            }
+          ]
+        },
+        {
+          "id": "notes-02",
+          "kind": "answerable",
+          "query": "I forgot how Redis Cluster chooses a node for a key. What is the slot calculation and how many slots are there?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives CRC16(key) mod 16384 and 16,384 slots, with matching evidence.",
+          "answer": "slot = CRC16(key) mod 16384 [1, 2]\nThere are 16,384 slots [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster",
+              "line_start": 68,
+              "chunk_index": 0,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "A single Redis node is simplest. When its memory or command capacity is not enough, Redis Cluster distributes keys among primary nodes. Cluster divides the key space into 16,384 hash slots. It calculates a key's slot as:\nslot = CRC16(key) mod 16384"
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster",
+              "line_start": 68,
+              "chunk_index": 1,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "lots. It calculates a key's slot as:\nslot = CRC16(key) mod 16384\n\nEach primary owns a range of slots. A cluster-aware client calculates a key's slot and sends the command to its owner.\nApplication client\n  │ calculate slot for key\n  ├── slot 0–5,000 ──────► Primary A\n  ├── slot 5,001–10,500 ─► Primary B\n  └── remaining slots ───► Primary C\n                              │\n                         assigned keys"
+            }
+          ]
+        },
+        {
+          "id": "notes-03",
+          "kind": "answerable",
+          "query": "A worker finished after its Redis lock expired. Is it safe for it to delete the lock key now?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Rejects deleting an expired lock and explains the newer-worker risk.",
+          "answer": "No, it is not safe for it to delete the lock key now [1, 4]. A worker whose lock has expired could accidentally delete a newer worker's lock [1]. The lock can also expire while work is still running, allowing another worker to start the same job [1].",
+          "inline_sources": [
+            1,
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+              "line_start": 121,
+              "chunk_index": 5,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires"
+            },
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Concurrency & Lock Management > Edge Cases & State Machines > Case B: Driver Declines or Times Out",
+              "line_start": 284,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "Case B: Driver Declines or Times Out\nIf declined: DISCO deletes the lock with DEL driver:lock:drv_98765.\nIf timed out: Redis expires the key after 15 seconds. A background timer then tries Candidate #2."
+            }
+          ]
+        },
+        {
+          "id": "notes-04",
+          "kind": "answerable",
+          "query": "If I update Redis in Lua and then write to SQL, are those two changes one atomic transaction?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes Redis atomic execution from a cross-service SQL transaction.",
+          "answer": "No, those two changes are not one atomic transaction [2]. Redis scripts provide atomic execution, but they do not offer general rollback or a transaction with another service like SQL.",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > When to use Lua",
+              "line_start": 173,
+              "chunk_index": 7,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "Use the simplest option that protects the state transition. A script is not inherently faster for every operation: it can save round-trips when it replaces several client-server exchanges, but script execution also uses the Redis command thread.\nRedis scripts provide atomic execution, not general rollback or a transaction with another service. For Redis 7 and later, Redis Functions are also available for server-side logic. See the official Lua scripting documentation and Redis Functions overview."
+            }
+          ]
+        },
+        {
+          "id": "notes-05",
+          "kind": "answerable",
+          "query": "Our RabbitMQ connection dropped. In what order should the topology manager restore exchanges, queues, and bindings?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the exchanges, queues, bindings recovery order.",
+          "answer": "exchanges first, then queues, then bindings [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Caching & Re-declaration after Reconnection",
+              "line_start": 77,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "The manager keeps an in-memory cache of all declared objects (queues, exchanges, bindings) together with their exact parameters.\nOn connection loss the client reconnects and the topology manager re-declares every cached object in the same order (exchanges first, then queues, then bindings).\nIdempotency guarantees that re-declaration is safe – the broker either creates the missing object or confirms its existence."
+            }
+          ]
+        },
+        {
+          "id": "notes-06",
+          "kind": "answerable",
+          "query": "I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects Manual with a supporting manual-mode citation; the actual question asks which mode to use.",
+          "answer": "Manual acknowledgement (autoAck: false) [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+              "line_start": 110,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+            }
+          ]
+        },
+        {
+          "id": "notes-07",
+          "kind": "answerable",
+          "query": "The same RabbitMQ message keeps failing. Where should we put it instead of retrying forever?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Directs exhausted retries to a parking lot for inspection.",
+          "answer": "The parking lot queue [1] should be used. The message is moved to a parking lot queue for manual inspection after all retries are exhausted.",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Parking Lot Queue",
+              "line_start": 92,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "After all retries are exhausted (e.g., a x-death header shows the message has been retried N times), the message is moved to a parking lot queue for manual inspection.\nThe parking lot queue is bound to the same DLX but with a distinct routing key (e.g., \"parking_lot\").\nWhen a consumer detects that retry_count >= max_retries it can reject the message without requeue and with a special header that causes the DLX to route it to the parking lot binding.\nAlternatively, the retry queue can be configured with an x-dead-letter-exchange that points to a second DLX for parking lot, but using a single DLX with routing-key differentiation simplifies topology."
+            }
+          ]
+        },
+        {
+          "id": "notes-08",
+          "kind": "answerable",
+          "query": "How does a RabbitMQ dead-letter retry queue get a failed message back to the main exchange after a delay?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains TTL and dead-letter routing back to the primary exchange.",
+          "answer": "The retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle [1]. After the TTL expires the message is re-published to the primary exchange.",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Dead-Letter Exchange and Retry Queue",
+              "line_start": 83,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Many messaging patterns require automatic retries with a delay. The library implements this using a dead-letter exchange (DLX) and a retry queue.\nThe primary queue is declared with x-dead-letter-exchange set to a dedicated DLX.\nA retry queue is created and bound to that DLX, usually with a routing key that matches the original queue (e.g., \"retry.#\").\nThe retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle.\nWhen a consumer nacks a message with requeue=false, the broker routes it to the DLX, which forwards it to the retry queue. After the TTL expires the message is re-published to the primary exchange."
+            }
+          ]
+        },
+        {
+          "id": "notes-09",
+          "kind": "answerable",
+          "query": "We poll updated_at to sync a search index. Why do deleted rows stay in the index?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains that deleted source rows no longer exist for the polling query to return.",
+          "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback)",
+              "line_start": 181,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "The application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles."
+            }
+          ]
+        },
+        {
+          "id": "notes-10",
+          "kind": "answerable",
+          "query": "Where does Debezium running with Kafka Connect save the position it has read in the database log?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names the durable connect-offsets Kafka topic.",
+          "answer": "It saves its state in a dedicated, durable Kafka topic called connect-offsets [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 2. How the CDC Engine Tracks Its State (Offset Committing)",
+              "line_start": 132,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "2. How the CDC Engine Tracks Its State (Offset Committing)\nTo survive crashes, the CDC engine must persist its current LSN position to external storage. It does not write this back into the source database. If you are using Debezium with Kafka Connect, it saves its state in a dedicated, durable Kafka topic called connect-offsets:\nflowchart LR\n  Read[\"CDC reads record at LSN 410\"] --> Pub[\"Publishes to db.users topic\"] --> Commit[\"Kafka confirms write; CDC commits to connect-offsets: 'processed up to LSN 410'\"]\n\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }"
+            }
+          ]
+        },
+        {
+          "id": "notes-11",
+          "kind": "answerable",
+          "query": "After a CDC connector restarts, I see the same update twice. How should the consumer handle that?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Provides an idempotent/LSN comparison action for duplicates.",
+          "answer": "Downstream consumers must handle occasional duplicate events gracefully [1, 3]. A consumer compares incoming LSNs: if incoming_lsn <= last_processed_lsn, discard it as a duplicate [1].",
+          "inline_sources": [
+            1,
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+              "line_start": 166,
+              "chunk_index": 2,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "croservices) must handle occasional duplicate events gracefully.\nHow downstream consumers handle duplicates (Idempotency):\nUsing Primary Key / Idempotent Writes: In Elasticsearch or Redis, performing SET user:1 {name: 'Alexander'} 5 times yields the same result as doing it once.\nLSN / Timestamp Comparison: A consumer compares incoming LSNs: if incoming_lsn <= last_processed_lsn, discard it as a duplicate."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+              "line_start": 164,
+              "chunk_index": 1,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+            }
+          ]
+        },
+        {
+          "id": "notes-12",
+          "kind": "answerable",
+          "query": "How can we keep status changes for one order in sequence when streaming them through Kafka?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Uses order_id as partition key and explains per-partition ordering.",
+          "answer": "CDC engines map the database Primary Key as the partition key in Kafka (partition_key = order_id). Because Kafka guarantees ordering within a single partition, all updates for a specific order land on the same partition and are processed strictly in order [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Key Production Challenges & Patterns in CDC > B. Ordering Guarantees",
+              "line_start": 263,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "If an order's status changes PENDING -> PAID -> SHIPPED, downstream services must process events in exact chronological order.\nSolution: CDC engines map the database Primary Key as the partition key in Kafka (partition_key = order_id). Because Kafka guarantees ordering within a single partition, all updates for a specific order land on the same partition and are processed strictly in order."
+            }
+          ]
+        },
+        {
+          "id": "notes-13",
+          "kind": "answerable",
+          "query": "I am adding prices to an API response. What representation do our notes suggest to avoid floating-point rounding?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects integer currency representation to avoid floating-point rounding; a currency-code detail is not explicitly asked for.",
+          "answer": "Use Integers as currency to eliminate floating-point rounding errors [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Data Integrity & Types",
+              "line_start": 15,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Use Integers as currency to eliminate floating-point rounding errors. Always pair the value with a Currency Code (ISO 4217).\nTreat null, empty, and default values carefully. In Fintech, 0 is a valid balance, not \"missing data.\"\nIf you accept a partial payload (PATCH), ensure your validation logic explicitly rejects unknown fields."
+            }
+          ]
+        },
+        {
+          "id": "notes-14",
+          "kind": "answerable",
+          "query": "Should an empty search result and a missing resource ID both return 404? What do the API notes say?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "answer": "No, an empty search result and a missing resource ID should not both return 404 [1]. A search that finds nothing returns 200 OK with an empty list []. A request for a specific entity that is missing must return 404 Not Found [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+              "line_start": 36,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly."
+            }
+          ]
+        },
+        {
+          "id": "notes-15",
+          "kind": "answerable",
+          "query": "An API task takes several minutes. What response should I return while the work is still running?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives 202 Accepted and a Location polling endpoint.",
+          "answer": "Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Performance & Efficiency",
+              "line_start": 25,
+              "chunk_index": 2,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Don't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks."
+            }
+          ]
+        },
+        {
+          "id": "notes-16",
+          "kind": "answerable",
+          "query": "Several identical requests hit the same upstream at once. How does request coalescing avoid duplicate work?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Request Coalescing",
+              "line_start": 53,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Use request coalescing to deduplicate concurrent identical requests to the same upstream (document footnote). When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection. Go's golang.org/x/sync/singleflight (document footnote) implements this pattern."
+            }
+          ]
+        },
+        {
+          "id": "notes-17",
+          "kind": "answerable",
+          "query": "If I create two threads in one process, which memory do they share and which part stays private?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names shared code/heap/globals and private stacks.",
+          "answer": "They share the code, heap, and global / static data [1, 2]. Each thread has its own private stack [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Process Memory Layout",
+              "line_start": 91,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "The memory of one process is shared by all of its threads, but each thread has its own private stack:\nProcess A: one shared address space\n+--------------------------------------+\n| Shared by Thread A and Thread B      |\n|                                      |\n| Code                                 |\n| Global / static variables            |\n| Heap                                 |\n+--------------------------------------+\n| Thread A: private stack              |\n+--------------------------------------+"
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Process Memory Layout",
+              "line_start": 108,
+              "chunk_index": 2,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Each thread uses its stack for local variables, function calls, and return addresses. Threads in the same process share the code, heap, and global or static data. Shared heap and global data may require synchronization when multiple threads access it concurrently.\nNote: A thread can access another thread’s stack memory if it has a valid pointer to that memory."
+            }
+          ]
+        },
+        {
+          "id": "notes-18",
+          "kind": "answerable",
+          "query": "Can two processes have the same virtual address without accessing the same physical memory?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Allows identical virtual addresses backed by different physical memory.",
+          "answer": "Yes, two processes can have the same virtual address without accessing the same physical address [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Virtualization > Memory virtualization",
+              "line_start": 59,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |"
+            }
+          ]
+        },
+        {
+          "id": "notes-19",
+          "kind": "answerable",
+          "query": "Why can switching tasks be expensive even when saving CPU registers is quick?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains indirect cache/TLB/pipeline warm-up costs.",
+          "answer": "Context-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Scheduling > Context Switching",
+              "line_start": 222,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Virtualization > CPU virtualization",
+              "line_start": 44,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Even with one CPU core, multiple programs can appear to run at the same time:\nProgram A runs -> timer interrupt -> OS pauses A\n                  v\nProgram B runs -> timer interrupt -> OS pauses B\n                  v\n                ...\n\nThe OS creates this illusion by rapidly switching the CPU between runnable tasks."
+            }
+          ]
+        },
+        {
+          "id": "notes-20",
+          "kind": "answerable",
+          "query": "We found duplicate entities in a knowledge graph. What should happen to their incoming and outgoing edges when we merge them?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Redirects incoming and outgoing edges to the master entity.",
+          "answer": "All incoming and outgoing edges redirect to this single master node [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Entity Resolution (ER) & Canonicalization",
+              "line_start": 15,
+              "chunk_index": 1,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "Without deduplication, the graph creates separate nodes for \"Elon Musk\", \"Musk\", \"E. Musk\", and \"CEO of Tesla\". This breaks path analysis because queries hit a dead end at one variation without traversing the rest.\nNamed Entity Disambiguation (NED): Incoming data must be resolved against a canonical entity index (using Wikidata URIs, global IDs, or vector embeddings).\nNode Merging: When two nodes cross a similarity threshold based on context, aliases, and connected neighbors, they are merged into a single canonical node (e.g., Node: Elon Musk [ID: Q317521]). All incoming and outgoing edges redirect to this single master node."
+            }
+          ]
+        },
+        {
+          "id": "notes-21",
+          "kind": "answerable",
+          "query": "Why should an extracted claim from a tweet be weighted differently from one in an SEC filing?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Retains distinct authority and provenance rather than weighting a tweet and filing equally.",
+          "answer": "Not all extracted statements carry equal factual or causal weight [1]. An unverified tweet and an official SEC filing should not create edges with identical authority [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Confidence Scoring & Provenance Weighting",
+              "line_start": 33,
+              "chunk_index": 0,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0–1.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise."
+            }
+          ]
+        },
+        {
+          "id": "notes-22",
+          "kind": "answerable",
+          "query": "Our graph uses RELATED_TO everywhere. What reasoning capability are we losing?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names the loss of what-if counterfactual simulation from the ontology source.",
+          "answer": "You cannot run “what-if” counterfactual simulations on an edge that doesn’t specify the nature of the relationship [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+              "line_start": 21,
+              "chunk_index": 0,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST)."
+            }
+          ]
+        },
+        {
+          "id": "notes-23",
+          "kind": "answerable",
+          "query": "What are the DASH and HLS manifest file formats in our video design notes, and what do they index?",
+          "acceptable": false,
+          "failure_type": "incomplete_answer",
+          "reason": "Lists indexed manifest contents but omits both requested .mpd and .m3u8 formats.",
+          "answer": "The manifest contains: The web addresses (URLs) of every audio chunk. The web addresses of every video chunk broken down by resolution and codec. The exact timestamp alignment for every chunk [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging?",
+              "line_start": 296,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "Why separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk."
+            }
+          ]
+        },
+        {
+          "id": "notes-24",
+          "kind": "answerable",
+          "query": "Why can the live-streaming pipeline not simply use the same processing approach as uploaded videos?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes continuous real-time encoding from uploaded-file batch processing.",
+          "answer": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time [1]. The live stream requires continuous processing as bytes arrive, unlike VOD which is processed in batches [2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live)",
+              "line_start": 63,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     │ RTMP/WebRTC\n     v\nLive ingress → Transcoder → LL-DASH → CDN → Viewer (1–3 s)\n                   │\n                   └─→ DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind."
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 1. Ingestion & Transcoding: DAG vs. Pipeline.",
+              "line_start": 98,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "1. Ingestion & Transcoding: DAG vs. Pipeline.\nVOD (batch): The complete file is split into GOP chunks, encoded in parallel, and assembled.\nLive (stream): Bytes arrive continuously. A live transcoder keeps a small frame buffer, encodes frames on the fly, and sends them to the distribution network."
+            }
+          ]
+        },
+        {
+          "id": "notes-25",
+          "kind": "answerable",
+          "query": "Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Locates all three requested video storage tiers with the matching source.",
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy)",
+              "line_start": 47,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "Video is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone."
+            }
+          ]
+        },
+        {
+          "id": "notes-26",
+          "kind": "answerable",
+          "query": "In the ride-service design notes, where is availability favored and where do we need stricter consistency?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately names availability-oriented location tracking and consistency-oriented matching, with the actual AP/CP section.",
+          "answer": "The Matching & Trip State Engine needs stronger consistency [2], while the Location Tracking Engine favors high availability and sub-second latency [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System",
+              "line_start": 100,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "The platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow | |--------|-------------|----------------|----------------|------| | Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | → feeds into → | | Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) | |"
+            }
+          ]
+        },
+        {
+          "id": "notes-27",
+          "kind": "answerable",
+          "query": "A producer is sending work faster than consumers can handle. What is backpressure supposed to do?",
+          "acceptable": false,
+          "failure_type": "unsupported_citation",
+          "reason": "The answer is the backpressure checklist from source 1, but its only inline source 2 describes RabbitMQ publishing rather than queue/work limits.",
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers. [2]",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Producer",
+              "line_start": 125,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Producers are responsible for publishing messages to an exchange. The library provides both single and batched publish operations."
+            }
+          ]
+        },
+        {
+          "id": "notes-28",
+          "kind": "answerable",
+          "query": "Before estimating system capacity, which traffic and payload inputs do the notes tell me to collect?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists traffic, payload, storage, concurrency and retention inputs.",
+          "answer": "estimate average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time [4].",
+          "inline_sources": [
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 13,
+              "chunk_index": 1,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "faster key value access data we can use (in-memory) redis store\n\nClarrify the requirements and scope, also the effort it takes for development, whether its worth doing or no based on impact of the  output\nestimate average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time.\nidentify which cost limit matters most: compute, memory, storage, bandwidth, operations, or third-party usage."
+            }
+          ]
+        },
+        {
+          "id": "notes-29",
+          "kind": "answerable",
+          "query": "Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately identifies Newton derivative computation and secant not requiring derivatives.",
+          "answer": "Newton-Raphson needs derivative computation [4], while the secant method does not require computing derivatives [2].",
+          "inline_sources": [
+            2,
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method > Properties",
+              "line_start": 17,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+            },
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Newton-Raphson Method > Properties",
+              "line_start": 27,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+            }
+          ]
+        },
+        {
+          "id": "notes-30",
+          "kind": "answerable",
+          "query": "I have an m by n matrix and an n by p matrix. What dimensions should their product have?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives an m by p product.",
+          "answer": "C = AB is m×p where: C_{ij} = Σ_{k=1}^{n} A_{ik} · B_{kj} [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/linear-algebra.md",
+              "header": "Linear Algebra Fundamentals > Matrices > Matrix Multiplication",
+              "line_start": 18,
+              "chunk_index": 0,
+              "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+              "text": "If A is m×n and B is n×p, then C = AB is m×p where: C_{ij} = Σ_{k=1}^{n} A_{ik} · B_{kj}"
+            }
+          ]
+        },
+        {
+          "id": "unsupported-01",
+          "kind": "unsupported",
+          "query": "What is the Redis hostname and password used by my production service?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "The context does not contain the Redis hostname and password used by your production service.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-02",
+          "kind": "unsupported",
+          "query": "How many messages are currently waiting in my RabbitMQ production queue?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-03",
+          "kind": "unsupported",
+          "query": "What was the exact revenue of my business last month?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "The context does not contain the exact revenue of your business last month.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-04",
+          "kind": "unsupported",
+          "query": "What is the latest committed CDC offset of my running connector right now?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-05",
+          "kind": "unsupported",
+          "query": "Which process on my laptop currently uses the most memory?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "followup-01",
+          "kind": "followup",
+          "query": "Does the second one need derivatives?",
+          "acceptable": false,
+          "failure_type": "unsupported_citation",
+          "reason": "Resolves secant correctly, but source 3 only defines successive secant lines; source 1 supplies the no-derivative property.",
+          "answer": "The secant method does not require computing derivatives [3].",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method",
+              "line_start": 5,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+            }
+          ]
+        },
+        {
+          "id": "followup-02",
+          "kind": "followup",
+          "query": "What happens if it crashes before sending the acknowledgement?",
+          "acceptable": false,
+          "failure_type": "qualification_lost",
+          "reason": "The prior answer chose Manual, but the follow-up repeats the Auto crash-loss warning. The source still does not explicitly describe manual crash redelivery.",
+          "answer": "Messages can be lost if the consumer crashes before processing [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+              "line_start": 105,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+            }
+          ]
+        },
+        {
+          "id": "followup-03",
+          "kind": "followup",
+          "query": "Why does the token comparison matter?",
+          "acceptable": false,
+          "failure_type": "unsupported_addition",
+          "reason": "The cited token/expiry definition identifies owners but does not establish the added claim about detecting an expired lock or the newer-worker deletion risk; that risk is in uncited source 5.",
+          "answer": "The token comparison matters because Redis can tell which worker owns the marker [3]. Giving each attempt a different token allows Redis to determine if a worker’s lock has expired or if another worker is attempting to claim the same job [3].",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+              "line_start": 118,
+              "chunk_index": 4,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "A Redis lock is a temporary marker that lets one worker claim a job. SET lock:resource <token> NX PX <milliseconds> creates the marker only if it does not exist (NX) and sets an expiry time (PX). Give each attempt a different token so Redis can tell which worker owns the marker."
+            }
+          ]
+        },
+        {
+          "id": "followup-04",
+          "kind": "followup",
+          "query": "And what should the empty search return instead?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Preserves the empty-search subject and gives 200 with an empty list.",
+          "answer": "200 OK with an empty list []. [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+              "line_start": 36,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly."
+            }
+          ]
+        },
+        {
+          "id": "followup-05",
+          "kind": "followup",
+          "query": "What about separate processes: can they share the same virtual address?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Preserves the process distinction and different physical memory mappings.",
+          "answer": "Yes, different processes can use the same virtual address without referring to the same physical address [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Virtualization > Memory virtualization",
+              "line_start": 59,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "prefix_boundary",
+      "pack": "representative-answers",
+      "report": "test/evaluation/reports/quality-prefix-representative-answers-20261002.json",
+      "report_sha256": "db1d0ff73f3f3383bf2beb523c00c7dac900a9d4a59b0ed38f788e553fed906d",
+      "groups": {
+        "answerable": {
+          "correct": 49,
+          "total": 56
+        },
+        "unsupported": {
+          "correct": 7,
+          "total": 8
+        }
+      },
+      "new_failures_against_control": [
+        "redis-lock-release",
+        "system-cost-limit",
+        "ride-ap-vs-cp"
+      ],
+      "fixed_failures_against_control": [
+        "integral-power-rule",
+        "business-trust-institutions",
+        "redis-execution",
+        "graph-generic-edge-limit",
+        "rabbit-ack-modes",
+        "unsupported-cdc-live-offset",
+        "unsupported-video-current-official-codec"
+      ],
+      "cases": [
+        {
+          "id": "secant-trig-definition",
+          "kind": "answerable",
+          "query": "what is the secant of an angle",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives secant as the reciprocal of cosine.",
+          "answer": "sec(θ) = 1 / cos(θ) = hypotenuse / adjacent [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/trig-functions.md",
+              "header": "Trigonometric Functions > Reciprocal Functions > Secant (sec)",
+              "line_start": 28,
+              "chunk_index": 0,
+              "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+              "text": "The secant is the reciprocal of cosine.\nFormula: sec(θ) = 1 / cos(θ) = hypotenuse / adjacent"
+            }
+          ]
+        },
+        {
+          "id": "tangent-ratio",
+          "kind": "answerable",
+          "query": "tangent as a ratio of sine and cosine",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives sin/cos.",
+          "answer": "tan(θ) = sin(θ) / cos(θ) [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/trig-functions.md",
+              "header": "Trigonometric Functions > Basic Functions > Tangent (tan)",
+              "line_start": 16,
+              "chunk_index": 0,
+              "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+              "text": "The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side.\nFormula: tan(θ) = opposite / adjacent = sin(θ) / cos(θ)"
+            }
+          ]
+        },
+        {
+          "id": "sin-45-degrees",
+          "kind": "answerable",
+          "query": "value of sine at 45 degrees",
+          "acceptable": false,
+          "failure_type": "unsupported_citation",
+          "reason": "The value is correct but source 2 defines sine without its 45-degree value; source 1 is the Key Angles table.",
+          "answer": "√2/2 [2]",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/trig-functions.md",
+              "header": "Trigonometric Functions > Basic Functions > Sine (sin)",
+              "line_start": 6,
+              "chunk_index": 0,
+              "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+              "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+            }
+          ]
+        },
+        {
+          "id": "degrees-to-radians-30",
+          "kind": "answerable",
+          "query": "30 degrees expressed in radians",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives pi/6 and cites the Key Angles table.",
+          "answer": "π/6 [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/trig-functions.md",
+              "header": "Trigonometric Functions > Key Angles",
+              "line_start": 45,
+              "chunk_index": 0,
+              "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+              "text": "| Degrees | Radians | sin | cos | tan | |---------|---------|-----|-----|-----| | 0°      | 0       | 0   | 1   | 0   | | 30°     | π/6     | 1/2 | √3/2| 1/√3| | 45°     | π/4     | √2/2| √2/2| 1   | | 60°     | π/3     | √3/2| 1/2 | √3  | | 90°     | π/2     | 1   | 0   | ∞   |"
+            }
+          ]
+        },
+        {
+          "id": "secant-method-root-finding",
+          "kind": "answerable",
+          "query": "how does the secant method approximate a root",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains root approximation through successive secant lines.",
+          "answer": "The secant method uses a succession of roots of secant lines to approximate a root of a function [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method",
+              "line_start": 5,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+            }
+          ]
+        },
+        {
+          "id": "secant-formula-iteration",
+          "kind": "answerable",
+          "query": "secant method iteration formula x_{n+1}",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the secant iteration formula.",
+          "answer": "x_{n+1} = x_n - f(x_n) * (x_n - x_{n-1}) / (f(x_n) - f(x_{n-1})) [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method > Formula",
+              "line_start": 8,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "x_{n+1} = x_n - f(x_n) * (x_n - x_{n-1}) / (f(x_n) - f(x_{n-1}))"
+            }
+          ]
+        },
+        {
+          "id": "root-method-speed-comparison",
+          "kind": "answerable",
+          "query": "which converges faster bisection or Newton's method",
+          "acceptable": false,
+          "failure_type": "qualification_lost",
+          "reason": "Repeats the unnamed Secant property rather than selecting and naming the faster of Newton and bisection.",
+          "answer": "Converges faster than bisection but slower than Newton’s method [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method > Properties",
+              "line_start": 17,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+            }
+          ]
+        },
+        {
+          "id": "secant-no-derivative",
+          "kind": "answerable",
+          "query": "does the secant method require derivatives",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Denies a derivative requirement for secant.",
+          "answer": "Does not require computing derivatives [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/numerical-methods.md",
+              "header": "Numerical Methods > Secant Method > Properties",
+              "line_start": 17,
+              "chunk_index": 0,
+              "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+              "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+            }
+          ]
+        },
+        {
+          "id": "derivative-power-rule",
+          "kind": "answerable",
+          "query": "how do I take the derivative of x^n",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives n*x^(n-1).",
+          "answer": "If f(x) = x^n, then f'(x) = n · x^(n-1) [2]",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/calculus.md",
+              "header": "Calculus Derivatives and Integrals > Derivative Rules > Power Rule",
+              "line_start": 6,
+              "chunk_index": 0,
+              "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+              "text": "If f(x) = x^n, then f'(x) = n · x^(n-1)"
+            }
+          ]
+        },
+        {
+          "id": "derivative-chain-rule",
+          "kind": "answerable",
+          "query": "differentiate a composition f(g(x))",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the composition chain rule.",
+          "answer": "h'(x) = f'(g(x)) · g'(x) [3]",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/calculus.md",
+              "header": "Calculus Derivatives and Integrals > Derivative Rules > Chain Rule",
+              "line_start": 15,
+              "chunk_index": 0,
+              "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+              "text": "If h(x) = f(g(x)), then h'(x) = f'(g(x)) · g'(x)"
+            }
+          ]
+        },
+        {
+          "id": "integral-natural-log",
+          "kind": "answerable",
+          "query": "what is the integral of 1 over x",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives ln|x| plus C.",
+          "answer": "∫ 1/x dx = ln|x| + C [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/calculus.md",
+              "header": "Calculus Derivatives and Integrals > Common Integrals",
+              "line_start": 28,
+              "chunk_index": 0,
+              "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+              "text": "∫ x^n dx = x^(n+1)/(n+1) + C, n ≠ -1\n∫ 1/x dx = ln|x| + C\n∫ e^x dx = e^x + C\n∫ sin(x) dx = -cos(x) + C\n∫ cos(x) dx = sin(x) + C\n∫ sec²(x) dx = tan(x) + C"
+            }
+          ]
+        },
+        {
+          "id": "integral-power-rule",
+          "kind": "answerable",
+          "query": "general antiderivative of a power function",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the power antiderivative and n != -1 condition.",
+          "answer": "∫ x^n dx = x^(n+1)/(n+1) + C, n ≠ -1 [4]",
+          "inline_sources": [
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/calculus.md",
+              "header": "Calculus Derivatives and Integrals > Common Integrals",
+              "line_start": 28,
+              "chunk_index": 0,
+              "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+              "text": "∫ x^n dx = x^(n+1)/(n+1) + C, n ≠ -1\n∫ 1/x dx = ln|x| + C\n∫ e^x dx = e^x + C\n∫ sin(x) dx = -cos(x) + C\n∫ cos(x) dx = sin(x) + C\n∫ sec²(x) dx = tan(x) + C"
+            }
+          ]
+        },
+        {
+          "id": "vector-definition",
+          "kind": "answerable",
+          "query": "what is a vector in n-dimensional space",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives an ordered n-tuple.",
+          "answer": "v = (v₁, v₂, ..., vₙ) [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/linear-algebra.md",
+              "header": "Linear Algebra Fundamentals > Vectors",
+              "line_start": 5,
+              "chunk_index": 0,
+              "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+              "text": "A vector v in n-dimensional space is an ordered n-tuple of numbers: v = (v₁, v₂, ..., vₙ)"
+            }
+          ]
+        },
+        {
+          "id": "dot-product",
+          "kind": "answerable",
+          "query": "compute the dot product of two vectors",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the sum of component products.",
+          "answer": "u · v = Σ uᵢ · vᵢ [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/linear-algebra.md",
+              "header": "Linear Algebra Fundamentals > Vectors > Vector Operations",
+              "line_start": 9,
+              "chunk_index": 0,
+              "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+              "text": "Addition: (u + v)ᵢ = uᵢ + vᵢ\nScalar multiplication: (c · v)ᵢ = c · vᵢ\nDot product: u · v = Σ uᵢ · vᵢ"
+            }
+          ]
+        },
+        {
+          "id": "matrix-multiplication-dimensions",
+          "kind": "answerable",
+          "query": "if A is m by n and B is n by p what size is the product AB",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives m by p.",
+          "answer": "m×p [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/linear-algebra.md",
+              "header": "Linear Algebra Fundamentals > Matrices > Matrix Multiplication",
+              "line_start": 18,
+              "chunk_index": 0,
+              "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+              "text": "If A is m×n and B is n×p, then C = AB is m×p where: C_{ij} = Σ_{k=1}^{n} A_{ik} · B_{kj}"
+            }
+          ]
+        },
+        {
+          "id": "eigenvalues-characteristic-polynomial",
+          "kind": "answerable",
+          "query": "how do you find eigenvalues",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Solves det(A-lambda*I)=0.",
+          "answer": "Solve det(A - λI) = 0 (characteristic polynomial) [2]",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/linear-algebra.md",
+              "header": "Linear Algebra Fundamentals > Eigenvalues and Eigenvectors > Finding Eigenvalues",
+              "line_start": 35,
+              "chunk_index": 0,
+              "source_sha": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+              "text": "Solve det(A - λI) = 0 (characteristic polynomial)"
+            }
+          ]
+        },
+        {
+          "id": "api-currency-type",
+          "kind": "answerable",
+          "query": "How do the internal API guidelines represent currency without rounding errors?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives integer currency representation.",
+          "answer": "Use Integers as currency to eliminate floating-point rounding errors [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Data Integrity & Types",
+              "line_start": 15,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Use Integers as currency to eliminate floating-point rounding errors. Always pair the value with a Currency Code (ISO 4217).\nTreat null, empty, and default values carefully. In Fintech, 0 is a valid balance, not \"missing data.\"\nIf you accept a partial payload (PATCH), ensure your validation logic explicitly rejects unknown fields."
+            }
+          ]
+        },
+        {
+          "id": "api-empty-vs-missing",
+          "kind": "answerable",
+          "query": "What HTTP responses do the guidelines require for an empty search and a missing specific resource?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "answer": "200 OK with an empty list []. 404 Not Found [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+              "line_start": 36,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly."
+            }
+          ]
+        },
+        {
+          "id": "api-long-running",
+          "kind": "answerable",
+          "query": "How should an API handle a long running operation without blocking the HTTP request?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives 202 Accepted and a Location polling endpoint.",
+          "answer": "Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Performance & Efficiency",
+              "line_start": 25,
+              "chunk_index": 2,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Don't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks."
+            }
+          ]
+        },
+        {
+          "id": "api-coalescing",
+          "kind": "answerable",
+          "query": "How does request coalescing handle concurrent identical upstream requests?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1]. Go’s golang.org/x/sync/singleflight (document footnote) implements this pattern [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/api-design-guidelines.md",
+              "header": "API Design Guidelines > Request Coalescing",
+              "line_start": 53,
+              "chunk_index": 0,
+              "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+              "text": "Use request coalescing to deduplicate concurrent identical requests to the same upstream (document footnote). When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection. Go's golang.org/x/sync/singleflight (document footnote) implements this pattern."
+            }
+          ]
+        },
+        {
+          "id": "business-trust-institutions",
+          "kind": "answerable",
+          "query": "Which institutions does the business map associate with trust?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names money, contracts, reputation and law from the institutions table.",
+          "answer": "Money, contracts, reputation, and law [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/business.md",
+              "header": "How Business Works > Institutions become tools",
+              "line_start": 34,
+              "chunk_index": 0,
+              "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+              "text": "Institutions become business tools when people apply them to everyday needs.\n| Institution | Business tool | |---|---| | Trust, through money and contracts | Banking, credit, buy now, pay later (BNPL), payments | | Coordination, through markets | Trade and exchange, logistics, supply chains | | Incentives, through property rights | Ownership models, leasing, subscriptions | | Institutions applied to physical output | Production, factories, robotics, automation |"
+            }
+          ]
+        },
+        {
+          "id": "business-embedded-fintech",
+          "kind": "answerable",
+          "query": "How does embedded fintech differ from a standalone digital bank in the business map?",
+          "acceptable": false,
+          "failure_type": "incomplete_distinction",
+          "reason": "Compares revenue/competition instead of own-app versus embedded delivery.",
+          "answer": "Embedded fintech combines subscriptions with a share of fees from payment gateways, loan origination, or credit processing [2]. Standalone neobanks such as N26, Chime, Varo, and Monzo compete through their brands, user experience, and additional services [1].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/business.md",
+              "header": "How Business Works > What changes, and how does it make money?",
+              "line_start": 93,
+              "chunk_index": 1,
+              "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+              "text": "ow what is changing, but not who pays or how the providers earn.\nFinance changes where a service is delivered. The services remain banking, custody, payments, and lending. Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software. Standalone neobanks such as N26, Chime, Varo, and Monzo compete through their brands, user experience, and additional services. Established banks can copy those services."
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/business.md",
+              "header": "How Business Works > What changes, and how does it make money?",
+              "line_start": 100,
+              "chunk_index": 2,
+              "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+              "text": "additional services. Established banks can copy those services.\nThe clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing. Subscriptions provide recurring revenue; transaction fees grow with volume."
+            }
+          ]
+        },
+        {
+          "id": "business-fintech-revenue",
+          "kind": "answerable",
+          "query": "How can the embedded fintech providers in the business map combine recurring and volume-based revenue?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Combines subscriptions and transaction/processing fee volume.",
+          "answer": "Embedded fintech providers can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/business.md",
+              "header": "How Business Works > What changes, and how does it make money?",
+              "line_start": 100,
+              "chunk_index": 2,
+              "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+              "text": "additional services. Established banks can copy those services.\nThe clearest revenue model here is embedded fintech. In Asia, business-to-business (B2B) providers such as StoreHub (Malaysia), Brankas (Singapore and Southeast Asia), and Sprout (earned wage access in the Philippines) can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing. Subscriptions provide recurring revenue; transaction fees grow with volume."
+            }
+          ]
+        },
+        {
+          "id": "business-inventory-pricing",
+          "kind": "answerable",
+          "query": "What drives subscription tiers for inventory tools in the business map?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names product count, sales channels and monthly orders.",
+          "answer": "Set subscription tiers by product count, connected sales channels, and monthly orders [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/business.md",
+              "header": "How Business Works > What changes, and how does it make money?",
+              "line_start": 135,
+              "chunk_index": 11,
+              "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+              "text": "rom hardware packages, software subscriptions, and payment fees.\nCross-border tools handle multi-currency invoices, customs, and taxes. Anchanto, OneCart, and Lalamove B2B earn from logistics usage, transaction volume, and business integration fees.\nInventory tools align stock and orders across marketplaces and physical stores. OneCart, Jubelio, Jurnal/Mekari, and Anchanto set subscription tiers by product count, connected sales channels, and monthly orders."
+            }
+          ]
+        },
+        {
+          "id": "redis-execution",
+          "kind": "answerable",
+          "query": "How does the Redis guide distinguish command execution from network I/O?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes main-thread command execution from optional other threads for I/O/background work.",
+          "answer": "Redis keeps its active data in memory. Its command execution is mostly single-threaded: the server handles one command at a time on its main execution thread [1]. Network I/O and background work can use other threads, depending on the Redis version and configuration.",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > How Redis executes commands",
+              "line_start": 18,
+              "chunk_index": 0,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "Redis keeps its active data in memory. Its command execution is mostly single-threaded: the server handles one command at a time on its main execution thread. Network I/O and background work can use other threads, depending on the Redis version and configuration.\nApplication clients\n   │ commands and replies over TCP\n   ▼\nRedis process\n   ├─ network I/O ─────────────── optional I/O threads\n   ├─ command execution ───────── main thread\n   │                                  │"
+            }
+          ]
+        },
+        {
+          "id": "redis-slot-formula",
+          "kind": "answerable",
+          "query": "What is the formula and total slot count used by Redis Cluster?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives CRC16(key) mod 16384 and 16,384 slots, with matching evidence.",
+          "answer": "slot = CRC16(key) mod 16384 [1] The total slot count is 16,384.",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Scaling from one node to Redis Cluster",
+              "line_start": 68,
+              "chunk_index": 0,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "A single Redis node is simplest. When its memory or command capacity is not enough, Redis Cluster distributes keys among primary nodes. Cluster divides the key space into 16,384 hash slots. It calculates a key's slot as:\nslot = CRC16(key) mod 16384"
+            }
+          ]
+        },
+        {
+          "id": "redis-lock-release",
+          "kind": "answerable",
+          "query": "Why must a worker compare its token before releasing a Redis lock?",
+          "acceptable": false,
+          "failure_type": "unsupported_addition",
+          "reason": "Adds the unsupported newer-worker/same-token condition to the supported expired-owner warning.",
+          "answer": "A worker must compare its token before releasing a Redis lock to avoid accidentally deleting a newer worker’s lock [2]. If a worker’s lock has expired or another worker’s lock exists with the same token, releasing the lock could lead to duplicate work.",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+              "line_start": 121,
+              "chunk_index": 5,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "When the worker finishes, it should delete the marker only if the token still matches. Otherwise, a worker whose lock has expired could accidentally delete a newer worker's lock. The lock can also expire while work is still running, allowing another worker to start the same job. For important changes, make the operation safe to repeat or enforce uniqueness in the database that stores the result. A lock alone cannot prevent duplicate work after it expires"
+            }
+          ]
+        },
+        {
+          "id": "redis-lua-transaction-limit",
+          "kind": "answerable",
+          "query": "Does a Redis Lua script make a later SQL write atomic too?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes Redis atomic execution from a cross-service SQL transaction.",
+          "answer": "No. Redis scripts provide atomic execution, not general rollback or a transaction with another service [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/cache.md",
+              "header": "Redis: Internals, Deployment, Operations, and Patterns > When to use Lua",
+              "line_start": 173,
+              "chunk_index": 7,
+              "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+              "text": "Use the simplest option that protects the state transition. A script is not inherently faster for every operation: it can save round-trips when it replaces several client-server exchanges, but script execution also uses the Redis command thread.\nRedis scripts provide atomic execution, not general rollback or a transaction with another service. For Redis 7 and later, Redis Functions are also available for server-side logic. See the official Lua scripting documentation and Redis Functions overview."
+            }
+          ]
+        },
+        {
+          "id": "cdc-polling-deletes",
+          "kind": "answerable",
+          "query": "Why can polling-based CDC miss hard deletes while log-based CDC captures them?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains absent deleted rows versus WAL deletion events.",
+          "answer": "Polling-based CDC misses deleted rows because a deleted row no longer exists to be queried [3]. Log-Based CDC captures hard deletes because the WAL records the deletion event [1].",
+          "inline_sources": [
+            1,
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+              "line_start": 173,
+              "chunk_index": 3,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "Why Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback)",
+              "line_start": 181,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "The application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles."
+            }
+          ]
+        },
+        {
+          "id": "cdc-offset-storage",
+          "kind": "answerable",
+          "query": "Where does Debezium with Kafka Connect persist its source-log position?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names the durable connect-offsets Kafka topic.",
+          "answer": "It saves its state in a dedicated, durable Kafka topic called connect-offsets [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 2. How the CDC Engine Tracks Its State (Offset Committing)",
+              "line_start": 132,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "2. How the CDC Engine Tracks Its State (Offset Committing)\nTo survive crashes, the CDC engine must persist its current LSN position to external storage. It does not write this back into the source database. If you are using Debezium with Kafka Connect, it saves its state in a dedicated, durable Kafka topic called connect-offsets:\nflowchart LR\n  Read[\"CDC reads record at LSN 410\"] --> Pub[\"Publishes to db.users topic\"] --> Commit[\"Kafka confirms write; CDC commits to connect-offsets: 'processed up to LSN 410'\"]\n\nThe connect-offsets topic stores a state entry like:\n{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" }"
+            }
+          ]
+        },
+        {
+          "id": "cdc-duplicates",
+          "kind": "answerable",
+          "query": "How can a CDC consumer reject duplicate events after a connector crash?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Provides an idempotent/LSN comparison action for duplicates.",
+          "answer": "A consumer compares incoming LSNs: if incoming_lsn <= last_processed_lsn, discard it as a duplicate [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+              "line_start": 166,
+              "chunk_index": 2,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "croservices) must handle occasional duplicate events gracefully.\nHow downstream consumers handle duplicates (Idempotency):\nUsing Primary Key / Idempotent Writes: In Elasticsearch or Redis, performing SET user:1 {name: 'Alexander'} 5 times yields the same result as doing it once.\nLSN / Timestamp Comparison: A consumer compares incoming LSNs: if incoming_lsn <= last_processed_lsn, discard it as a duplicate."
+            }
+          ]
+        },
+        {
+          "id": "cdc-ordering",
+          "kind": "answerable",
+          "query": "How does the CDC design preserve the order of updates to one order?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Uses order_id as partition key and explains per-partition ordering.",
+          "answer": "CDC engines map the database Primary Key as the partition key in Kafka [1]. Because Kafka guarantees ordering within a single partition, all updates for a specific order land on the same partition and are processed strictly in order [1]. Hudi uses these fields to apply changes in exact chronological order [3].",
+          "inline_sources": [
+            1,
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Key Production Challenges & Patterns in CDC > B. Ordering Guarantees",
+              "line_start": 263,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "If an order's status changes PENDING -> PAID -> SHIPPED, downstream services must process events in exact chronological order.\nSolution: CDC engines map the database Primary Key as the partition key in Kafka (partition_key = order_id). Because Kafka guarantees ordering within a single partition, all updates for a specific order land on the same partition and are processed strictly in order."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Change Data Capture (CDC): operational to analytical bridge > Key Engineering Challenges & Solutions",
+              "line_start": 561,
+              "chunk_index": 1,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "| CDC Challenge | How Uber Solved It | |---------------|--------------------| | Schema Evolution | Upstream table schemas change over time (e.g., adding new columns). Uber uses an Avro Schema Registry. If a breaking schema change occurs, StorageTapper flags it and prevents invalid data from corrupting the Data Lake. | | Data Ordering & Deduplication | Distributed Kafka topics can sometimes deliver events out-of-order or duplicate them. Every CDC event contains the source database transaction timestamp and sequence ID. Hudi uses these fields to apply changes in exact chronological order. | | Cross-Region Replication | Uber built uReplicator (an optimized alternative to Kafka MirrorMaker) to mirror CDC Kafka topics between geographically distant datacenters without losing offsets or introducing lag. |"
+            }
+          ]
+        },
+        {
+          "id": "graph-canonicalization",
+          "kind": "answerable",
+          "query": "What happens to graph edges when duplicate entity nodes are merged?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Redirects incoming and outgoing edges to the master entity.",
+          "answer": "All incoming and outgoing edges redirect to this single master node [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Entity Resolution (ER) & Canonicalization",
+              "line_start": 15,
+              "chunk_index": 1,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "Without deduplication, the graph creates separate nodes for \"Elon Musk\", \"Musk\", \"E. Musk\", and \"CEO of Tesla\". This breaks path analysis because queries hit a dead end at one variation without traversing the rest.\nNamed Entity Disambiguation (NED): Incoming data must be resolved against a canonical entity index (using Wikidata URIs, global IDs, or vector embeddings).\nNode Merging: When two nodes cross a similarity threshold based on context, aliases, and connected neighbors, they are merged into a single canonical node (e.g., Node: Elon Musk [ID: Q317521]). All incoming and outgoing edges redirect to this single master node."
+            }
+          ]
+        },
+        {
+          "id": "graph-generic-edge-limit",
+          "kind": "answerable",
+          "query": "Why do generic RELATED_TO or MENTIONS edges weaken a knowledge graph?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Identifies loss of counterfactual reasoning with untyped generic relations.",
+          "answer": "You cannot run “what-if” counterfactual simulations on an edge that doesn’t specify the nature of the relationship [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+              "line_start": 21,
+              "chunk_index": 0,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST)."
+            }
+          ]
+        },
+        {
+          "id": "graph-ontology-categories",
+          "kind": "answerable",
+          "query": "Which examples distinguish structural and causal edges in the graph ontology?",
+          "acceptable": false,
+          "failure_type": "incomplete_answer",
+          "reason": "Lists structural predicates only; the actual question explicitly asks to distinguish structural and causal examples.",
+          "answer": "SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY [1, 3]",
+          "inline_sources": [
+            1,
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+              "line_start": 21,
+              "chunk_index": 0,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST)."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Ontology Enforcement & Edge Hierarchy",
+              "line_start": 26,
+              "chunk_index": 1,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power. You cannot run \"what-if\" counterfactual simulations on an edge that doesn't specify the nature of the relationship.\nStrict Ontology Schemas: Force relations into strict semantic categories ($Subject \\xrightarrow{Predicate} Object$) defined by a predefined taxonomy:\nWeak/Informational: MENTIONS, LOCATED_IN\nStructural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED\n\nRelation Pruning & Reification: Downgrade or suppress generic MENTIONS edges unless they are accompanied by a higher-order predicate. If \"Company A mentions Company B,\" it remains ignored unless there is a specific action (e.g., FILED_LAWSUIT_AGAINST)."
+            }
+          ]
+        },
+        {
+          "id": "graph-source-authority",
+          "kind": "answerable",
+          "query": "Why should a tweet and an SEC filing not give graph edges identical authority?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Retains distinct authority and provenance rather than weighting a tweet and filing equally.",
+          "answer": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/knowledge-graph.md",
+              "header": "Knowledge Graph > Confidence Scoring & Provenance Weighting",
+              "line_start": 33,
+              "chunk_index": 0,
+              "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+              "text": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority.\nEdge Attributes: Every edge retains metadata properties:\nconfidence_score: Probability assigned by the extraction model (0.0–1.0).\nsource_count: How many independent sources verified this exact relationship.\ntimestamp / decay_rate: How recent the edge is.\n\nThreshold Filtering: Graph visualization and pathfinding algorithms dynamically filter out edges below a minimum confidence or source count threshold, automatically collapsing noise."
+            }
+          ]
+        },
+        {
+          "id": "os-thread-memory",
+          "kind": "answerable",
+          "query": "Which parts of process memory are shared by threads and which part is private?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names shared code/heap/globals and private stacks.",
+          "answer": "The code, global / static variables, and heap are shared by all threads within a process [1, 2]. Each thread has its own private stack [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Process Memory Layout",
+              "line_start": 91,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "The memory of one process is shared by all of its threads, but each thread has its own private stack:\nProcess A: one shared address space\n+--------------------------------------+\n| Shared by Thread A and Thread B      |\n|                                      |\n| Code                                 |\n| Global / static variables            |\n| Heap                                 |\n+--------------------------------------+\n| Thread A: private stack              |\n+--------------------------------------+"
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Process Memory Layout",
+              "line_start": 108,
+              "chunk_index": 2,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Each thread uses its stack for local variables, function calls, and return addresses. Threads in the same process share the code, heap, and global or static data. Shared heap and global data may require synchronization when multiple threads access it concurrently.\nNote: A thread can access another thread’s stack memory if it has a valid pointer to that memory."
+            }
+          ]
+        },
+        {
+          "id": "os-virtual-addresses",
+          "kind": "answerable",
+          "query": "Can different processes use the same virtual address for different physical memory?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Allows identical virtual addresses backed by different physical memory.",
+          "answer": "Yes, different processes can use the same virtual address without referring to the same physical address [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Virtualization > Memory virtualization",
+              "line_start": 59,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Each process uses a virtual address space that the OS and hardware map to physical memory. For example, different processes can use the same virtual address without referring to the same physical address.\nProcess A                         Process B\nVirtual address space             Virtual address space\n+---------------+                 +---------------+\n| 0x0000        |---+         +---| 0x0000        |\n| ...           |   |         |   | ...           |\n| 0x1000        |---+         +---| 0x1000        |"
+            }
+          ]
+        },
+        {
+          "id": "os-file-metadata",
+          "kind": "answerable",
+          "query": "What file metadata does the operating systems guide list besides the file contents?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists several supported metadata fields besides file contents.",
+          "answer": "File metadata can include: File size, Owner, Permissions, Timestamps, Locations of data blocks, and File type [1, 2, 4].",
+          "inline_sources": [
+            1,
+            2,
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Persistence",
+              "line_start": 154,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "Common persistent storage devices include:\nSSDs\nHard drives\nFlash storage\n\nThe OS provides a file-system abstraction. Instead of telling an SSD to write bytes to physical flash blocks 83192–83195, an application can use an interface such as open(\"abc.txt\").\nThe file system must store more than file contents. File metadata can include:\nFile size\nOwner\nPermissions\nTimestamps\nLocations of data blocks\nFile type\n\nThe abstraction looks like this:\nFilename\n   v\nDirectory entry\n   v\nInode / metadata\n   v\nDisk blocks\n   v\nActual data\n\nPersistent storage introduces several problems:\nLatency\nDevice failures\nPower loss\nPartial writes\nLimited write endurance\nBlock allocation\nFragmentation"
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/os.md",
+              "line_start": 2,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "title: Operating System description: Operating System aliases: [] tags:\ncs\nos created: 2026-06-13"
+            },
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/change-data-capture.md",
+              "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > Why Appending Is Fast: Sequential vs. Random I/O > 2. Is it LIFO, FIFO, or a Linked List?",
+              "line_start": 75,
+              "chunk_index": 0,
+              "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+              "text": "2. Is it LIFO, FIFO, or a Linked List?\nAt the physical storage level, an append-only log (WAL) is structured like a Contiguous Array of Bytes / Segments, not a Linked List:\nflowchart LR\n  E1[\"Offset 0 - Entry 1 (100B)\"] --> E2[\"Offset 100 - Entry 2 (150B)\"] --> E3[\"Offset 250 - Entry 3 (150B)\"] --> P[\"Offset 400 - Append Pointer\"]"
+            }
+          ]
+        },
+        {
+          "id": "os-context-switch-cost",
+          "kind": "answerable",
+          "query": "Why can a context switch cost more than the direct switching time?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains indirect cache/TLB/pipeline warm-up costs.",
+          "answer": "Context-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/os.md",
+              "header": "Operating System > Scheduling > Context Switching",
+              "line_start": 222,
+              "chunk_index": 0,
+              "source_sha": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+              "text": "0 ms      Task A runs\n5 ms      Switch\n5-10 ms   Task B runs\n10 ms     Switch\n10-15 ms  Task C runs\n\nTime slice / scheduling interval: Often measured in milliseconds.\nContext-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again.\n\nA task typically follows this lifecycle:\nTask is runnable\n      v\nScheduler chooses it\n      v\nTask executes\n      v\nOne of these happens:\n  - Task finishes\n  - Task blocks\n  - Task voluntarily yields\n  - Scheduler preempts it"
+            }
+          ]
+        },
+        {
+          "id": "rabbit-topology-order",
+          "kind": "answerable",
+          "query": "In what order does the RabbitMQ topology manager redeclare cached objects after reconnecting?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the exchanges, queues, bindings recovery order.",
+          "answer": "exchanges first, then queues, then bindings [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Caching & Re-declaration after Reconnection",
+              "line_start": 77,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "The manager keeps an in-memory cache of all declared objects (queues, exchanges, bindings) together with their exact parameters.\nOn connection loss the client reconnects and the topology manager re-declares every cached object in the same order (exchanges first, then queues, then bindings).\nIdempotency guarantees that re-declaration is safe – the broker either creates the missing object or confirms its existence."
+            }
+          ]
+        },
+        {
+          "id": "rabbit-ack-modes",
+          "kind": "answerable",
+          "query": "How do RabbitMQ automatic and manual acknowledgements differ when a consumer crashes?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Contrasts immediate automatic delivery with explicit post-success manual acknowledgement and scopes the loss warning.",
+          "answer": "Auto acknowledgement (autoAck: true) considers a message delivered as soon as it sends it over the socket [1]. Messages can be lost if the consumer crashes before processing [1]. Manual acknowledgement requires the application to explicitly call channel.ack(deliveryTag) after successful processing [2], giving full control over at-least-once delivery semantics [2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+              "line_start": 105,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+              "line_start": 110,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+            }
+          ]
+        },
+        {
+          "id": "rabbit-retry-cycle",
+          "kind": "answerable",
+          "query": "How do RabbitMQ retry queues delay a dead-lettered message before returning it?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains TTL and dead-letter routing back to the primary exchange.",
+          "answer": "The retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Dead-Letter Exchange and Retry Queue",
+              "line_start": 83,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "Many messaging patterns require automatic retries with a delay. The library implements this using a dead-letter exchange (DLX) and a retry queue.\nThe primary queue is declared with x-dead-letter-exchange set to a dedicated DLX.\nA retry queue is created and bound to that DLX, usually with a routing key that matches the original queue (e.g., \"retry.#\").\nThe retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle.\nWhen a consumer nacks a message with requeue=false, the broker routes it to the DLX, which forwards it to the retry queue. After the TTL expires the message is re-published to the primary exchange."
+            }
+          ]
+        },
+        {
+          "id": "rabbit-parking-lot",
+          "kind": "answerable",
+          "query": "What happens after the RabbitMQ retry budget is exhausted?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Directs exhausted retries to a parking lot for inspection.",
+          "answer": "After all retries are exhausted (e.g., a x-death header shows the message has been retried N times), the message is moved to a parking lot queue for manual inspection [3].",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/rabbitmq.md",
+              "header": "RabbitMQ > Topology Manager > Parking Lot Queue",
+              "line_start": 92,
+              "chunk_index": 0,
+              "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+              "text": "After all retries are exhausted (e.g., a x-death header shows the message has been retried N times), the message is moved to a parking lot queue for manual inspection.\nThe parking lot queue is bound to the same DLX but with a distinct routing key (e.g., \"parking_lot\").\nWhen a consumer detects that retry_count >= max_retries it can reject the message without requeue and with a special header that causes the DLX to route it to the parking lot binding.\nAlternatively, the retry queue can be configured with an x-dead-letter-exchange that points to a second DLX for parking lot, but using a single DLX with routing-key differentiation simplifies topology."
+            }
+          ]
+        },
+        {
+          "id": "system-backpressure",
+          "kind": "answerable",
+          "query": "What should a design do when producers are faster than consumers?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the queue/concurrent-work limit and cites the checklist that states it.",
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 26,
+              "chunk_index": 3,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "rebuilds state or falls back to durable storage.\nSource of truth\n\nPush and pull event\nat-least-once vs exactly-once delivery\nBackpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work.\nReservation or hold with expiry: protect scarce inventory\nTransactional outbox\nChange Data Capture (CDC)"
+            }
+          ]
+        },
+        {
+          "id": "system-capacity-inputs",
+          "kind": "answerable",
+          "query": "Which workload estimates belong in the system design capacity checklist?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists traffic, payload, storage, concurrency and retention inputs.",
+          "answer": "average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time [1, 3, 4].",
+          "inline_sources": [
+            1,
+            3,
+            4
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 13,
+              "chunk_index": 1,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "faster key value access data we can use (in-memory) redis store\n\nClarrify the requirements and scope, also the effort it takes for development, whether its worth doing or no based on impact of the  output\nestimate average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time.\nidentify which cost limit matters most: compute, memory, storage, bandwidth, operations, or third-party usage."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 10,
+              "chunk_index": 0,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "Check if the operation is CPU/Processor or GPU (matrix, neural network, etc..) heavy\nChoose strategy for in-memory (read, write, eviciton, invalidation, stale data)\nAnalyze network latency inbound/outbound and bandwith\nWhen choosing a data structure or storage, check the internal architecture whether its suitable for our problems or not, i.e, for faster key value access data we can use (in-memory) redis store"
+            },
+            {
+              "number": 4,
+              "retrieval_rank": 4,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 19,
+              "chunk_index": 2,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "e, memory, storage, bandwidth, operations, or third-party usage.\n\nstrong, causal, or eventual consistency\nuse atomic operations, mutexes, database row locks, version checks, etc.. for critical operation\nCAP tradeoff\nTemporary state and recovery: decide what may be lost from memory and how a node, database, or cache outage rebuilds state or falls back to durable storage.\nSource of truth"
+            }
+          ]
+        },
+        {
+          "id": "system-recovery",
+          "kind": "answerable",
+          "query": "What does the checklist ask about temporary state and recovery after an outage?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Asks what temporary state may be lost and how durable fallback/rebuilding works.",
+          "answer": "Temporary state and recovery: decide what may be lost from memory and how a node, database, or cache outage rebuilds state or falls back to durable storage [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 19,
+              "chunk_index": 2,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "e, memory, storage, bandwidth, operations, or third-party usage.\n\nstrong, causal, or eventual consistency\nuse atomic operations, mutexes, database row locks, version checks, etc.. for critical operation\nCAP tradeoff\nTemporary state and recovery: decide what may be lost from memory and how a node, database, or cache outage rebuilds state or falls back to durable storage.\nSource of truth"
+            }
+          ]
+        },
+        {
+          "id": "system-cost-limit",
+          "kind": "answerable",
+          "query": "Which cost limits should be identified before selecting a design?",
+          "acceptable": false,
+          "failure_type": "partial_cited_evidence",
+          "reason": "The only cited source 5 starts mid-word at e, memory, storage...; it does not substantiate the first named compute cost. The complete checklist is admitted in another source.",
+          "answer": "compute, memory, storage, bandwidth, operations, or third-party usage [5].",
+          "inline_sources": [
+            5
+          ],
+          "cited_evidence": [
+            {
+              "number": 5,
+              "retrieval_rank": 5,
+              "file_path": "samples/system-design-core.md",
+              "header": "System Design Core",
+              "line_start": 19,
+              "chunk_index": 2,
+              "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+              "text": "e, memory, storage, bandwidth, operations, or third-party usage.\n\nstrong, causal, or eventual consistency\nuse atomic operations, mutexes, database row locks, version checks, etc.. for critical operation\nCAP tradeoff\nTemporary state and recovery: decide what may be lost from memory and how a node, database, or cache outage rebuilds state or falls back to durable storage.\nSource of truth"
+            }
+          ]
+        },
+        {
+          "id": "ride-s2-neighbors",
+          "kind": "answerable",
+          "query": "How does the conceptual ride matching design narrow the geospatial search for a rider?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps the rider to an S2 cell and queries its eight neighbors.",
+          "answer": "The conceptual ride matching design narrows the geospatial search for a rider by mapping a rider’s coordinate to an S2 Cell ID, then querying that cell and its eight neighbors instead of the whole database [3].",
+          "inline_sources": [
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Geospatial Indexing (Google S2)",
+              "line_start": 23,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "Uber's location system partitions the Earth with Google's S2 geometry library. This avoids calculating precise spherical distances for every user in real time.\nCell mapping: S2 projects the Earth onto a cube and divides it into hierarchical cells with unique 64-bit IDs. Level 13 (~0.5 km²) or Level 14 (~0.1 km²) cells can support neighborhood dispatching.\nSearching: The backend maps a rider's coordinate to an S2 Cell ID, then queries that cell and its eight neighbors instead of the whole database."
+            }
+          ]
+        },
+        {
+          "id": "ride-eta-vs-distance",
+          "kind": "answerable",
+          "query": "Does the conceptual ride design match by straight-line distance or ETA?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Calls the ETA service for candidates, indicating ETA-based selection; the source then selects by returned drive times. The answer is terse.",
+          "answer": "DISCO calls the ETA Service via gRPC with those 10 coordinates + rider pickup [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > A. ETA Engine (synchronous, inline during match):",
+              "line_start": 175,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "A. ETA Engine (synchronous, inline during match):\nDISCO queries Redis for candidates (e.g., 10 available drivers in the S2 cell).\nDISCO calls the ETA Service via gRPC with those 10 coordinates + rider pickup.\nETA returns drive times (Driver A: 3 min, Driver B: 5 min). DISCO picks the best match."
+            }
+          ]
+        },
+        {
+          "id": "ride-ap-vs-cp",
+          "kind": "answerable",
+          "query": "Why does the conceptual ride design choose AP for locations and CP for matching?",
+          "acceptable": false,
+          "failure_type": "incomplete_answer",
+          "reason": "Explains CP matching only; the question asks why both AP locations and CP matching are chosen.",
+          "answer": "CP engine (matching and dispatch): Double-booking a driver loses trust and money, so consistency takes priority. Matching uses distributed locks, atomic Lua scripts, and relational ACID transactions. During a network partition, the request fails and the rider tries again instead of risking a double booking [2].",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System",
+              "line_start": 109,
+              "chunk_index": 2,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "on ping is dropped; the next ping arrives about 4 seconds later.\nCP engine (matching and dispatch): Double-booking a driver loses trust and money, so consistency takes priority. Matching uses distributed locks, atomic Lua scripts, and relational ACID transactions. During a network partition, the request fails and the rider tries again instead of risking a double booking."
+            }
+          ]
+        },
+        {
+          "id": "ride-doma-layers",
+          "kind": "answerable",
+          "query": "Which five DOMA service layers are listed in the ride architecture document?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names all five DOMA layers.",
+          "answer": "Edge Layer, Presentation Layer, Product Layer, Business Layer, and Infrastructure Layer [1]",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Microservice Organization: DOMA",
+              "line_start": 66,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "DOMA organizes Uber's microservices into five layers:\nEdge Layer: The API Gateways exposing public endpoints to mobile apps.\nPresentation Layer: App-specific logic for iOS, Android, or Web interfaces.\nProduct Layer: Core business logic specific to a product (e.g., Rides, Eats, Freight).\nBusiness Layer: Shared capabilities used across all products (e.g., Payments, Passports/Identity, Billing).\nInfrastructure Layer: Low-level operations like database management, networking, and deployment frameworks."
+            }
+          ]
+        },
+        {
+          "id": "video-transcode-dag",
+          "kind": "answerable",
+          "query": "What does the conceptual video ingestion DAG process in parallel besides video encoding?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names supported parallel audio/caption/frame workflows besides video encoding.",
+          "answer": "Workers create thumbnails, extract audio, generate captions, and scan audio against Content ID [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding",
+              "line_start": 21,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "When a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2–5 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance."
+            },
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why use a DAG and workflow engine?",
+              "line_start": 250,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "A DAG is a workflow of steps (nodes) connected by one-way paths (edges), with no cycles. One upload creates tasks that can run in parallel:\nUpload raw video\n├─→ split into chunks → encode 1080p / 720p / 360p → manifest\n├─→ extract audio → speech-to-text captions\n└─→ sample frames → Content ID scan"
+            }
+          ]
+        },
+        {
+          "id": "video-abr-manifests",
+          "kind": "answerable",
+          "query": "Which manifest formats does the conceptual video design use for adaptive bitrate?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names .mpd/MPEG-DASH and .m3u8/HLS.",
+          "answer": ".mpd for MPEG-DASH or .m3u8 for HLS [2]",
+          "inline_sources": [
+            2
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding",
+              "line_start": 26,
+              "chunk_index": 1,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "When a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2–5 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance."
+            }
+          ]
+        },
+        {
+          "id": "video-live-vs-vod",
+          "kind": "answerable",
+          "query": "Why does live streaming use a continuous pipeline instead of the conceptual VOD DAG?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes continuous real-time encoding from uploaded-file batch processing.",
+          "answer": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time [3]. A live transcoder keeps a small frame buffer, encodes frames on the fly, and sends them to the distribution network [2].",
+          "inline_sources": [
+            2,
+            3
+          ],
+          "cited_evidence": [
+            {
+              "number": 2,
+              "retrieval_rank": 2,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 1. Ingestion & Transcoding: DAG vs. Pipeline.",
+              "line_start": 98,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "1. Ingestion & Transcoding: DAG vs. Pipeline.\nVOD (batch): The complete file is split into GOP chunks, encoded in parallel, and assembled.\nLive (stream): Bytes arrive continuously. A live transcoder keeps a small frame buffer, encodes frames on the fly, and sends them to the distribution network."
+            },
+            {
+              "number": 3,
+              "retrieval_rank": 3,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live)",
+              "line_start": 63,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     │ RTMP/WebRTC\n     v\nLive ingress → Transcoder → LL-DASH → CDN → Viewer (1–3 s)\n                   │\n                   └─→ DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind."
+            }
+          ]
+        },
+        {
+          "id": "video-storage-tiers",
+          "kind": "answerable",
+          "query": "Where does the conceptual video CDN keep hot, warm, and cold content?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Locates all three requested tiers: edge SSD, regional caches, central blob storage.",
+          "answer": "Hot content: Cached on NVMe/SSD edge servers near the user [1]. Warm content: Kept in regional Google data-center caches [1]. Cold content: Read from central blob storage over Google’s backbone [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/youtube-architecture.md",
+              "header": "YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy)",
+              "line_start": 47,
+              "chunk_index": 0,
+              "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+              "text": "Video is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone."
+            }
+          ]
+        },
+        {
+          "id": "unsupported-api-private-key",
+          "kind": "unsupported",
+          "query": "What exact production TLS private key do our internal API services use?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "The context does not contain the exact production TLS private key used by our internal API services.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-business-real-revenue",
+          "kind": "unsupported",
+          "query": "What was StoreHub's exact audited revenue in September 2026?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "The context does not contain StoreHub’s exact audited revenue in September 2026.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-cache-production-address",
+          "kind": "unsupported",
+          "query": "What is the IP address of our production Redis primary?",
+          "acceptable": false,
+          "failure_type": "missing_decline",
+          "reason": "Substitutes a VM-topology fact for an unavailable actual production Redis IP.",
+          "answer": "Each Redis master or replica runs on its own VM [1].",
+          "inline_sources": [
+            1
+          ],
+          "cited_evidence": [
+            {
+              "number": 1,
+              "retrieval_rank": 1,
+              "file_path": "samples/uber-architecture.md",
+              "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Redis Infrastructure & Network Topology > Redis Cluster Node Topology",
+              "line_start": 337,
+              "chunk_index": 0,
+              "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+              "text": "In production, each Redis master or replica runs on its own VM. Putting three masters on one VM would make one hardware failure affect the whole cluster."
+            }
+          ]
+        },
+        {
+          "id": "unsupported-cdc-live-offset",
+          "kind": "unsupported",
+          "query": "What is the current committed LSN of our running production CDC connector?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-os-machine-pid",
+          "kind": "unsupported",
+          "query": "What is the PID of the process currently using the most memory on this machine?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-rabbit-queue-depth",
+          "kind": "unsupported",
+          "query": "How many messages are waiting in our production RabbitMQ queue right now?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-ride-current-official-scale",
+          "kind": "unsupported",
+          "query": "What exact current driver count does Uber officially report for today?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        },
+        {
+          "id": "unsupported-video-current-official-codec",
+          "kind": "unsupported",
+          "query": "What exact percentage of today's YouTube uploads uses AV1 in the actual production system?",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the unavailable private/live value without substituting a sample value.",
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": [],
+          "cited_evidence": []
+        }
+      ]
+    }
+  ],
+  "control_review": "test/evaluation/reports/quality-agent-review-20261002.json",
+  "control_review_sha256": "2f97dc0eeac874f7b73923874c7731d60a6206c0dbdde2792cd1a204100c4f72",
+  "disposition": {
+    "local_acceptance_met": false,
+    "semantic_no_regression_guard_passed": false,
+    "reason": "The query task-prefix mutation is a confirmed bug with a failing-then-passing regression test. Retrieval bars pass against control, but the complete working candidate still has omitted alternatives and wrong citations, and follow-up answer quality regresses. Keep the invariant fix; do not claim completed local v1 or quality acceptance."
+  }
+}

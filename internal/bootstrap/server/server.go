@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"nadir/internal/bootstrap/configuration"
+	"nadir/internal/bootstrap/gates"
 	"nadir/internal/bootstrap/httpmiddleware"
 	"nadir/internal/bootstrap/logging"
-	"nadir/internal/bootstrap/gates"
 	"nadir/internal/bootstrap/readiness"
 	"nadir/internal/bootstrap/runtime"
 	"nadir/internal/core/conversation/chat"
@@ -85,6 +85,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 
 	apiConfig := api.DependenciesConfig{
 		Ingest:                  graph.Ingest,
+		DocumentVersions:        graph.DocumentVersions,
 		Reset:                   graph.Reset,
 		TopK:                    cfg.Qdrant.TopK,
 		MaxTopK:                 cfg.Search.MaxTopK,
@@ -161,6 +162,16 @@ func Server(ctx context.Context, cfg *config.Config) error {
 					Details:     fmt.Sprintf("dimensions=%d", result.Dimensions),
 				}, err
 			},
+		},
+		{
+			Name:     "generator",
+			Probe:    modelReadiness(cfg.Generator.OllamaAddr, cfg.Generator.Model, cfg.HTTP.ReadinessTimeout),
+			Disabled: !cfg.Generator.Enabled,
+		},
+		{
+			Name:     "rewriter",
+			Probe:    modelReadiness(cfg.Rewriter.OllamaAddr, cfg.Rewriter.Model, cfg.HTTP.ReadinessTimeout),
+			Disabled: !cfg.Rewriter.Enabled || !cfg.History.Enabled,
 		},
 		{
 			Name: "reranker",
