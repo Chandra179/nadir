@@ -9,7 +9,7 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 | [Podman](https://podman.io) + podman-compose | **Required for the provided local/Compose flow** | Qdrant and optional containerized reranker (rootless; `./scripts/setup_podman_host.sh` sets the laptop up) |
 | Go 1.27+ | **Required** | Server + CLI |
 | Python 3.12+ | **Required for `local.sh`; sidecars require 3.12+** | Local startup config parsing, optional reranker and PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
-| Node.js 22.12+ or 24 LTS | **Required for dashboard** | React dashboard and browser tests |
+| Node.js 24 LTS, or 22.x ≥22.12 | **Required for dashboard** | React dashboard and browser tests; Node 25 is unsupported |
 | [Ollama](https://ollama.com) | **Required** | Embeddings (`embeddinggemma-300m-q8`) and optional LLM features |
 
 ```bash
@@ -49,6 +49,7 @@ by default. Run the React dashboard separately:
 
 ```bash
 cd web/dashboard
+nvm use # if using nvm; .nvmrc selects Node 24
 npm ci
 npm run dev
 ```
