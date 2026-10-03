@@ -5,7 +5,7 @@ The benchmark intentionally uses only Python's standard library. It exercises
 the same HTTP seams a browser or upload client uses:
 
   python scripts/benchmark_load.py --mode all --requests 30 --concurrency 8 \
-      --json-out test/evaluation/reports/load-$(date +%Y%m%d).json
+      --json-out .local/evaluation/load-$(date +%Y%m%d).json
 
 The API must be running. The report includes request percentiles, failures,
 throughput, and the delta from /debug/metrics. It does not claim distributed

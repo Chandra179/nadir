@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "dataset": "P1 final bounded source-fix diagnostic subset",
+    "authored_at": "2026-10-01",
+    "author": "Codex acting as a general technical-notes user",
+    "human": false,
+    "independent_human_review": false,
+    "release_gate": false,
+    "provenance": "Unchanged questions from saved daily and broader fixtures. Diagnostic only; not full acceptance.",
+    "acceptance_targets": {
+      "answerable_correct": 27,
+      "answerable_total": 30,
+      "unsupported_correct": 5,
+      "unsupported_total": 5,
+      "followup_correct": 5,
+      "followup_total": 5
+    },
+    "corpus": [
+      {
+        "path": "samples/api-design-guidelines.md",
+        "sha256": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+      },
+      {
+        "path": "samples/business.md",
+        "sha256": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+      },
+      {
+        "path": "samples/cache.md",
+        "sha256": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+      },
+      {
+        "path": "samples/calculus.md",
+        "sha256": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+      },
+      {
+        "path": "samples/change-data-capture.md",
+        "sha256": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+      },
+      {
+        "path": "samples/knowledge-graph.md",
+        "sha256": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+      },
+      {
+        "path": "samples/linear-algebra.md",
+        "sha256": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+      },
+      {
+        "path": "samples/numerical-methods.md",
+        "sha256": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+      },
+      {
+        "path": "samples/os.md",
+        "sha256": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+      },
+      {
+        "path": "samples/rabbitmq.md",
+        "sha256": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+      },
+      {
+        "path": "samples/system-design-core.md",
+        "sha256": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+      },
+      {
+        "path": "samples/trig-functions.md",
+        "sha256": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+      },
+      {
+        "path": "samples/uber-architecture.md",
+        "sha256": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+      },
+      {
+        "path": "samples/youtube-architecture.md",
+        "sha256": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "notes-03",
+      "kind": "answerable",
+      "query": "A worker finished after its Redis lock expired. Is it safe for it to delete the lock key now?",
+      "source_annotation": "redis-lock-release",
+      "expected_answer": "An expired worker must not delete a newer worker's lock; delete only if the token still matches.",
+      "required_claims": [
+        "An expired worker must not delete a newer worker's lock; delete only if the token still matches."
+      ],
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "delete the marker only if the token still matches"
+        }
+      ]
+    },
+    {
+      "id": "notes-06",
+      "kind": "answerable",
+      "query": "I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?",
+      "source_annotation": "rabbit-ack-modes",
+      "expected_answer": "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing.",
+      "required_claims": [
+        "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing."
+      ],
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "Acknowledgement Modes"
+        }
+      ]
+    },
+    {
+      "id": "notes-11",
+      "kind": "answerable",
+      "query": "After a CDC connector restarts, I see the same update twice. How should the consumer handle that?",
+      "source_annotation": "cdc-duplicates",
+      "expected_answer": "Use idempotent writes or compare LSNs, discarding an incoming LSN less than or equal to the last processed LSN.",
+      "required_claims": [
+        "Use idempotent writes or compare LSNs, discarding an incoming LSN less than or equal to the last processed LSN."
+      ],
+      "relevant": [
+        {
+          "file": "change-data-capture.md",
+          "contains": "incoming_lsn <= last_processed_lsn"
+        }
+      ]
+    },
+    {
+      "id": "notes-23",
+      "kind": "answerable",
+      "query": "What are the DASH and HLS manifest file formats in our video design notes, and what do they index?",
+      "source_annotation": "video-abr-manifests",
+      "expected_answer": "MPEG-DASH .mpd and HLS .m3u8 manifests index encoded chunks.",
+      "required_claims": [
+        "MPEG-DASH .mpd and HLS .m3u8 manifests index encoded chunks."
+      ],
+      "relevant": [
+        {
+          "file": "youtube-architecture.md",
+          "contains": "MPEG-DASH and HLS manifests"
+        }
+      ]
+    },
+    {
+      "id": "notes-26",
+      "kind": "answerable",
+      "query": "In the ride-service design notes, where is availability favored and where do we need stricter consistency?",
+      "source_annotation": "ride-ap-vs-cp",
+      "expected_answer": "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition.",
+      "required_claims": [
+        "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition."
+      ],
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "How the AP vs. CP Trade-Off"
+        }
+      ]
+    },
+    {
+      "id": "notes-27",
+      "kind": "answerable",
+      "query": "A producer is sending work faster than consumers can handle. What is backpressure supposed to do?",
+      "source_annotation": "system-backpressure",
+      "expected_answer": "Limit queues and concurrent work, deciding whether to delay, drop, or reject work.",
+      "required_claims": [
+        "Limit queues and concurrent work, deciding whether to delay, drop, or reject work."
+      ],
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "Backpressure: limit queues"
+        }
+      ]
+    },
+    {
+      "id": "notes-29",
+      "kind": "answerable",
+      "query": "Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?",
+      "source_annotation": "secant-no-derivative",
+      "expected_answer": "Newton-Raphson requires a derivative; the secant method does not require computing derivatives.",
+      "required_claims": [
+        "Newton-Raphson requires derivative computation",
+        "The secant method does not require computing derivatives"
+      ],
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "Does not require computing derivatives"
+        },
+        {
+          "file": "numerical-methods.md",
+          "contains": "Requires derivative computation"
+        }
+      ]
+    },
+    {
+      "id": "followup-01",
+      "kind": "followup",
+      "session_from": "notes-29",
+      "query": "Does the second one need derivatives?",
+      "standalone": "Does the secant method require derivatives?",
+      "expected_answer": "No; it does not require computing derivatives.",
+      "required_claims": [
+        "secant method does not require derivatives"
+      ],
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "Does not require computing derivatives"
+        }
+      ]
+    },
+    {
+      "id": "followup-02",
+      "kind": "followup",
+      "session_from": "notes-06",
+      "query": "What happens if it crashes before sending the acknowledgement?",
+      "standalone": "What happens when a RabbitMQ manual-acknowledgement consumer crashes before acknowledging?",
+      "expected_answer": "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing.",
+      "required_claims": [
+        "Automatic acknowledgement considers delivery complete on sending and can lose messages before processing; manual acknowledgement waits for successful processing."
+      ],
+      "relevant": [
+        {
+          "file": "rabbitmq.md",
+          "contains": "Acknowledgement Modes"
+        }
+      ]
+    },
+    {
+      "id": "followup-03",
+      "kind": "followup",
+      "session_from": "notes-03",
+      "query": "Why does the token comparison matter?",
+      "standalone": "Why should a Redis lock holder compare its token before releasing the lock?",
+      "expected_answer": "An expired worker must not delete a newer worker's lock; delete only if the token still matches.",
+      "required_claims": [
+        "An expired worker must not delete a newer worker's lock; delete only if the token still matches."
+      ],
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "delete the marker only if the token still matches"
+        }
+      ]
+    },
+    {
+      "id": "sin-45-degrees",
+      "kind": "answerable",
+      "query": "value of sine at 45 degrees",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "\u221a2/2"
+        }
+      ],
+      "expected_answer": "sin(45\u00b0) = \u221a2/2.",
+      "required_claims": [
+        "sine of 45 degrees is \u221a2/2"
+      ]
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "kind": "answerable",
+      "query": "which converges faster bisection or Newton's method",
+      "relevant": [
+        {
+          "file": "numerical-methods.md",
+          "contains": "faster than bisection but slower than Newton"
+        }
+      ],
+      "expected_answer": "Bisection is slower than Newton; the secant method is faster than bisection but slower than Newton.",
+      "required_claims": [
+        "secant is faster than bisection",
+        "secant is slower than Newton"
+      ]
+    },
+    {
+      "id": "business-embedded-fintech",
+      "kind": "answerable",
+      "query": "How does embedded fintech differ from a standalone digital bank in the business map?",
+      "relevant": [
+        {
+          "file": "business.md",
+          "contains": "embedded fintech puts them inside"
+        }
+      ],
+      "expected_answer": "A digital bank delivers banking through its own app; embedded fintech puts financial services inside another company's software.",
+      "required_claims": [
+        "A digital bank delivers banking through its own app; embedded fintech puts financial services inside another company's software."
+      ]
+    },
+    {
+      "id": "redis-lock-release",
+      "kind": "answerable",
+      "query": "Why must a worker compare its token before releasing a Redis lock?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "delete the marker only if the token still matches"
+        }
+      ],
+      "expected_answer": "An expired worker must not delete a newer worker's lock; delete only if the token still matches.",
+      "required_claims": [
+        "An expired worker must not delete a newer worker's lock; delete only if the token still matches."
+      ]
+    },
+    {
+      "id": "graph-ontology-categories",
+      "kind": "answerable",
+      "query": "Which examples distinguish structural and causal edges in the graph ontology?",
+      "relevant": [
+        {
+          "file": "knowledge-graph.md",
+          "contains": "Structural/Ownership"
+        }
+      ],
+      "expected_answer": "SUBSIDIARY_OF, INVESTED_IN, and EMPLOYED_BY are structural; TRIGGERED, SUPPRESSED, and ACCELERATED are causal.",
+      "required_claims": [
+        "SUBSIDIARY_OF, INVESTED_IN, and EMPLOYED_BY are structural; TRIGGERED, SUPPRESSED, and ACCELERATED are causal."
+      ]
+    },
+    {
+      "id": "system-cost-limit",
+      "kind": "answerable",
+      "query": "Which cost limits should be identified before selecting a design?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "which cost limit matters most"
+        }
+      ],
+      "expected_answer": "Identify whether compute, memory, storage, bandwidth, operations, or third-party usage is the most important limit.",
+      "required_claims": [
+        "Identify whether compute, memory, storage, bandwidth, operations, or third-party usage is the most important limit."
+      ]
+    },
+    {
+      "id": "ride-ap-vs-cp",
+      "kind": "answerable",
+      "query": "Why does the conceptual ride design choose AP for locations and CP for matching?",
+      "relevant": [
+        {
+          "file": "uber-architecture.md",
+          "contains": "How the AP vs. CP Trade-Off"
+        }
+      ],
+      "expected_answer": "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition.",
+      "required_claims": [
+        "Locations tolerate stale or dropped updates for availability; matching requires consistency to prevent double bookings, failing during a partition."
+      ]
+    },
+    {
+      "id": "degrees-to-radians-30",
+      "kind": "answerable",
+      "query": "30 degrees expressed in radians",
+      "relevant": [
+        {
+          "file": "trig-functions.md",
+          "contains": "\u03c0/6"
+        }
+      ],
+      "expected_answer": "30 degrees is \u03c0/6 radians.",
+      "required_claims": [
+        "30 degrees maps to \u03c0/6"
+      ]
+    },
+    {
+      "id": "integral-power-rule",
+      "kind": "answerable",
+      "query": "general antiderivative of a power function",
+      "relevant": [
+        {
+          "file": "calculus.md",
+          "contains": "x^(n+1)/(n+1)"
+        }
+      ],
+      "expected_answer": "For n not equal to -1, the antiderivative is x^(n+1)/(n+1) + C.",
+      "required_claims": [
+        "power antiderivative raises the exponent by one",
+        "rule excludes n = -1"
+      ]
+    },
+    {
+      "id": "redis-lua-transaction-limit",
+      "kind": "answerable",
+      "query": "Does a Redis Lua script make a later SQL write atomic too?",
+      "relevant": [
+        {
+          "file": "cache.md",
+          "contains": "not general rollback or a transaction with another service"
+        }
+      ],
+      "expected_answer": "No. Redis scripts provide atomic execution in Redis, without general rollback or a transaction with another service.",
+      "required_claims": [
+        "No. Redis scripts provide atomic execution in Redis, without general rollback or a transaction with another service."
+      ]
+    },
+    {
+      "id": "os-file-metadata",
+      "kind": "answerable",
+      "query": "What file metadata does the operating systems guide list besides the file contents?",
+      "relevant": [
+        {
+          "file": "os.md",
+          "contains": "File metadata can include"
+        }
+      ],
+      "expected_answer": "File size, owner, permissions, timestamps, data-block locations, and file type.",
+      "required_claims": [
+        "File size, owner, permissions, timestamps, data-block locations, and file type."
+      ]
+    },
+    {
+      "id": "system-capacity-inputs",
+      "kind": "answerable",
+      "query": "Which workload estimates belong in the system design capacity checklist?",
+      "relevant": [
+        {
+          "file": "system-design-core.md",
+          "contains": "estimate average and peak requests"
+        }
+      ],
+      "expected_answer": "Estimate average/peak RPS, object size, storage growth, read/write volume, bandwidth, concurrent users, and retention.",
+      "required_claims": [
+        "Estimate average/peak RPS, object size, storage growth, read/write volume, bandwidth, concurrent users, and retention."
+      ]
+    },
+    {
+      "id": "unsupported-cache-production-address",
+      "kind": "unsupported",
+      "query": "What is the IP address of our production Redis primary?",
+      "relevant": [],
+      "expected_answer": "The provided context does not contain this information.",
+      "required_claims": [
+        "State that the provided context cannot answer the question without inventing an answer."
+      ]
+    }
+  ]
+}

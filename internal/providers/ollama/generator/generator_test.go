@@ -219,3 +219,56 @@ func TestGenerateDecodesLargeJSONEvent(t *testing.T) {
 		t.Fatalf("large stream length=%d done=%v", got.Len(), done)
 	}
 }
+
+func TestThinkingStreamKeepsReasoningSeparateAndRetainsTerminalContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, `{"message":{"thinking":"Internal model reasoning"}}`)
+		_, _ = fmt.Fprintln(w, `{"message":{"content":"Answer."},"done":true}`)
+	}))
+	defer srv.Close()
+	gen := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "reasoning"})
+	events, err := gen.Generate(context.Background(), "Question")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var answer strings.Builder
+	done := false
+	for ev := range events {
+		switch ev.Kind {
+		case conversationgeneration.EventToken:
+			answer.WriteString(ev.Text)
+		case conversationgeneration.EventDone:
+			done = true
+		case conversationgeneration.EventError:
+			t.Fatalf("valid reasoning stream rejected: %v", ev.Err)
+		}
+	}
+	if answer.String() != "Answer." || !done {
+		t.Fatalf("answer=%q done=%v", answer.String(), done)
+	}
+}
+
+func TestThinkingBudgetExhaustionCannotBecomeSuccessfulEmptyAnswer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, `{"message":{"thinking":"Still considering"}}`)
+		_, _ = fmt.Fprintln(w, `{"done":true,"done_reason":"length"}`)
+	}))
+	defer srv.Close()
+	gen := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "reasoning"})
+	events, err := gen.Generate(context.Background(), "Question")
+	if err != nil {
+		t.Fatal(err)
+	}
+	failed := false
+	for ev := range events {
+		if ev.Kind == conversationgeneration.EventDone {
+			t.Fatal("empty answer reported as success")
+		}
+		if ev.Kind == conversationgeneration.EventError {
+			failed = ev.Err != nil && strings.Contains(ev.Err.Error(), "without answer content")
+		}
+	}
+	if !failed {
+		t.Fatal("expected explicit empty-answer error")
+	}
+}

@@ -343,6 +343,10 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 	if err != nil {
 		return nil, fmt.Errorf("history: marshal citations: %w", err)
 	}
+	subjectJSON, err := json.Marshal(turn.Subject)
+	if err != nil {
+		return nil, fmt.Errorf("history: marshal subject: %w", err)
+	}
 	return map[string]*qdrant.Value{
 		"doc_type":        qdrantutil.StringValue(docTypeTurn),
 		"turn_id":         qdrantutil.StringValue(turn.ID),
@@ -351,6 +355,7 @@ func turnPayload(sessionID string, sequence int, now time.Time, turn Turn) (map[
 		"created_at":      qdrantutil.IntValue(now.UnixMilli()),
 		"query":           qdrantutil.StringValue(turn.Query),
 		"rewritten_query": qdrantutil.StringValue(turn.RewrittenQuery),
+		"subject_json":    qdrantutil.StringValue(string(subjectJSON)),
 		"attached_files":  qdrantutil.StringValue(string(attachedJSON)),
 		"top_k":           qdrantutil.IntValue(int64(turn.TopK)),
 		"generate":        qdrantutil.BoolValue(turn.Generate),
@@ -380,6 +385,12 @@ func sessionFromPayload(id string, p map[string]*qdrant.Value) Session {
 }
 
 func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
+	var subject *domainhistory.Subject
+	if raw := qdrantutil.StringFromPayload(p, "subject_json"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &subject); err != nil {
+			return Turn{}, fmt.Errorf("history: decode subject: %w", err)
+		}
+	}
 	var citations []domainhistory.Citation
 	if raw := qdrantutil.StringFromPayload(p, "citations_json"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &citations); err != nil {
@@ -412,6 +423,7 @@ func turnFromPayload(id string, p map[string]*qdrant.Value) (Turn, error) {
 		CreatedAt:      time.UnixMilli(qdrantutil.IntFromPayload(p, "created_at")).UTC(),
 		Query:          qdrantutil.StringFromPayload(p, "query"),
 		RewrittenQuery: qdrantutil.StringFromPayload(p, "rewritten_query"),
+		Subject:        subject,
 		AttachedFiles:  attached,
 		TopK:           int(qdrantutil.IntFromPayload(p, "top_k")),
 		Generate:       qdrantutil.BoolFromPayload(p, "generate"),

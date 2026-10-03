@@ -1,122 +1,79 @@
 # Evaluation fixtures
 
-The golden retrieval set and committed reports live beside this README. The
-development evaluator loads them through `cmd/evaluator` and writes new reports
-under this directory unless a different path is supplied.
+These JSON files are maintained test inputs. Reviewed outputs live in
+[reports/](reports/README.md); new scratch outputs belong in ignored
+`.local/evaluation/`.
 
-Generation reports can be produced locally with a separately configured, explicitly acknowledged
-judge model. They contain aggregate faithfulness, answer relevancy, context
-precision, context recall, coverage, failures, and model-call latency, and persist the generated answers, admitted context, citations and provenance
-for review. Per-query diagnostics
-include paired Retrieval rank/counts, context size and truncation, answer and
-judge status, failure class, and diagnostic cause.
+| Fixture | Purpose |
+|---|---|
+| [golden.json](golden.json) | 133 synthetic retrieval queries over four manifest-backed sample documents; used by evaluator tests and CLI defaults |
+| [representative.json](representative.json) and [representative-corpus.json](representative-corpus.json) | 64 broader retrieval/generation queries over all 14 samples and their source hashes |
+| [daily-use-questions.json](daily-use-questions.json) | 30 supported questions, 5 unsupported/private/live requests and 5 follow-ups through the actual chat API |
+| [representative-app-questions.json](representative-app-questions.json) | The broader 64 queries expressed as API workflow cases |
+| [user-paths.json](user-paths.json) | Semantic-cache and query-rewriting benchmark cases |
+| [Judge packet](judge-calibration/20260930-phi4-mini/manifest.json) | 39-case blind human-review packet tied to a specific historical report and fixture by hash |
 
-The answer request uses temperature `0` and the configured
-`generator.max_output_tokens` as Ollama `num_predict`; the judge uses a
-temperature-zero 128-token JSON-schema response. Invalid, incomplete, and
-out-of-range judge output remains a contract failure rather than being
-silently repaired.
+The questions and relevance labels are synthetic. Separate recorded synthetic
+judgment passes are not independent human judgments; `release_gate` remains
+false. Reviewer A and B files are intentionally separate blank forms, not
+redundant completed reviews. Keep both and their exact source report/fixture
+until calibration is completed or explicitly retired.
 
-The active `golden.json` is a schema-v3 synthetic candidate pack with 133
-queries over the four committed sample documents. It includes canonical
-relevance labels, two separately recorded synthetic judgment passes, per-query
-adjudication metadata, query-intent tags, and a deterministic corpus manifest.
-The annotator passes are not independent human judgments and
-`metadata.release_gate` remains `false`; this fixture is for regression and
-E2E testing only.
+## Current acceptance, October 3
 
-Generate or refresh the candidate metadata with:
+Direct Codex review of fixed app questions: **30/30 supported, 5/5 declines,
+5/5 follow-ups** daily; **56/56 supported, 8/8 declines** broader. Three repeats
+of 13 fragile cases also pass. These finite results are not owner-use validation
+or calibrated judge scores. See [local acceptance](../../docs/LOCAL_V1.md),
+[fitness evidence](../../docs/P1_EVIDENCE.md) and the
+[accepted report catalog](reports/README.md).
+
+October 2's corrected-prefix and model experiments are historical rejected
+candidates. Their results do not describe the accepted implementation. The
+report catalog retains baselines and decisions; superseded scratch arms are
+removed from the active tree after a hash-verified local backup.
+
+## Run retrieval checks
+
+From the repository root with Qdrant and Ollama running:
 
 ```bash
-python3 scripts/generate_evaluation_candidate.py
+go run ./cmd/evaluator --no-rerank --runs 3
+go run ./cmd/evaluator --golden test/evaluation/representative.json \
+  --no-rerank --runs 3 --report .local/evaluation/representative.json
 ```
 
-Run it against local Qdrant and Ollama with:
+Default evaluator output is `.local/evaluation/<unix_ts>.json`. Use
+`--ensure-ingest` only when an import of the configured sources is intended;
+unchanged-file skipping does not upgrade old chunks after an indexing-policy
+change. Use [fresh-collection migration](../../docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely)
+for that change.
 
-```bash
-go run ./cmd/evaluator --golden test/evaluation/golden.json \
-  --no-rerank --runs 1 --ensure-ingest \
-  --report test/evaluation/reports/e2e-generated-golden.json
-```
-
-The evaluator's `--require-release-gate` mode requires schema-v3 production
-metadata, an approved privacy review, a representative corpus manifest, and
-two verified independent human annotators for every query. The repository
-cannot create those external approvals.
-
-## Saved daily-use questions
-
-[`daily-use-questions.json`](daily-use-questions.json) contains 30 answerable
-questions, 5 unsupported/private/live questions and 5 follow-ups authored by
-Codex acting as a general user of the sample notes. It was saved before the
-first run and records source hashes and expected evidence. These are simulated
-questions, not production user data or independent human judgments.
+## Run saved app questions
 
 ```bash
 python3 scripts/run_daily_use.py --base-url http://127.0.0.1:8100 \
-  --report test/evaluation/reports/my-daily-use-run.json
+  --report .local/evaluation/daily.json
+python3 scripts/run_daily_use.py --base-url http://127.0.0.1:8100 \
+  --fixture test/evaluation/representative-app-questions.json \
+  --report .local/evaluation/broader.json
 ```
 
-The runner creates its own sessions, preserves answers/citations and deletes
-only those sessions on completion unless `--keep-sessions` is used. It refuses
-to overwrite a report and checks source hashes. Structural citation matches
-are diagnostics: valid citation numbers do not prove the cited text supports
-a claim. Review each answer against the actual question and sources.
-See [the local acceptance record](../../docs/LOCAL_V1.md).
+The runner checks source hashes, refuses to overwrite a report and deletes only
+its own sessions unless `--keep-sessions` is used. It captures full answers and
+citations. Mapped citation IDs are structural diagnostics; inspect whether the
+actual cited passage supports each claim. Owner-note excerpts must stay in
+ignored local reports unless separately approved for publication.
 
-The latest [corrected-prefix daily run](reports/quality-prefix-daily-20261002.json)
-completed 40 turns without operational failures. [Direct review](reports/quality-prefix-agent-review-20261002.json)
-records **28/30 supported, 5/5 declines and 2/5 follow-ups**, against the fresh
-control's 23/30, 5/5 and 4/5. The supported count passes its bar, but local
-acceptance and the semantic no-regression guard fail. Wrong cited sections and
-selected-mode loss remain. Earlier retained counts belong to another arm.
+## Fixture maintenance and optional research
 
-[`representative-app-questions.json`](representative-app-questions.json) retains
-the existing 64 queries/expectations and all 14 sample hashes. Its [latest full app run](reports/quality-prefix-representative-answers-20261002.json)
-reviews at **49/56 supported and 7/8 declines**, versus control 47/56 and 5/8.
-Valid citation IDs are structural evidence, not these semantic counts.
+`scripts/generate_evaluation_candidate.py` and
+`scripts/generate_representative_evaluation.py` regenerate synthetic inputs.
+Do not change a fixture to make a failing implementation pass. Record changed
+source/fixture hashes and evaluate a new baseline when inputs intentionally
+change.
 
-[Registration](reports/quality-plan-20261002.json) precedes each measurement.
-[Golden](reports/quality-prefix-retrieval-20261002.json) and [broader](reports/quality-prefix-representative-retrieval-20261002.json)
-retrieval each run three times. Golden Hit/Recall/MRR/nDCG rise from
-0.977/0.969/0.817/0.837 to 1.000/0.986/0.842/0.860; distractor hits rise
-0.226 → 0.278. [Central-text audit](reports/quality-prefix-central-evidence-audit-20261002.json)
-checks captured rankings without expanded-window credit. Retrieval guards pass;
-semantic acceptance does not. Three earlier repetitions of the [13 fragile cases](reports/quality-repeat-questions-20261002.json)
-reproduce mode failure and variable completeness; all observations remain.
-
-The installed-8B CPU-embedding comparison also completed all 104 questions and
-both retrieval packs three times. Its [direct review](reports/quality-cpue-model-agent-review-20261002.json)
-is **26/30, 5/5, 3/5** and **49/56, 8/8**; it is rejected as the default model.
-Its daily first-token p50/p95 is 1.115/13.097 s including cold-load delays;
-subsequent broader p50/p95 is 0.861/1.161 s. The earlier GPU-default 8B run
-stopped at 24 cases and is explicitly incomplete.
-
-Optional `embedder.num_gpu` / `EMBEDDER_NUM_GPU` is now wired through the existing
-provider. A separate [direct-provider 13-case smoke](reports/quality-cpu-direct-smoke-20261002.json)
-uses the new code without the diagnostic proxy; operational checks and model
-coexistence pass, but [semantic review](reports/quality-cpu-direct-smoke-review-20261002.json)
-is 9/13. This is wiring evidence, not a replacement full acceptance run.
-[Residency](reports/quality-cpu-direct-residence-20261002.json) records CPU embedding
-and GPU generation together. Defaults remain unset and models unchanged.
-
-Other `quality-*` arms and captured-prompt replays are diagnostic experiments,
-not accepted release results. In particular, the first label arm's broader
-answer report stopped after ten cases. Earlier `daily-use-after`, `final`,
-`verified`, `current`, `shipping` and `finalfix` reports are intermediate runs.
-Source scopes and indexing inputs changed, so existing corpora require a full
-reindex into fresh document/cache collections; see the [safe migration](../../docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely).
-
-## Optional public-math research
-
-`scripts/import_arqmath.py` can build an ARQMath Task 1 candidate and normalize
-the licensed corpus into Markdown. The pack and corpus are not checked in.
-This work is outside the personal/local technical-notes release. Independent
-human labels and any required dataset permissions must precede using public
-research results as a release gate.
-
-Fresh schema-v2 default-path reports were recorded on 2026-09-30; services are
-available on the measured laptop. The remaining calibration step is human
-review of the 39-case blind packet in `judge-calibration/20260930-phi4-mini/`.
-The observed Phi-4-mini judge is 3.8B and remains unreviewed; its aggregate
-scores are diagnostics rather than acceptance evidence.
+See the [evaluator guide](../../internal/eval/README.md) for generation-judge
+configuration and release-gate validation. Independent human calibration is
+pending. The optional ARQMath importer can build public-math inputs, but that
+pack and licensed corpus are not checked in and are outside the local release.

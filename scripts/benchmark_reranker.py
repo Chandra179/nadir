@@ -38,7 +38,7 @@ Example:
         --endpoint http://127.0.0.1:5002/rerank \
         --pid 12345 \
         --runs 3 \
-        --json-out test/evaluation/reports/reranker-bge-cpu.json
+        --json-out .local/evaluation/reranker-bge-cpu.json
 
 For a Compose container, pass the ID returned by:
     podman compose -f deploy/compose/compose.yaml ps -q reranker

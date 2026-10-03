@@ -1,0 +1,1993 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-10-03T06:44:08.721938+00:00",
+  "fixture": "test/evaluation/reports/quality-repeat-questions-20261002.json",
+  "fixture_sha256": "e129629ba7fe3784604f334738eacf0404217c91590ca7278a60b7462b97a132",
+  "metadata": {
+    "dataset": "diagnostic-fragile-cases-20261002",
+    "authored_at": "2026-10-01",
+    "author": "Codex acting as a general technical-notes user",
+    "human": false,
+    "independent_human_review": false,
+    "release_gate": false,
+    "provenance": "Pre-selected repetitions of observed fragile cases; not an independent dataset or release gate.",
+    "corpus": [
+      {
+        "path": "samples/api-design-guidelines.md",
+        "sha256": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+      },
+      {
+        "path": "samples/business.md",
+        "sha256": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+      },
+      {
+        "path": "samples/cache.md",
+        "sha256": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+      },
+      {
+        "path": "samples/calculus.md",
+        "sha256": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+      },
+      {
+        "path": "samples/change-data-capture.md",
+        "sha256": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+      },
+      {
+        "path": "samples/knowledge-graph.md",
+        "sha256": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+      },
+      {
+        "path": "samples/linear-algebra.md",
+        "sha256": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+      },
+      {
+        "path": "samples/numerical-methods.md",
+        "sha256": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+      },
+      {
+        "path": "samples/os.md",
+        "sha256": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+      },
+      {
+        "path": "samples/rabbitmq.md",
+        "sha256": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+      },
+      {
+        "path": "samples/system-design-core.md",
+        "sha256": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+      },
+      {
+        "path": "samples/trig-functions.md",
+        "sha256": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+      },
+      {
+        "path": "samples/uber-architecture.md",
+        "sha256": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+      },
+      {
+        "path": "samples/youtube-architecture.md",
+        "sha256": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+      }
+    ]
+  },
+  "base_url": "http://127.0.0.1:18113",
+  "git_head": "f9f3a8baa386e9a3346572dd0241edbc00d1ec7f",
+  "provenance": {
+    "measured_at": "2026-10-03T06:38:23.558039+00:00",
+    "scope": "Bounded source-grounded P1 fixes; explicit selections, literal comparisons and row-preserving evidence; installed defaults, unchanged corpus, isolated app",
+    "git_head": "f9f3a8baa386e9a3346572dd0241edbc00d1ec7f",
+    "config": "http:\n  addr: \"127.0.0.1:18113\"\n  read_timeout: 5s\n  write_timeout: 0s  # 0s = none: streamed answers run longer than a fixed write deadline\n  idle_timeout: 120s\n  startup_timeout: 30s\n  shutdown_timeout: 10s\n  readiness_timeout: 15s\n\n# Diagnostic pprof endpoints are opt-in and loopback-only. Use an SSH tunnel\n# or an equivalent protected local access path when profiling a remote host.\nprofiling:\n  enabled: false\n  addr: \"127.0.0.1:6063\"\n\nmiddleware:\n  timeout: 30s\n  logger:\n    level: dev  # dev | prod\n\ndocuments:\n  mode: \"upload-only\"       # upload-only | mirror; mirror removes missing files under documents.paths\n  paths:\n    - \"samples\"\n  ignore_patterns: []\n\ningest:\n  max_attempts: 3\n  initial_interval: 500ms\n  max_interval: 10s\n  multiplier: 2.0\n  workers: 8\n  max_file_bytes: 16777216       # 16 MiB per document upload/source file\n  max_upload_bytes: 67108864    # 64 MiB per multipart request\n  embed_batch_size: 64           # bound each Ollama embedding request\n  max_chunks_per_file: 10000     # reject pathological documents before indexing\n\nqdrant:\n  addr: \"localhost:17444\"\n  collection: \"p1_subject_documents_20261003\"\n  top_k: 5\n  prefetch_mul: 5  # store-level candidate multiplier for hybrid search legs\n\nembedder:\n  provider: \"ollama\"\n  model: \"embeddinggemma-300m-q8:latest\"\n  ollama_addr: \"http://localhost:11434\"\n  dimensions: 768\n  request_timeout: 60s\n  query_prefix: \"task: search result | query: \"   # prepended to queries at search time (EmbeddingGemma task instruction; empty = off)\n  # num_gpu: 0               # optional: keep embeddings on CPU when a larger answer model occupies the GPU; omitted = Ollama placement\n  document_prefix: \"title: none | text: \"          # prepended to chunks at ingest time; requires reindex when changed\n  max_input_chars: 8000                            # rune-clamp on dense embed inputs so Ollama never truncates silently (0 = off)\n\nchunker:\n  provider: \"recursive\"  # recursive | sentence-window (measured 2026-09-27, ADR 0033: recursive stays)\n  chunk_size: 512\n  chunk_overlap: 64\n  window_size: 3          # sentences before+after each sentence (sentence-window only)\n\nsearch:\n  max_query_chars: 8192\n  max_fragments: 16\n  max_concurrent_fragments: 8\n  max_top_k: 50\n  max_chunks_per_file: 3\n  fusion:\n    enabled: false # enable only after offline golden-set evidence supports the candidate policy\n    rrf_k: 60\n    dense_weight: 1.0\n    bm25_weight: 1.0\n    exact_match_boost: 0.0\n    header_match_boost: 0.0\n    min_exact_tokens: 1\n    min_header_tokens: 1\n    profiles: {}\n\nreranker:\n  enabled: false   # opt in only after a measured gain on the current embedding profile\n  addr: \"http://localhost:5002\"\n  model: \"BAAI/bge-reranker-v2-m3\" # swappable sidecar cross-encoder (env RERANKER_MODEL overrides); revert to cross-encoder/ms-marco-MiniLM-L-6-v2 for the tiny/fast baseline\n  candidate_mul: 4     # fetch topK*4 candidates before reranking (more headroom for the reranker to reorder)\n  request_timeout: 30s\n  adaptive_enabled: false # opt in until release-gated judgments confirm no quality regression\n  adaptive_margin_threshold: 0.01 # rerank when dense/lexical top results disagree or fused top margin is below 1%\n\n# Local inference profile. LLM and embedding concurrency is owned by the\n# Ollama scheduler (OLLAMA_NUM_PARALLEL) plus each role's request_timeout, so\n# no client-side gate is imposed. The reranker keeps an explicit client-side\n# queue; it is CPU by default for portable laptop operation — use the GPU\n# Compose override with device=cuda only when Ollama and the reranker have a\n# measured hardware budget.\ninference:\n  profile: \"local\"\n  ollama:\n    keep_alive: 5m\n  reranker:\n    max_concurrent: 1\n    queue_timeout: 30s\n    device: \"cpu\"\n    backend: \"torch\"\n\n# Process-local operation gates (bounded, finite queues). Indexing is\n# single-writer; destructive mutations (document reset, chat edits and\n# deletions) never run concurrently with an indexing pass. A request that\n# waits longer than queue_timeout fails fast instead of piling up. LLM and\n# embedding concurrency is NOT gated here — the Ollama scheduler owns it.\n# These limits coordinate one API process only; they are not distributed.\ngates:\n  indexing:\n    max_concurrent: 1\n    queue_timeout: 5s\n  destructive:\n    max_concurrent: 1\n    queue_timeout: 10s\n\nenrichment:\n  # Index-time LLM enrichment (uses Ollama; one-time cost per chunk, zero\n  # query-time latency). Changing these requires a reindex to take effect.\n  request_timeout: 120s\n  contextual:\n    enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding\n    ollama_addr: \"http://localhost:11434\"\n    model: \"gemma3:1b\"\n\nsemantic_cache:\n  enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)\n  collection: \"p1_subject_cache_20261003\"\n  threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)\n  ttl: 24h           # 0 = no expiry\n\ngenerator:\n  enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true\n  ollama_addr: \"http://localhost:11434\"\n  model: \"gemma3:4b\"  # LLM for answer generation; use instruct models. gemma3:4b passes the generation gate (ADR 0034: faithfulness 0.881 / relevancy 0.803 vs 1b 0.750/0.756) at ~9x answer latency; gemma3:1b is the low-latency fallback\n  request_timeout: 120s\n  max_output_tokens: 512 # bound answer generation; prevents an unending stream\n  num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX)\n\nchat:\n  # Chat use-case tuning: prompt assembly and the streaming turn lifecycle.\n  max_context_tokens: 2800  # token budget for retrieved chunks (~70% of 4k ctx window)\n  event_buffer: 4096\n  max_event_log_bytes: 1048576   # 1 MiB replay log per turn\n  max_retained_turns: 64\n  finished_turn_ttl: 10m\n  persist_timeout: 5s\n\nrewriter:\n  # Conversational query rewriting (Rewrite-Retrieve-Read): follow-up turns\n  # are rewritten into standalone search queries against the session's last\n  # `turns` turns before retrieval, so \"what about the second one?\" stops\n  # searching garbage. Skipped when a session has no prior turns; any\n  # rewrite failure falls back to the raw query. Costs +1 LLM call per\n  # follow-up turn.\n  enabled: true\n  turns: 4           # prior turns fed to the rewriter\n  request_timeout: 8s\n  ollama_addr: \"http://localhost:11434\"\n  model: \"gemma3:1b\"\n\nhistory:\n  enabled: true              # persists chat sessions/turns to Qdrant, no extra infra\n  collection: \"p1_subject_history_20261003\"\n  session_page_size: 50      # sidebar sessions returned per request\n  turn_page_size: 500        # Qdrant scroll page used while loading one session\n\ndocling:\n  enabled: false             # enable PDF intake when the Docling sidecar is available\n  addr: \"http://localhost:5003\"\n  request_timeout: 120s\n",
+    "binary_sha256": "a9f151cd16388cb18d2232513c7941cc20b21c37609890e8404099d3144cf883",
+    "serving_binary_sha256": "a9f151cd16388cb18d2232513c7941cc20b21c37609890e8404099d3144cf883",
+    "source_files_sha256": {
+      "cmd/api/main.go": "5df9065d69c668f2609e0166e53b8db6de51a5db6bfa7741c09ef1b47f6fc217",
+      "cmd/evaluator/main.go": "0330c29baba2521ff7f1324995c08a752bca780b0c6808b033150ee42d1119e3",
+      "cmd/evaluator/provenance.go": "302d38dcd65c2e4570b24bd65fca14bc15a9ecf45859709b6d9c5b99c0ad6d9e",
+      "internal/bootstrap/configuration/config.go": "a7e4bff0bea402693a4ff219d6c29b7b5c2d3e73c7192de3b001a34a8fbc6edb",
+      "internal/bootstrap/gates/controller.go": "c71658bde4995da8afae66d0dc2f3143bc754f643b5f2d6a6d6d13aa567007f9",
+      "internal/bootstrap/gates/gate.go": "c1e6218e8e65c9270340fe2ad922c6e9c42407267beed64bbf486db7ac164e1e",
+      "internal/bootstrap/gates/runner.go": "04e81684c04e042d815bd4663bc7abf9e3d6df15c838a34f17535c8f1f7e7fcc",
+      "internal/bootstrap/httpmiddleware/dependencies.go": "d2d0ca64e285eb74e25a3f5869d16c56837818e28a9e4a718ff3fe2f0c9f5580",
+      "internal/bootstrap/httpmiddleware/request_id.go": "71442e0b64ab006d9bd7ed9440646ced9179964e15fea06766d40caa97c52768",
+      "internal/bootstrap/httpmiddleware/request_log.go": "34739bc9c5cabd066169981610fc880e4bf256cf485b96868cb29533b1da178d",
+      "internal/bootstrap/httpmiddleware/timeout.go": "a2fed4c5f511eae352080d986cb450a4e34ce34b63433028d77280598c430fa5",
+      "internal/bootstrap/logging/logger.go": "2f2b718e7d5443b9a158bb822287013a0b0ab0a93d866f432c7da55d9c5270a6",
+      "internal/bootstrap/profiling/profiling.go": "c4223760df4b3ca6b3fe93d04c37b4f8e6412add66727f2f983c1006c0a3ad83",
+      "internal/bootstrap/readiness/readiness.go": "5274b2bea94e4bf8fd4cceb544f11f52308dbf37b686749ef130345d867026a0",
+      "internal/bootstrap/runtime/cache_version.go": "be935e96f7965396be9b9cdb4b6fbfc760178c240cf56279ca7b9bd77efba4c6",
+      "internal/bootstrap/runtime/document_intake.go": "7356828e49c60ce11c684f9523e97b4db4a104034299ace72b3c5e3b4975f9c6",
+      "internal/bootstrap/runtime/runtime.go": "ad37c1bfa6ecd776f61431f1e5b8842b93941512c689046fbbdf233f5fd21488",
+      "internal/bootstrap/server/lifecycle.go": "339b777cfea4b6bd68f3dbc0aa942cf79b467c1030589fbcba2cd48cdce4e38e",
+      "internal/bootstrap/server/metrics.go": "7e4939aea9acd6b0bba004fb22133d777ce49c8eb48226498b317333620830d8",
+      "internal/bootstrap/server/model_readiness.go": "1d2b6655c75455c6226738978e074ce3d165c9a8836e04287b1fa7fa53126801",
+      "internal/bootstrap/server/server.go": "4043131c325085a0ac4fd18c23c1aafb9cc6405fd054ed19f30647033261713a",
+      "internal/core/conversation/chat/broker.go": "09b3f8920828a4eb73c1a90fb88363d0f0c119e86d02d05dcb8bd0e36fa710d5",
+      "internal/core/conversation/chat/capabilities.go": "f07204ff57f55806ae90ff2404994e38bd9e93ccbfc0ae06428c58f1dd0f6cde",
+      "internal/core/conversation/chat/citation_stream.go": "e6b550bfa7cd0113ca0629319688c1cc6b506019902b39686879070ce0df9bd5",
+      "internal/core/conversation/chat/comparison.go": "816261b9ce54cb2141c9ca759050d68038efaed3802b0b2f4012a166a11a3d6d",
+      "internal/core/conversation/chat/condition.go": "43812ff97b76d12194aa86c2acf9c7f1115567b7153d840060c5efcf6920881a",
+      "internal/core/conversation/chat/dependencies.go": "34e133667baa9ad0f4802079c551c2787d0d59deea945720387aadafaf075f84",
+      "internal/core/conversation/chat/formula_restriction.go": "85dc76c58769b698bf8f40a37b16bca159e19d7b8088c46af71efb02c19d7069",
+      "internal/core/conversation/chat/interface.go": "3a0865971d4c2850d737f0dd108d436d94b0dc35c7b4aa44ce3b6d07c88d3bec",
+      "internal/core/conversation/chat/mutations.go": "9d9f4e1373fe567384c3a1df24430e594eb52cf96ffbbcb71097dd5651fe8420",
+      "internal/core/conversation/chat/private_interfaces.go": "b9a1c64c8375d66fd983d4858a0b566cf2faf844ce346f8cb0e356c238888aea",
+      "internal/core/conversation/chat/prompt.go": "996d9ac46e57c685e5f85967c4c374b8f615a8b65512fa3b4a0c6a3a3fe78a07",
+      "internal/core/conversation/chat/reference.go": "35f45371fa77ff684130bfe299037e52c7968ec972229020561369aa80a956df",
+      "internal/core/conversation/chat/service.go": "be1640155a16a02cd2376807379e83883e014f202fec27e14763b2e795341a3c",
+      "internal/core/conversation/chat/table_citation.go": "6ad54d3ebb6ba292790fb8f3dfcc4a581160d6c9c29cb7e564c3b013edeccacb",
+      "internal/core/conversation/chat/types.go": "d58519a14f91fde1be41a8a9a166dd0561a42a7ff633b8c26108a8ac14beec28",
+      "internal/core/conversation/chat/vertical_list.go": "453cc55be618b88ea30b76dfff58fcdf5fc4746dfd4cc19f75e24d6f038309fd",
+      "internal/core/conversation/generation/interface.go": "d7a77156d448fe5eabf3e13a523605d83239cb562f2e67e81878b92342670faf",
+      "internal/core/conversation/generation/types.go": "28255a6fd8e817d5d70af98db820a9f8c4244ccc18af6a4bb7995b641ec0908c",
+      "internal/core/conversation/history/interface.go": "acea04dc61abb233af93c55727464c698536a49462d29e0f65fe78cd89128313",
+      "internal/core/conversation/history/types.go": "d178130b2acc23b79e262312af6f4ce5fed08b180b7b8c965fdef25bec14ca69",
+      "internal/core/conversation/rewriting/interface.go": "bff27747e2e19ba159e0c363b4abde4963fda2c46fb7ad26316b6addef371fab",
+      "internal/core/documents/chunking/chunker_recursive.go": "2ce5428d918d6b5f3a875c643973c5759f4d931cfeb98848922f43d8bc0fd4bd",
+      "internal/core/documents/chunking/chunker_sentence_window.go": "f23bba9c3c75644756a5f1ee2fca5d19f8ca8b2f1fe01fe47fc77aa7960197a3",
+      "internal/core/documents/chunking/dependencies.go": "80bfe76ab67ad39c763807c8585a5101f5a7dc4f7a90b0348f5e035cbf58f854",
+      "internal/core/documents/chunking/interface.go": "cf6f4698ab483e70799961901b6db14d25d932d909f1bb189e568f00af683c80",
+      "internal/core/documents/chunking/service.go": "259a1bff8ea4860571974856325e814012045bb6d4ce86c69e589c695ff7479a",
+      "internal/core/documents/chunking/source_text.go": "6ab94bd238d77b80a8acff6cf0bf870d5159a2cb2035281a3a22077dff1cf2aa",
+      "internal/core/documents/chunking/split_ranges.go": "a3b2f1616a567af5163776946761bd21cdda517472d63fde3e178aff112431f4",
+      "internal/core/documents/enrichment/interface.go": "3d6a59312d6998e536046eeb2c1db4d7cc3b0a6c6abaf483f68f99eb2b7b1a4a",
+      "internal/core/documents/indexing/dependencies.go": "546ab7169738a639c31f0e05c3ef6ed24162ba73cf8ba5021cd883c583bec473",
+      "internal/core/documents/indexing/ingest.go": "400443df2087ba07835ba2333e36e161395e0827b6a80d3e530d42c0c68a143c",
+      "internal/core/documents/indexing/interface.go": "d8ee6e99eb7fb0179ecf84c866368bcd60777a915c56d2827e68113a39d290b4",
+      "internal/core/documents/indexing/lifecycle.go": "47364af60785b724aaf280b27eae9ed9afc3aa8d1d3954f211df59b272dba407",
+      "internal/core/documents/indexing/private_interfaces.go": "bb684790283d8572eee09322ce85c59d760665d013c6541d7ad407c0de536e65",
+      "internal/core/documents/indexing/publication.go": "5ecd56bae84440c83c5301076a2a1723f5520c24e347300b2b8073e4713df6ca",
+      "internal/core/documents/indexing/source.go": "bcb121091d9a8d90590d0611e85d086700082a4ce13d356fca5b54655f724921",
+      "internal/core/documents/indexing/types.go": "d1a25660cd95da9d886d21e7da961c0d265e3d9bdd8b0b8ebb452e5ce220036b",
+      "internal/core/embedding/interface.go": "fe2ec7768a08c995617eecfcfdb874393cadfda0489c95bdb948982695779e4f",
+      "internal/core/observability/observability.go": "bb6fb96c67c5272ecaa5af96e0653b68decf0408164cbbf5e732c47de9636ad2",
+      "internal/core/retrieval/cache/dependencies.go": "787a286f5fa82c680ed3780ad410a5bd4c7ab16f779ec004cbf739cb0459e71d",
+      "internal/core/retrieval/cache/interface.go": "9dc3532c6241d496420ddbf78f6317818b6816caebb3258750b757cde615130a",
+      "internal/core/retrieval/cache/private_interfaces.go": "86f0fa4442c8f47068137155a50534fb2ad3773b45d63d0a363a55fcfc806dba",
+      "internal/core/retrieval/cache/service.go": "054970430244736ca419eecea0b569e02f47d7609084101a843e9c551b8c63d9",
+      "internal/core/retrieval/cache/types.go": "f82e1fed9f54523127d0e7d4bab6e90ad8855757b06ce79e31db55ffe550f078",
+      "internal/core/retrieval/search/dependencies.go": "4cd3a88e6c0a86ab7a94d11515d8ad8d065d8d7b1ad4ebc2f94ab8229db65726",
+      "internal/core/retrieval/search/fusion.go": "c41d8c5384177c19cce90a3d625a660cf8b4ee66c2140d736147c77a03792145",
+      "internal/core/retrieval/search/interface.go": "afc43fdbabde20b705ec09e7ecf383b66681eadbeb4907e6bbbf506773eabc61",
+      "internal/core/retrieval/search/private_interfaces.go": "7d326dc927bc89449077ceb0889116dd99451654f44c305320b930bdb796c91c",
+      "internal/core/retrieval/search/search.go": "3d5a873db0835476dfd87583d9f7367fa0f85b79c7f8e485fc08aa8ae48efeb4",
+      "internal/core/retrieval/search/types.go": "79b2dda7d2ee8df9a69fbee26c56e70e8ebec066ace16500accd0c9d8587ece6",
+      "internal/edge/http/chat/chat.go": "0bac019f380356e0392579168513c5f7b8b610a80712e35b1351b0a68693b7f0",
+      "internal/edge/http/chat/dependencies.go": "d9c2aec5c733504202c3a29596d61120936134c6dcd70dc28cb25d3c02680280",
+      "internal/edge/http/chat/search.go": "72d781ebee6b439256fbfbb7b547f2bf123e692c634e6ed852d0c9eb4d7cd968",
+      "internal/edge/http/chat/stream.go": "bdb68622108a122553f2997a7616847ee0c1053345f09dff9246da4163d0b55c",
+      "internal/edge/http/contract/turn.go": "dc69db99a81a17c6b45deeca4a8fbdc195ec0fdcffd48c454c80bafd5f70ea30",
+      "internal/edge/http/dependencies.go": "eb069191c03b9fdbed32ea355d78d9d18d15d0ac5da214518ecb107a7627be07",
+      "internal/edge/http/documents.go": "e497f1bbec2f3662a5af48550d8645280d7678a5d691c8cbf69428444c1a6520",
+      "internal/edge/http/health.go": "cd4fb08a0437abdacc50724bd01f90b71b76592a35927e5ceb4dd1bef44770e7",
+      "internal/edge/http/history/dependencies.go": "eab5b307d48f56f40f57cf7b6c262cc6a4f46a96463466601d6d1f285dfed941",
+      "internal/edge/http/history/history.go": "c7dea261048d5b1145fc91f393f59226d0cf672092c0199b39f82826e0630ec5",
+      "internal/edge/http/history/sessions.go": "4fed5eb1b026299057786f4ac7c541b5b3be1b30775321e029093396d58a3f25",
+      "internal/edge/http/ingest.go": "4d7e7b209a0652ccc801499124f2dfded25ac4ce3ef7077a22779cbca152ef4a",
+      "internal/edge/http/respond/json.go": "d05162a683ab2e684c7d61e445fa71dcc0319ece31a3a902c5a4ebdee6c25261",
+      "internal/edge/http/router.go": "a7327ec094ba7e52da3ddaa35a4410d159a753cbe5479596058a1ffb309b5dfb",
+      "internal/edge/http/store.go": "15ff576d0dd906ec0f41423a21c6c1bf688ef634d6f5be5914518e20f8d0ad37",
+      "internal/eval/dependencies.go": "0975d4d204aa4302ffecea89d77874f57d62528bf03fcc20e2ba6e18ef09967d",
+      "internal/eval/generation.go": "0a700aa52a1f55c2af73abf68e2ca5cfed7fe1972fadf8b3208f9729cc02132d",
+      "internal/eval/metrics.go": "027233af12cd120c2fd477cdf951c597c1c5fa03dccff998565345ae079a484c",
+      "internal/eval/provenance.go": "cf82dd7fec6fd41968c8108d52f2a84bebc98c5977b0ec9653e2fbafae120dcf",
+      "internal/eval/service.go": "38feff62b20c0a19273d0a393f1ab87fd856f4c053cc21a6887f357fed503ff0",
+      "internal/eval/types.go": "944f1477ef6011c2872d1d1e476afe30a56dda5fc4c1ba176c988752985e4c2c",
+      "internal/providers/docling/converter.go": "d73b1d7bfe20d67b79b9a9453c149e33d01a0f020fea94b4d0565d8c65c4c726",
+      "internal/providers/docling/dependencies.go": "60eb82679eeda46186b916b49bc14540e592fb2b53f0a5625364f2227228548a",
+      "internal/providers/ollama/embedding/dependencies.go": "f4a4a2f4371fcf07b9bdde5b888ad861a9c358288ab75a365f16385c859b43c4",
+      "internal/providers/ollama/embedding/embedder.go": "67eecec0a06c112c97cfbe85746c3245ae66bd6d69944452f002a58433fb04f3",
+      "internal/providers/ollama/enrichment/dependencies.go": "b90ed0e836e89a62e9ff908a9b65586d0f75af1a4901ae6ef5215540f68872a2",
+      "internal/providers/ollama/enrichment/service.go": "12535bdb1ca55a9519b27344656468a61f2efc5772a3f5455ef819cfa81a687a",
+      "internal/providers/ollama/generator/dependencies.go": "bb1f470a99a89b8077f8d3a8f3d3187a01141873eb8bd322e6863367532ac83d",
+      "internal/providers/ollama/generator/generator.go": "fd2326f6657ba1007631c0996c6aef6042c5d7b7a8127646bbf1437d814a731b",
+      "internal/providers/ollama/models/probe.go": "ee84978fdd62f1d0b4f3f027f87df22af42a1d37015c6be60f2da009d10f258c",
+      "internal/providers/ollama/rewriter/dependencies.go": "40aad4bc62c0af3906f78b778ee522e6401eaf22c277d9865f5cb5cb7ba22c88",
+      "internal/providers/ollama/rewriter/service.go": "a0cd10fabdb0560940af14e31a1d4d85daa83e89b5d52623c9a60afaab247111",
+      "internal/providers/ollama/rewriter/types.go": "c96809ea0ab98bcddf892c6ce0f9e63accb9e61aacad4d54cfa51084f14ead7f",
+      "internal/providers/qdrant/cache/dependencies.go": "dce9e367f7e623a77b4910f19dcae133f045f524890ddc76b91f2ea202d32008",
+      "internal/providers/qdrant/cache/service.go": "ddd6d3f2d66ef3b2c442bfab8ad89a8c949c0ed2e343c1973d28165d35540437",
+      "internal/providers/qdrant/documents/dependencies.go": "4dc3dc96a8afca0d0be2c212d7bbe93790cd8c3c1b2f8d44939ccfde260bc8de",
+      "internal/providers/qdrant/documents/reset.go": "7c4ef39395f3309b4a98478dae4210833d9367694995de4d1f0fd94a5e6d1c00",
+      "internal/providers/qdrant/documents/store_qdrant.go": "9bef7da12268ec9f713eeb294e9df50c2d9e7664b742bf6caefe9b9af6f11820",
+      "internal/providers/qdrant/documents/types.go": "dd454df49f832ed5440594411a9e7ecb02dc57f9b8bdbe992a7c68aef984416d",
+      "internal/providers/qdrant/history/dependencies.go": "d111c48a599daa502ac35b6db33da86febf665eb54178b389fe82fd99e8951a5",
+      "internal/providers/qdrant/history/service.go": "20d1b8dbcb2bce60b5da0a661f3371acd3ed231602a0a4d0093ad0beb708dd12",
+      "internal/providers/qdrant/shared/clients.go": "643562b7790935a502c82507bffd30dc66f403938e25a5cdc7fb3670ef5344ce",
+      "internal/providers/qdrant/shared/collections.go": "37cc0da42a2562438de74b106bc4af5013b9696d2c8f4cdb5f80dc07707effa0",
+      "internal/providers/qdrant/shared/dense.go": "9c6845c88310f0d2a89a6ed7488229228c142ab6b30f4e3390e6ddfb0140316f",
+      "internal/providers/qdrant/shared/values.go": "ef086407590c44e0f38ff6173ed35ea047f7c9634c33206efa6e0cc2ea288705",
+      "internal/providers/reranker/dependencies.go": "1207ca6def9268a386ca9c40c30158bc23491b39e52251ebe2956d17b6d58cdb",
+      "internal/providers/reranker/reranker.go": "976e33050d4204476aadc2655b3672393e2595baaaac861eebc305c3bab7d674",
+      "internal/testmocks/mock_chat.go": "e0f40aaba61becb034d4c639d9302351e1ba104a7db44db9b0cd8590cc2f147d",
+      "internal/testmocks/mock_reader.go": "32e820ca21d454531217df6e22d1542833a990d81ab35e3f6ebecdda5cd4ff28",
+      "internal/testmocks/mock_retriever.go": "bfa46e8af3904ba7f365515d0b8203e263303ffcd9cba1139bfa093b500d1cd9"
+    },
+    "corpus_sha256": {
+      "samples/api-design-guidelines.md": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+      "samples/business.md": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+      "samples/cache.md": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+      "samples/calculus.md": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+      "samples/change-data-capture.md": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+      "samples/knowledge-graph.md": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+      "samples/linear-algebra.md": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+      "samples/numerical-methods.md": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+      "samples/os.md": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+      "samples/rabbitmq.md": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+      "samples/system-design-core.md": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+      "samples/trig-functions.md": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+      "samples/uber-architecture.md": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+      "samples/youtube-architecture.md": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+    },
+    "models": [
+      {
+        "name": "gemma3:4b",
+        "model": "gemma3:4b",
+        "modified_at": "2026-09-29T23:10:12.532432137+07:00",
+        "size": 3338801804,
+        "digest": "a2af6cc3eb7fa8be8504abaf9b04e88f17a119ec3f04a3addf55f92841195f5a",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "gemma3",
+          "families": [
+            "gemma3"
+          ],
+          "parameter_size": "4.3B",
+          "quantization_level": "Q4_K_M"
+        }
+      },
+      {
+        "name": "embeddinggemma-300m-q8:latest",
+        "model": "embeddinggemma-300m-q8:latest",
+        "modified_at": "2026-09-14T21:42:52.68587395+07:00",
+        "size": 333591230,
+        "digest": "267e44b13da41540fac617a517b1712fe58fde2ecd268ace4a9e072297c81011",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "gemma-embedding",
+          "families": [
+            "gemma-embedding"
+          ],
+          "parameter_size": "307.58M",
+          "quantization_level": "Q8_0"
+        }
+      },
+      {
+        "name": "gemma3:1b",
+        "model": "gemma3:1b",
+        "modified_at": "2026-03-19T14:45:51.316639985+07:00",
+        "size": 815319791,
+        "digest": "8648f39daa8fbf5b18c7b4e6a8fb4990c692751d49917417b8842ca5758e7ffc",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "gemma3",
+          "families": [
+            "gemma3"
+          ],
+          "parameter_size": "999.89M",
+          "quantization_level": "Q4_K_M"
+        }
+      }
+    ],
+    "readiness": {
+      "ready": true,
+      "checks": {
+        "embedding": {
+          "ready": true,
+          "model": "embeddinggemma-300m-q8:latest",
+          "loaded_model": "embeddinggemma-300m-q8:latest",
+          "details": "dimensions=768"
+        },
+        "generator": {
+          "ready": true,
+          "model": "gemma3:4b",
+          "details": "installed model metadata; inference capacity is checked by actual turns"
+        },
+        "qdrant": {
+          "ready": true
+        },
+        "reranker": {
+          "ready": true,
+          "details": "disabled"
+        },
+        "rewriter": {
+          "ready": true,
+          "model": "gemma3:1b",
+          "details": "installed model metadata; inference capacity is checked by actual turns"
+        }
+      }
+    },
+    "ingest": {
+      "operation_id": "op-5deb8b1414fdfb356a682d40",
+      "processed": 14,
+      "skipped": 0,
+      "failed": 0,
+      "removed": 0,
+      "names": [
+        "samples/api-design-guidelines.md",
+        "samples/business.md",
+        "samples/cache.md",
+        "samples/calculus.md",
+        "samples/change-data-capture.md",
+        "samples/knowledge-graph.md",
+        "samples/linear-algebra.md",
+        "samples/numerical-methods.md",
+        "samples/os.md",
+        "samples/rabbitmq.md",
+        "samples/system-design-core.md",
+        "samples/trig-functions.md",
+        "samples/uber-architecture.md",
+        "samples/youtube-architecture.md"
+      ],
+      "files": [
+        {
+          "name": "samples/api-design-guidelines.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/business.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/cache.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/calculus.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/change-data-capture.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/knowledge-graph.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/linear-algebra.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/numerical-methods.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/os.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/rabbitmq.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/system-design-core.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/trig-functions.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/uber-architecture.md",
+          "status": "processed"
+        },
+        {
+          "name": "samples/youtube-architecture.md",
+          "status": "processed"
+        }
+      ]
+    },
+    "container": {
+      "name": "nadir-p1-subject-20261003",
+      "id": "72fecf781e775f16a15cc4809be3d8d2e4b1203e65e1045212340b7c5f47d45a",
+      "image": "qdrant/qdrant:v1.19.1",
+      "volumes": []
+    },
+    "human": false,
+    "release_gate": false
+  },
+  "review_status": "pending_agent_or_human_review",
+  "release_gate": false,
+  "cases": [
+    {
+      "id": "notes-06",
+      "kind": "answerable",
+      "query": "I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?",
+      "turn": {
+        "operation_id": "op-8f7dfee7a970baf5716e75eb",
+        "query": "I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?",
+        "session_id": "e22476e0-5a38-4ecd-841b-8ba67c9378cd",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Acknowledgement Modes",
+            "line_start": 110,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Acknowledgement Modes",
+            "line_start": 105,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.75,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.54,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "This document describes the core building blocks of our RabbitMQ / AMQP 0-9-1 client library. The implementation offers robust message delivery with automatic recovery, publisher confirms, and efficient resource management.\ngraph TD\n TM[Topology Manager]\n TM --> Qdecl[Queue Declaration]\n TM --> Edecl[Exchange Declaration]\n TM --> Bind[Binding]\n\n Qdecl --> DlxCfg[Configure DLX/Retry/Parking Lot]\n\n DlxCfg --> Q[Primary Queue]\n DlxCfg --> DLX[Dead-Letter Exchange]\n DlxCfg --> RQ[Retry Queue<br/>x-message-ttl<br/>x-dead-letter-exchange → EX]\n DlxCfg --> PL[Parking Lot Queue]\n\n TM --> Cache[(In-Memory Cache)]\n Cache --> Reconnect[Re-declare on Reconnection]\n Reconnect --> Q\n Reconnect --> DLX\n Reconnect --> RQ\n Reconnect --> PL\n\n P[Producer] --> CP[Channel Pool]\n CP --> P\n CP --> Ch[AMQP Channel]\n P --> EX[Exchange<br/>type: direct/topic/fanout]\n EX --> Q\n\n C[Consumer] --> Q\n C --> Acknowledge[Ack/Nack/Reject]\n Acknowledge --> Q\n Acknowledge --> DLX\n\n DLX --> RQ\n DLX --> PL\n RQ --> EX"
+          },
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "Performance & Efficiency",
+            "line_start": 21,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Don't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets[^2]), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers[^6]) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+            "line_start": 110,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+            "line_start": 105,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ",
+            "line_start": 11,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "This document describes the core building blocks of our RabbitMQ / AMQP 0-9-1 client library. The implementation offers robust message delivery with automatic recovery, publisher confirms, and efficient resource management.\ngraph TD\n TM[Topology Manager]\n TM --> Qdecl[Queue Declaration]\n TM --> Edecl[Exchange Declaration]\n TM --> Bind[Binding]\n\n Qdecl --> DlxCfg[Configure DLX/Retry/Parking Lot]\n\n DlxCfg --> Q[Primary Queue]\n DlxCfg --> DLX[Dead-Letter Exchange]\n DlxCfg --> RQ[Retry Queue<br/>x-message-ttl<br/>x-dead-letter-exchange → EX]\n DlxCfg --> PL[Parking Lot Queue]\n\n TM --> Cache[(In-Memory Cache)]\n Cache --> Reconnect[Re-declare on Reconnection]\n Reconnect --> Q\n Reconnect --> DLX\n Reconnect --> RQ\n Reconnect --> PL\n\n P[Producer] --> CP[Channel Pool]\n CP --> P\n CP --> Ch[AMQP Channel]\n P --> EX[Exchange<br/>type: direct/topic/fanout]\n EX --> Q\n\n C[Consumer] --> Q\n C --> Acknowledge[Ack/Nack/Reject]\n Acknowledge --> Q\n Acknowledge --> DLX\n\n DLX --> RQ\n DLX --> PL\n RQ --> EX"
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines > Performance & Efficiency",
+            "line_start": 21,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Don't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks."
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 184,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "37f567b2-4e65-443d-9e7a-7df0fd0b65ae",
+        "stream_url": "/api/v1/turns/37f567b2-4e65-443d-9e7a-7df0fd0b65ae/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ (line 11, chunk 0))\nThis document describes the core building blocks of our RabbitMQ / AMQP 0-9-1 client library. The implementation offers robust message delivery with automatic recovery, publisher confirms, and efficient resource management.\ngraph TD\n TM[Topology Manager]\n TM --> Qdecl[Queue Declaration]\n TM --> Edecl[Exchange Declaration]\n TM --> Bind[Binding]\n\n Qdecl --> DlxCfg[Configure DLX/Retry/Parking Lot]\n\n DlxCfg --> Q[Primary Queue]\n DlxCfg --> DLX[Dead-Letter Exchange]\n DlxCfg --> RQ[Retry Queue<br/>x-message-ttl<br/>x-dead-letter-exchange → EX]\n DlxCfg --> PL[Parking Lot Queue]\n\n TM --> Cache[(In-Memory Cache)]\n Cache --> Reconnect[Re-declare on Reconnection]\n Reconnect --> Q\n Reconnect --> DLX\n Reconnect --> RQ\n Reconnect --> PL\n\n P[Producer] --> CP[Channel Pool]\n CP --> P\n CP --> Ch[AMQP Channel]\n P --> EX[Exchange<br/>type: direct/topic/fanout]\n EX --> Q\n\n C[Consumer] --> Q\n C --> Acknowledge[Ack/Nack/Reject]\n Acknowledge --> Q\n Acknowledge --> DLX\n\n DLX --> RQ\n DLX --> PL\n RQ --> EX\n\n[4] (source: samples/api-design-guidelines.md > API Design Guidelines > Performance & Efficiency (line 21, chunk 0))\nDon't Base64 encode large files. Use multipart/form-data for uploads and binary streaming with correct Content-Type headers for downloads.\nApply dual-layer limiting. Use Infrastructure-level limiting (e.g., Nginx, API Gateway) to stop DDoS, and Application-level limiting (e.g., Redis Token Bucket) for business rules per user/tenant.\nUse pagination (cursor-based preferred over offset-based for large datasets (document footnote)), filtering, and sorting on all collection endpoints.\nAll internal APIs must accept and use standard Tracing Headers (e.g., W3C traceparent or B3 headers (document footnote)) to ensure we can debug a request across microservices.\nFor batch/bulk operations, clarify whether it's an Atomic Transaction or allows 'Partial Success'. If partial success is allowed, the response structure must explicitly map individual IDs to their success/error status.\nFor long running operations do not block the HTTP request. Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks.\n\n\n\nQuestion: I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Manual acknowledgement (autoAck: false) [1]. Messages can be lost if the consumer crashes before processing when using auto acknowledgement (autoAck: true) [2].",
+        "first_token_ms": 708.164,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1299.078
+      },
+      "citation_checks": {
+        "used": [
+          1,
+          2
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": false,
+        "expected_evidence_cited": false
+      }
+    },
+    {
+      "id": "notes-09",
+      "kind": "answerable",
+      "query": "We poll updated_at to sync a search index. Why do deleted rows stay in the index?",
+      "turn": {
+        "operation_id": "op-ecff8060f7031fd6d4c26f38",
+        "query": "We poll updated_at to sync a search index. Why do deleted rows stay in the index?",
+        "session_id": "183056c6-b622-4ef1-90c7-21aa4c85fca8",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "B. Query-Based / Polling-Based CDC (Legacy/Fallback)",
+            "line_start": 181,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "The application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles."
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "ETA vs. Real-Time Analytics: Decoupled",
+            "line_start": 185,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.6666667,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "B. Real-time analytics / surge pricing (asynchronous):\nAnalytics is outside the matching request-response loop.\nFlink and Pinot consume raw location and search pings directly from Kafka in the background.\nStream 1: Driver location updates → calculate available supply per H3 cell.\nStream 2: Rider app opens/searches → calculate demand per H3 cell.\nFlink computes the surge multiplier (e.g., 1.4x) and writes it to a cache. DISCO reads the cached rate without waiting for analytics.\n\n| Action | Protocol / Tech | Sync or Async? | |--------|----------------|----------------| | Driver Ingestion | WebSocket → API Gateway → Kafka → Redis | Async (event-driven) | | Rider Search / Match | HTTPS → DISCO → Direct Redis Query | Sync (sub-second RPC) | | ETA Calculation | DISCO → ETA Engine (gRPC) | Sync (inline during match) | | Surge / Analytics | Kafka Stream → Flink → Surge Cache | Async (out-of-band) |"
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "The 3 Core Storage Layers of a Database",
+            "line_start": 42,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "Step-by-step: What happens when you save data (INSERT)\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk, because writing to structured table files (B-Trees, data pages) requires slow random disk I/O. Instead, imagine you run INSERT INTO users (id, name) VALUES (1, 'Alex'):\nStep 1 (RAM): The database writes the row into its in-memory Buffer Pool in RAM."
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Live Chat at Scale",
+            "line_start": 206,
+            "chunk_index": 3,
+            "retrieval_rank": 4,
+            "score": 0.43333334,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "rites full (unsampled) chat logs for Live Chat Replay on VODs. |\nMost poll requests are served from L1/L2, avoiding primary database reads."
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "How CDC Tracks Its Position (LSN / Offsets)",
+            "line_start": 173,
+            "chunk_index": 3,
+            "retrieval_rank": 5,
+            "score": 0.4047619,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "Why Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback)",
+            "line_start": 181,
+            "chunk_index": 0,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "The application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous):",
+            "line_start": 185,
+            "chunk_index": 1,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "B. Real-time analytics / surge pricing (asynchronous):\nAnalytics is outside the matching request-response loop.\nFlink and Pinot consume raw location and search pings directly from Kafka in the background.\nStream 1: Driver location updates → calculate available supply per H3 cell.\nStream 2: Rider app opens/searches → calculate demand per H3 cell.\nFlink computes the surge multiplier (e.g., 1.4x) and writes it to a cache. DISCO reads the cached rate without waiting for analytics.\n\n| Action | Protocol / Tech | Sync or Async? |\n| -------- | ---------------- | ---------------- |\n| Driver Ingestion | WebSocket → API Gateway → Kafka → Redis | Async (event-driven) |\n| Rider Search / Match | HTTPS → DISCO → Direct Redis Query | Sync (sub-second RPC) |\n| ETA Calculation | DISCO → ETA Engine (gRPC) | Sync (inline during match) |\n| Surge / Analytics | Kafka Stream → Flink → Surge Cache | Async (out-of-band) |"
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT)",
+            "line_start": 42,
+            "chunk_index": 0,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "Step-by-step: What happens when you save data (INSERT)\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk, because writing to structured table files (B-Trees, data pages) requires slow random disk I/O. Instead, imagine you run INSERT INTO users (id, name) VALUES (1, 'Alex'):\nStep 1 (RAM): The database writes the row into its in-memory Buffer Pool in RAM."
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Comments, Community & Notifications > Live Chat at Scale > Read path: adaptive HTTP batch polling.",
+            "line_start": 206,
+            "chunk_index": 3,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "rites full (unsampled) chat logs for Live Chat Replay on VODs. |\nMost poll requests are served from L1/L2, avoiding primary database reads."
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+            "line_start": 173,
+            "chunk_index": 3,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "Why Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 253,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "2755ea11-66f3-4891-a86b-1ec9b60fdff3",
+        "stream_url": "/api/v1/turns/2755ea11-66f3-4891-a86b-1ec9b60fdff3/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > B. Query-Based / Polling-Based CDC (Legacy/Fallback) (line 181, chunk 0))\nThe application or an ETL tool periodically queries the source table (e.g., every 5 minutes):\nSELECT * FROM orders WHERE updated_at > :last_poll_time;\n\nDrawbacks:\nMisses deleted rows (a deleted row no longer exists to be queried).\nHigh query load/CPU spikes on the primary database.\nLoses intermediate updates between polling cycles.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > ETA vs. Real-Time Analytics: Decoupled > B. Real-time analytics / surge pricing (asynchronous): (line 185, chunk 1))\nB. Real-time analytics / surge pricing (asynchronous):\nAnalytics is outside the matching request-response loop.\nFlink and Pinot consume raw location and search pings directly from Kafka in the background.\nStream 1: Driver location updates → calculate available supply per H3 cell.\nStream 2: Rider app opens/searches → calculate demand per H3 cell.\nFlink computes the surge multiplier (e.g., 1.4x) and writes it to a cache. DISCO reads the cached rate without waiting for analytics.\n\n| Action | Protocol / Tech | Sync or Async? |\n| -------- | ---------------- | ---------------- |\n| Driver Ingestion | WebSocket → API Gateway → Kafka → Redis | Async (event-driven) |\n| Rider Search / Match | HTTPS → DISCO → Direct Redis Query | Sync (sub-second RPC) |\n| ETA Calculation | DISCO → ETA Engine (gRPC) | Sync (inline during match) |\n| Surge / Analytics | Kafka Stream → Flink → Surge Cache | Async (out-of-band) |\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > The 3 Core Storage Layers of a Database > Step-by-step: What happens when you save data (INSERT) (line 42, chunk 0))\nStep-by-step: What happens when you save data (INSERT)\nWhen you run an INSERT, UPDATE, or DELETE query, the database engine does not immediately write the changes to the main database tables on disk, because writing to structured table files (B-Trees, data pages) requires slow random disk I/O. Instead, imagine you run INSERT INTO users (id, name) VALUES (1, 'Alex'):\nStep 1 (RAM): The database writes the row into its in-memory Buffer Pool in RAM.\n\n[4] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Comments, Community & Notifications > Live Chat at Scale > Read path: adaptive HTTP batch polling. (line 206, chunk 3))\nrites full (unsampled) chat logs for Live Chat Replay on VODs. |\nMost poll requests are served from L1/L2, avoiding primary database reads.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 173, chunk 3))\nWhy Log-Based CDC Wins:\nZero Performance Overhead on Tables: It does not run SELECT queries on the database tables. It reads log files directly from disk/RAM.\nCaptures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event.\nCaptures Intermediate States: If a row is updated three times in 1 second, Log-Based CDC streams all 3 individual change events.\n\n\n\nQuestion: We poll updated_at to sync a search index. Why do deleted rows stay in the index?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1] Log-Based CDC Wins: Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event. [5]",
+        "first_token_ms": 820.009,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1768.814
+      },
+      "citation_checks": {
+        "used": [
+          1,
+          5
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "notes-14",
+      "kind": "answerable",
+      "query": "Should an empty search result and a missing resource ID both return 404? What do the API notes say?",
+      "turn": {
+        "operation_id": "op-26eb3e7dc5e15db0db1fe89c",
+        "query": "Should an empty search result and a missing resource ID both return 404? What do the API notes say?",
+        "session_id": "84bf5770-9eb4-4f21-a7ea-7ec881cb4116",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "HTTP Semantics & Status Codes",
+            "line_start": 36,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details[^5]) across internal APIs so clients can parse code, message, and details uniformly."
+          },
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.8333334,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "This document defines mandatory API design conventions for all internal services. Every endpoint must conform to these rules unless an exemption is approved. Intended for backend engineers building or maintaining HTTP APIs."
+          },
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "References",
+            "line_start": 57,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.6666667,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "[^1]: Stripe API Reference: Idempotent Requests [^2]: Stripe API Reference: Pagination [^3]: Google Cloud API Design Guide [^4]: Microsoft REST API Guidelines [^5]: RFC 7807 Problem Details for HTTP APIs [^6]: W3C Trace Context [^7]: Go singleflight package [^8]: Zapier Engineering: Request Coalescing [^9]: AWS: Timeouts, Retries, and Backoff with Jitter [^10]: Stripe: Designing APIs for Humans [^11]: GitHub API v3: Conditional Requests"
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "How CDC Tracks Its Position (LSN / Offsets)",
+            "line_start": 117,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "1. The Pointer: What is an LSN / Log Position?\nEvery single byte written to a database's Write-Ahead Log is given an incremental 64-bit integer address. Think of the WAL file as a continuous tape marked with line numbers:\nflowchart TD\n  L100[\"LSN 100: INSERT INTO users (id=1, name='Alex')\"]\n  L250[\"LSN 250: UPDATE users SET name='Alexander' WHERE id=1\"]\n  L410[\"LSN 410: DELETE FROM users WHERE id=2 (CDC processed this)\"]\n  L580[\"LSN 580: INSERT INTO orders (id=99, user_id=1)\"]\n  L100 --> L250 --> L410 --> L580\n\nWhen the CDC engine (e.g., Debezium) reads the database log, it parses LSN 410, converts it into a JSON event, and sends it to Kafka."
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Data Model",
+            "line_start": 250,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.30555555,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Redis Structures:\nDriver State (Hash): driver:state:{driver_id} → { status, lat, lng, s2_cell_id, last_ping }\nSpatial Index (Sorted Set): s2:cell:{s2_cell_id} → {driver_id} (only AVAILABLE drivers)"
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines > HTTP Semantics & Status Codes",
+            "line_start": 36,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Collections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines",
+            "line_start": 11,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "This document defines mandatory API design conventions for all internal services. Every endpoint must conform to these rules unless an exemption is approved. Intended for backend engineers building or maintaining HTTP APIs."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines > References",
+            "line_start": 57,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": " (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests"
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 1. The Pointer: What is an LSN / Log Position?",
+            "line_start": 117,
+            "chunk_index": 0,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "1. The Pointer: What is an LSN / Log Position?\nEvery single byte written to a database's Write-Ahead Log is given an incremental 64-bit integer address. Think of the WAL file as a continuous tape marked with line numbers:\nflowchart TD\n  L100[\"LSN 100: INSERT INTO users (id=1, name='Alex')\"]\n  L250[\"LSN 250: UPDATE users SET name='Alexander' WHERE id=1\"]\n  L410[\"LSN 410: DELETE FROM users WHERE id=2 (CDC processed this)\"]\n  L580[\"LSN 580: INSERT INTO orders (id=99, user_id=1)\"]\n  L100 --> L250 --> L410 --> L580\n\nWhen the CDC engine (e.g., Debezium) reads the database log, it parses LSN 410, converts it into a JSON event, and sends it to Kafka."
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Data Model > Redis Structures:",
+            "line_start": 250,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Redis Structures:\nDriver State (Hash): driver:state:{driver_id} → { status, lat, lng, s2_cell_id, last_ping }\nSpatial Index (Sorted Set): s2:cell:{s2_cell_id} → {driver_id} (only AVAILABLE drivers)"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 262,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "f47c8f66-c677-458d-a8f3-09daae082186",
+        "stream_url": "/api/v1/turns/f47c8f66-c677-458d-a8f3-09daae082186/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > HTTP Semantics & Status Codes (line 36, chunk 0))\nCollections: A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list [].\nResources: A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found.\nConsistent Errors: Standardize error responses (e.g., RFC 7807 Problem Details (document footnote)) across internal APIs so clients can parse code, message, and details uniformly.\n\n[2] (source: samples/api-design-guidelines.md > API Design Guidelines (line 11, chunk 0))\nThis document defines mandatory API design conventions for all internal services. Every endpoint must conform to these rules unless an exemption is approved. Intended for backend engineers building or maintaining HTTP APIs.\n\n[3] (source: samples/api-design-guidelines.md > API Design Guidelines > References (line 57, chunk 0))\n (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 1. The Pointer: What is an LSN / Log Position? (line 117, chunk 0))\n1. The Pointer: What is an LSN / Log Position?\nEvery single byte written to a database's Write-Ahead Log is given an incremental 64-bit integer address. Think of the WAL file as a continuous tape marked with line numbers:\nflowchart TD\n  L100[\"LSN 100: INSERT INTO users (id=1, name='Alex')\"]\n  L250[\"LSN 250: UPDATE users SET name='Alexander' WHERE id=1\"]\n  L410[\"LSN 410: DELETE FROM users WHERE id=2 (CDC processed this)\"]\n  L580[\"LSN 580: INSERT INTO orders (id=99, user_id=1)\"]\n  L100 --> L250 --> L410 --> L580\n\nWhen the CDC engine (e.g., Debezium) reads the database log, it parses LSN 410, converts it into a JSON event, and sends it to Kafka.\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Data Model > Redis Structures: (line 250, chunk 0))\nRedis Structures:\nDriver State (Hash): driver:state:{driver_id} → { status, lat, lng, s2_cell_id, last_ping }\nSpatial Index (Sorted Set): s2:cell:{s2_cell_id} → {driver_id} (only AVAILABLE drivers)\n\n\n\nQuestion: Should an empty search result and a missing resource ID both return 404? What do the API notes say?\n\nAnswer:",
+        "streaming": true,
+        "answer": "No, an empty search result and a missing resource ID do not both return 404. [1] Collections: A search that finds nothing is a success and returns 200 OK with an empty list []. Resources: A request for a specific entity that is missing must return 404 Not Found.",
+        "first_token_ms": 762.834,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1918.466
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": false,
+        "expected_evidence_cited": false
+      }
+    },
+    {
+      "id": "notes-23",
+      "kind": "answerable",
+      "query": "What are the DASH and HLS manifest file formats in our video design notes, and what do they index?",
+      "turn": {
+        "operation_id": "op-15c09c1751dda198e387af9a",
+        "query": "What are the DASH and HLS manifest file formats in our video design notes, and what do they index?",
+        "session_id": "a1e22287-f7ce-4895-81ef-6d9d0350e839",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Why separate audio and video, and what is ABR packaging?",
+            "line_start": 296,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Why separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk."
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Video Ingestion & DAG Transcoding",
+            "line_start": 26,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.6666667,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "When a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2–5 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance."
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Live Streaming Engine (YouTube Live)",
+            "line_start": 63,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.53333336,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     │ RTMP/WebRTC\n     v\nLive ingress → Transcoder → LL-DASH → CDN → Viewer (1–3 s)\n                   │\n                   └─→ DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging?",
+            "line_start": 296,
+            "chunk_index": 0,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Why separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding",
+            "line_start": 26,
+            "chunk_index": 1,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "When a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2–5 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live)",
+            "line_start": 63,
+            "chunk_index": 0,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     │ RTMP/WebRTC\n     v\nLive ingress → Transcoder → LL-DASH → CDN → Viewer (1–3 s)\n                   │\n                   └─→ DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind."
+          }
+        ],
+        "count": 3,
+        "elapsed_ms": 252,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "d6c810ab-b250-4cc2-8bb8-e0afc669e810",
+        "stream_url": "/api/v1/turns/d6c810ab-b250-4cc2-8bb8-e0afc669e810/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Deep Dives > Why separate audio and video, and what is ABR packaging? (line 296, chunk 0))\nWhy separate audio and video? If bandwidth drops, the player can switch video quality while keeping one continuous audio track. A combined file would make that switch harder.\nWhat is ABR packaging? It does not merge chunks into one video. It creates a manifest (.mpd for MPEG-DASH or .m3u8 for HLS) that indexes the encoded audio and video chunks. The manifest contains:\nThe web addresses (URLs) of every audio chunk.\nThe web addresses of every video chunk broken down by resolution and codec.\nThe exact timestamp alignment for every chunk.\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Video Ingestion & DAG Transcoding (line 26, chunk 1))\nWhen a creator uploads a video, YouTube processes it through an asynchronous Directed Acyclic Graph (DAG) instead of one large conversion job:\nChunking: The upload service splits the video into 2–5 second GOP (Group of Pictures) chunks for parallel processing.\nTranscoding DAG: Workers encode chunks into AV1, VP9, and H.264/AVC at multiple resolutions and frame rates.\nParallel workflows: Other DAG nodes create thumbnails, extract audio, generate captions, and scan audio against Content ID.\nAdaptive bitrate (ABR) packaging: Encoded chunks are indexed in MPEG-DASH and HLS manifests (.mpd or .m3u8). The client selects quality based on network bandwidth and device performance.\n\n[3] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) (line 63, chunk 0))\nLive streaming cannot use the standard VOD DAG because encoding must happen in real time:\nBroadcaster\n     │ RTMP/WebRTC\n     v\nLive ingress → Transcoder → LL-DASH → CDN → Viewer (1–3 s)\n                   │\n                   └─→ DVR store\n\nIngress protocols: Broadcasters push raw streams using RTMP, WebRTC, SRT, or DASH-PUT.\nLow-Latency DASH (LL-DASH) and CMAF: Transcoders send sub-second chunks to the edge as they are generated.\nDVR engine: Writes live segments to Colossus so viewers can rewind.\n\n\n\nQuestion: What are the DASH and HLS manifest file formats in our video design notes, and what do they index?\n\nAnswer:",
+        "streaming": true,
+        "answer": "The DASH manifest (.mpd) indexes the web addresses (URLs) of every audio chunk and the web addresses of every video chunk broken down by resolution and codec [1]. The HLS manifest (.m3u8) indexes the same information [1].",
+        "first_token_ms": 675.049,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1576.489
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": false
+      }
+    },
+    {
+      "id": "notes-25",
+      "kind": "answerable",
+      "query": "Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?",
+      "turn": {
+        "operation_id": "op-0cc11528accb5ed593a3bab8",
+        "query": "Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?",
+        "session_id": "b67aa205-fb65-406b-87c4-9d4082ed9d7a",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Three Core Architectural Divergences",
+            "line_start": 102,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "2. CDN Mechanics: Pull vs. Push/Chunked Streaming.\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\nVOD:  full 4 s chunks → Origin → CDN edge → Viewer\nLive: 100 ms chunks    → CDN edge → Viewer"
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Global Content Delivery (CDN & Edge Strategy)",
+            "line_start": 47,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.6666667,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Video is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone."
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Tiered Storage: Hot, Warm, and Cold",
+            "line_start": 482,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Keeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis."
+          },
+          {
+            "file_path": "samples/youtube-architecture.md",
+            "header": "Security, DRM & Asset Protection",
+            "line_start": 216,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.4761905,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Widevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME). Encrypted segments sit on the CDN; the browser must fetch a hardware-backed decryption key from Google's License Server.\nSigned CDN URLs: CDN media URLs carry short-lived cryptographic tokens bound to the user's IP address and session ID to prevent unauthorized hotlinking or scraping."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming.",
+            "line_start": 102,
+            "chunk_index": 0,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "2. CDN Mechanics: Pull vs. Push/Chunked Streaming.\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\nVOD:  full 4 s chunks → Origin → CDN edge → Viewer\nLive: 100 ms chunks    → CDN edge → Viewer"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy)",
+            "line_start": 47,
+            "chunk_index": 0,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Video is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold",
+            "line_start": 482,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Keeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis."
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/youtube-architecture.md",
+            "header": "YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection",
+            "line_start": 216,
+            "chunk_index": 0,
+            "source_sha": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+            "text": "Widevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME). Encrypted segments sit on the CDN; the browser must fetch a hardware-backed decryption key from Google's License Server.\nSigned CDN URLs: CDN media URLs carry short-lived cryptographic tokens bound to the user's IP address and session ID to prevent unauthorized hotlinking or scraping."
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 263,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "4663d8d8-cf12-4ce6-a2eb-fda55dfdce15",
+        "stream_url": "/api/v1/turns/4663d8d8-cf12-4ce6-a2eb-fda55dfdce15/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Live Streaming Engine (YouTube Live) > Three Core Architectural Divergences > 2. CDN Mechanics: Pull vs. Push/Chunked Streaming. (line 102, chunk 0))\n2. CDN Mechanics: Pull vs. Push/Chunked Streaming.\nVOD (pull): The player requests a 4-second chunk (chunk_10.m4s); the edge fetches it from origin on a cache miss.\nLive (push / chunked transfer): A 2-second chunk is split into ~100 ms sub-chunks and streamed to the CDN while it is being recorded.\n\nVOD:  full 4 s chunks → Origin → CDN edge → Viewer\nLive: 100 ms chunks    → CDN edge → Viewer\n\n[2] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Global Content Delivery (CDN & Edge Strategy) (line 47, chunk 0))\nVideo is delivered through Google Global Cache (GGC), with edge servers inside ISP networks to reduce buffering.\nHot content: Cached on NVMe/SSD edge servers near the user.\nWarm content: Kept in regional Google data-center caches.\nCold content: Read from central blob storage over Google's backbone.\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold (line 482, chunk 0))\nKeeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis.\n\n[4] (source: samples/youtube-architecture.md > YouTube-Style Video Ingestion and Delivery Architecture > Security, DRM & Asset Protection (line 216, chunk 0))\nWidevine DRM: Premium content (e.g., YouTube Movies/Rentals) uses AES-128 encryption via Encrypted Media Extensions (EME). Encrypted segments sit on the CDN; the browser must fetch a hardware-backed decryption key from Google's License Server.\nSigned CDN URLs: CDN media URLs carry short-lived cryptographic tokens bound to the user's IP address and session ID to prevent unauthorized hotlinking or scraping.\n\n\n\nQuestion: Where should hot, warm, and rarely watched videos sit in the conceptual CDN design?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+        "first_token_ms": 626.113,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1450.356
+      },
+      "citation_checks": {
+        "used": [
+          2
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "notes-26",
+      "kind": "answerable",
+      "query": "In the ride-service design notes, where is availability favored and where do we need stricter consistency?",
+      "turn": {
+        "operation_id": "op-45c1d3318cf2f3ef3e3f48f6",
+        "query": "In the ride-service design notes, where is availability favored and where do we need stricter consistency?",
+        "session_id": "c62a09cf-bbf4-4490-9c29-5bb7240321be",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch",
+            "line_start": 15,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.5833334,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "This conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\nIt uses Uber's publicly discussed terminology as a reference point, but the diagrams and capacity choices below are an engineering model rather than an official description of Uber's current implementation.\nThe sections below cover the main parts."
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "How the AP vs. CP Trade-Off Shapes the System",
+            "line_start": 100,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.5555556,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "The platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow | |--------|-------------|----------------|----------------|------| | Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | → feeds into → | | Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) | |"
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Requirements & Scale Expectations",
+            "line_start": 134,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.55,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Non-functional:\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\nHigh throughput: Handle 1,000,000+ active drivers sending pings continuously.\nConsistency: Assign each driver to at most one rider at a time.\nHigh availability: 99.99% uptime without a single point of failure."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch",
+            "line_start": 15,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "This conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\nIt uses Uber's publicly discussed terminology as a reference point, but the diagrams and capacity choices below are an engineering model rather than an official description of Uber's current implementation.\nThe sections below cover the main parts."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System",
+            "line_start": 100,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "The platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow |\n| -------- | ------------- | ---------------- | ---------------- | ------ |\n| Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | → feeds into → |\n| Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) |  |"
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional:",
+            "line_start": 134,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Non-functional:\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\nHigh throughput: Handle 1,000,000+ active drivers sending pings continuously.\nConsistency: Assign each driver to at most one rider at a time.\nHigh availability: 99.99% uptime without a single point of failure."
+          }
+        ],
+        "count": 3,
+        "elapsed_ms": 260,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "a76c97de-cf2e-4589-a17a-ce9ea1c2c978",
+        "stream_url": "/api/v1/turns/a76c97de-cf2e-4589-a17a-ce9ea1c2c978/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch (line 15, chunk 0))\nThis conceptual ride-hailing design matches driver supply with rider demand using geospatial indexing, low-latency dispatch, and storage paths separated by access pattern.\nIt uses Uber's publicly discussed terminology as a reference point, but the diagrams and capacity choices below are an engineering model rather than an official description of Uber's current implementation.\nThe sections below cover the main parts.\n\n[2] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Core Design Drivers: Ratio, CQRS & CAP Trade-Offs > How the AP vs. CP Trade-Off Shapes the System (line 100, chunk 0))\nThe platform uses different CAP trade-offs for different sub-domains:\n| Engine | Requirement | Trade-off Choice | Storage Engine | Flow |\n| -------- | ------------- | ---------------- | ---------------- | ------ |\n| Location Tracking Engine | High Availability & Sub-second Latency | AP Eventual Consistency | Redis Spatial Cluster | → feeds into → |\n| Matching & Trip State Engine | Zero Double-Bookings, Financial Integrity | CP Strong Consistency | Distributed RDBMS (CockroachDB / Postgres) |  |\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Production System Design: Driver Tracking & Matching > Requirements & Scale Expectations > Non-functional: (line 134, chunk 0))\nNon-functional:\nLow latency: Location ingestion < 50ms; matching decision < 1 second.\nHigh throughput: Handle 1,000,000+ active drivers sending pings continuously.\nConsistency: Assign each driver to at most one rider at a time.\nHigh availability: 99.99% uptime without a single point of failure.\n\n\n\nQuestion: In the ride-service design notes, where is availability favored and where do we need stricter consistency?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Availability is favored in the Location Tracking Engine [2], which uses AP Eventual Consistency with Redis Spatial Cluster, and stricter consistency is needed in the Matching & Trip State Engine [2], which uses CP Strong Consistency with a Distributed RDBMS (CockroachDB / Postgres).",
+        "first_token_ms": 577.27,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1514.045
+      },
+      "citation_checks": {
+        "used": [
+          2
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": false,
+        "expected_evidence_cited": false
+      }
+    },
+    {
+      "id": "notes-27",
+      "kind": "answerable",
+      "query": "A producer is sending work faster than consumers can handle. What is backpressure supposed to do?",
+      "turn": {
+        "operation_id": "op-5c7eb5060bf0fe4def9f1d9b",
+        "query": "A producer is sending work faster than consumers can handle. What is backpressure supposed to do?",
+        "session_id": "fdadf6e0-7bda-4f65-8236-10b920a58e39",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/system-design-core.md",
+            "header": "System Design Core",
+            "line_start": 26,
+            "chunk_index": 3,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+            "text": "rebuilds state or falls back to durable storage.\nSource of truth\n\nPush and pull event\nat-least-once vs exactly-once delivery\nBackpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work.\nReservation or hold with expiry: protect scarce inventory\nTransactional outbox\nChange Data Capture (CDC)"
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Producer",
+            "line_start": 125,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.54,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Producers are responsible for publishing messages to an exchange. The library provides both single and batched publish operations."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Design",
+            "line_start": 167,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.38333336,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Borrow / Return\nA producer borrows a channel, uses it for one or more publish operations, and returns it to the pool.\nThe pool tracks which channels are in use to prevent concurrent access (an AMQP channel is not thread-safe)."
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "How CDC Tracks Its Position (LSN / Offsets)",
+            "line_start": 164,
+            "chunk_index": 1,
+            "retrieval_rank": 4,
+            "score": 0.3809524,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Publisher Confirms",
+            "line_start": 151,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.25263157,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Without Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing → message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length → message dead-lettered or dropped.\nBroker crash before fsync → durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/system-design-core.md",
+            "header": "System Design Core",
+            "line_start": 26,
+            "chunk_index": 3,
+            "source_sha": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+            "text": "rebuilds state or falls back to durable storage.\nSource of truth\n\nPush and pull event\nat-least-once vs exactly-once delivery\nBackpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work.\nReservation or hold with expiry: protect scarce inventory\nTransactional outbox\nChange Data Capture (CDC)"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Producer",
+            "line_start": 125,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Producers are responsible for publishing messages to an exchange. The library provides both single and batched publish operations."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Producer > Channel Pool > Design > Borrow / Return",
+            "line_start": 167,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Borrow / Return\nA producer borrows a channel, uses it for one or more publish operations, and returns it to the pool.\nThe pool tracks which channels are in use to prevent concurrent access (an AMQP channel is not thread-safe)."
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+            "line_start": 164,
+            "chunk_index": 1,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Producer > Publisher Confirms > Without Publisher Confirms",
+            "line_start": 151,
+            "chunk_index": 1,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Without Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing → message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length → message dead-lettered or dropped.\nBroker crash before fsync → durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 245,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "328d2774-f684-4687-85f8-1ab5af46473b",
+        "stream_url": "/api/v1/turns/328d2774-f684-4687-85f8-1ab5af46473b/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/system-design-core.md > System Design Core (line 26, chunk 3))\nrebuilds state or falls back to durable storage.\nSource of truth\n\nPush and pull event\nat-least-once vs exactly-once delivery\nBackpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work.\nReservation or hold with expiry: protect scarce inventory\nTransactional outbox\nChange Data Capture (CDC)\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Producer (line 125, chunk 0))\nProducers are responsible for publishing messages to an exchange. The library provides both single and batched publish operations.\n\n[3] (source: samples/rabbitmq.md > RabbitMQ > Producer > Channel Pool > Design > Borrow / Return (line 167, chunk 0))\nBorrow / Return\nA producer borrows a channel, uses it for one or more publish operations, and returns it to the pool.\nThe pool tracks which channels are in use to prevent concurrent access (an AMQP channel is not thread-safe).\n\n[4] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 164, chunk 1))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n[5] (source: samples/rabbitmq.md > RabbitMQ > Producer > Publisher Confirms > Without Publisher Confirms (line 151, chunk 1))\nWithout Publisher Confirms\nbasic.publish returns as soon as the TCP stack accepts the data. The broker may later fail to route the message (e.g., exchange does not exist, queue is full, disk write error after memory alarm).\nLoss scenarios include:\nTarget exchange missing → message silently dropped unless mandatory flag is used.\nQueue overflow with x-max-length → message dead-lettered or dropped.\nBroker crash before fsync → durable messages may be lost.\n\nWith confirms, the producer knows exactly when the broker has accepted responsibility for the message.\n\n\n\nQuestion: A producer is sending work faster than consumers can handle. What is backpressure supposed to do?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [1].",
+        "first_token_ms": 642.461,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 940.511
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "notes-29",
+      "kind": "answerable",
+      "query": "Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?",
+      "turn": {
+        "operation_id": "op-dc25daaf9b51975c55fec971",
+        "query": "Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?",
+        "session_id": "b0623839-409e-4e84-a85b-036adf217159",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.8333334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "file_path": "samples/calculus.md",
+            "header": "Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.75,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 27,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.5833334,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Historical Data Storage & Database Scaling",
+            "line_start": 434,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.5,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Historical trip storage differs from live driver tracking. Live tracking needs low latency and temporary memory; historical data needs durable, scalable storage and high write throughput.\nUber built Schemaless, a distributed datastore on MySQL, with a Hadoop/Data Lake tier for long-term analysis."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Secant Method > Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Secant Method",
+            "line_start": 5,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "The secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/calculus.md",
+            "header": "Calculus Derivatives and Integrals > Trigonometric Derivatives",
+            "line_start": 19,
+            "chunk_index": 0,
+            "source_sha": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+            "text": "d/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)"
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Newton-Raphson Method > Properties",
+            "line_start": 27,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Quadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor"
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling",
+            "line_start": 434,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Historical trip storage differs from live driver tracking. Live tracking needs low latency and temporary memory; historical data needs durable, scalable storage and high write throughput.\nUber built Schemaless, a distributed datastore on MySQL, with a Hadoop/Data Lake tier for long-term analysis."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 265,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "ba8356bc-ae7f-43a6-b1d8-be70e0a43bb6",
+        "stream_url": "/api/v1/turns/ba8356bc-ae7f-43a6-b1d8-be70e0a43bb6/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Secant Method (line 5, chunk 0))\nThe secant method is a root-finding algorithm that uses a succession of roots of secant lines to approximate a root of a function.\n\n[3] (source: samples/calculus.md > Calculus Derivatives and Integrals > Trigonometric Derivatives (line 19, chunk 0))\nd/dx sin(x) = cos(x)\nd/dx cos(x) = -sin(x)\nd/dx tan(x) = sec²(x)\nd/dx sec(x) = sec(x)tan(x)\nd/dx csc(x) = -csc(x)cot(x)\nd/dx cot(x) = -csc²(x)\n\n[4] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Properties (line 27, chunk 0))\nQuadratic convergence near the root\nRequires derivative computation\nMay diverge if initial guess is poor\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling (line 434, chunk 0))\nHistorical trip storage differs from live driver tracking. Live tracking needs low latency and temporary memory; historical data needs durable, scalable storage and high write throughput.\nUber built Schemaless, a distributed datastore on MySQL, with a Hadoop/Data Lake tier for long-term analysis.\n\n\n\nQuestion: Compare Newton-Raphson first and the secant method second for finding roots. Which needs derivatives?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Newton’s method requires derivative computation [4], while the secant method does not [1].",
+        "first_token_ms": 621.316,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 960.948
+      },
+      "citation_checks": {
+        "used": [
+          1,
+          4
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "followup-02",
+      "kind": "followup",
+      "query": "What happens if it crashes before sending the acknowledgement?",
+      "turn": {
+        "operation_id": "op-51205e7b154579af43a660f4",
+        "query": "What happens if it crashes before sending the acknowledgement?",
+        "rewritten_query": "What happens if it crashes before sending the acknowledgement?\nConversation subject: RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+        "session_id": "e22476e0-5a38-4ecd-841b-8ba67c9378cd",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Acknowledgement Modes",
+            "line_start": 105,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Acknowledgement Modes",
+            "line_start": 110,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 1,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "How CDC Tracks Its Position (LSN / Offsets)",
+            "line_start": 147,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.5,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here 💥\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411."
+          },
+          {
+            "file_path": "samples/rabbitmq.md",
+            "header": "Consumer",
+            "line_start": 102,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.45,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "The consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing."
+          },
+          {
+            "file_path": "samples/change-data-capture.md",
+            "header": "How CDC Tracks Its Position (LSN / Offsets)",
+            "line_start": 164,
+            "chunk_index": 1,
+            "retrieval_rank": 5,
+            "score": 0.30952382,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true)",
+            "line_start": 105,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Auto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)",
+            "line_start": 110,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "Manual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 3. What Happens During a Crash?",
+            "line_start": 147,
+            "chunk_index": 0,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here 💥\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411."
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/rabbitmq.md",
+            "header": "RabbitMQ > Consumer",
+            "line_start": 102,
+            "chunk_index": 0,
+            "source_sha": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+            "text": "The consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing."
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/change-data-capture.md",
+            "header": "Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data",
+            "line_start": 164,
+            "chunk_index": 1,
+            "source_sha": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+            "text": "4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 92,
+        "from_cache": false,
+        "answer": "The retrieved notes do not establish that conditional outcome for Manual acknowledgement (autoAck: false).",
+        "has_answer": true,
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Auto acknowledgement (autoAck: true) (line 105, chunk 0))\nAuto acknowledgement (autoAck: true) The broker considers a message delivered as soon as it sends it over the socket.\nFastest, no risk of forgetting to ack.\nMessages can be lost if the consumer crashes before processing.\n\n[2] (source: samples/rabbitmq.md > RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false) (line 110, chunk 0))\nManual acknowledgement (autoAck: false) The application must explicitly call channel.ack(deliveryTag) after successful processing.\nnack (or reject) can be used with requeue=true to return the message to the queue, or requeue=false to dead-letter it (if DLX is configured).\nGives full control over at-least-once delivery semantics.\n\n[3] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 3. What Happens During a Crash? (line 147, chunk 0))\n3. What Happens During a Crash?\nImagine the CDC engine crashes while processing LSN 580:\nflowchart LR\n  A[\"LSN 100\"] --> B[\"LSN 250\"] --> C[\"LSN 410 - Last committed offset\"] --> D[\"LSN 580 - Process crashes here 💥\"] --> E[\"LSN 720\"]\n  C -.->|\"Resume from LSN 411 on restart\"| D\n\nThe Recovery Sequence:\nRestart: The CDC process restarts (e.g., Kubernetes boots up a new container).\nFetch Offset: The CDC engine connects to Kafka and asks: \"Where did I leave off?\" Kafka responds: \"Your last saved position was LSN 410.\"\nRe-attach to DB: The CDC engine opens a connection to the PostgreSQL database and requests: \"Start streaming the WAL from LSN 410 onwards.\"\nResume: The database skips LSNs 100-410 and begins streaming immediately from LSN 411.\n\n[4] (source: samples/rabbitmq.md > RabbitMQ > Consumer (line 102, chunk 0))\nThe consumer module handles message delivery from a queue, with support for acknowledgement strategies and batch processing.\n\n[5] (source: samples/change-data-capture.md > Change Data Capture (CDC) > Core Mechanics: Log-Based CDC vs. Query-Based CDC > A. Log-Based CDC (Industry Standard) > How CDC Tracks Its Position (LSN / Offsets) > 4. Handling \"At-Least-Once\" Delivery & Duplicate Data (line 164, chunk 1))\n4. Handling \"At-Least-Once\" Delivery & Duplicate Data\nBecause committing the offset happens after sending the event to Kafka, a crash can occasionally lead to a scenario where LSN 580 was sent to Kafka, but the CDC engine crashed before updating its offset state to 580. When it recovers, it reads from LSN 410 again and re-sends LSN 580 to Kafka. This means CDC systems guarantee \"At-Least-Once\" event delivery, so downstream consumers (like your cache, search index, or microservices) must handle occasional duplicate events gracefully.\n\n\nPrior user question (reference context only): I want to avoid losing work when a RabbitMQ consumer crashes. Should I use automatic or manual acknowledgements?\nPrior answer (reference context only; verify claims against the document evidence): Manual acknowledgement (autoAck: false) . Messages can be lost if the consumer crashes before processing when using auto acknowledgement (autoAck: true) .\nSearch rewrite (reference resolution only): What happens if it crashes before sending the acknowledgement?\nConversation subject: RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)\nResolved conversation subject: RabbitMQ > Consumer > Acknowledgement Modes > Manual acknowledgement (autoAck: false)\nAnswer the current question for this subject. Evidence about another alternative does not establish this subject's behavior. If the evidence for this subject does not explain the requested event or condition, state that missing detail instead of inferring an outcome.\n\nQuestion: What happens if it crashes before sending the acknowledgement?\n\nAnswer:",
+        "streaming": false,
+        "first_token_ms": null,
+        "answer_delivery": "immediate",
+        "measured_latency_ms": 168.922
+      },
+      "citation_checks": {
+        "used": [],
+        "unmapped": [],
+        "expected_evidence_admitted": false,
+        "expected_evidence_cited": false
+      }
+    },
+    {
+      "id": "sin-45-degrees",
+      "kind": "answerable",
+      "query": "value of sine at 45 degrees",
+      "turn": {
+        "operation_id": "op-6c36769e1b08b4b0b3069209",
+        "query": "value of sine at 45 degrees",
+        "session_id": "b4f652af-010f-4064-a1f7-e79c59a146da",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Key Angles",
+            "line_start": 45,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 0.8333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "| Degrees | Radians | sin | cos | tan | |---------|---------|-----|-----|-----| | 0°      | 0       | 0   | 1   | 0   | | 30°     | π/6     | 1/2 | √3/2| 1/√3| | 45°     | π/4     | √2/2| √2/2| 1   | | 60°     | π/3     | √3/2| 1/2 | √3  | | 90°     | π/2     | 1   | 0   | ∞   |"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.8333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.36666667,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          },
+          {
+            "file_path": "samples/business.md",
+            "header": "What changes, and how does it make money?",
+            "line_start": 150,
+            "chunk_index": 13,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+            "text": "Social commerce changes where purchases happen. Customers can discover, ask about, and buy products without leaving a messaging or social app. Business platforms provide catalogs, AI chatbots, and checkout links in chat. Sirclo (Indonesia), Omnichat (Hong Kong and Southeast Asia), and Shopline (Hong Kong and Taiwan) earn subscriptions and a share of social gross merchandise value (GMV), the total value of goods sold through the platform.\nA purchase can follow these steps:"
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Key Angles",
+            "line_start": 45,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "| Degrees | Radians | sin | cos | tan |\n| --------- | --------- | ----- | ----- | ----- |\n| 0° | 0 | 0 | 1 | 0 |\n| 30° | π/6 | 1/2 | √3/2 | 1/√3 |\n| 45° | π/4 | √2/2 | √2/2 | 1 |\n| 60° | π/3 | √3/2 | 1/2 | √3 |\n| 90° | π/2 | 1 | 0 | ∞ |"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Basic Functions > Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Reciprocal Functions > Cosecant (csc)",
+            "line_start": 23,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite"
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/business.md",
+            "header": "How Business Works > What changes, and how does it make money?",
+            "line_start": 150,
+            "chunk_index": 13,
+            "source_sha": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+            "text": "Social commerce changes where purchases happen. Customers can discover, ask about, and buy products without leaving a messaging or social app. Business platforms provide catalogs, AI chatbots, and checkout links in chat. Sirclo (Indonesia), Omnichat (Hong Kong and Southeast Asia), and Shopline (Hong Kong and Taiwan) earn subscriptions and a share of social gross merchandise value (GMV), the total value of goods sold through the platform.\nA purchase can follow these steps:"
+          }
+        ],
+        "count": 4,
+        "elapsed_ms": 243,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "19901e65-a677-4d92-b9e4-3726221ede18",
+        "stream_url": "/api/v1/turns/19901e65-a677-4d92-b9e4-3726221ede18/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/trig-functions.md > Trigonometric Functions > Key Angles (line 45, chunk 0))\n| Degrees | Radians | sin | cos | tan |\n| --------- | --------- | ----- | ----- | ----- |\n| 0° | 0 | 0 | 1 | 0 |\n| 30° | π/6 | 1/2 | √3/2 | 1/√3 |\n| 45° | π/4 | √2/2 | √2/2 | 1 |\n| 60° | π/3 | √3/2 | 1/2 | √3 |\n| 90° | π/2 | 1 | 0 | ∞ |\n\n[2] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Sine (sin) (line 6, chunk 0))\nThe sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse\n\n[3] (source: samples/trig-functions.md > Trigonometric Functions > Reciprocal Functions > Cosecant (csc) (line 23, chunk 0))\nThe cosecant is the reciprocal of sine.\nFormula: csc(θ) = 1 / sin(θ) = hypotenuse / opposite\n\n[4] (source: samples/business.md > How Business Works > What changes, and how does it make money? (line 150, chunk 13))\nSocial commerce changes where purchases happen. Customers can discover, ask about, and buy products without leaving a messaging or social app. Business platforms provide catalogs, AI chatbots, and checkout links in chat. Sirclo (Indonesia), Omnichat (Hong Kong and Southeast Asia), and Shopline (Hong Kong and Taiwan) earn subscriptions and a share of social gross merchandise value (GMV), the total value of goods sold through the platform.\nA purchase can follow these steps:\n\n\n\nQuestion: value of sine at 45 degrees\n\nAnswer:",
+        "streaming": true,
+        "answer": "√2/2 [1]",
+        "first_token_ms": 557.193,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 676.469
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "degrees-to-radians-30",
+      "kind": "answerable",
+      "query": "30 degrees expressed in radians",
+      "turn": {
+        "operation_id": "op-0c65e11688b0f103aa6d529c",
+        "query": "30 degrees expressed in radians",
+        "session_id": "03562f69-1ab2-4e52-a440-4f7d731f6f57",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Key Angles",
+            "line_start": 45,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "| Degrees | Radians | sin | cos | tan | |---------|---------|-----|-----|-----| | 0°      | 0       | 0   | 1   | 0   | | 30°     | π/6     | 1/2 | √3/2| 1/√3| | 45°     | π/4     | √2/2| √2/2| 1   | | 60°     | π/3     | √3/2| 1/2 | √3  | | 90°     | π/2     | 1   | 0   | ∞   |"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.33333334,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Tiered Storage: Hot, Warm, and Cold",
+            "line_start": 482,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.33333334,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Keeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis."
+          },
+          {
+            "file_path": "samples/knowledge-graph.md",
+            "header": "The Cost, Latency, Speed & Accuracy Trade-Off Matrix",
+            "line_start": 361,
+            "chunk_index": 2,
+            "retrieval_rank": 4,
+            "score": 0.25,
+            "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+            "text": "dates, monetary figures, stock tickers, strict canonical formats. | | Specialized Zero-Shot Models (GLiNER / GLiREL) | 10–50 ms | ~$0.01 (Cheap GPU) | High on standard entities; moderate on complex relations. | High | Bulk high-volume extraction across millions of web pages. | | Task Fine-Tuned Small Models (Llama-3-8B / Qwen-8B SFT) | 50–200 ms | ~$0.10–$0.30 | Very High on domain-specific extraction. | 98–99% | Repeatable extraction pipelines with predefined ontologies"
+          },
+          {
+            "file_path": "samples/trig-functions.md",
+            "header": "Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.25,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Key Angles",
+            "line_start": 45,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "| Degrees | Radians | sin | cos | tan |\n| --------- | --------- | ----- | ----- | ----- |\n| 0° | 0 | 0 | 1 | 0 |\n| 30° | π/6 | 1/2 | √3/2 | 1/√3 |\n| 45° | π/4 | √2/2 | √2/2 | 1 |\n| 60° | π/3 | √3/2 | 1/2 | √3 |\n| 90° | π/2 | 1 | 0 | ∞ |"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Basic Functions > Cosine (cos)",
+            "line_start": 11,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse"
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold",
+            "line_start": 482,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Keeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis."
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/knowledge-graph.md",
+            "header": "Knowledge Graph > The Cost, Latency, Speed & Accuracy Trade-Off Matrix",
+            "line_start": 361,
+            "chunk_index": 2,
+            "source_sha": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+            "text": "dates, monetary figures, stock tickers, strict canonical formats. | | Specialized Zero-Shot Models (GLiNER / GLiREL) | 10–50 ms | ~$0.01 (Cheap GPU) | High on standard entities; moderate on complex relations. | High | Bulk high-volume extraction across millions of web pages. | | Task Fine-Tuned Small Models (Llama-3-8B / Qwen-8B SFT) | 50–200 ms | ~$0.10–$0.30 | Very High on domain-specific extraction. | 98–99% | Repeatable extraction pipelines with predefined ontologies"
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/trig-functions.md",
+            "header": "Trigonometric Functions > Basic Functions > Sine (sin)",
+            "line_start": 6,
+            "chunk_index": 0,
+            "source_sha": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+            "text": "The sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse"
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 235,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "c695a09f-7d93-4651-96c2-053051d37461",
+        "stream_url": "/api/v1/turns/c695a09f-7d93-4651-96c2-053051d37461/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/trig-functions.md > Trigonometric Functions > Key Angles (line 45, chunk 0))\n| Degrees | Radians | sin | cos | tan |\n| --------- | --------- | ----- | ----- | ----- |\n| 0° | 0 | 0 | 1 | 0 |\n| 30° | π/6 | 1/2 | √3/2 | 1/√3 |\n| 45° | π/4 | √2/2 | √2/2 | 1 |\n| 60° | π/3 | √3/2 | 1/2 | √3 |\n| 90° | π/2 | 1 | 0 | ∞ |\n\n[2] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Cosine (cos) (line 11, chunk 0))\nThe cosine of an angle is the ratio of the length of the adjacent side to the length of the hypotenuse.\nFormula: cos(θ) = adjacent / hypotenuse\n\n[3] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Historical Data Storage & Database Scaling > Tiered Storage: Hot, Warm, and Cold (line 482, chunk 0))\nKeeping decades of history in high-speed transactional storage is expensive, so Uber uses tiers:\nHot (Schemaless / NVMe SSDs): Active and recent trips (0–30 days) for fast API reads.\nWarm (Cassandra / HBase): Older trips for occasional point lookups.\nCold (Hadoop HDFS, Parquet, Apache Iceberg): CDC events are written to columnar files for trends, model retraining, and fraud analysis.\n\n[4] (source: samples/knowledge-graph.md > Knowledge Graph > The Cost, Latency, Speed & Accuracy Trade-Off Matrix (line 361, chunk 2))\ndates, monetary figures, stock tickers, strict canonical formats. | | Specialized Zero-Shot Models (GLiNER / GLiREL) | 10–50 ms | ~$0.01 (Cheap GPU) | High on standard entities; moderate on complex relations. | High | Bulk high-volume extraction across millions of web pages. | | Task Fine-Tuned Small Models (Llama-3-8B / Qwen-8B SFT) | 50–200 ms | ~$0.10–$0.30 | Very High on domain-specific extraction. | 98–99% | Repeatable extraction pipelines with predefined ontologies\n\n[5] (source: samples/trig-functions.md > Trigonometric Functions > Basic Functions > Sine (sin) (line 6, chunk 0))\nThe sine of an angle is the ratio of the length of the opposite side to the length of the hypotenuse.\nFormula: sin(θ) = opposite / hypotenuse\n\n\n\nQuestion: 30 degrees expressed in radians\n\nAnswer:",
+        "streaming": true,
+        "answer": "π/6 [1]",
+        "first_token_ms": 554.054,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 658.802
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "root-method-speed-comparison",
+      "kind": "answerable",
+      "query": "which converges faster bisection or Newton's method",
+      "turn": {
+        "operation_id": "op-229db76ea3a98d23bf31967c",
+        "query": "which converges faster bisection or Newton's method",
+        "session_id": "1bc93712-1d12-4d99-b858-e7ede7546a7c",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "retrieval_rank": 2,
+            "score": 0.6666667,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "file_path": "samples/numerical-methods.md",
+            "header": "Formula",
+            "line_start": 24,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.45,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "x_{n+1} = x_n - f(x_n) / f'(x_n)"
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Secant Method > Properties",
+            "line_start": 17,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Converges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)"
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Bisection Method > Algorithm",
+            "line_start": 34,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "Choose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change"
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/numerical-methods.md",
+            "header": "Numerical Methods > Newton-Raphson Method > Formula",
+            "line_start": 24,
+            "chunk_index": 0,
+            "source_sha": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+            "text": "x_{n+1} = x_n - f(x_n) / f'(x_n)"
+          }
+        ],
+        "count": 3,
+        "elapsed_ms": 263,
+        "from_cache": false,
+        "answer": "Newton's method converges faster than bisection [1].",
+        "has_answer": true,
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/numerical-methods.md > Numerical Methods > Secant Method > Properties (line 17, chunk 0))\nConverges faster than bisection but slower than Newton's method\nDoes not require computing derivatives\nMay fail if f(x_n) ≈ f(x_{n-1}) (near-zero denominator)\n\n[2] (source: samples/numerical-methods.md > Numerical Methods > Bisection Method > Algorithm (line 34, chunk 0))\nChoose interval [a, b] where f(a) · f(b) < 0\nCompute midpoint c = (a + b) / 2\nIf f(c) = 0, root found\nOtherwise narrow interval to [a, c] or [c, b] based on sign change\n\n[3] (source: samples/numerical-methods.md > Numerical Methods > Newton-Raphson Method > Formula (line 24, chunk 0))\nx_{n+1} = x_n - f(x_n) / f'(x_n)\n\n\n\nQuestion: which converges faster bisection or Newton's method\n\nAnswer:",
+        "streaming": false,
+        "first_token_ms": null,
+        "answer_delivery": "immediate",
+        "measured_latency_ms": 263.963
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    },
+    {
+      "id": "api-coalescing",
+      "kind": "answerable",
+      "query": "How does request coalescing handle concurrent identical upstream requests?",
+      "turn": {
+        "operation_id": "op-9a8b9e2f862db243de523e20",
+        "query": "How does request coalescing handle concurrent identical upstream requests?",
+        "session_id": "1cafae27-fecd-461d-9288-a7b9f4d65ffe",
+        "top_k": 5,
+        "generate": true,
+        "results": [
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "Request Coalescing",
+            "line_start": 53,
+            "chunk_index": 0,
+            "retrieval_rank": 1,
+            "score": 1,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Use request coalescing to deduplicate concurrent identical requests to the same upstream[^8]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection. Go's golang.org/x/sync/singleflight[^7] implements this pattern."
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "Choose when writes update the cache",
+            "line_start": 137,
+            "chunk_index": 1,
+            "retrieval_rank": 2,
+            "score": 0.5833334,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "With a synchronous cache update, the application updates the database and cache as part of the request. Readers see the cache update sooner, but the two writes can disagree if one succeeds and the other fails. Redis and a separate database do not share an automatic transaction.\nWith an asynchronous update, the application queues work for a background worker to apply to the cache or source. This can shorten request handling, but readers may see old data until the worker catches up. The queue or event path must handle retries and duplicate messages, and the application must decide whether acknowledging the request before the update is durable is acceptable.\nCache-aside is another common choice: the application reads through Redis and fills the cache only after a miss. It avoids preloading the entire dataset, but requires a clear TTL and invalidation policy."
+          },
+          {
+            "file_path": "samples/cache.md",
+            "header": "Making operations safe",
+            "line_start": 97,
+            "chunk_index": 0,
+            "retrieval_rank": 3,
+            "score": 0.34285715,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "A single Redis command is processed without another command interleaving on that node. Commands such as INCR and conditional SET ... NX can handle common single-key updates directly.\nThe problem appears when an application performs a read, makes a decision, then sends a separate write. Another client can change the value between those requests:\nClient A                    Redis                    Client B\n   │── GET status ───────────►│\n   │◄─ AVAILABLE ─────────────│"
+          },
+          {
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "References",
+            "line_start": 57,
+            "chunk_index": 0,
+            "retrieval_rank": 4,
+            "score": 0.33333334,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "[^1]: Stripe API Reference: Idempotent Requests [^2]: Stripe API Reference: Pagination [^3]: Google Cloud API Design Guide [^4]: Microsoft REST API Guidelines [^5]: RFC 7807 Problem Details for HTTP APIs [^6]: W3C Trace Context [^7]: Go singleflight package [^8]: Zapier Engineering: Request Coalescing [^9]: AWS: Timeouts, Retries, and Backoff with Jitter [^10]: Stripe: Designing APIs for Humans [^11]: GitHub API v3: Conditional Requests"
+          },
+          {
+            "file_path": "samples/uber-architecture.md",
+            "header": "Financial ledger and double-entry bookkeeping (Gulfstream)",
+            "line_start": 659,
+            "chunk_index": 0,
+            "retrieval_rank": 5,
+            "score": 0.26666668,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Account scaling (batching and concurrency):\nA ledger can receive concurrent writes to shared accounts. Row locks can become a bottleneck.\nUber groups updates with a 250 ms User Account Batch Processing Engine:\nIncoming ledger requests\n          ↓\nBatch creator (Redis)\n          ↓\nBatch process service\n          ↓\nUser account store\n          ↓\nAsync audit service (UAC)\n\nBatching: Updates to one account are grouped into 250 ms windows.\nSingle read/write: The engine reads an account once, applies the updates in memory, and writes the result once.\nOptimistic locking: The update checks the account version and retries on conflict.\nAsynchronous audit logging: Kafka moves the User Account Changelog (UAC) off the request path."
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "retrieval_rank": 1,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines > Request Coalescing",
+            "line_start": 53,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": "Use request coalescing to deduplicate concurrent identical requests to the same upstream (document footnote). When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection. Go's golang.org/x/sync/singleflight (document footnote) implements this pattern."
+          },
+          {
+            "number": 2,
+            "retrieval_rank": 2,
+            "file_path": "samples/cache.md",
+            "header": "Redis: Internals, Deployment, Operations, and Patterns > Common cache patterns > Choose when writes update the cache",
+            "line_start": 137,
+            "chunk_index": 1,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "With a synchronous cache update, the application updates the database and cache as part of the request. Readers see the cache update sooner, but the two writes can disagree if one succeeds and the other fails. Redis and a separate database do not share an automatic transaction.\nWith an asynchronous update, the application queues work for a background worker to apply to the cache or source. This can shorten request handling, but readers may see old data until the worker catches up. The queue or event path must handle retries and duplicate messages, and the application must decide whether acknowledging the request before the update is durable is acceptable.\nCache-aside is another common choice: the application reads through Redis and fills the cache only after a miss. It avoids preloading the entire dataset, but requires a clear TTL and invalidation policy."
+          },
+          {
+            "number": 3,
+            "retrieval_rank": 3,
+            "file_path": "samples/cache.md",
+            "header": "Redis: Internals, Deployment, Operations, and Patterns > Making operations safe",
+            "line_start": 97,
+            "chunk_index": 0,
+            "source_sha": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+            "text": "A single Redis command is processed without another command interleaving on that node. Commands such as INCR and conditional SET ... NX can handle common single-key updates directly.\nThe problem appears when an application performs a read, makes a decision, then sends a separate write. Another client can change the value between those requests:\nClient A                    Redis                    Client B\n   │── GET status ───────────►│\n   │◄─ AVAILABLE ─────────────│"
+          },
+          {
+            "number": 4,
+            "retrieval_rank": 4,
+            "file_path": "samples/api-design-guidelines.md",
+            "header": "API Design Guidelines > References",
+            "line_start": 57,
+            "chunk_index": 0,
+            "source_sha": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+            "text": " (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests"
+          },
+          {
+            "number": 5,
+            "retrieval_rank": 5,
+            "file_path": "samples/uber-architecture.md",
+            "header": "Ride-Matching System Design: Geospatial Search and Dispatch > Durable execution and financial ledger > Financial ledger and double-entry bookkeeping (Gulfstream) > Account scaling (batching and concurrency):",
+            "line_start": 659,
+            "chunk_index": 0,
+            "source_sha": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+            "text": "Account scaling (batching and concurrency):\nA ledger can receive concurrent writes to shared accounts. Row locks can become a bottleneck.\nUber groups updates with a 250 ms User Account Batch Processing Engine:\nIncoming ledger requests\n          ↓\nBatch creator (Redis)\n          ↓\nBatch process service\n          ↓\nUser account store\n          ↓\nAsync audit service (UAC)\n\nBatching: Updates to one account are grouped into 250 ms windows.\nSingle read/write: The engine reads an account once, applies the updates in memory, and writes the result once.\nOptimistic locking: The update checks the account version and retries on conflict.\nAsynchronous audit logging: Kafka moves the User Account Changelog (UAC) off the request path."
+          }
+        ],
+        "count": 5,
+        "elapsed_ms": 255,
+        "from_cache": false,
+        "has_answer": false,
+        "turn_id": "f33fd2a0-025a-41a6-91cc-469f9895b52a",
+        "stream_url": "/api/v1/turns/f33fd2a0-025a-41a6-91cc-469f9895b52a/events",
+        "prompt": "You are a precise assistant. Answer the question using ONLY the context below.\nMatch the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\nDo not pad the answer beyond what the question asks.\nAnswer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\nFor each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\nIf the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\nCite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n[1] (source: samples/api-design-guidelines.md > API Design Guidelines > Request Coalescing (line 53, chunk 0))\nUse request coalescing to deduplicate concurrent identical requests to the same upstream (document footnote). When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection. Go's golang.org/x/sync/singleflight (document footnote) implements this pattern.\n\n[2] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Common cache patterns > Choose when writes update the cache (line 137, chunk 1))\nWith a synchronous cache update, the application updates the database and cache as part of the request. Readers see the cache update sooner, but the two writes can disagree if one succeeds and the other fails. Redis and a separate database do not share an automatic transaction.\nWith an asynchronous update, the application queues work for a background worker to apply to the cache or source. This can shorten request handling, but readers may see old data until the worker catches up. The queue or event path must handle retries and duplicate messages, and the application must decide whether acknowledging the request before the update is durable is acceptable.\nCache-aside is another common choice: the application reads through Redis and fills the cache only after a miss. It avoids preloading the entire dataset, but requires a clear TTL and invalidation policy.\n\n[3] (source: samples/cache.md > Redis: Internals, Deployment, Operations, and Patterns > Making operations safe (line 97, chunk 0))\nA single Redis command is processed without another command interleaving on that node. Commands such as INCR and conditional SET ... NX can handle common single-key updates directly.\nThe problem appears when an application performs a read, makes a decision, then sends a separate write. Another client can change the value between those requests:\nClient A                    Redis                    Client B\n   │── GET status ───────────►│\n   │◄─ AVAILABLE ─────────────│\n\n[4] (source: samples/api-design-guidelines.md > API Design Guidelines > References (line 57, chunk 0))\n (document footnote): Stripe API Reference: Idempotent Requests  (document footnote): Stripe API Reference: Pagination  (document footnote): Google Cloud API Design Guide  (document footnote): Microsoft REST API Guidelines  (document footnote): RFC 7807 Problem Details for HTTP APIs  (document footnote): W3C Trace Context  (document footnote): Go singleflight package  (document footnote): Zapier Engineering: Request Coalescing  (document footnote): AWS: Timeouts, Retries, and Backoff with Jitter  (document footnote): Stripe: Designing APIs for Humans  (document footnote): GitHub API v3: Conditional Requests\n\n[5] (source: samples/uber-architecture.md > Ride-Matching System Design: Geospatial Search and Dispatch > Durable execution and financial ledger > Financial ledger and double-entry bookkeeping (Gulfstream) > Account scaling (batching and concurrency): (line 659, chunk 0))\nAccount scaling (batching and concurrency):\nA ledger can receive concurrent writes to shared accounts. Row locks can become a bottleneck.\nUber groups updates with a 250 ms User Account Batch Processing Engine:\nIncoming ledger requests\n          ↓\nBatch creator (Redis)\n          ↓\nBatch process service\n          ↓\nUser account store\n          ↓\nAsync audit service (UAC)\n\nBatching: Updates to one account are grouped into 250 ms windows.\nSingle read/write: The engine reads an account once, applies the updates in memory, and writes the result once.\nOptimistic locking: The update checks the account version and retries on conflict.\nAsynchronous audit logging: Kafka moves the User Account Changelog (UAC) off the request path.\n\n\n\nQuestion: How does request coalescing handle concurrent identical upstream requests?\n\nAnswer:",
+        "streaming": true,
+        "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+        "first_token_ms": 701.821,
+        "answer_delivery": "stream",
+        "measured_latency_ms": 1703.989
+      },
+      "citation_checks": {
+        "used": [
+          1
+        ],
+        "unmapped": [],
+        "expected_evidence_admitted": true,
+        "expected_evidence_cited": true
+      }
+    }
+  ],
+  "cleanup_errors": [],
+  "sessions_retained": false,
+  "summary": {
+    "cases": 13,
+    "operational_failures": 0,
+    "unmapped_citation_cases": 0,
+    "expected_evidence_admitted": 9,
+    "immediate_answers": 2,
+    "first_token_p50_ms": 642.461,
+    "first_token_p95_ms": 820.009
+  }
+}

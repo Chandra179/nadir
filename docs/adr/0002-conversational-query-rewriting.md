@@ -1,6 +1,6 @@
 # 0002 — Conversational query rewriting before retrieval and generation
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [0035](0035-source-scopes-and-local-quality-candidate.md)
 - **Date:** 2026-09-05
 - **Deciders:** Chandra, ZCode session
 
@@ -62,3 +62,13 @@ Constraints and tradeoffs from the research pass recorded in the TODO roadmap:
 - Live verification (gemma3:1b): "what about the second one?" → "limits at
   infinity"; "how is it related to the derivative?" → "secant formula
   derivative"; standalone questions pass through unchanged.
+
+## Current behavior (2026-10-03)
+
+[0035](0035-source-scopes-and-local-quality-candidate.md) partially supersedes
+this decision: rewriting is optional retrieval assistance, generation keeps
+the original question, and an explicitly selected persisted subject bypasses
+LLM rewriting. Reference resolution also works when rewriting is disabled.
+The contract is in `internal/core/conversation/rewriting`, with its Ollama
+adapter in `internal/providers/ollama/rewriter`. The original paths, generation
+query policy and per-follow-up cost above describe the earlier implementation.

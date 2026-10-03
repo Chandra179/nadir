@@ -1,6 +1,9 @@
 package chat
 
-import "strings"
+import (
+	"net/netip"
+	"strings"
+)
 
 const liveStateUnavailable = "I can search your indexed notes, but I cannot observe the current state of your systems."
 
@@ -37,4 +40,30 @@ func requiresLiveObservation(query string) bool {
 		}
 	}
 	return false
+}
+
+// A literal-address lookup requires an address in admitted evidence. This
+// guard only rejects its absence; an address elsewhere in the notes does not
+// establish that it belongs to the requested host. How-to questions and the
+// existing live-observation policy remain separate.
+func missingLiteralAddress(query string, citations []Citation) string {
+	q := strings.ToLower(strings.Join(strings.Fields(query), " "))
+	if !(strings.HasPrefix(q, "what is ") || strings.HasPrefix(q, "what's ")) ||
+		!(strings.Contains(q, "the ip address of ") || strings.Contains(q, "the ip address for ")) {
+		return ""
+	}
+	for _, c := range citations {
+		for _, token := range strings.FieldsFunc(c.Text, func(r rune) bool {
+			return !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F' || r == '.' || r == ':')
+		}) {
+			token = strings.Trim(token, ".")
+			if _, err := netip.ParseAddr(token); err == nil {
+				return ""
+			}
+			if _, err := netip.ParseAddrPort(token); err == nil {
+				return ""
+			}
+		}
+	}
+	return "The retrieved notes do not specify that IP address."
 }

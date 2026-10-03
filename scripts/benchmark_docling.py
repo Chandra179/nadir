@@ -11,7 +11,7 @@ Example:
         --input-dir ./pdfs/benchmark \
         --endpoint http://127.0.0.1:5003/convert \
         --pid 12345 \
-        --json-out test/evaluation/reports/docling.json
+        --json-out .local/evaluation/docling.json
 
 For a Compose container, pass the ID returned by:
     podman compose -f deploy/compose/compose.yaml ps -q docling

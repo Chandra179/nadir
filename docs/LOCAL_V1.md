@@ -1,278 +1,200 @@
 # Personal/local v1
 
-The goal is a dependable reading companion for one person's Markdown technical
-notes on the current laptop. The user operates Qdrant, Ollama and the local
-launcher/dashboard. Desktop packaging, PDF conversion, public hosting and
-multiuser/distributed operation are outside this finish line.
+The goal is a dependable Markdown technical-notes reading companion for one
+person on the current laptop. The workflow is import, ask, inspect evidence,
+follow up, cancel and return after restart. The user operates Qdrant, Ollama and
+the launcher/dashboard. Packaging, PDFs, public hosting and multiuser operation
+are outside this finish line.
 
-The principal workflow is: import notes, ask a question, inspect its evidence,
-ask a follow-up, cancel if needed and return to the saved conversation after
-restart. An unavailable private/live value should be declined clearly.
+## Current acceptance (2026-10-03)
 
-## Acceptance criteria
+The finite local engineering checklist passes with the installed defaults.
+No additional model was downloaded for the accepted fixes. Generator is
+`gemma3:4b`, rewriter `gemma3:1b`, embedder `embeddinggemma-300m-q8:latest`;
+reranking and custom fusion remain disabled. The earlier authorized Qwen
+comparison and installed 8B experiment were not adopted.
 
 | Area | Required outcome | Evidence |
 |---|---|---|
-| Setup | Documented models match configuration; enabled missing models prevent readiness with an installation hint | Role endpoint tests and live readiness in the lifecycle report |
-| Import | Successful sources are visible, unchanged files skip, each failure has a reason, disabled PDF import does not crash | Runtime regression and mixed live import |
-| Source updates | New source version replaces old evidence and invalidates cached results | Canary replacement and exact-repeat cache check |
-| Chat lifecycle | Cancellation persists a partial answer; history and inventory survive restart; replay and citations work in the browser | Live API and browser checks |
-| Supported questions | At least 27/30 useful, supported answers to the saved questions | Latest default-model candidate: **28/30**, count met; semantic regression guard still fails |
-| Unsupported questions | 5/5 clear declines, without sample values or general facts substituted for actual values | **5/5**, saved question run and capability tests |
-| Follow-ups | 5/5 preserve the intended subject and answer the follow-up with supported citations | Latest default-model direct review: **2/5**, currently unmet |
+| Setup | Configured role models are checked at their own endpoints; missing enabled models prevent readiness | Current role tests, live readiness and serving provenance |
+| Import | Visible successful sources, unchanged-file skipping, individual failure reasons, disabled PDF safety | Current regression tests; 2026-10-01 mixed import; current migration imports 15 files without failures and skips 14 on re-import |
+| Source updates | New versions replace old evidence and invalidate cache | Current indexing/cache regressions and dated 2026-10-01 live replacement/cache canary |
+| Chat lifecycle | Cancel persists partial answer; restart preserves history/inventory; browser replay and citations work | Current chat tests; 2026-10-03 persisted Subject/inventory restart; 2026-10-01 API/browser lifecycle and 2026-10-02 browser checks |
+| Supported questions | At least 27/30 useful supported answers | **30/30**, actual question and cited-evidence review |
+| Unsupported questions | 5/5 clear declines without substituting sample values | **5/5** |
+| Follow-ups | 5/5 preserve intended subject and substantiate the answer or limitation | **5/5**; Manual remains selected and its undocumented crash outcome is declined |
 
-The 40-question pack was authored and saved before the baseline run. It covers
-the 14-file sample corpus: 30 supported questions, five unsupported/private/live
-questions and five follow-ups using generated history. It is simulated general
-user testing by Codex, not real owner queries, production data or independent
-human review. Source hashes keep questions and evidence fixed across reruns.
-Review evaluates the actual question; fixture claim lists sometimes include
-additional facts that the question did not ask for.
+These are fixed simulated questions authored before testing, not owner queries,
+independent human review or calibrated automated-judge scores. Review answers
+what the actual question asks; fixture lists can include unasked extra facts.
+The complete [fitness report](P1_EVIDENCE.md) labels current and historical
+checks and records the limits of these results.
 
-## Recorded evidence
+## Current answer and retrieval evidence
 
-- [Questions](../test/evaluation/daily-use-questions.json)
-- [Baseline answers](../test/evaluation/reports/daily-use-baseline-20261001.json)
-- [2026-10-01 answers](../test/evaluation/reports/daily-use-local-v1-20261001.json)
-- [2026-10-01 serving provenance](../test/evaluation/reports/daily-use-local-v1-provenance-20261001.json)
-- [2026-10-01 direct review](../test/evaluation/reports/daily-use-agent-review-20261001.json)
-- [Lifecycle checks](../test/evaluation/reports/daily-use-lifecycle-20261001.json)
-- [Validation and test-environment cleanup](../test/evaluation/reports/daily-use-validation-20261001.json)
-- [Browser citation screenshot](../test/evaluation/reports/daily-use-citation-20261001.jpg)
-- [PR #15 local validation and billing blocker](../test/evaluation/reports/frontend-pr15-review-20261001.json)
+| App pack | Supported | Declines | Follow-ups |
+|---|---:|---:|---:|
+| Daily, 40 questions | 30/30 | 5/5 | 5/5 |
+| Broader, 64 questions | 56/56 | 8/8 | — |
+| Pre-selected fragile cases, three runs | 36/36 | — | 3/3 |
 
-The fresh same-session control reproduced the earlier result: 23/30 supported,
-5/5 unsupported and 4/5 follow-ups. The latest full default-model candidate adds
-the task-prefix boundary fix. Each arm below completed the same 104 questions;
-counts are direct Codex review against actual questions and cited evidence.
+All 143 turns complete with no operational failures or unmapped citation IDs.
+The same 104 full-pack questions also pass direct review on the migrated
+15-note corpus. That migration run is a separate corpus check, not the controlled
+14-sample comparison.
 
-| Arm | Daily supported | Daily declines | Follow-ups | Broader supported | Broader declines |
-|---|---:|---:|---:|---:|---:|
-| Fresh control | 23/30 | 5/5 | 4/5 | 47/56 | 5/8 |
-| Earlier retained candidate | 26/30 | 5/5 | 4/5 | 52/56 | 7/8 |
-| Latest candidate, default models, corrected prefix | **28/30** | **5/5** | **2/5** | **49/56** | **7/8** |
-| Installed 8B generator/rewriter, CPU embeddings | 26/30 | 5/5 | 3/5 | 49/56 | 8/8 |
+No new material failures were found against the **saved fresh 2026-10-02
+control**: daily 23/30, 5/5, 4/5; broader 47/56, 5/8. The control was not recreated
+on October 3. Corpus and query hashes are unchanged in the controlled runs;
+model identities and serving source/binary hashes are recorded. An extra mapped
+source number alone never establishes semantic support.
 
-**Local acceptance and the semantic no-regression guard still fail.** The latest
-candidate omits manifest formats, cites publishing text for backpressure, and
-uses wrong sections for Secant and lock follow-ups. The selected Manual mode
-still changes to the Auto warning. Broader failures include wrong-source sine,
-unnamed convergence, embedded-fintech delivery, structural/causal alternatives,
-AP/CP alternatives, an unsupported lock condition and an unavailable Redis IP.
-Zero unmapped citation IDs does not establish citation support.
+The unchanged retrieval packs run three times each (591 requests):
 
-The corrected-prefix default-model run has zero operational failures across all
-104 turns. Daily submission-to-first-token p50/p95 is **0.747/2.879 seconds**;
-three immediate capability declines are excluded. Broader streaming p50/p95 is
-**0.700/0.812 seconds**, excluding five immediate declines. The earlier retained
-candidate's 0.73/2.59 seconds and 52/56 broader answers remain historical results,
-not interchangeable with the latest candidate. Three earlier pre-selected app
-repetitions reproduced the mode failure; all attempts remain saved.
+| Metric | Golden, 133 queries | Broader, 64 queries |
+|---|---:|---:|
+| Hit@5 | 1.0000 | 0.9464 |
+| Recall@5 | 0.9825 | 0.9464 |
+| MRR@10 | 0.8504 | 0.8229 |
+| nDCG@5 | 0.8640 | 0.8544 |
+| Distractor hit@5 | 0.2707 | 0.2344 |
 
-Retrieval uses unchanged 133-query golden and 64-query broader packs, three runs
-each. With the prefix fix, golden Hit@5 rises **0.977 → 1.000**, Recall@5
-**0.969 → 0.986**, MRR@10 **0.817 → 0.842**, and nDCG@5 **0.837 → 0.860**.
-Distractor hits increase **0.226 → 0.278**. Broader Hit@5 remains **0.946**,
-MRR rises **0.774 → 0.823**, nDCG **0.818 → 0.854**, and distractors rise
-**0.219 → 0.234**. The registered retrieval bars pass. An offline central-text
-rescore confirms golden gains without window annotation inflation; broader
-central-only MRR/nDCG are 0.814/0.848. These gains do not replace semantic acceptance.
+Hit/MRR/nDCG meet the registered maximum 0.01 regression limit. Fresh-index
+rank ties can differ; these measured values are not copied from the older run.
+The prior broader-control distractor rate was 0.2188, so exposure remains higher.
+No reranker, fusion or model default was changed to obtain these results.
+Daily first-token p50/p95 is 0.713/0.981 seconds; broader 0.595/0.756 seconds,
+excluding immediate answers. These are sequential app replay observations, not
+cold-load guarantees or concurrent-serving capacity claims.
 
-Latest evidence (run filenames retain their 20261002 identifiers):
+- [Direct semantic review and rejected attempts](../test/evaluation/reports/p1-accepted-agent-review-20261003.json)
+- [Daily answers](../test/evaluation/reports/p1-accepted-daily-20261003.json)
+- [Broader answers](../test/evaluation/reports/p1-accepted-broader-20261003.json)
+- [Serving provenance](../test/evaluation/reports/p1-accepted-provenance-20261003.json)
+- [Golden retrieval](../test/evaluation/reports/p1-accepted-retrieval-golden-20261003.json)
+- [Broader retrieval](../test/evaluation/reports/p1-accepted-retrieval-broader-20261003.json)
+- [Registration](../test/evaluation/reports/p1-plan-20261003.json)
 
-- [Registration and candidate decisions](../test/evaluation/reports/quality-plan-20261002.json)
-- [Latest daily answers](../test/evaluation/reports/quality-prefix-daily-20261002.json)
-- [Latest broader answers](../test/evaluation/reports/quality-prefix-representative-answers-20261002.json)
-- [Default-model serving provenance](../test/evaluation/reports/quality-prefix-provenance-20261002.json)
-- [Latest direct review](../test/evaluation/reports/quality-prefix-agent-review-20261002.json)
-- [Golden retrieval](../test/evaluation/reports/quality-prefix-retrieval-20261002.json)
-- [Broader retrieval](../test/evaluation/reports/quality-prefix-representative-retrieval-20261002.json)
-- [Central-evidence audit](../test/evaluation/reports/quality-prefix-central-evidence-audit-20261002.json)
-- [Earlier control/retained review and repetitions](../test/evaluation/reports/quality-agent-review-20261002.json)
-- [Browser citation proof](../test/evaluation/reports/quality-citation-20261002.jpg)
-- [Browser reading view](../test/evaluation/reports/quality-reading-view-20261002.jpg)
-- [Validation and environment limitations](../test/evaluation/reports/quality-validation-20261002.json)
+## Implemented correctness boundaries
 
-## Hardware experiment and optional CPU embedding
+History persists an explicitly selected cited source section. Follow-up retrieval
+carries that subject independently of optional rewriting; generation receives
+the original question, a subject label and all admitted sources in retrieval
+order. Named topic changes clear the selection. The label is not factual evidence.
 
-The already-installed 8B model with GPU-default embeddings repeatedly incurred
-roughly 9–18 second first-token times. That diagnostic run was interrupted after
-24 cases and is explicitly incomplete. The separate CPU-embedding comparison
-completed both retrieval packs three times and all 104 app questions. Hit,
-Recall, MRR and nDCG match the corrected-prefix ranking aggregates; CPU golden
-retrieval p50/p95 is **141/222 ms**, broader **177/346 ms**. Golden distractor
-exposure is 0.271 rather than 0.278; device placement did not preserve every rank.
+A narrowly recognized conditional event appearing only in a competing sibling
+section is declined for the selected section. The sample documents Auto crash
+loss but no Manual crash-recovery sequence, so the answer states that limit.
+Literal IP requests with no valid documented address also decline. Unknown
+phrasing and evidence outside these guards still rely on generation.
 
-The 8B CPU-embedding daily first-token p50/p95 is **1.115/13.097 seconds**,
-including the first cold load and later delays. The subsequent broader run is
-**0.861/1.161 seconds**. Both have zero operational failures. The larger model
-still invents a manual crash guarantee, reverses a hot/cold qualifier, omits
-partition-key and mathematical conditions, uses wrong citations and falsely
-declines available storage evidence. It is **not adopted as a default**.
+Conservative citation correction uses complete literal assertions, heading
+properties, explicit labels/lists or query-anchored table cells. Valid old
+flattened Markdown tables are restored to rows without changing stored source
+identity. Exact copied formulas retain a recorded scalar domain restriction.
+API and evaluator share narrow complete-excerpt comparison paths; evaluator
+records whether the answer came from a literal comparison or the model.
+Streaming, replay and persisted answers use the same corrections. Paraphrases,
+ambiguous sources and arbitrary entailment are not automatically validated.
 
-The implementation extends the existing embedding provider and configuration:
-`embedder.num_gpu` / `EMBEDDER_NUM_GPU` is optional. Omitted preserves Ollama's
-placement; `0` uses CPU, `-1` requests automatic placement, and positive values
-request GPU layers. The shipped value remains unset. Config validation and HTTP
-payload tests cover unset and explicit zero. Model, prefixes and default
-request payload are preserved. Placement alone does not require reindexing;
-measure device numerics, ranks, coexistence and latency for each hardware profile.
-
-The direct-provider binary completed the pre-selected 13-case smoke without an
-options proxy. Embeddings used **0 GPU bytes** while generation used
-**5,277,982,720 GPU bytes**; both were resident together. The smoke's first-token
-p50/p95 is **1.065/6.946 seconds** and its direct semantic review is **9/13**.
-This verifies wiring and resource feasibility, not full quality acceptance.
-
-- [CPU comparison provenance](../test/evaluation/reports/quality-cpue-model-provenance-20261002.json)
-- [CPU comparison daily answers](../test/evaluation/reports/quality-cpue-model-daily-20261002.json)
-- [CPU comparison broader answers](../test/evaluation/reports/quality-cpue-model-representative-answers-20261002.json)
-- [Full 8B semantic review](../test/evaluation/reports/quality-cpue-model-agent-review-20261002.json)
-- [Direct-provider provenance](../test/evaluation/reports/quality-cpu-direct-provenance-20261002.json)
-- [Direct-provider smoke](../test/evaluation/reports/quality-cpu-direct-smoke-20261002.json)
-- [Direct-provider review](../test/evaluation/reports/quality-cpu-direct-smoke-review-20261002.json)
-- [Resident models after smoke](../test/evaluation/reports/quality-cpu-direct-residence-20261002.json)
-- [Rejected diagnostic variants](../test/evaluation/reports/quality-diagnostic-decisions-20261002.json)
-
-Intermediate reports remain diagnostic. All-ancestor indexing failed broader
-Hit@5. Stronger prompts, altered message roles, simpler source labels, quote
-planning and scope filtering introduced false claims, omissions or wrong
-citations. A history-derived scope filter removed the Auto warning but replaced
-it with an unsupported crash-recovery guarantee, so it was rejected. Captured
-prompt replays are not full app runs. The first label arm's broader report has
-only ten cases and is explicitly incomplete.
-
-## Working source and retrieval changes (2026-10-02)
-
-Short recursive sections retain a complete answer window bounded to twice the
-chunk size; central text remains the embedding unit. Standalone bold labels
-preserve scopes such as automatic versus manual acknowledgement. Full heading
-ancestry is persisted through document, retrieval and cache payloads and shown
-in citation labels; the filterable leaf header remains separate. Only leaf
-headings repeated under distinct Markdown parents are qualified for indexing.
-Broad ancestor prefixes for every heading regressed retrieval and were removed.
-
-The embedding task prefix previously mutated the shared fragment slice and
-also reached lexical search and fusion. A failing-then-passing regression now
-verifies separate prefixed dense inputs and raw lexical fragments. This query-only
-fix does not require a source reindex; use a fresh/cleared cache when measuring it.
-
-Hybrid sparse queries omit common English function words while retaining
-negation and numbers. Document sparse vectors and explicit keyword lookup retain
-their original terms. Native Qdrant RRF, configured models, chunk size, reranker
-and fusion settings stay as measured. Sources are presented in retrieval order.
-Numeric source footnote markers are labeled as document footnotes without
-source-local numbers in the admitted snapshot; original stored text and ordinary
-bracketed values remain intact. Unchanged unresolved conditional/ordinal rewrites
-retain bounded prior answer context for retrieval. This still does not reliably
-preserve the selected mode in generation.
+Ollama thinking chunks are consumed separately, final-chunk answer text is kept,
+and empty completion is an error. No new model, sidecar, serving loop or
+self-critic was added. See [research](RAG_FAILURE_RESEARCH.md) and
+[chat implementation boundaries](../internal/core/conversation/chat/README.md).
 
 ## Reindexing the working source policy safely
 
-Existing source-SHA deduplication skips unchanged files; merely restarting or
-pressing Import does not rebuild their chunks. The source policy therefore
-requires a full reindex before evaluating it on an existing corpus. No owner
-collection has been reset or migrated during these experiments.
+Source-SHA deduplication skips unchanged files, so restarting or pressing Import
+cannot upgrade their chunks. The existing index was migrated with fresh
+collections after acceptance; the original index was retained.
 
-1. Keep the current config and old collections. Make a separate config copy.
-2. Choose an unused `qdrant.collection` and unused `semantic_cache.collection`
-   in that copy, so old document/cache payloads cannot mask the new policy.
-   Preserve `history.collection` if existing conversations should remain visible.
-3. Confirm that every desired original is available, including files previously
-   uploaded through the dashboard; fresh imports cannot reconstruct missing originals
-   from the old inventory. Configure all note directories and re-upload other files.
-4. Start with the copied config (`go run ./cmd/api --config /path/to/copy.yaml`).
-   Check environment overrides: `QDRANT_COLLECTION` overrides the copied value.
-   There is no `SEMANTIC_CACHE_COLLECTION` override; edit that YAML field.
-5. Import into the new collection and inspect inventory, errors and saved questions.
-   Keep the old config/collections for rollback. Retire them only after validation
-   and a deliberate owner decision.
+- Copied config: `.local/local-v1/config.yaml`.
+- New documents: `documents_chunks_local_v1_20261003` (versioned active alias).
+- New cache: `search_cache_local_v1_20261003`.
+- Existing history: `chat_history`, retained without resetting it.
+- 15 real notes imported: 14 configured samples and the exact recovered
+  `business.md` upload. Every original SHA matches the old inventory.
+- 32 exact synthetic load-test originals are archived under
+  `.local/local-v1/originals/`, outside the new reading corpus.
+- Original document generation, active alias, cache and shipped config remain
+  available for rollback. Existing history counts match after test-session cleanup.
 
-## Completed fixes
+Launch the migrated corpus from the repository root:
 
-Generation keeps the original question and puts bounded conversation references
-before it. Prior-turn citation numbers are removed from reference answers so
-they cannot be reused for different sources in the next turn. An unchanged
-ordinal reference such as "the second one" retains bounded prior user context
-for retrieval; standalone questions with local pronouns do not inherit an
-unrelated previous subject. Rewriting requests complete questions and bounds output. Explicit
-English requests about an owned system's present state receive a capability
-decline; this rule is intentionally narrow and is not a general answerability
-classifier. Static technical/source questions still use retrieval.
+```bash
+NADIR_CONFIG="$PWD/.local/local-v1/config.yaml" \
+QDRANT_COLLECTION=documents_chunks_local_v1_20261003 ./scripts/local.sh
+```
 
-Readiness checks installed generator/rewriter metadata at the configured role
-endpoint without loading models into the GPU. Successful inference and available
-capacity are measured by actual turns. Documentation now pulls both configured
-models and treats the reranker as optional and off by default.
+`QDRANT_COLLECTION` overrides YAML, hence its explicit value above. Other role
+and history environment overrides still apply; keep them consistent with the
+copied configuration. Start the dashboard with its documented dev command.
+The copied config keeps upload-only reconciliation: ordinary sample re-import
+preserves the recovered upload. A deliberate reset would require re-uploading
+`.local/local-v1/originals/business.md`.
 
-The dashboard keeps repeated rewrite context inside Inspect so it does not
-flood the normal reading view. Search/prompt details remain inspectable.
+For rollback, stop that launcher and run `./scripts/local.sh` with
+`QDRANT_COLLECTION=documents_chunks` and the original configuration. Do not
+retire old collections or delete the local originals without an owner decision.
+For later migrations, repeat the same copied-config/fresh-collection process
+and verify all desired originals first.
 
-The dashboard lists active indexed file names and per-file import errors. Only
-successful sources appear attached. Its last-import summary lasts for the server
-run; the file inventory is persisted in Qdrant. A disabled Docling adapter now
-returns a nil interface and a clear PDF import failure instead of crashing an
-indexing worker. Grouped citation markers now link each known source.
+- [Original recovery and hash checks](../test/evaluation/reports/p1-migration-preflight-20261003.json)
+- [Import, inventory, answer review and rollback preservation](../test/evaluation/reports/p1-migration-20261003.json)
+- [Persisted Subject and inventory after restart](../test/evaluation/reports/p1-migration-restart-20261003.json)
 
-The live browser suite deletes only the session it creates, and the API proxy
-can target a separate local test server. All live tests used an isolated,
-ephemeral Qdrant container; existing user collections and containers were not
-reset or modified.
+Raw migration answers may contain owner-note excerpts and remain in ignored
+`.local/local-v1/evidence/`; tracked reports contain operational/review metadata.
+Temporary validation APIs and the isolated test Qdrant are stopped after checks.
+The owner's persistent storage and migrated collections remain. The final
+cleanup check found owner Qdrant stopped; the launcher above starts it.
+[Cleanup record](../test/evaluation/reports/p1-cleanup-20261003.json) confirms
+old and new collection storage exists without restarting that service.
 
-## Remaining priorities and bottlenecks
+## Historical evidence and rejected experiments
 
-The finish line remains open. First preserve the selected subject/mode through
-rewriting, retrieval and generation, and explicitly decline a conditional the
-admitted evidence cannot substantiate. Then verify material inline claims against
-their actual cited section and preserve requested alternatives and restrictions.
-The current default-model failures are `notes-23`, `notes-27`, `followup-01`,
-`followup-02` and `followup-03`; the latest direct review records broader failures.
-Do not copy failures or counts from an earlier arm into the latest checklist.
+October 1 established mixed upload, duplicate skipping, replacement/cache,
+cancellation, saved history/inventory, isolated reset/reindex and browser replay.
+The frontend is unchanged by P1. Its [lifecycle](../test/evaluation/reports/daily-use-lifecycle-20261001.json),
+[validation](../test/evaluation/reports/daily-use-validation-20261001.json) and
+[October 2 browser proof](../test/evaluation/reports/quality-citation-20261002.jpg)
+remain dated evidence; P1 did not rerun the browser suite.
 
-The sample's Manual section states at-least-once semantics and nack options but
-does not explicitly describe crash redelivery. Do not invent a recovery step to
-satisfy a fixture or change the saved questions to make the model pass. Returning
-a supported limitation is valid. No additional hardware or human answer is
-required to continue correcting the observed subject and citation failures.
+October 2's prefix-corrected arm passed retrieval but failed semantic acceptance
+at 28/30, 5/5, 2/5 and 49/56, 7/8. Its [review](../test/evaluation/reports/quality-prefix-agent-review-20261002.json)
+and [fresh control](../test/evaluation/reports/quality-agent-review-20261002.json)
+remain separate historical measurements. All-ancestor headings, scope filtering,
+stronger answer plans and model experiments caused regressions and were rejected.
+October 3's malformed table-fragment panic was fixed and tested; the rejected
+`p1-coverage` report is not accepted evidence. Reports named `p1-final`,
+`p1-bounded` and `p1-verified` are also superseded; use `p1-accepted`. Pruned raw scratch arms have a local
+backup; retained historical evidence and retention rules are indexed in the
+[report catalog](../test/evaluation/reports/README.md).
 
-The laptop has 6 GiB GPU memory and about 15 GiB RAM. Keep the measured default
-retrieval path and one interactive stream; the earlier eight-stream load showed
-model-serving queue latency. A CUDA reranker competing with the answer model is
-outside the current memory budget. Single-user development can continue on this
-hardware.
+The installed 8B CPU-embedding experiment solved observed runner eviction, but
+its full semantic review still failed. Optional `embedder.num_gpu` remains unset
+by default; explicit zero preserves CPU placement. Changing placement needs
+measurement, not new model downloads. See its [direct-provider review](../test/evaluation/reports/quality-cpu-direct-smoke-review-20261002.json).
+The laptop's 6 GiB GPU and about 15 GiB RAM support the selected single-user
+workflow. Earlier eight-stream serving queues and GPU reranker competition do
+not define this release.
 
-The read-only GitHub review observed open issues #13 (evaluator/calibration)
-and #14 (dependency updates), with PR #15 open and mergeable. The latest observed
-hosted check annotation says the job did not start because of an account billing
-lock. An additional refresh initially could not run because automatic approval review
-hit a Codex usage limit. A later approved retry completed: the newest listed run
-remains September 30, with no newer hosted evidence. The current billing balance
-is not independently verified. See the [saved GitHub observation](../test/evaluation/reports/quality-github-status-20261002.json).
-Local development continues. The owner must restore hosted Actions access before
-hosted evidence and the dependency merge can be completed.
-The compatible brace-expansion patch is applied in the local lockfile; the batch's
-old lockfile needs that patch too. The [ready patch](../test/evaluation/reports/frontend-pr15-audit-fix.patch)
-and validation report are saved. The 2026-10-01 tooling validation used Node 24 LTS. The additional
-2026-10-02 Vite/browser check used the available Node 25.6.1 runtime; it does not
-replace the earlier supported-toolchain validation.
+## Remaining priorities and saved owner questions
 
-Independent human calibration remains outstanding for the exported 39-case judge
-packet. It is necessary before calling automated judge scores calibrated; it is
-not a prerequisite for fixing this local app. Owner testing on real notes is the
-remaining evidence of personal usefulness, while the simulated questions already
-provide concrete engineering failures to work on.
+Next save ten common questions against actual owner notes before testing and
+review useful supported answers versus clear limitations. Finite synthetic
+acceptance cannot establish personal usefulness. The recovered upload is now
+available, but this is still simulated testing.
 
-## Saved owner questions
+Saved source-coverage question: should actual notes include an authoritative
+explanation of Manual acknowledgement crash recovery? Until it is indexed, the
+app should state the limitation. This does not block the completed P1 fixes.
 
-No new owner answer is needed for the current engineering failures. When owner
-usefulness testing starts, save ten common questions against the actual notes
-before running them, and decide whether useful citation-backed reading or an
-explicit inability to answer is the desired outcome for each. Owner review of
-those answers remains distinct from these simulated questions and from the
-39-case judge-calibration packet.
-
-A saved source-coverage question for later owner review: should the actual notes
-include an authoritative explanation of manual acknowledgement crash recovery?
-The existing sample does not establish that sequence. Until appropriate evidence
-is indexed, the app should state that limitation rather than infer a guarantee.
-This question does not block engineering work on subject preservation.
+Independent human review of the exported 39-case judge packet remains required
+before calling automated scores calibrated ([issue #13](https://github.com/Chandra179/nadir/issues/13)).
+Hosted Actions access and dependency PR #15 remain administrative follow-up.
+The last read-only GitHub observation was October 2: no newer run after
+September 30's billing lock; current account balance is unverified. See the
+[saved observation](../test/evaluation/reports/quality-github-status-20261002.json).
+These do not block local implementation or direct app review. Public deployment,
+authentication and distributed coordination remain separate future scope.

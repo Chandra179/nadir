@@ -13,6 +13,8 @@ import (
 const promptInstructions = "You are a precise assistant. Answer the question using ONLY the context below.\n" +
 	"Match the answer to the question: a lookup or \"what is\" question gets the value or formula itself; a \"why\" or \"how\" question gets the answer plus one to three short sentences of explanation from the context.\n" +
 	"Do not pad the answer beyond what the question asks.\n" +
+	"Answer every expressly requested part, including both sides of a comparison. Name the alternatives in your answer; a property of a third alternative is not an answer to the requested comparison. Preserve source conditions and restrictions.\n" +
+	"For each factual sentence, cite the section containing that fact, not merely a related definition. A partial word or incomplete statement is not evidence for its missing part.\n" +
 	"If the context does not contain the answer, say so in one sentence and stop. Never add facts that are not in the context.\n" +
 	"Cite sources inline as [1], [2], etc. when referencing specific context sections.\n\nContext:\n"
 
@@ -28,6 +30,9 @@ type PromptBudget struct {
 	// ReferenceContext resolves conversation subjects but supplies no evidence.
 	// Place it before the current question so the current intent stays last.
 	ReferenceContext string
+	// ResolvedSubject pins a selected alternative without excluding contrast
+	// evidence. It is a reference label, not a source of factual claims.
+	ResolvedSubject string
 }
 
 // ContextStats describes the actual evidence admitted to the prompt.
@@ -82,7 +87,12 @@ func promptSuffix(query, reference string) string {
 func BuildPromptWithBudget(query string, chunks []search.Chunk, budget PromptBudget) PromptBuild {
 	contextTokens := max(0, budget.MaxContextTokens)
 	reserved := max(0, budget.ReservedOutputTokens)
-	suffix := promptSuffix(query, budget.ReferenceContext)
+	reference := budget.ReferenceContext
+	if budget.ResolvedSubject != "" {
+		reference += "\nResolved conversation subject: " + truncateToTokens(budget.ResolvedSubject, 160) +
+			"\nAnswer the current question for this subject. Evidence about another alternative does not establish this subject's behavior. If the evidence for this subject does not explain the requested event or condition, state that missing detail instead of inferring an outcome."
+	}
+	suffix := promptSuffix(query, reference)
 	if budget.ContextWindowTokens > 0 {
 		// Ollama adds a model-specific chat template outside the prompt.
 		const templateAllowance = 64
@@ -125,6 +135,7 @@ func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
 		// text and ordinary bracketed values remain intact; Citation.Text records
 		// the exact normalized evidence shown to the model and reader.
 		text = sourceFootnote.ReplaceAllString(text, " (document footnote)")
+		text = restoreTableRows(text)
 		heading := chunk.SectionPath
 		if heading == "" {
 			heading = chunk.Header

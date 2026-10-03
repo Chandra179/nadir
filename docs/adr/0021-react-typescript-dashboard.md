@@ -6,7 +6,7 @@
 
 ## Status
 
-Superseded by ADR-0023
+Partially superseded by ADR-0023 (packaging/deployment only)
 
 ## Decision
 
@@ -40,3 +40,13 @@ deployment. The scale-out prerequisites are documented separately in
   event broker remains single-node as documented by ADR-0013.
 - The dashboard can be served by the Compose Nginx container or another static
   host that proxies the versioned API and SSE paths to the Go service.
+
+## Current packaging and contracts (2026-10-03)
+
+Only packaging/deployment is superseded by [0023](0023-local-vite-dashboard.md).
+React/TypeScript and the versioned JSON/SSE boundary remain accepted. The
+historical Nginx Compose service, `docs/SCALING.md` and `contracts/` files above
+are absent from the current tree. Current contracts live in
+`internal/edge/http/contract` and `web/dashboard/src`; the
+[backend map](../../AGENTS.md#architecture) states single-process limits.
+An authoritative OpenAPI artifact is future work when external clients need it.

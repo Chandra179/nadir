@@ -83,6 +83,26 @@ func TestGenerationHarnessScoresAnswerAndContext(t *testing.T) {
 	}
 }
 
+func TestGenerationHarnessUsesAndRecordsTheProductionLiteralComparison(t *testing.T) {
+	answer := &generationTestGenerator{err: errors.New("model should not be called for explicit comparison")}
+	judge := &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":1,"context_recall":1}`}
+	h := NewGenerationDependencies(GenerationDependenciesConfig{
+		Searcher:        generationTestRetriever{chunks: []search.Chunk{{FilePath: "methods.md", Text: "Converges faster than Alpha method but slower than Omega method"}}},
+		AnswerGenerator: answer, JudgeGenerator: judge, MaxContextTokens: 1000,
+		AnswerModel: "test-answer", JudgeModel: "test-judge", JudgeSuitability: "deterministic test stub; no independent calibration claim",
+	})
+	report, err := h.Run(context.Background(), &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{
+		ID: "order", Query: "Which converges faster Alpha method or Omega method?", Relevant: []RelevantChunk{{File: "methods.md"}},
+	}}}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := report.PerQuery[0]
+	if r.Answer != "Omega method converges faster than Alpha method [1]." || r.AnswerMethod != "literal_comparison" || len(answer.prompts) != 0 || r.JudgeStatus != "success" {
+		t.Fatalf("evaluator differs from production or claims a model call: %+v", r)
+	}
+}
+
 func TestGenerationHarnessRecordsJudgeFailures(t *testing.T) {
 	answer := &generationTestGenerator{response: "answer"}
 	judge := &generationTestGenerator{response: "not json"}
@@ -368,5 +388,23 @@ func TestGenerationLatencyIncludesFailedCalls(t *testing.T) {
 	a := aggregateGeneration([]GenerationQueryResult{{AnswerLatencyMS: 10, JudgeLatencyMS: 20, Error: "judge failure", FailureClass: failureJudge}, {AnswerLatencyMS: 100, JudgeLatencyMS: 200}})
 	if a.AnswerP50LatMS != 55 || a.JudgeP50LatMS != 110 {
 		t.Fatalf("latency omitted failures: %+v", a)
+	}
+}
+
+func TestGenerationEvaluationJudgesTheSameCorrectedCitationAsChat(t *testing.T) {
+	const claim = "Backpressure limits queues and concurrent work."
+	judge := &generationTestGenerator{response: `{"faithfulness":1,"answer_relevancy":1,"context_precision":1,"context_recall":1}`}
+	h := NewGenerationDependencies(GenerationDependenciesConfig{
+		Searcher:        generationTestRetriever{chunks: []search.Chunk{{FilePath: "limits.md", Text: claim}, {FilePath: "producer.md", Text: "Producers publish messages."}}},
+		AnswerGenerator: &generationTestGenerator{response: claim + " [2]."}, JudgeGenerator: judge,
+		AnswerModel: "answer", JudgeModel: "judge", JudgeSuitability: "uncalibrated test fixture",
+	})
+	report, err := h.Run(context.Background(), &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{ID: "backpressure", Query: "What does backpressure do?", FaithfulnessLabel: FaithfulnessFullySupported, ExpectedAnswer: claim, RequiredClaims: []string{claim}, Relevant: []RelevantChunk{{File: "limits.md"}}}}}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := claim + " [1]."
+	if report.PerQuery[0].Answer != want || !strings.Contains(judge.prompts[0], want) {
+		t.Fatalf("evaluator did not judge the answer shown by Chat: %+v", report.PerQuery[0])
 	}
 }

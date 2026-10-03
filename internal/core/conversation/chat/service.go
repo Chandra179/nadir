@@ -86,8 +86,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	referenceContext := ""
 	// A minted first session has no prior turns; edited sessions have already
 	// been truncated, so rewrite sees exactly the retained prefix.
-	if d.rewriter != nil && d.history != nil && req.SessionID != "" {
-		retrievalQuery, referenceContext = d.rewriteQuery(ctx, req.SessionID, req.Query)
+	if d.history != nil && req.SessionID != "" {
+		retrievalQuery, referenceContext, turn.Subject = d.rewriteQuery(ctx, req.SessionID, req.Query)
 		if retrievalQuery != req.Query {
 			turn.RewrittenQuery = retrievalQuery
 		}
@@ -141,6 +141,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 		ContextWindowTokens:  d.contextWindowTokens,
 		ReservedOutputTokens: d.reservedOutputTokens,
 		ReferenceContext:     referenceContext,
+		ResolvedSubject:      subjectLabel(turn.Subject),
 	})
 	if built.Err != nil {
 		operationErr = built.Err
@@ -150,6 +151,21 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	}
 	turn.Prompt = built.Prompt
 	turn.Citations = built.Context.Citations
+	if answer := AnswerExplicitComparison(req.Query, turn.Citations); answer != "" {
+		turn.Answer, turn.HasAnswer = answer, true
+		d.persistStart(ctx, req, turn, mutation, false)
+		return turn
+	}
+	if decline := missingLiteralAddress(req.Query, turn.Citations); decline != "" {
+		turn.Answer, turn.HasAnswer = decline, true
+		d.persistStart(ctx, req, turn, mutation, false)
+		return turn
+	}
+	if decline := missingScopedCondition(req.Query, turn.Subject, turn.Citations); decline != "" {
+		turn.Answer, turn.HasAnswer = decline, true
+		d.persistStart(ctx, req, turn, mutation, false)
+		return turn
+	}
 
 	turn, operationErr = d.startGeneration(ctx, req, turn, mutation)
 	return turn
@@ -323,11 +339,15 @@ func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream
 	}()
 
 	var answer strings.Builder
+	citations := citationStream{query: turn.Query, citations: turn.Citations}
 	for ev := range events {
 		switch ev.Kind {
 		case generation.EventToken:
-			answer.WriteString(ev.Text)
-			stream.publish(EventToken, ev.Text)
+			text := citations.push(ev.Text)
+			answer.WriteString(text)
+			if text != "" {
+				stream.publish(EventToken, text)
+			}
 		case generation.EventError:
 			if ev.Err != nil {
 				turn.GenerateError = "Answer generation failed: " + ev.Err.Error()
@@ -336,6 +356,10 @@ func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream
 			}
 		case generation.EventDone:
 		}
+	}
+	if pending := citations.flush(); pending != "" {
+		answer.WriteString(pending)
+		stream.publish(EventToken, pending)
 	}
 	if turn.GenerateError != "" {
 		operationErr = errors.New(turn.GenerateError)
@@ -372,19 +396,19 @@ func (d *dependencies) Subscribe(ctx context.Context, turnID string, since int64
 // session's recent turns (Rewrite-Retrieve-Read). The rewritten query drives
 // retrieval and supplies a reference-resolution hint for generation; the raw
 // question remains authoritative and is what gets persisted.
-func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string) (string, string) {
+func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string) (string, string, *history.Subject) {
 	turns, err := d.history.ListTurns(ctx, sessionID)
 	if err != nil {
 		d.log.Warn("rewrite skipped: list turns failed",
 			slog.String("session_id", sessionID), slog.Any("error", err))
-		return query, ""
+		return query, "", nil
 	}
 	prior := make([]rewriting.Turn, 0, len(turns))
 	for _, t := range turns {
 		prior = append(prior, rewriting.Turn{Query: t.Query, Answer: referenceAnswer(t)})
 	}
 	if len(prior) == 0 {
-		return query, ""
+		return query, "", nil
 	}
 	if len(prior) > d.rewriteTurns {
 		prior = prior[len(prior)-d.rewriteTurns:]
@@ -392,22 +416,38 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 	// Reference context does not establish facts. It identifies what the user
 	// is asking about even when the search rewrite omits intent or qualifiers.
 	last := prior[len(prior)-1]
+	lastTurn := turns[len(turns)-1]
+	needsReference := needsTurnReference(query, lastTurn)
 	reference := "\nPrior user question (reference context only): " + truncateToTokens(last.Query, 180) +
 		"\nPrior answer (reference context only; verify claims against the document evidence): " + truncateToTokens(last.Answer, 180)
+	if needsReference {
+		subject := selectedSubject(lastTurn)
+		if subject != nil {
+			// Selection is already explicit in the retained conversation. An LLM
+			// rewrite must not replace it with an adjacent alternative.
+			return query + "\nConversation subject: " + subjectLabel(subject), reference, subject
+		}
+	}
+	if d.rewriter == nil {
+		if needsReference {
+			return referenceSearchQuery(query, last), reference, nil
+		}
+		return query, "", nil
+	}
 	rewritten, err := d.rewriter.Rewrite(ctx, prior, query)
 	if err != nil {
 		d.log.Warn("rewrite failed; searching raw query",
 			slog.String("session_id", sessionID), slog.String("query", query), slog.Any("error", err))
-		return query, reference
+		return query, reference, nil
 	}
-	if rewritten == query && unresolvedReference(query) {
+	if rewritten == query && needsReference {
 		// A successful but unchanged rewrite may still contain an unresolved
 		// reference. Search with bounded prior user context rather than losing
 		// the subject. Provider failures retain the established raw-query fallback.
-		rewritten += "\nPrevious user question: " + truncateToTokens(last.Query, 180)
-		if last.Answer != "" {
-			rewritten += "\nPrevious answer (reference only): " + truncateToTokens(last.Answer, 180)
-		}
+		rewritten = referenceSearchQuery(query, last)
+	}
+	if rewritten == query && !needsReference {
+		reference = ""
 	}
 	if rewritten != query {
 		d.log.Info("rewrote follow-up query",
@@ -415,7 +455,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 			slog.String("raw", query),
 			slog.String("rewritten", rewritten))
 	}
-	return rewritten, reference
+	return rewritten, reference, nil
 }
 
 // mintSession creates a conversation session for the first turn of a chat.
@@ -440,6 +480,7 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 		ID:             turn.ID,
 		Query:          req.Query,
 		RewrittenQuery: turn.RewrittenQuery,
+		Subject:        turn.Subject,
 		AttachedFiles:  req.AttachedFiles,
 		TopK:           req.TopK,
 		Generate:       req.Generate,
@@ -455,6 +496,9 @@ func (d *dependencies) persistTurn(ctx context.Context, req Request, turn Turn, 
 		GenerateError:  turn.GenerateError,
 		Model:          d.model,
 		Failed:         failed,
+	}
+	if ht.Subject == nil && turn.HasAnswer && turn.GenerateError == "" {
+		ht.Subject = selectedSubject(ht)
 	}
 	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.persistTimeout)
 	defer cancel()

@@ -1,6 +1,9 @@
 package chat
 
-import "nadir/internal/core/retrieval/search"
+import (
+	"nadir/internal/core/conversation/history"
+	"nadir/internal/core/retrieval/search"
+)
 
 // Request is one chat turn as submitted.
 type Request struct {
@@ -27,7 +30,8 @@ type Turn struct {
 	ID             string // event-stream id; empty when nothing streams
 	SessionID      string
 	Query          string
-	RewrittenQuery string // set only when the rewriter changed the query
+	RewrittenQuery string           // set only when the rewriter changed the query
+	Subject        *history.Subject // explicit conversation reference; never evidence
 	Chunks         []search.Chunk
 	Citations      []Citation // only evidence admitted to answer generation
 	ElapsedMS      int64

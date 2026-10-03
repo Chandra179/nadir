@@ -1,6 +1,6 @@
 # 0003 — Reranker sidecar int8 quantization: baked ONNX by default, torch-int8 as the no-bake route
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [0030](0030-podman-container-runtime.md) and [0031](0031-default-retrieval-profile-torch-cpu.md)
 - **Date:** 2026-09-05
 - **Deciders:** Chandra, ZCode session
 
@@ -73,3 +73,12 @@ Measured evidence:
   (−2.8pp MRR vs fp32 on 34 queries) traded for no bake and ~1.5GB less RAM.
 - Image size stays flat: the baked dir carries the int8 graph only; the fp32
   export it was derived from is dropped.
+
+## Current defaults (2026-10-03)
+
+[0030](0030-podman-container-runtime.md) supersedes the Docker runtime command;
+[0031](0031-default-retrieval-profile-torch-cpu.md) supersedes the ONNX default:
+the CPU backend is `torch` and the quantized bake is opt-in. The available
+quantized routes remain, but [0034](0034-chunker-fixes-and-size.md) keeps
+reranking disabled on the measured EmbeddingGemma default. Historical timings
+above are not measurements of the current default workflow.

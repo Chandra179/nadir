@@ -1,0 +1,451 @@
+{
+  "scope": "Migration preparation only; no owner collection changed",
+  "before_collection": "documents_chunks__generation_d78c0bf1-eafa-4120-89d8-68ec9689d40c",
+  "aliases_before": {
+    "result": {
+      "aliases": [
+        {
+          "alias_name": "documents_chunks__active",
+          "collection_name": "documents_chunks__generation_d78c0bf1-eafa-4120-89d8-68ec9689d40c"
+        }
+      ]
+    },
+    "status": "ok",
+    "time": 8.5866e-05
+  },
+  "original_files": 47,
+  "all_originals_available": true,
+  "files": [
+    {
+      "file_path": "business.md",
+      "original_sha256": "93cba42777bdd0b0fd973875278d3aca577d2683f508b48e8242ad396bae60e1",
+      "stored_sha256": [
+        "93cba42777bdd0b0fd973875278d3aca577d2683f508b48e8242ad396bae60e1"
+      ],
+      "recovery": "located exact uploaded original",
+      "backup": ".local/local-v1/originals/business.md"
+    },
+    {
+      "file_path": "load-benchmark--1.md",
+      "original_sha256": "5a458fc8c1ea7184accee6557e3e61afd6d806d3cd08279827e5ed1622302313",
+      "stored_sha256": [
+        "5a458fc8c1ea7184accee6557e3e61afd6d806d3cd08279827e5ed1622302313"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark--1.md"
+    },
+    {
+      "file_path": "load-benchmark--2.md",
+      "original_sha256": "75446f0ec334a36070ad9cff2f353c62c31d46a5d1e603cd44637fd4ddfceede",
+      "stored_sha256": [
+        "75446f0ec334a36070ad9cff2f353c62c31d46a5d1e603cd44637fd4ddfceede"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark--2.md"
+    },
+    {
+      "file_path": "load-benchmark-0.md",
+      "original_sha256": "036554d76e6b59c6fe755e34ce6c77740f145d1dda131c103d789826f338807f",
+      "stored_sha256": [
+        "036554d76e6b59c6fe755e34ce6c77740f145d1dda131c103d789826f338807f"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-0.md"
+    },
+    {
+      "file_path": "load-benchmark-1.md",
+      "original_sha256": "9b799fa595833b19b135262a94a2df367f4af0424f258364481233995e84457d",
+      "stored_sha256": [
+        "9b799fa595833b19b135262a94a2df367f4af0424f258364481233995e84457d"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-1.md"
+    },
+    {
+      "file_path": "load-benchmark-10.md",
+      "original_sha256": "2dde2d848910e3f8a0f8ffe74d342f16cb83a1a3604d3cec78c25a69ba5b7cc8",
+      "stored_sha256": [
+        "2dde2d848910e3f8a0f8ffe74d342f16cb83a1a3604d3cec78c25a69ba5b7cc8"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-10.md"
+    },
+    {
+      "file_path": "load-benchmark-11.md",
+      "original_sha256": "751efc6c99177268a9c5d1d1e105cff0306009877a6a7afcf02802fb10b4454b",
+      "stored_sha256": [
+        "751efc6c99177268a9c5d1d1e105cff0306009877a6a7afcf02802fb10b4454b"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-11.md"
+    },
+    {
+      "file_path": "load-benchmark-12.md",
+      "original_sha256": "7cc3a460f2d4e6c792ce4ec4997f5d20faa492e18180fc2cf14767576d72107f",
+      "stored_sha256": [
+        "7cc3a460f2d4e6c792ce4ec4997f5d20faa492e18180fc2cf14767576d72107f"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-12.md"
+    },
+    {
+      "file_path": "load-benchmark-13.md",
+      "original_sha256": "bf460a5b85bbf7ff3395e75e6a6d1806b21e946a0badbf875261f49c93d96717",
+      "stored_sha256": [
+        "bf460a5b85bbf7ff3395e75e6a6d1806b21e946a0badbf875261f49c93d96717"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-13.md"
+    },
+    {
+      "file_path": "load-benchmark-14.md",
+      "original_sha256": "078994668a0086bfc2ba64c1e9c95f20bd305debd93757c99d30b7c9b714cf47",
+      "stored_sha256": [
+        "078994668a0086bfc2ba64c1e9c95f20bd305debd93757c99d30b7c9b714cf47"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-14.md"
+    },
+    {
+      "file_path": "load-benchmark-15.md",
+      "original_sha256": "8f58f0b8fb5baf4104f7d7a61896f2f88e70bd34f750ef20a07821db6d17846c",
+      "stored_sha256": [
+        "8f58f0b8fb5baf4104f7d7a61896f2f88e70bd34f750ef20a07821db6d17846c"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-15.md"
+    },
+    {
+      "file_path": "load-benchmark-16.md",
+      "original_sha256": "ee255ca74bae872e8ad77f057f2daa0b79af693c28eb42da722cbe1164cba321",
+      "stored_sha256": [
+        "ee255ca74bae872e8ad77f057f2daa0b79af693c28eb42da722cbe1164cba321"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-16.md"
+    },
+    {
+      "file_path": "load-benchmark-17.md",
+      "original_sha256": "6f04d4ff4cf9b88ae9ff12df67fba66d9581db0469339e66a69b519a4d41dbf6",
+      "stored_sha256": [
+        "6f04d4ff4cf9b88ae9ff12df67fba66d9581db0469339e66a69b519a4d41dbf6"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-17.md"
+    },
+    {
+      "file_path": "load-benchmark-18.md",
+      "original_sha256": "fc1f78b6d1d19652e09c9c0fc4c7627da5331d4037bc9f84379e30e9f2d7663f",
+      "stored_sha256": [
+        "fc1f78b6d1d19652e09c9c0fc4c7627da5331d4037bc9f84379e30e9f2d7663f"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-18.md"
+    },
+    {
+      "file_path": "load-benchmark-19.md",
+      "original_sha256": "2ba8e3f62a085f00c3d88ff5f35bed72cceb01b0e0b219c83c3155f866f9d9fb",
+      "stored_sha256": [
+        "2ba8e3f62a085f00c3d88ff5f35bed72cceb01b0e0b219c83c3155f866f9d9fb"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-19.md"
+    },
+    {
+      "file_path": "load-benchmark-2.md",
+      "original_sha256": "4d3999e13f0ebbba431297e38bf962bd6c94cce8d4915aaff270caca4cdee48f",
+      "stored_sha256": [
+        "4d3999e13f0ebbba431297e38bf962bd6c94cce8d4915aaff270caca4cdee48f"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-2.md"
+    },
+    {
+      "file_path": "load-benchmark-20.md",
+      "original_sha256": "3ada458dee7d99b47ce52d8e96218dee7238474a7e5cbf55515385935efad99a",
+      "stored_sha256": [
+        "3ada458dee7d99b47ce52d8e96218dee7238474a7e5cbf55515385935efad99a"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-20.md"
+    },
+    {
+      "file_path": "load-benchmark-21.md",
+      "original_sha256": "8012ff94a4b327b4064d2fdde338f293f2cb156631dba6c589be5402e904d2e3",
+      "stored_sha256": [
+        "8012ff94a4b327b4064d2fdde338f293f2cb156631dba6c589be5402e904d2e3"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-21.md"
+    },
+    {
+      "file_path": "load-benchmark-22.md",
+      "original_sha256": "1ba9a0b9365ebe4b39abc3b2d3ad4f204552d07cfa115c540cd7c4a5035b354c",
+      "stored_sha256": [
+        "1ba9a0b9365ebe4b39abc3b2d3ad4f204552d07cfa115c540cd7c4a5035b354c"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-22.md"
+    },
+    {
+      "file_path": "load-benchmark-23.md",
+      "original_sha256": "a41f5299c16fc279af8d203550bffb0059e913d07fb5027efb3ab27a70384767",
+      "stored_sha256": [
+        "a41f5299c16fc279af8d203550bffb0059e913d07fb5027efb3ab27a70384767"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-23.md"
+    },
+    {
+      "file_path": "load-benchmark-24.md",
+      "original_sha256": "5a4ab7850213c2c8a8737e7ffb9079ba059222b30fa988394cd08f69e9712404",
+      "stored_sha256": [
+        "5a4ab7850213c2c8a8737e7ffb9079ba059222b30fa988394cd08f69e9712404"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-24.md"
+    },
+    {
+      "file_path": "load-benchmark-25.md",
+      "original_sha256": "912416d07526ed39cf467e4b0d4af5ac42b049f875e265b293422d08eaa7242a",
+      "stored_sha256": [
+        "912416d07526ed39cf467e4b0d4af5ac42b049f875e265b293422d08eaa7242a"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-25.md"
+    },
+    {
+      "file_path": "load-benchmark-26.md",
+      "original_sha256": "5af81cc296ebaea8e73c9c54b2d3881f29f4466d3754d57a56c2f4af28969335",
+      "stored_sha256": [
+        "5af81cc296ebaea8e73c9c54b2d3881f29f4466d3754d57a56c2f4af28969335"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-26.md"
+    },
+    {
+      "file_path": "load-benchmark-27.md",
+      "original_sha256": "5082d916b687f153ba395437eb82a5d9ff1076216e9cdc3db1e37e15bdcbcbbc",
+      "stored_sha256": [
+        "5082d916b687f153ba395437eb82a5d9ff1076216e9cdc3db1e37e15bdcbcbbc"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-27.md"
+    },
+    {
+      "file_path": "load-benchmark-28.md",
+      "original_sha256": "52b2f85dd3b7346ad5b8b939850d848fce127d1d11bd5acebf5c6cc3acdcedec",
+      "stored_sha256": [
+        "52b2f85dd3b7346ad5b8b939850d848fce127d1d11bd5acebf5c6cc3acdcedec"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-28.md"
+    },
+    {
+      "file_path": "load-benchmark-29.md",
+      "original_sha256": "6410487a80acc8901068233f62a6c0d5f87bbfe627b5c1ce880d6f0ceb31885b",
+      "stored_sha256": [
+        "6410487a80acc8901068233f62a6c0d5f87bbfe627b5c1ce880d6f0ceb31885b"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-29.md"
+    },
+    {
+      "file_path": "load-benchmark-3.md",
+      "original_sha256": "eb41c7ffa36a0f7721c8527b61e9c6f8cfa68d2f9298b74e2a1ae31cf33f87f2",
+      "stored_sha256": [
+        "eb41c7ffa36a0f7721c8527b61e9c6f8cfa68d2f9298b74e2a1ae31cf33f87f2"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-3.md"
+    },
+    {
+      "file_path": "load-benchmark-4.md",
+      "original_sha256": "d60e8157d247bbf8474ac2a20ddd6533d7224b9219554fb596dfd3a90f99ac50",
+      "stored_sha256": [
+        "d60e8157d247bbf8474ac2a20ddd6533d7224b9219554fb596dfd3a90f99ac50"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-4.md"
+    },
+    {
+      "file_path": "load-benchmark-5.md",
+      "original_sha256": "5372d721b29374e0e9c217fec83fd66589dc151f0f6ccc290a40f6b7af9b764d",
+      "stored_sha256": [
+        "5372d721b29374e0e9c217fec83fd66589dc151f0f6ccc290a40f6b7af9b764d"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-5.md"
+    },
+    {
+      "file_path": "load-benchmark-6.md",
+      "original_sha256": "7029fa3d1ad34a7f9df89999f3db8eca858e317f035f03621a73e0404892e068",
+      "stored_sha256": [
+        "7029fa3d1ad34a7f9df89999f3db8eca858e317f035f03621a73e0404892e068"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-6.md"
+    },
+    {
+      "file_path": "load-benchmark-7.md",
+      "original_sha256": "bb37674ff9080301ce278b3ecbf79dfc45ebaba1c45075e06f266ff08e1ff4ac",
+      "stored_sha256": [
+        "bb37674ff9080301ce278b3ecbf79dfc45ebaba1c45075e06f266ff08e1ff4ac"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-7.md"
+    },
+    {
+      "file_path": "load-benchmark-8.md",
+      "original_sha256": "8b67838bf8fee44c64ff6ed5b66975c8d55561d805c8d2c3d698f39efc600ea4",
+      "stored_sha256": [
+        "8b67838bf8fee44c64ff6ed5b66975c8d55561d805c8d2c3d698f39efc600ea4"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-8.md"
+    },
+    {
+      "file_path": "load-benchmark-9.md",
+      "original_sha256": "cf4c15d633132d90f66c90c62d547402c9ac866939d44f02792512c376691c31",
+      "stored_sha256": [
+        "cf4c15d633132d90f66c90c62d547402c9ac866939d44f02792512c376691c31"
+      ],
+      "recovery": "reproduced benchmark original",
+      "backup": ".local/local-v1/originals/load-benchmark-9.md"
+    },
+    {
+      "file_path": "samples/api-design-guidelines.md",
+      "original_sha256": "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441",
+      "stored_sha256": [
+        "57fe1bd85398c081d12812cfa3c2d6fc16a15f11099c3bcd2b56724e67285441"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/business.md",
+      "original_sha256": "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5",
+      "stored_sha256": [
+        "93f8ea4d606bbbd0dda44e25a69337cca80959c0e6a825044cc8b61e43daf8b5"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/cache.md",
+      "original_sha256": "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1",
+      "stored_sha256": [
+        "8f1ec1c1ec384a780bb5773f029290203c2cd580a4282cb101bdadba73dd49b1"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/calculus.md",
+      "original_sha256": "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150",
+      "stored_sha256": [
+        "8cf78a15d396564d6376d897618261ea2de64bb390dd6ffdbb03fc81309b8150"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/change-data-capture.md",
+      "original_sha256": "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d",
+      "stored_sha256": [
+        "74afe6f02f8ea18ed1dc9df6161e334ff36d0629560557ea26f380d5a9e26a6d"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/knowledge-graph.md",
+      "original_sha256": "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18",
+      "stored_sha256": [
+        "c07fb03c35734095ec4a0656f85a1a032df9adaaf142ac2b2f213741a495aa18"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/linear-algebra.md",
+      "original_sha256": "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b",
+      "stored_sha256": [
+        "51a86e0a249903cc080651b2c239fcae379ab7dc84695392bbb0775d5062bf0b"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/numerical-methods.md",
+      "original_sha256": "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e",
+      "stored_sha256": [
+        "1152d94ecc3e1979711d65131c549d7aeaea956d448069bef5d20075be351b3e"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/os.md",
+      "original_sha256": "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea",
+      "stored_sha256": [
+        "6cbb5eab18e1bd7f442adb5bedb9c621c187721096f401087f8d954cdf22bfea"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/rabbitmq.md",
+      "original_sha256": "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630",
+      "stored_sha256": [
+        "c6e819e44deac7f2bb01fa31d02802637d5025e0b4bc01e9fb93ee83296c6630"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/system-design-core.md",
+      "original_sha256": "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710",
+      "stored_sha256": [
+        "a8319deb34a8f5a3de81adb7ce4a2a49518e241f4768d65e5d261de47f2bd710"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/trig-functions.md",
+      "original_sha256": "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596",
+      "stored_sha256": [
+        "75d56bb740e69711504169b793a95178ff1461d07984614b4af53fcce3d97596"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/uber-architecture.md",
+      "original_sha256": "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367",
+      "stored_sha256": [
+        "0b44923bac2b3c5d0cb28342327781dd1d6710805ac19cc9f12920ff5f6de367"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    },
+    {
+      "file_path": "samples/youtube-architecture.md",
+      "original_sha256": "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37",
+      "stored_sha256": [
+        "ac3972e8b6d1c093637eab5c90830af16518bc3626da303800b08b8f4c131b37"
+      ],
+      "recovery": "available configured source",
+      "backup": null
+    }
+  ],
+  "target_config": ".local/local-v1/config.yaml",
+  "old_config_preserved": true,
+  "history_collection": "chat_history",
+  "target_documents": "documents_chunks_local_v1_20261003",
+  "target_cache": "search_cache_local_v1_20261003",
+  "desired_note_files": 15,
+  "verified_test_artifact_files": 32,
+  "migration_policy": "Retain the 14 configured note sources and the exact uploaded business.md; archive 32 byte-verified load benchmark originals outside the new reading corpus. Keep all old collections and config for rollback."
+}

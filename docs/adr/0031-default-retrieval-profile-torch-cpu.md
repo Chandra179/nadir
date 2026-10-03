@@ -58,3 +58,10 @@ profile for latency-sensitive deployments (identical quality at rerank p50
   (model/backend/device) so committed evidence is self-describing.
 - The generation-judge gate in TODO stays open for a separate decision; this
   record settles only the retrieval profile.
+
+## Current enablement (2026-10-03)
+
+The `torch` CPU backend decision remains accepted for the optional sidecar.
+[0034](0034-chunker-fixes-and-size.md) supersedes reranking enablement: the
+current EmbeddingGemma workflow leaves reranking off because the measured
+reranker regressed retrieval. This record does not recommend enabling it.

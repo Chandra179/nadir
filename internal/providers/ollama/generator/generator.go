@@ -25,8 +25,9 @@ type ollamaChatRequest struct {
 }
 
 type ollamaMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role     string `json:"role"`
+	Content  string `json:"content"`
+	Thinking string `json:"thinking,omitempty"`
 }
 
 type ollamaChatChunk struct {
@@ -78,27 +79,41 @@ func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgen
 	defer close(events)
 
 	decoder := json.NewDecoder(body)
+	hasAnswer := false
+	finish := func() {
+		if !hasAnswer {
+			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventError, Err: fmt.Errorf("generator stream ended without answer content; increase the generation budget or disable model thinking")})
+		} else {
+			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventDone})
+		}
+	}
 	for {
 		var chunk ollamaChatChunk
 		if err := decoder.Decode(&chunk); err != nil {
 			if err == io.EOF {
-				emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventDone})
+				finish()
 			} else {
 				emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventError, Err: fmt.Errorf("generator stream decode: %w", err)})
 			}
 			return
 		}
+		if chunk.Message.Content != "" {
+			if !emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventToken, Text: chunk.Message.Content}) {
+				return
+			}
+			hasAnswer = true
+		}
 		if chunk.Done {
-			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventDone})
+			finish()
 			return
 		}
-		if chunk.Message.Content == "" {
+		if chunk.Message.Content == "" && chunk.Message.Thinking == "" {
 			emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventError, Err: fmt.Errorf("generator stream response missing message.content")})
 			return
 		}
-		if !emit(ctx, events, conversationgeneration.Event{Kind: conversationgeneration.EventToken, Text: chunk.Message.Content}) {
-			return
-		}
+		// Reasoning is a separate wire field, never answer text. Continue
+		// draining it under the same cancellation and request timeout.
+
 	}
 }
 

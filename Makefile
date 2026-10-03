@@ -33,7 +33,7 @@ user-path-benchmark:
 check: test vet build
 
 mdn:
-	go fix ./...
+	go fix $(GO_PACKAGES)
 
 generate-mocks:
 	GOFLAGS=-mod=mod go run github.com/vektra/mockery/v2@$(MOCKERY_VERSION)

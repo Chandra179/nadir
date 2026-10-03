@@ -51,3 +51,38 @@ func TestStaticTechnicalAndSourceQuestionsStillGenerate(t *testing.T) {
 		drain(t, d, turn)
 	}
 }
+
+func TestAddressLookupDeclinesAbsentLiteralButAllowsDocumentedAddress(t *testing.T) {
+	const query = "What is the IP address of our deployment primary?"
+	for _, tc := range []struct {
+		text    string
+		decline bool
+	}{
+		{"Each primary runs on a separate VM. Example: host:{client_ip}.", true},
+		{"Primary address: 999.1.2.3", true},
+		{"Primary address: 192.0.2.71.", false},
+		{"Primary endpoint: http://192.0.2.71:8100/", false},
+		{"Primary address: [2001:db8::17]", false},
+	} {
+		h := &fakeHistory{}
+		g := &fakeGenerator{tokens: []string{"Source answer [1]."}}
+		d := NewDependencies(DependenciesConfig{History: h, Generator: g, Searcher: &fakeSearcher{chunks: []search.Chunk{{Text: tc.text}}}})
+		turn := d.StartTurn(context.Background(), Request{Query: query, Generate: true})
+		if tc.decline {
+			if turn.Streaming || !turn.HasAnswer || turn.Answer != "The retrieved notes do not specify that IP address." || g.got != "" {
+				t.Fatalf("missing address became an answer: %+v", turn)
+			}
+		} else {
+			if !turn.Streaming {
+				t.Fatalf("documented address was blocked: %+v", turn)
+			}
+			drain(t, d, turn)
+		}
+		waitFor(t, func() bool { return len(h.turns()) == 1 })
+	}
+	for _, question := range []string{"What is an IP address?", "How can I determine the IP address of our primary?", "What is the purpose of IP address lookup?"} {
+		if missingLiteralAddress(question, nil) != "" {
+			t.Fatalf("conceptual/how-to question blocked: %q", question)
+		}
+	}
+}

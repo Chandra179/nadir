@@ -27,6 +27,25 @@ func TestBuildContextIncludesSectionHeaders(t *testing.T) {
 	}
 }
 
+func TestFlattenedTablePresentationRetainsRowsEmptyCellsAndSourceIdentity(t *testing.T) {
+	const table = "| Service | Policy | Note | |---|---|---| | Tracking | Available | fast | | Matching | Consistent | |"
+	chunk := search.Chunk{FilePath: "design.md", SectionPath: "Design > Policies", SourceSHA: "version", LineStart: 20, Text: table}
+	built := BuildPromptWithBudget("Which service uses each policy?", []search.Chunk{chunk}, PromptBudget{MaxContextTokens: 1000})
+	if len(built.Context.Citations) != 1 {
+		t.Fatalf("table lost evidence: %+v", built)
+	}
+	c := built.Context.Citations[0]
+	want := "| Service | Policy | Note |\n| --- | --- | --- |\n| Tracking | Available | fast |\n| Matching | Consistent |  |"
+	if c.Text != want || !strings.Contains(built.Prompt, want) || chunk.Text != table || c.SourceSHA != chunk.SourceSHA || c.LineStart != chunk.LineStart {
+		t.Fatalf("table row/value or evidence provenance changed: %+v", c)
+	}
+	for _, text := range []string{"if a || b { return }", "| a | b | |---|---| | row |", "| | |", "Plain text | with pipes |"} {
+		if got := restoreTableRows(text); got != text {
+			t.Fatalf("non-table fragment changed: %q to %q", text, got)
+		}
+	}
+}
+
 func TestCitationLabelRetainsTheParentOfAnAmbiguousHeading(t *testing.T) {
 	chunk := search.Chunk{FilePath: "methods.md", Header: "Properties", SectionPath: "Methods > First method > Properties", Text: "Requires a derivative.", LineStart: 7}
 	built := BuildContextWithStats([]search.Chunk{chunk}, 200)

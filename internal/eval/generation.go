@@ -30,14 +30,14 @@ const (
 // intentionally a separate, explicitly configured generator: evaluation must
 // not silently judge a model with itself or fall back to the answer model.
 type GenerationDependenciesConfig struct {
-	Searcher                 search.Retriever
-	AnswerGenerator          conversationgeneration.Generator
-	JudgeGenerator           conversationgeneration.Generator
-	AnswerModel              string
-	JudgeModel               string
-	JudgeSuitability         string
-	ModelFingerprints        []ModelFingerprint
-	MaxContextTokens         int
+	Searcher          search.Retriever
+	AnswerGenerator   conversationgeneration.Generator
+	JudgeGenerator    conversationgeneration.Generator
+	AnswerModel       string
+	JudgeModel        string
+	JudgeSuitability  string
+	ModelFingerprints []ModelFingerprint
+	MaxContextTokens  int
 	// ContextBudgetOverride replaces MaxContextTokens when positive, so an
 	// experiment arm can vary the admitted-context budget without changing
 	// the serving configuration. The override is recorded in the report.
@@ -132,6 +132,7 @@ type GenerationQueryResult struct {
 	Answer                 string            `json:"answer,omitempty"`
 	AnswerBytes            int               `json:"answer_bytes,omitempty"`
 	AnswerStatus           string            `json:"answer_status"`
+	AnswerMethod           string            `json:"answer_method,omitempty"`
 	JudgeStatus            string            `json:"judge_status"`
 	JudgeRaw               string            `json:"judge_raw,omitempty"`
 	FailureClass           string            `json:"failure_class,omitempty"`
@@ -145,7 +146,7 @@ type GenerationQueryResult struct {
 	Error                  string            `json:"error,omitempty"`
 }
 
-// GenerationAggregate contains mean judge scores and model-call latency for
+// GenerationAggregate contains mean judge scores and answer/judge latency for
 // the successfully evaluated queries.
 type GenerationAggregate struct {
 	Queries             int            `json:"queries"`
@@ -292,7 +293,12 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		prompt := built.Prompt
 		answerCtx, answerCancel := context.WithTimeout(ctx, h.requestTimeout)
 		answerStarted := time.Now()
-		answer, err := collectGeneration(answerCtx, h.answerGenerator, prompt)
+		answer := chat.AnswerExplicitComparison(goldenQuery.Query, contextBuild.Citations)
+		result.AnswerMethod = "literal_comparison"
+		if answer == "" {
+			result.AnswerMethod = "model"
+			answer, err = collectGeneration(answerCtx, h.answerGenerator, prompt)
+		}
 		answerCancel()
 		result.AnswerLatencyMS = elapsedMS(answerStarted)
 		if err != nil {
@@ -307,6 +313,7 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 			report.PerQuery = append(report.PerQuery, result)
 			continue
 		}
+		answer = chat.CorrectCitationAttributions(goldenQuery.Query, answer, contextBuild.Citations)
 		result.AnswerStatus = "success"
 		result.AnswerBytes = len(answer)
 		result.Answer = answer

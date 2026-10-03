@@ -254,6 +254,7 @@ with the GPU Compose override after measuring GPU capacity.
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/api/v1/documents` | Read indexed file/version inventory and last import |
 | POST | `/api/v1/documents` | Ingest multipart uploaded files or configured sources |
 | POST | `/api/v1/documents/reset` | Publish an empty Qdrant collection generation |
 | POST | `/api/v1/turns` | Start one JSON Retrieval/chat turn |
@@ -264,6 +265,7 @@ with the GPU Compose override after measuring GPU capacity.
 | DELETE | `/api/v1/sessions/:id` | Delete one session and its turns |
 | DELETE | `/api/v1/sessions` | Delete all sessions and turns |
 | GET | `/api/v1/health` | API health check |
+| GET | `/api/v1/ready` | Dependency and configured model readiness |
 
 ## Architecture
 
@@ -319,7 +321,7 @@ and latency percentiles. It uses the configured reranker by default:
 ```bash
 go run ./cmd/evaluator --runs 3
 go run ./cmd/evaluator --no-rerank --runs 3
-go run ./cmd/evaluator --ensure-ingest --report test/evaluation/reports/local.json
+go run ./cmd/evaluator --ensure-ingest --report .local/evaluation/local.json
 ```
 
 The active golden set is a schema-v3 pack of 133 expert-authored synthetic
@@ -330,6 +332,10 @@ data and is not a release gate. Historical reports still contain the original
 34-query measurements. Collect consent-safe production queries, privacy
 approval, and independent expert judgments before treating a score as a
 production release gate.
+
+Scratch evaluation reports default to ignored `.local/evaluation/`. The
+[report catalog](test/evaluation/reports/README.md) indexes retained accepted
+and historical evidence and explains when to promote a new report.
 
 The optional [ARQMath importer](scripts/import_arqmath.py) can build a public
 math research pack. That pack and its licensed corpus are not checked in.
@@ -367,13 +373,15 @@ is preferred.
 
 ### `./scripts/local.sh` fails with connection errors
 
-Ensure the Podman Compose stack is up and no other services occupy ports 6333/6334/5002/8100. Clear stale Qdrant state and retry:
+Ensure Qdrant and Ollama are running and no other services occupy the configured
+ports (normally 6333/6334/11434/8100; 5002 when reranking is enabled). Check
+`/api/v1/ready` and the launcher logs for the failing dependency. A connection
+error does not require clearing the document index.
 
-Use `POST /api/v1/documents/reset` to publish an empty collection generation safely:
-
-```bash
-curl -X POST localhost:8100/api/v1/documents/reset
-```
+Use `POST /api/v1/documents/reset` only when deliberately emptying the corpus.
+Re-upload notes afterward or use the documented
+[fresh-collection migration](docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely)
+when updating indexing policy.
 
 ### Ollama connection refused
 

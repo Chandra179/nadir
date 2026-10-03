@@ -30,3 +30,10 @@ mechanism. It is consumed by both search (lookup/store) and ingest
 - The embedder/Qdrant dependencies are self-explanatory: no embeddings, no
   semantic cache.
 - The store/cache boundary follows lifecycle and domain, not infrastructure.
+
+## Current location (2026-10-03)
+
+The semantic-cache capability is in `internal/core/retrieval/cache`; its Qdrant
+adapter is in `internal/providers/qdrant/cache`. Indexing consumes a narrow
+invalidation capability. The naming and lifecycle separation remain current;
+`internal/cache` and `internal/store` above are historical paths.

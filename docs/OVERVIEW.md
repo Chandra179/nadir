@@ -143,8 +143,8 @@ small Python sidecar.
 |---|---|---|
 | Embeddings | EmbeddingGemma 300M (`embeddinggemma-300m-q8`, 768 dimensions) | task-instruction prefixes are applied at query and index time; changing the model or prefixes requires a reindex |
 | Keyword search | Qdrant sparse index (BM25-style) | part of the search index, not a separate model |
-| Answer generation | Gemma 3 4B (`gemma3:4b`) | streamed; the 1B variant is the low-latency fallback |
-| Follow-up rewriting | Gemma 3 1B (`gemma3:1b`) | runs only for follow-up turns; falls back to the original wording on failure |
+| Answer generation | Gemma 3 4B (`gemma3:4b`) | streamed with bounded output; explicitly configured, with no automatic model fallback |
+| Follow-up rewriting | Gemma 3 1B (`gemma3:1b`) | optional for unresolved references; selected subjects bypass it; failure retains the original wording |
 | Contextual enrichment (optional) | Gemma 3 1B (`gemma3:1b`) | off by default; enabling it requires a reindex |
 | Reranking (optional) | BAAI BGE reranker v2-M3 | off by default; handles one request at a time |
 
@@ -258,8 +258,8 @@ cannot crowd out the rest.
    editing an earlier question? ──▶ that turn and everything after
               │                    it are replaced by the new answer
               ▼
-   a follow-up question? ──▶ rewritten into a standalone question
-              │              using the recent conversation
+   a follow-up question? ──▶ resolve subject from recent conversation
+              │              optionally rewrite the retrieval query
               ▼
      retrieve passages (diagram above)
               │
@@ -271,9 +271,10 @@ cannot crowd out the rest.
     └─ reopening the page shows the answer from where you left off
 ```
 
-A follow-up question is first rewritten into a standalone question using the
-recent conversation, so "what about the second one?" searches for something
-meaningful; if that step fails, the original wording is used. Only an
+Follow-up references use recent conversation and a persisted selected source
+section when available. A selected subject bypasses optional LLM rewriting;
+other unresolved references may be rewritten for retrieval. Generation keeps
+the original question and receives bounded reference context separately. Only an
 explicit cancel stops a running answer. Closing the page does not: the answer
 finishes in the background and is saved, so reopening shows it from where you
 left off. Editing an earlier question trims that branch of the conversation —
@@ -283,26 +284,15 @@ a restart; an answer that was still being written is saved up to that point.
 
 ### Keeping heavy work orderly
 
-```text
- ┌──────────────────────────────────────────────────┐
- │ indexing:         one run at a time              │
- │                                                  │
- │ destructive:      one at a time, and never       │
- │ reset, edit or    while an indexing run is       │
- │ delete chats      in progress                    │
- │                                                  │
- │ busy?             new work is turned away        │
- │                   promptly instead of piling up  │
- └──────────────────────────────────────────────────┘
+Indexing has a single-writer budget. Destructive operations have a separate
+finite budget; document reset is also coordinated with indexing by the
+Documents lifecycle. Chat edits/deletions coordinate with their own in-flight
+turns and may run while indexing proceeds. Requests that exhaust their queue
+timeout fail with a capacity error. These are process-local guarantees.
 
-   talking to the AI model is a separate matter: the model
-   server itself decides how many requests it handles at once
-```
-
-This prevents two indexing runs from racing each other, and a reset from
-deleting content halfway through an indexing run. Turning work away quickly
-keeps the app responsive instead of letting hidden queues grow. Reranking has
-its own one-at-a-time queue for the same reason.
+Ollama's scheduler owns LLM and embedding concurrency. The optional reranker
+has its own one-at-a-time client queue. These limits bound work on the current
+machine; they do not coordinate multiple API instances.
 
 ### What "ready" means
 
@@ -312,56 +302,35 @@ endpoint. A missing model returns an installation hint. Model metadata does
 not establish inference capacity or residency; actual turns verify serving
 on the current hardware without readiness loading and swapping answer models.
 
-## Current evidence
+## Current evidence (October 3, 2026)
 
-These are the latest engineering measurements. The 133-query fixture uses the
-sample documents and synthetic user-intent queries, so it is a regression
-signal rather than production release evidence.
+The finite personal/local engineering checklist passes with the installed
+Gemma 3 4B generator, Gemma 3 1B rewriter and EmbeddingGemma embedder. Reranking
+and custom fusion remain off. No additional model was downloaded for the
+accepted fixes.
 
-| Area | Latest result |
+| App workflow | Direct answer/source review |
 |---|---|
-| Corrected defaults on the repaired evaluator (report schema v2, reset+reindex for per-chunk lines) | Golden pack, no reranker, 3 runs / 399 pooled requests: HitRate@5 **0.977**, Recall@5 **0.969**, MRR@10 **0.817**, nDCG@5 **0.837**, p50/p95 **99/127 ms** — identical across all three runs, so retrieval is deterministic on this stack and the earlier ±0.015 variance concern did not reproduce. Representative 14-document pack (64 queries incl. 8 unsupported): HitRate@5 **0.946**, MRR@10 **0.774**, p50 **102 ms**; generation gemma3:4b judged by the observed-3.8B phi4-mini: faithfulness **0.822**, relevancy **0.811**, context precision/recall **0.578/0.643**, judge coverage 100% with zero failures, **8/8 correct abstentions** (mean abstention 1.0) — although the judge scored 4 of those correct abstentions faithfulness 0, which is the first item for the blind human calibration ([golden](../test/evaluation/reports/retrieval-golden-defaults-20260930.json), [representative+generation](../test/evaluation/reports/generation-representative-defaults-20260930.json))  |
-| Concurrent load on the corrected defaults (concurrency 8, 30 req/workload, zero failures) | `long_retrieval` p50/p95 **1.5/2.0 s** — the old ~30 s retrieval p95 behind chat streams is resolved; `large_ingestion` p95 **2.8 s**; `chat_streams` p50 13.2 s with **first-token p50 10.8 s** — the remaining head-of-line is model serving (Ollama serializing eight 4b generations), not retrieval ([report](../test/evaluation/reports/load-defaults-20260930.json))  |
-| Daily-use answer quality and streaming latency | Latest corrected-prefix default-model run: **28/30 supported, 5/5 declines, 2/5 follow-ups**; broader **49/56 and 7/8**. All 104 turns complete without operational failures; daily first-token p50/p95 **0.747/2.879 s** excludes three immediate declines. Wrong citations and follow-up subject loss fail the semantic guard. Installed 8B with CPU embeddings completes all 104 but still fails quality (**26/30, 5/5, 3/5**); cold daily p95 **13.097 s**, subsequent broader **1.161 s**. Optional CPU placement is implemented and directly verified; model defaults remain. See [latest review](../test/evaluation/reports/quality-prefix-agent-review-20261002.json), [8B review](../test/evaluation/reports/quality-cpue-model-agent-review-20261002.json) and [full evidence/migration](LOCAL_V1.md). Simulated results are not human calibration or product-completion percentages. |
-| Semantic cache and follow-up rewriting, 2026-09-30 | The committed report contains 5 cache cases with **0 hits**, so hit correctness is unknown; 3/4 rewrites were observed with one retrieval regression. The earlier 7/7 traps and 4/4 paraphrase claims were not supported by this artifact. The new [lifecycle check](../test/evaluation/reports/daily-use-lifecycle-20261001.json) verifies an exact-repeat cache hit and invalidation after a source update; this does not measure paraphrase quality. ([older report](../test/evaluation/reports/user-paths-defaults-20260930.json)) |
-| Context-selection experiment, budget arm (pre-registered vs same-session control) | Admitted-context budget 1400 vs 2800 tokens: context precision **0.541 vs 0.578**, recall 0.614 vs 0.643, `context_selection` misses 15 vs 12 — the arm FAILED its bar (needed precision +≥0.05) and is rejected; tail chunks carry usable evidence. Budget stays 2800 ([arm](../test/evaluation/reports/generation-representative-ctx1400-20260930.json), [control](../test/evaluation/reports/generation-representative-defaults-20260930.json))  |
-| Hybrid Retrieval, no reranker | HitRate@5 **0.805**, MRR@10 **0.657**, p50/p95 **19/23 ms**  |
-| BGE reranker on CPU | MRR@10 **0.697**, nDCG@5 **0.709**; rerank p50/p95 **9.4/18.6 s**  |
-| BGE reranker on GPU (laptop RTX) | Same quality: MRR@10 **0.697**, nDCG@5 **0.709**; rerank p50/p95 **0.44/0.70 s** (≈21× faster); peak VRAM about **3.7 GiB**  |
-| BGE reranker quantized to 8-bit integers on CPU | Quality matched or beat the full-precision reranker (MRR@10 **0.725**, nDCG@5 **0.731**); rerank p50/p95 **5.4/9.7 s** — only about 1.7× faster than full precision, so the portable default stays full precision ([report](../test/evaluation/reports/e2e-podman-rerank-onnx-int8-20260927.json))  |
-| EmbeddingGemma, fresh reindex on the current build | HitRate@5 **0.955** over the four-document fixture and **0.940** over the full corpus, MRR@10 **0.742 / 0.795**, at embed p50/p95 **95/106 ms** — versus same-day Nomic controls of 0.797 / 0.759; EmbeddingGemma is now the default (ADR 0032)  |
-| Chunker correctness fixes (code blocks, list-item separators, oversized re-split, result identity, original-query fragment) | Full corpus, no reranker: HitRate@5 **0.970–0.985**, MRR@10 **0.806–0.809**, nDCG@5 **0.831–0.840** — up from 0.947/0.796/0.827 the same day pre-fix; 368 → 442 indexed points now include fenced code content (ADR 0034, [reports](../test/evaluation/reports/chunker-fix-512-fullcorpus-20260929-run1.json))  |
-| Chunk size 512 vs 2048 runes (fixed chunker, pre-registered) | 2048 failed both ranking bars: MRR@10 **0.788 vs 0.806–0.809**, nDCG@5 **0.818–0.820 vs 0.831–0.840** at HitRate parity; `chunk_size` stays 512 (ADR 0034, [2048 report](../test/evaluation/reports/chunk-2048-fullcorpus-20260929-run1.json))  |
-| Reranker re-measured on the EmbeddingGemma default | With rerank: HitRate@5 **0.910**, nDCG@5 **0.767** at 511 ms p50; without: **0.947 / 0.827** at 103 ms — the cross-encoder now degrades every metric at ~5× latency and stays off the measured default path (ADR 0034, [report](../test/evaluation/reports/pre-fix-rerank-gpu-fullcorpus-20260929.json))  |
-| Weighted fusion vs native rank fusion | The optional weighted-fusion profile was measured against the default on both corpus states and lost on every metric; the default stays native fusion  |
-| Recursive vs sentence-window chunking | Splitting into sentence-sized pieces with wider context windows at answer time lost retrieval recall (HitRate@5 **0.925** vs **0.940**) while ranking held; the recursive chunker stays the default, and any revisit needs a segmenter that truly splits bullet-list markdown into sentences first (ADR 0033, [reports](../test/evaluation/reports/chunk-recursive-goldencorpus-20260927.json))  |
-| Answer-quality judge, before the grounding fix | 129/133 queries evaluated: faithfulness **0.485**, answer relevancy **0.780**, context precision/recall **0.615/0.622**; 4 failures ([the generation triage report](../test/evaluation/reports/generation-triage-20260916.json))  |
-| Answer-quality judge, after grounding fix + answer-shape recalibration (live reruns) | Pre-fix baseline: faithfulness **0.485**, relevancy **0.780**. Now: all 133 evaluated with zero failures — faithfulness **0.690**, relevancy **0.733**, context precision/recall **0.689/0.736**. Grounding rose sharply once answers stopped padding, and answer shape now matches the question; the residual relevancy gap tracks the queries where Retrieval misses ([report](../test/evaluation/reports/e2e-podman-generation-promptfix-20260927.json))  |
-| Generation gate after the ADR 0034 fixes (num_ctx pinned, strict abstention, judge auditability) | First configuration to pass both bars — faithfulness ≥ 0.65 **and** relevancy ≥ 0.75. gemma3:1b: **0.750 / 0.756**; gemma3:4b: **0.881 / 0.803** with generation failures 20 → 3, at ~9× answer latency (4.3 s vs 0.48 s p50). `generator.model` default is now gemma3:4b; gemma3:1b is the low-latency fallback (ADR 0034, [1b](../test/evaluation/reports/generation-gemma1b-fixes-fullcorpus-20260929.json), [4b](../test/evaluation/reports/generation-gemma4b-fullcorpus-20260929.json))  |
-| PDF intake | 18/18 successful conversions, p50/p95 **2.62/25.94 s**, peak RSS about **3.28 GiB**  |
+| Daily, 40 saved questions | 30/30 supported, 5/5 declines, 5/5 follow-ups |
+| Broader, 64 saved questions | 56/56 supported, 8/8 declines |
+| Fragile cases, three repetitions | All 39 turns supported |
 
-The results show that Retrieval is fast without reranking, while reranking and
-PDF conversion are the main latency and resource costs. The default models and
-fusion policy remain conservative until consent-safe, expert-judged production
-data is available.
+These are Codex reviews of simulated questions, not independent human labels
+or proof of personal usefulness. The unchanged retrieval packs ran three times:
+golden Hit@5 1.0000, MRR@10 0.8504, nDCG@5 0.8640; broader Hit@5 0.9464,
+MRR@10 0.8229, nDCG@5 0.8544. Distractor exposure and arbitrary paraphrase
+support remain limits. Sequential warm latency does not establish cold-load
+performance or concurrent capacity.
 
-The ARQMath importer is available for optional public-math research; its
-candidate pack and full licensed corpus are not present in this checkout.
-They do not block the personal/local technical-notes release. Its finite
-scope, direct acceptance evidence and remaining answer failures are recorded
-in [LOCAL_V1.md](LOCAL_V1.md).
-
-The schema-v2 evidence above was recorded 2026-09-30 after a reset-and-reindex
-(per-chunk source lines change chunk IDs, so a published version rejects
-re-staging and a reset is required). The reranker opt-in decision rests on the
-ADR 0034 GPU measurement; a CPU re-confirmation arm on the corrected defaults
-was attempted and aborted — the BGE v2-M3 sidecar needed ~11.5 s per rerank
-call on the local CPU profile, making the full 3-run pack impractical, which
-is consistent with keeping the CPU sidecar opt-in only (ADR 0031). A blind
-human judge calibration is exported (39 cases,
-[test/evaluation/judge-calibration/20260930-phi4-mini/](../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json))
-and pending review; until it completes the judge's calibration status stays
-`unreviewed`.
+See [LOCAL_V1.md](LOCAL_V1.md) for acceptance, measured latency, limitations and
+the migrated 15-note corpus launch/rollback. [P1_EVIDENCE.md](P1_EVIDENCE.md)
+distinguishes current checks from dated browser/lifecycle evidence.
+[The report catalog](../test/evaluation/reports/README.md) indexes accepted
+results, saved controls and historical experiments that support architecture
+decisions. Older automated-judge scores remain uncalibrated; the
+[39-case human-review packet](../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)
+is still pending. Ten saved owner questions against actual notes are the next
+product validation step.
 
 ## Conversations and data management
 

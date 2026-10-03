@@ -1,0 +1,1895 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-03T07:01:40.286670+00:00",
+  "reviewer": "Codex direct review of actual questions, all 143 app answers and their admitted/cited evidence; prior reasons retained only where they still describe the inspected answer",
+  "human": false,
+  "independent_human_review": false,
+  "release_gate": false,
+  "criteria": [
+    "Answer the actual requested cause, action or distinction.",
+    "Preserve material modes, subjects and mathematical conditions.",
+    "Inline cited evidence must support material claims; a mapped number is insufficient.",
+    "Do not require unasked fixture extras or an exhaustive list unless the question requests it. Mark unsupported additions and explicitly requested omitted alternatives as failures."
+  ],
+  "control_review": "test/evaluation/reports/quality-agent-review-20261002.json",
+  "comparison_limitation": "Historical fresh control captured 2026-10-02, not a newly rerun control today. Same saved full-pack fixture and sample corpus hashes; provenance includes default model identities. This is finite synthetic local acceptance, not independent calibration or owner-use validation.",
+  "reviews": [
+    {
+      "arm": "accepted_local_candidate",
+      "pack": "daily",
+      "report": "test/evaluation/reports/p1-accepted-daily-20261003.json",
+      "report_sha256": "fe2f0e5ed46704540670b5854d85582649b7db69335d8115e480e55fadcfd8e6",
+      "fixture_sha256": "ea50a8a77b4b1c206934763fef2d3bc4c40a22ff47a4492e3db0181b46de2b29",
+      "groups": {
+        "answerable": {
+          "correct": 30,
+          "total": 30
+        },
+        "followup": {
+          "correct": 5,
+          "total": 5
+        },
+        "unsupported": {
+          "correct": 5,
+          "total": 5
+        }
+      },
+      "cases": [
+        {
+          "id": "notes-01",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Identifies the Redis command thread as the cause of interference; the cited Lua section supports it.",
+          "warnings": [],
+          "answer": "A Lua script can save round-trips when it replaces several client-server exchanges, but script execution also uses the Redis command thread [3].",
+          "inline_sources": [
+            3
+          ]
+        },
+        {
+          "id": "notes-02",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives CRC16(key) mod 16384 and 16,384 slots, with matching evidence.",
+          "warnings": [],
+          "answer": "The slot calculation is: slot = CRC16(key) mod 16384 [1]. There are 16,384 slots [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-03",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Rejects deleting an expired lock and explains the newer-worker risk.",
+          "warnings": [],
+          "answer": "No, it is not safe for the worker to delete the lock key [3]. The worker whose lock has expired could accidentally delete a newer worker's lock [1]. The lock can also expire while work is still running, allowing another worker to start the same job [1].",
+          "inline_sources": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "notes-04",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes Redis atomic execution from a cross-service SQL transaction.",
+          "warnings": [],
+          "answer": "No, those two changes are not one atomic transaction [2]. A Lua script can read and update Redis data in one server-side execution, but Redis scripts provide atomic execution, not general rollback or a transaction with another service [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-05",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the exchanges, queues, bindings recovery order.",
+          "warnings": [],
+          "answer": "Exchanges first, then queues, then bindings [1]. The topology manager re-declares every cached object in the same order (exchanges first, then queues, then bindings) on connection loss [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-06",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects Manual explicitly; the cited Auto section supplies the crash-loss warning. No Manual recovery sequence is asserted.",
+          "warnings": [
+            "The Auto warning does not explicitly repeat its mode label in this full-pack answer; the selected Manual recommendation and its separate supporting citations remain clear. All three repetitions label Auto explicitly."
+          ],
+          "answer": "Manual acknowledgement (autoAck: false) [1]. Messages can be lost if the consumer crashes before processing [2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-07",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Directs exhausted retries to a parking lot for inspection.",
+          "warnings": [],
+          "answer": "The message should be moved to a parking lot queue [1]. Alternatively, the retry queue can be configured with an x-dead-letter-exchange that points to a second DLX for parking lot, but using a single DLX with routing-key differentiation simplifies topology [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-08",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains TTL and dead-letter routing back to the primary exchange.",
+          "warnings": [],
+          "answer": "The retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle [1]. After the TTL expires the message is re-published to the primary exchange. [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-09",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains that deleted source rows no longer exist for the polling query to return.",
+          "warnings": [],
+          "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-10",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names the durable connect-offsets Kafka topic.",
+          "warnings": [],
+          "answer": "Debezium running with Kafka Connect saves its state in a dedicated, durable Kafka topic called connect-offsets [1]. This topic stores a state entry like: `{ \"connector\": \"postgres-db\", \"lsn\": 410, \"file\": \"001.log\" } [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-11",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Provides an idempotent/LSN comparison action for duplicates.",
+          "warnings": [
+            "Short but provides the expressly asked duplicate-handling action; no unasked implementation tutorial is required."
+          ],
+          "answer": "Using Primary Key / Idempotent Writes [1].\n",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-12",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Uses order_id as partition key and explains per-partition ordering.",
+          "warnings": [],
+          "answer": "Kafka guarantees ordering within a single partition, and CDC engines map the database Primary Key as the partition key in Kafka (partition_key = order_id) [1]. Because all updates for a specific order land on the same partition and are processed strictly in order [1], status changes like PENDING -> PAID -> SHIPPED are maintained in sequence [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-13",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects integer currency representation to avoid floating-point rounding; a currency-code detail is not explicitly asked for.",
+          "warnings": [],
+          "answer": "Use Integers as currency [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-14",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "warnings": [],
+          "answer": "No, an empty search result and a missing resource ID do not both return 404. [1] A search that finds nothing returns 200 OK with an empty list []. A request for a specific entity that is missing must return 404 Not Found.",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-15",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives 202 Accepted and a Location polling endpoint.",
+          "warnings": [],
+          "answer": "Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-16",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "warnings": [],
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-17",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names shared code/heap/globals and private stacks.",
+          "warnings": [],
+          "answer": "They share the code, heap, and global / static data [2]. Each thread has its own private stack [1].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-18",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Allows identical virtual addresses backed by different physical memory.",
+          "warnings": [],
+          "answer": "Yes, two processes can have the same virtual address without accessing the same physical memory [1]. Different processes can use the same virtual address without referring to the same physical address [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-19",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains indirect cache/TLB/pipeline warm-up costs.",
+          "warnings": [],
+          "answer": "Context-switch cost: Often much smaller, roughly on the microsecond scale, but it can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-20",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Redirects incoming and outgoing edges to the master entity.",
+          "warnings": [],
+          "answer": "All incoming and outgoing edges redirect to a single master node [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-21",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Retains distinct authority and provenance rather than weighting a tweet and filing equally.",
+          "warnings": [
+            "Additional source 2 illustrates provenance, while source 1 supplies the threshold claim; literal correction does not validate semantic paraphrases."
+          ],
+          "answer": "An unverified tweet and an official SEC filing should not create edges with identical authority [1]. Edge Attributes include a confidence_score, which is the probability assigned by the extraction model (0.0–1.0), and source_count, which is how many independent sources verified the relationship. Threshold Filtering dynamically filters out edges below a minimum confidence or source count threshold [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-22",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Identifies loss of counterfactual reasoning from untyped relations and cites its actual ontology passage.",
+          "warnings": [],
+          "answer": "You are losing its reasoning power [2]. A graph where 90% of edges are generic RELATED_TO or MENTIONS loses its reasoning power [2]. You cannot run “what-if” counterfactual simulations on an edge that doesn’t specify the nature of the relationship [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-23",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names both .mpd and .m3u8 and the audio/video URLs indexed by the manifests.",
+          "warnings": [],
+          "answer": "The DASH manifest (.mpd) indexes the web addresses (URLs) of every audio chunk and the web addresses of every video chunk broken down by resolution and codec [1]. The HLS manifest (.m3u8) indexes the same information [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-24",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes continuous real-time encoding from uploaded-file batch processing.",
+          "warnings": [],
+          "answer": "Live streaming cannot use the standard VOD DAG because encoding must happen in real time [1]. Live streaming favors a 1–3 second broadcaster-to-viewer delay, so frames must be processed as they arrive [3].",
+          "inline_sources": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "notes-25",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps hot to edge SSD, warm to regional caches, and cold to central blob storage with the complete actual source.",
+          "warnings": [],
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-26",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately maps locations to availability/AP and matching to consistency/CP with its actual engine table.",
+          "warnings": [],
+          "answer": "Availability is favored in the Location Tracking Engine [2], which uses AP Eventual Consistency with Redis Spatial Cluster, and stricter consistency is needed in the Matching & Trip State Engine [2], which uses CP Strong Consistency with a Distributed RDBMS (CockroachDB / Postgres).",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-27",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names limiting queues and concurrent work and cites the actual backpressure statement.",
+          "warnings": [],
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-28",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists the complete traffic, payload, growth, bandwidth, concurrency and retention estimates with the actual source.",
+          "warnings": [],
+          "answer": "The notes tell me to collect estimate average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time [4].",
+          "inline_sources": [
+            4
+          ]
+        },
+        {
+          "id": "notes-29",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately identifies Newton derivative computation and secant not requiring derivatives.",
+          "warnings": [],
+          "answer": "Newton-Raphson needs derivative computation [4], while the secant method does not require computing derivatives [1].",
+          "inline_sources": [
+            1,
+            4
+          ]
+        },
+        {
+          "id": "notes-30",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives an m by p product.",
+          "warnings": [],
+          "answer": "C = AB is m×p where: C_{ij} = Σ_{k=1}^{n} A_{ik} · B_{kj} [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "unsupported-01",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "The context does not contain the Redis hostname and password used by your production service.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-02",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-03",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "The context does not contain the exact revenue of your business last month.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-04",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-05",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "followup-01",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Resolves the second compared method as Secant and cites its actual no-derivative property.",
+          "warnings": [],
+          "answer": "The secant method does not require computing derivatives [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "followup-02",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Keeps the selected Manual mode and declines the absent conditional outcome rather than substituting the Auto warning.",
+          "warnings": [],
+          "answer": "The retrieved notes do not establish that conditional outcome for Manual acknowledgement (autoAck: false).",
+          "inline_sources": []
+        },
+        {
+          "id": "followup-03",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains the expired worker deleting a newer lock and preserving token ownership with the actual source.",
+          "warnings": [],
+          "answer": "The token comparison matters because a worker whose lock has expired could accidentally delete a newer worker’s lock [1]. The lock can also expire while work is still running, allowing another worker to start the same job [1]. To prevent this, the worker should only delete the marker if the token still matches [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "followup-04",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Preserves the empty-search subject and gives 200 with an empty list.",
+          "warnings": [],
+          "answer": "A search that finds nothing returns 200 OK with an empty list []. [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "followup-05",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Preserves the process distinction and different physical memory mappings.",
+          "warnings": [],
+          "answer": "Yes, different processes can use the same virtual address without referring to the same physical address [1].",
+          "inline_sources": [
+            1
+          ]
+        }
+      ],
+      "new_material_failures_against_saved_control": [],
+      "fixed_saved_control_failures": [
+        "notes-06",
+        "notes-09",
+        "notes-12",
+        "notes-22",
+        "notes-26",
+        "notes-27",
+        "notes-29",
+        "followup-02"
+      ]
+    },
+    {
+      "arm": "accepted_local_candidate",
+      "pack": "broader",
+      "report": "test/evaluation/reports/p1-accepted-broader-20261003.json",
+      "report_sha256": "a770b9b834b2dde938a7a6b8375d5f468590025e0b32a7c33dd3b86650358aa7",
+      "fixture_sha256": "d7b412e97c6fbf72f2561811009e61e3d6ae66895d3e97b47265d29cc4c931cb",
+      "groups": {
+        "answerable": {
+          "correct": 56,
+          "total": 56
+        },
+        "unsupported": {
+          "correct": 8,
+          "total": 8
+        }
+      },
+      "cases": [
+        {
+          "id": "secant-trig-definition",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives secant as the reciprocal of cosine.",
+          "warnings": [],
+          "answer": "sec(θ) = 1 / cos(θ) = hypotenuse / adjacent [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "tangent-ratio",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives sin/cos.",
+          "warnings": [],
+          "answer": "tan(θ) = sin(θ) / cos(θ) [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "sin-45-degrees",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal sine cell √2/2 and cites the actual table.",
+          "warnings": [],
+          "answer": "sin(45°) = √2/2 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "degrees-to-radians-30",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal 30-degree radians cell π/6 and cites the actual table.",
+          "warnings": [],
+          "answer": "π/6 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "secant-method-root-finding",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains root approximation through successive secant lines.",
+          "warnings": [],
+          "answer": "The secant method uses a succession of roots of secant lines to approximate a root of a function [1]. It computes x₂ using the secant formula [2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "secant-formula-iteration",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the secant iteration formula.",
+          "warnings": [],
+          "answer": "x_{n+1} = x_n - f(x_n) * (x_n - x_{n-1}) / (f(x_n) - f(x_{n-1})) [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "root-method-speed-comparison",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names Newton and bisection in the order explicitly entailed by the complete recorded comparison.",
+          "warnings": [],
+          "answer": "Newton's method converges faster than bisection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "secant-no-derivative",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Denies a derivative requirement for secant.",
+          "warnings": [],
+          "answer": "Does not require computing derivatives [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "derivative-power-rule",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives n*x^(n-1).",
+          "warnings": [],
+          "answer": "If f(x) = x^n, then f'(x) = n · x^(n-1) [2]",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "derivative-chain-rule",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the composition chain rule.",
+          "warnings": [],
+          "answer": "If h(x) = f(g(x)), then h'(x) = f'(g(x)) · g'(x) [3]",
+          "inline_sources": [
+            3
+          ]
+        },
+        {
+          "id": "integral-natural-log",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives ln|x| plus C.",
+          "warnings": [],
+          "answer": "∫ 1/x dx = ln|x| + C [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "integral-power-rule",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Copies the power antiderivative and retains the stated n ≠ -1 restriction from its actual source.",
+          "warnings": [],
+          "answer": "∫ x^n dx = x^(n+1)/(n+1) + C (n ≠ -1) [4]",
+          "inline_sources": [
+            4
+          ]
+        },
+        {
+          "id": "vector-definition",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives an ordered n-tuple.",
+          "warnings": [],
+          "answer": "A vector v in n-dimensional space is an ordered n-tuple of numbers: v = (v₁, v₂, ..., vₙ) [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "dot-product",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the sum of component products.",
+          "warnings": [],
+          "answer": "u · v = Σ uᵢ · vᵢ [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "matrix-multiplication-dimensions",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives m by p.",
+          "warnings": [],
+          "answer": "C = AB is m×p [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "eigenvalues-characteristic-polynomial",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Solves det(A-lambda*I)=0.",
+          "warnings": [],
+          "answer": "Solve det(A - λI) = 0 (characteristic polynomial) [2]",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "api-currency-type",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives integer currency representation.",
+          "warnings": [],
+          "answer": "Use Integers as currency to eliminate floating-point rounding errors [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-empty-vs-missing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "warnings": [],
+          "answer": "A search that finds nothing (e.g., GET /transactions?date=today) is a success. Return 200 OK with an empty list []. [1] A request for a specific entity that is missing (e.g., GET /transactions/tx-123) must return 404 Not Found. [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-long-running",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives 202 Accepted and a Location polling endpoint.",
+          "warnings": [],
+          "answer": "Return 202 Accepted with a Location header pointing to a status polling endpoint, or use Webhooks [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-coalescing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "warnings": [],
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "business-trust-institutions",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names money, contracts, reputation and law from the institutions table.",
+          "warnings": [],
+          "answer": "Money, contracts, reputation, and law [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "business-embedded-fintech",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Quotes the complete own-app versus other-companies-software distinction and its actual source.",
+          "warnings": [],
+          "answer": "The notes state: \"Finance changes where a service is delivered. The services remain banking, custody, payments, and lending. Digital banks offer them through their own apps, while embedded fintech puts them inside other companies' software. Standalone neobanks such as N26, Chime, Varo, and Monzo compete through their brands, user experience, and additional services. Established banks can copy those services.\" [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "business-fintech-revenue",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Combines subscriptions and transaction/processing fee volume.",
+          "warnings": [],
+          "answer": "The embedded fintech providers can combine subscriptions with a share of fees from payment gateways, loan origination, or credit processing [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "business-inventory-pricing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names product count, sales channels and monthly orders.",
+          "warnings": [],
+          "answer": "Subscription tiers for inventory tools are set by product count, connected sales channels, and monthly orders [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "redis-execution",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes main-thread command execution from optional other threads for I/O/background work.",
+          "warnings": [],
+          "answer": "The Redis process handles one command at a time on its main execution thread [1]. Network I/O and background work can use other threads, depending on the Redis version and configuration [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "redis-slot-formula",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives CRC16(key) mod 16384 and 16,384 slots, with matching evidence.",
+          "warnings": [],
+          "answer": "The formula used to calculate a key’s slot is: slot = CRC16(key) mod 16384 [1]. The total slot count is 16,384 [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "redis-lock-release",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains the expired worker deleting a newer lock without adding a lease/partition guarantee.",
+          "warnings": [],
+          "answer": "A worker must compare its token before releasing a Redis lock to avoid accidentally deleting a newer worker’s lock [2]. If a worker’s lock has expired or is no longer valid, it could delete a lock that another worker is still using [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "redis-lua-transaction-limit",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explicitly denies a cross-service SQL transaction using the complete literal source assertion.",
+          "warnings": [
+            "Duplicate source 1 markers are cosmetic and both refer to the supporting assertion."
+          ],
+          "answer": "No. Redis scripts provide atomic execution, not general rollback or a transaction with another service [1], [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "cdc-polling-deletes",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains absent deleted rows versus WAL deletion events.",
+          "warnings": [],
+          "answer": "Polling-based CDC misses deleted rows because a deleted row no longer exists to be queried [3]. Log-Based CDC captures hard deletes because the WAL records the deletion event [1].",
+          "inline_sources": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "cdc-offset-storage",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names the durable connect-offsets Kafka topic.",
+          "warnings": [],
+          "answer": "Debezium with Kafka Connect saves its state in a dedicated, durable Kafka topic called connect-offsets [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "cdc-duplicates",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Provides an idempotent/LSN comparison action for duplicates.",
+          "warnings": [],
+          "answer": "A consumer compares incoming LSNs: if incoming_lsn <= last_processed_lsn, discard it as a duplicate [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "cdc-ordering",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Uses order_id as partition key and explains per-partition ordering.",
+          "warnings": [],
+          "answer": "Downstream services must process events in exact chronological order [1]. CDC engines map the database Primary Key as the partition key in Kafka (partition_key = order_id). Because Kafka guarantees ordering within a single partition, all updates for a specific order land on the same partition and are processed strictly in order [1]. Hudi uses these fields to apply changes in exact chronological order [3].",
+          "inline_sources": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "graph-canonicalization",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Redirects incoming and outgoing edges to the master entity.",
+          "warnings": [],
+          "answer": "All incoming and outgoing edges redirect to this single master node [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "graph-generic-edge-limit",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Identifies loss of counterfactual reasoning with untyped generic relations.",
+          "warnings": [],
+          "answer": "Generic RELATED_TO or MENTIONS edges weaken a knowledge graph because a graph where 90% of edges are generic loses its reasoning power [1, 2]. You cannot run “what-if” counterfactual simulations on an edge that doesn’t specify the nature of the relationship [1, 2]. The ontology schemas force relations into strict semantic categories, and generic MENTIONS edges are downgraded unless accompanied by a higher-order predicate [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "graph-ontology-categories",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names complete structural/ownership and causal/dynamic examples with their actual source.",
+          "warnings": [],
+          "answer": "Structural/Ownership: SUBSIDIARY_OF, INVESTED_IN, EMPLOYED_BY [1]\nCausal/Dynamic: TRIGGERED, SUPPRESSED, ACCELERATED [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "graph-source-authority",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Retains distinct authority and provenance rather than weighting a tweet and filing equally.",
+          "warnings": [],
+          "answer": "Not all extracted statements carry equal factual or causal weight. An unverified tweet and an official SEC filing should not create edges with identical authority [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "os-thread-memory",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names shared code/heap/globals and private stacks.",
+          "warnings": [],
+          "answer": "The parts of process memory shared by threads are the code, global / static variables, and heap [1, 2]. Each thread has its own private stack [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "os-virtual-addresses",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Allows identical virtual addresses backed by different physical memory.",
+          "warnings": [],
+          "answer": "Yes, different processes can use the same virtual address without referring to the same physical address [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "os-file-metadata",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists the complete named metadata fields and cites the actual vertical list.",
+          "warnings": [],
+          "answer": "File metadata can include: File size, Owner, Permissions, Timestamps, Locations of data blocks, and File type [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "os-context-switch-cost",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains indirect cache/TLB/pipeline warm-up costs.",
+          "warnings": [],
+          "answer": "A context switch can become more expensive indirectly because caches, TLBs, and CPU pipelines may need to warm up again [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "rabbit-topology-order",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the exchanges, queues, bindings recovery order.",
+          "warnings": [],
+          "answer": "The topology manager re-declares every cached object in the same order (exchanges first, then queues, then bindings) [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "rabbit-ack-modes",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Contrasts immediate automatic delivery with explicit post-success manual acknowledgement and scopes the loss warning.",
+          "warnings": [],
+          "answer": "Auto acknowledgement (autoAck: true) considers a message delivered as soon as it sends it over the socket [1], but messages can be lost if the consumer crashes before processing. Manual acknowledgement (autoAck: false) requires the application to explicitly call channel.ack(deliveryTag) after successful processing [2], giving full control over at-least-once delivery semantics.",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "rabbit-retry-cycle",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains TTL and dead-letter routing back to the primary exchange.",
+          "warnings": [],
+          "answer": "The retry queue has x-message-ttl and x-dead-letter-exchange pointing back to the primary exchange, creating a delayed requeue cycle [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "rabbit-parking-lot",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Directs exhausted retries to a parking lot for inspection.",
+          "warnings": [],
+          "answer": "After all retries are exhausted, the message is moved to a parking lot queue for manual inspection [3].",
+          "inline_sources": [
+            3
+          ]
+        },
+        {
+          "id": "system-backpressure",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Gives the queue/concurrent-work limit and cites the checklist that states it.",
+          "warnings": [],
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers. Decide whether to delay, drop, or reject work [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "system-capacity-inputs",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists the complete workload estimates from their actual checklist source.",
+          "warnings": [],
+          "answer": "average and peak requests per second, object size, storage growth, read and write volume, bandwidth, concurrent users, and retention time [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "system-recovery",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Asks what temporary state may be lost and how durable fallback/rebuilding works.",
+          "warnings": [],
+          "answer": "The checklist asks about deciding what may be lost from memory and how a node, database, or cache outage rebuilds state or falls back to durable storage [1]. The database boots back up, opens the WAL file on disk, reads the recent transactions, and replays them into the table files [2]. If the database crashes, it reads the WAL from the last committed checkpoint forward [4].",
+          "inline_sources": [
+            1,
+            2,
+            4
+          ]
+        },
+        {
+          "id": "system-cost-limit",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Lists compute, memory, storage, bandwidth, operations and third-party usage.",
+          "warnings": [],
+          "answer": "compute, memory, storage, bandwidth, operations, or third-party usage [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "ride-s2-neighbors",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps the rider to an S2 cell and queries its eight neighbors.",
+          "warnings": [],
+          "answer": "The conceptual ride matching design narrows the geospatial search for a rider by mapping a rider’s coordinate to an S2 Cell ID, then querying that cell and its eight neighbors instead of the whole database [3].",
+          "inline_sources": [
+            3
+          ]
+        },
+        {
+          "id": "ride-eta-vs-distance",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Calls the ETA service for candidates, indicating ETA-based selection; the source then selects by returned drive times. The answer is terse.",
+          "warnings": [
+            "Short but answers the expressly asked choice; no unasked traffic expansion is required."
+          ],
+          "answer": "ETA [1, 2]\n",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "ride-ap-vs-cp",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Quotes both explicitly labeled AP location and CP matching reasons, retaining partition/failure conditions and separate actual citations.",
+          "warnings": [],
+          "answer": "The notes state:\n\n\"AP engine (location streaming): A stale driver location does not affect a completed payment. Redis and Kafka favor speed over strict ACID guarantees. A failed location ping is dropped; the next ping arrives about 4 seconds later.\" [3].\n\n\"CP engine (matching and dispatch): Double-booking a driver loses trust and money, so consistency takes priority. Matching uses distributed locks, atomic Lua scripts, and relational ACID transactions. During a network partition, the request fails and the rider tries again instead of risking a double booking.\" [2].",
+          "inline_sources": [
+            2,
+            3
+          ]
+        },
+        {
+          "id": "ride-doma-layers",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names all five DOMA layers.",
+          "warnings": [],
+          "answer": "The five DOMA service layers listed are: Edge Layer, Presentation Layer, Product Layer, Business Layer, and Infrastructure Layer [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "video-transcode-dag",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names supported parallel audio/caption/frame workflows besides video encoding.",
+          "warnings": [],
+          "answer": "The conceptual video ingestion DAG process in parallel besides video encoding includes thumbnail creation, audio extraction, caption generation, and Content ID scanning [1, 2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "video-abr-manifests",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names .mpd/MPEG-DASH and .m3u8/HLS.",
+          "warnings": [],
+          "answer": ".mpd for MPEG-DASH and .m3u8 for HLS [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "video-live-vs-vod",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes continuous real-time encoding from uploaded-file batch processing.",
+          "warnings": [],
+          "answer": "Live streaming uses a continuous pipeline instead of the conceptual VOD DAG because encoding must happen in real time [3]. The live pipeline has continuous stream pipeline (real-time workers with small memory buffers) [1], while the VOD pipeline uses an asynchronous DAG across thousands of nodes [1].",
+          "inline_sources": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "video-storage-tiers",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Locates all three requested tiers: edge SSD, regional caches, central blob storage.",
+          "warnings": [],
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [1], warm content is kept in regional Google data-center caches [1], and cold content is read from central blob storage over Google’s backbone [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "unsupported-api-private-key",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "The context does not contain the exact production TLS private key used by our internal API services.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-business-real-revenue",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "The context does not contain StoreHub’s exact audited revenue in September 2026.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-cache-production-address",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "The retrieved notes do not specify that IP address.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-cdc-live-offset",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-os-machine-pid",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-rabbit-queue-depth",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-ride-current-official-scale",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        },
+        {
+          "id": "unsupported-video-current-official-codec",
+          "kind": "unsupported",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Clearly declines the absent private/live value without substituting a sample or conceptual fact.",
+          "warnings": [],
+          "answer": "I can search your indexed notes, but I cannot observe the current state of your systems.",
+          "inline_sources": []
+        }
+      ],
+      "new_material_failures_against_saved_control": [],
+      "fixed_saved_control_failures": [
+        "sin-45-degrees",
+        "root-method-speed-comparison",
+        "integral-power-rule",
+        "business-trust-institutions",
+        "business-embedded-fintech",
+        "redis-execution",
+        "graph-generic-edge-limit",
+        "graph-ontology-categories",
+        "rabbit-ack-modes",
+        "unsupported-cache-production-address",
+        "unsupported-cdc-live-offset",
+        "unsupported-video-current-official-codec"
+      ]
+    },
+    {
+      "arm": "accepted_local_candidate",
+      "pack": "fragile-1",
+      "report": "test/evaluation/reports/p1-accepted-fragile-1-20261003.json",
+      "report_sha256": "b31752fdbf7e102687f67ef0b6db648ee4709650f9c8f11f7f1b9ab196ff10b4",
+      "fixture_sha256": "e129629ba7fe3784604f334738eacf0404217c91590ca7278a60b7462b97a132",
+      "groups": {
+        "answerable": {
+          "correct": 12,
+          "total": 12
+        },
+        "followup": {
+          "correct": 1,
+          "total": 1
+        }
+      },
+      "cases": [
+        {
+          "id": "notes-06",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects Manual explicitly; the cited Auto section supplies the crash-loss warning. No Manual recovery sequence is asserted.",
+          "warnings": [
+            "The Auto warning does not explicitly repeat its mode label in this full-pack answer; the selected Manual recommendation and its separate supporting citations remain clear. All three repetitions label Auto explicitly."
+          ],
+          "answer": "Manual acknowledgement (autoAck: false) [1]. Messages can be lost if the consumer crashes before processing when using auto acknowledgement (autoAck: true) [2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-09",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains that deleted source rows no longer exist for the polling query to return.",
+          "warnings": [],
+          "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1] Log-Based CDC Wins: Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event. [5]",
+          "inline_sources": [
+            1,
+            5
+          ]
+        },
+        {
+          "id": "notes-14",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "warnings": [],
+          "answer": "No, an empty search result and a missing resource ID do not both return 404. [1] Collections: A search that finds nothing is a success and returns 200 OK with an empty list []. Resources: A request for a specific entity that is missing must return 404 Not Found.",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-23",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names both .mpd and .m3u8 and the audio/video URLs indexed by the manifests.",
+          "warnings": [],
+          "answer": "The DASH manifest (.mpd) indexes the web addresses (URLs) of every audio chunk and the web addresses of every video chunk broken down by resolution and codec [1]. The HLS manifest (.m3u8) indexes the same information [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-25",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps hot to edge SSD, warm to regional caches, and cold to central blob storage with the complete actual source.",
+          "warnings": [],
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-26",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately maps locations to availability/AP and matching to consistency/CP with its actual engine table.",
+          "warnings": [],
+          "answer": "Availability is favored in the Location Tracking Engine [2], which uses AP Eventual Consistency with Redis Spatial Cluster, and stricter consistency is needed in the Matching & Trip State Engine [2], which uses CP Strong Consistency with a Distributed RDBMS (CockroachDB / Postgres).",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-27",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names limiting queues and concurrent work and cites the actual backpressure statement.",
+          "warnings": [],
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-29",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately identifies Newton derivative computation and secant not requiring derivatives.",
+          "warnings": [],
+          "answer": "Newton’s method requires derivative computation [4], while the secant method does not [1].",
+          "inline_sources": [
+            1,
+            4
+          ]
+        },
+        {
+          "id": "followup-02",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Keeps the selected Manual mode and declines the absent conditional outcome rather than substituting the Auto warning.",
+          "warnings": [],
+          "answer": "The retrieved notes do not establish that conditional outcome for Manual acknowledgement (autoAck: false).",
+          "inline_sources": []
+        },
+        {
+          "id": "sin-45-degrees",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal sine cell √2/2 and cites the actual table.",
+          "warnings": [],
+          "answer": "√2/2 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "degrees-to-radians-30",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal 30-degree radians cell π/6 and cites the actual table.",
+          "warnings": [],
+          "answer": "π/6 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "root-method-speed-comparison",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names Newton and bisection in the order explicitly entailed by the complete recorded comparison.",
+          "warnings": [],
+          "answer": "Newton's method converges faster than bisection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-coalescing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "warnings": [],
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ]
+        }
+      ],
+      "new_material_failures_against_saved_control": [],
+      "fixed_saved_control_failures": null
+    },
+    {
+      "arm": "accepted_local_candidate",
+      "pack": "fragile-2",
+      "report": "test/evaluation/reports/p1-accepted-fragile-2-20261003.json",
+      "report_sha256": "d45eed86e3007cf4570663d8cdbdde7825c76194e4a1803d165d499e44ae6a94",
+      "fixture_sha256": "e129629ba7fe3784604f334738eacf0404217c91590ca7278a60b7462b97a132",
+      "groups": {
+        "answerable": {
+          "correct": 12,
+          "total": 12
+        },
+        "followup": {
+          "correct": 1,
+          "total": 1
+        }
+      },
+      "cases": [
+        {
+          "id": "notes-06",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects Manual explicitly; the cited Auto section supplies the crash-loss warning. No Manual recovery sequence is asserted.",
+          "warnings": [
+            "The Auto warning does not explicitly repeat its mode label in this full-pack answer; the selected Manual recommendation and its separate supporting citations remain clear. All three repetitions label Auto explicitly."
+          ],
+          "answer": "Manual acknowledgement (autoAck: false) [1]. Messages can be lost if the consumer crashes before processing when using auto acknowledgement (autoAck: true) [2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-09",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains that deleted source rows no longer exist for the polling query to return.",
+          "warnings": [],
+          "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1] Log-Based CDC Wins: Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event. [5]",
+          "inline_sources": [
+            1,
+            5
+          ]
+        },
+        {
+          "id": "notes-14",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "warnings": [],
+          "answer": "No, an empty search result and a missing resource ID do not both return 404. [1] Collections: A search that finds nothing is a success and returns 200 OK with an empty list []. Resources: A request for a specific entity that is missing must return 404 Not Found.",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-23",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names both .mpd and .m3u8 and the audio/video URLs indexed by the manifests.",
+          "warnings": [],
+          "answer": "The DASH manifest (.mpd) indexes the web addresses (URLs) of every audio chunk and the web addresses of every video chunk broken down by resolution and codec [1]. The HLS manifest (.m3u8) indexes the same information [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-25",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps hot to edge SSD, warm to regional caches, and cold to central blob storage with the complete actual source.",
+          "warnings": [],
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-26",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately maps locations to availability/AP and matching to consistency/CP with its actual engine table.",
+          "warnings": [],
+          "answer": "Availability is favored in the Location Tracking Engine [2], which uses AP Eventual Consistency with Redis Spatial Cluster, and stricter consistency is needed in the Matching & Trip State Engine [2], which uses CP Strong Consistency with a Distributed RDBMS (CockroachDB / Postgres).",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-27",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names limiting queues and concurrent work and cites the actual backpressure statement.",
+          "warnings": [],
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-29",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately identifies Newton derivative computation and secant not requiring derivatives.",
+          "warnings": [],
+          "answer": "Newton’s method requires derivative computation [4], while the secant method does not [1].",
+          "inline_sources": [
+            1,
+            4
+          ]
+        },
+        {
+          "id": "followup-02",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Keeps the selected Manual mode and declines the absent conditional outcome rather than substituting the Auto warning.",
+          "warnings": [],
+          "answer": "The retrieved notes do not establish that conditional outcome for Manual acknowledgement (autoAck: false).",
+          "inline_sources": []
+        },
+        {
+          "id": "sin-45-degrees",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal sine cell √2/2 and cites the actual table.",
+          "warnings": [],
+          "answer": "√2/2 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "degrees-to-radians-30",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal 30-degree radians cell π/6 and cites the actual table.",
+          "warnings": [],
+          "answer": "π/6 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "root-method-speed-comparison",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names Newton and bisection in the order explicitly entailed by the complete recorded comparison.",
+          "warnings": [],
+          "answer": "Newton's method converges faster than bisection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-coalescing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "warnings": [],
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ]
+        }
+      ],
+      "new_material_failures_against_saved_control": [],
+      "fixed_saved_control_failures": null
+    },
+    {
+      "arm": "accepted_local_candidate",
+      "pack": "fragile-3",
+      "report": "test/evaluation/reports/p1-accepted-fragile-3-20261003.json",
+      "report_sha256": "aef454efc690f9d3a9d442c1d527dddf686b6073e033e7df8689be8b508f1451",
+      "fixture_sha256": "e129629ba7fe3784604f334738eacf0404217c91590ca7278a60b7462b97a132",
+      "groups": {
+        "answerable": {
+          "correct": 12,
+          "total": 12
+        },
+        "followup": {
+          "correct": 1,
+          "total": 1
+        }
+      },
+      "cases": [
+        {
+          "id": "notes-06",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Selects Manual explicitly; the cited Auto section supplies the crash-loss warning. No Manual recovery sequence is asserted.",
+          "warnings": [
+            "The Auto warning does not explicitly repeat its mode label in this full-pack answer; the selected Manual recommendation and its separate supporting citations remain clear. All three repetitions label Auto explicitly."
+          ],
+          "answer": "Manual acknowledgement (autoAck: false) [1]. Messages can be lost if the consumer crashes before processing when using auto acknowledgement (autoAck: true) [2].",
+          "inline_sources": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "notes-09",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Explains that deleted source rows no longer exist for the polling query to return.",
+          "warnings": [],
+          "answer": "Misses deleted rows (a deleted row no longer exists to be queried). [1] Log-Based CDC Wins: Captures Hard Deletes: If a row is deleted (DELETE FROM users WHERE id=1), the WAL records the deletion event. [5]",
+          "inline_sources": [
+            1,
+            5
+          ]
+        },
+        {
+          "id": "notes-14",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Distinguishes successful empty search (200 and empty list) from missing resource (404).",
+          "warnings": [],
+          "answer": "No, an empty search result and a missing resource ID do not both return 404. [1] Collections: A search that finds nothing is a success and returns 200 OK with an empty list []. Resources: A request for a specific entity that is missing must return 404 Not Found.",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-23",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names both .mpd and .m3u8 and the audio/video URLs indexed by the manifests.",
+          "warnings": [],
+          "answer": "The DASH manifest (.mpd) indexes the web addresses (URLs) of every audio chunk and the web addresses of every video chunk broken down by resolution and codec [1]. The HLS manifest (.m3u8) indexes the same information [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-25",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Maps hot to edge SSD, warm to regional caches, and cold to central blob storage with the complete actual source.",
+          "warnings": [],
+          "answer": "Hot content is cached on NVMe/SSD edge servers near the user [2], warm content is kept in regional Google data-center caches [2], and cold content is read from central blob storage over Google’s backbone [2].",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-26",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately maps locations to availability/AP and matching to consistency/CP with its actual engine table.",
+          "warnings": [],
+          "answer": "Availability is favored in the Location Tracking Engine [2], which uses AP Eventual Consistency with Redis Spatial Cluster, and stricter consistency is needed in the Matching & Trip State Engine [2], which uses CP Strong Consistency with a Distributed RDBMS (CockroachDB / Postgres).",
+          "inline_sources": [
+            2
+          ]
+        },
+        {
+          "id": "notes-27",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names limiting queues and concurrent work and cites the actual backpressure statement.",
+          "warnings": [],
+          "answer": "Backpressure: limit queues and concurrent work when producers are faster than consumers [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "notes-29",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Separately identifies Newton derivative computation and secant not requiring derivatives.",
+          "warnings": [],
+          "answer": "Newton’s method requires derivative computation [4], while the secant method does not [1].",
+          "inline_sources": [
+            1,
+            4
+          ]
+        },
+        {
+          "id": "followup-02",
+          "kind": "followup",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Keeps the selected Manual mode and declines the absent conditional outcome rather than substituting the Auto warning.",
+          "warnings": [],
+          "answer": "The retrieved notes do not establish that conditional outcome for Manual acknowledgement (autoAck: false).",
+          "inline_sources": []
+        },
+        {
+          "id": "sin-45-degrees",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal sine cell √2/2 and cites the actual table.",
+          "warnings": [],
+          "answer": "√2/2 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "degrees-to-radians-30",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Returns the literal 30-degree radians cell π/6 and cites the actual table.",
+          "warnings": [],
+          "answer": "π/6 [1]",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "root-method-speed-comparison",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Names Newton and bisection in the order explicitly entailed by the complete recorded comparison.",
+          "warnings": [],
+          "answer": "Newton's method converges faster than bisection [1].",
+          "inline_sources": [
+            1
+          ]
+        },
+        {
+          "id": "api-coalescing",
+          "kind": "answerable",
+          "acceptable": true,
+          "failure_type": null,
+          "reason": "Reuses an in-flight result rather than opening a second identical upstream call.",
+          "warnings": [],
+          "answer": "Use request coalescing to deduplicate concurrent identical requests to the same upstream [1]. When a request arrives for key X, check if an upstream call for X is already in-flight. If yes, subscribe the caller to the existing result instead of opening a new connection [1].",
+          "inline_sources": [
+            1
+          ]
+        }
+      ],
+      "new_material_failures_against_saved_control": [],
+      "fixed_saved_control_failures": null
+    }
+  ],
+  "disposition": {
+    "local_answer_acceptance_met": true,
+    "semantic_no_regression_guard_passed": true,
+    "migration_acceptance": "verified; fresh collection has 15 real notes, old collections/config/history retained, 32 exact synthetic load originals archived",
+    "reason": "Daily 30/30 supported, 5/5 declines and 5/5 follow-ups; broader 56/56 supported and 8/8 declines; all 39 fragile repetitions supported. No new material failures against the saved fresh control. Conservative literal guards do not establish general entailment.",
+    "local_acceptance_met": true
+  },
+  "rejected_attempts": [
+    "p1-default",
+    "p1-subject",
+    "p1-subject-completion",
+    "p1-scoped-guard",
+    "p1-coverage (malformed-table parser panic; fixed)",
+    "p1-answer-contract (extra answer plan caused invented implications; removed)",
+    "p1-final",
+    "p1-grounded",
+    "p1-bounded",
+    "p1-verified"
+  ],
+  "accepted_reports_prefix": "p1-accepted"
+}

@@ -36,8 +36,8 @@ func main() {
 	topK := flag.Int("top-k", 0, "results per query (0 uses qdrant.top_k)")
 	noRerank := flag.Bool("no-rerank", false, "bypass the configured reranker")
 	runs := flag.Int("runs", 3, "runs per query; retain all rankings, median run quality, pooled request latency")
-	reportPath := flag.String("report", "", "output report path (default: test/evaluation/reports/<unix_ts>.json)")
-	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over source.paths before evaluating")
+	reportPath := flag.String("report", "", "output report path (default: .local/evaluation/<unix_ts>.json)")
+	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over documents.paths before evaluating")
 	requireReleaseGate := flag.Bool("require-release-gate", false, "reject synthetic/unconsented golden sets")
 	validateOnly := flag.Bool("validate-only", false, "validate the golden set and release-gate metadata without starting external services")
 	generationEval := flag.Bool("generation-eval", false, "also generate answers and judge faithfulness, answer relevancy, context precision, and context recall")
@@ -204,7 +204,7 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	printReport(report)
 
 	if reportPath == "" {
-		reportPath = filepath.Join("test", "evaluation", "reports", fmt.Sprintf("%d.json", time.Now().Unix()))
+		reportPath = filepath.Join(".local", "evaluation", fmt.Sprintf("%d.json", time.Now().Unix()))
 	}
 	if dir := filepath.Dir(reportPath); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

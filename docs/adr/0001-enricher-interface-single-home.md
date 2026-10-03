@@ -44,3 +44,11 @@ HyPE was removed from the codebase (the hypothetical-questions method left
 the `Enricher` contract with it) because its ingest-time LLM cost per chunk
 was not justified. The interface is now contextual-retrieval only; this
 record still documents the single-home rule that remains in force.
+
+## Current location (2026-10-03)
+
+The contextual enrichment contract now lives in
+`internal/core/documents/enrichment`; its Ollama adapter is under
+`internal/providers/ollama/enrichment`. The original paths above are historical.
+Package ownership and private consumer seams follow [0022](0022-bounded-context-layout.md)
+and [0025](0025-context-owned-value-contracts.md).

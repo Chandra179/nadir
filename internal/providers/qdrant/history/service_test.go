@@ -25,6 +25,7 @@ func TestTurnFromPayloadPreservesStreamID(t *testing.T) {
 
 func TestTurnPayloadRoundTripPreservesEvidenceSnapshots(t *testing.T) {
 	original := Turn{ID: "stream-1", Query: "what?", Answer: "Answer [2].", Prompt: "Context with stable numbers",
+		Subject: &domainhistory.Subject{FilePath: "versioned.md", Header: "Transfers > Durable transfers"},
 		Results: []TurnResult{{FilePath: "versioned.md", LineStart: 9, ChunkIndex: 4, SourceSHA: "old-sha", Text: "full evidence"}},
 		Citations: []domainhistory.Citation{{Number: 2, RetrievalRank: 1, FilePath: "versioned.md", Header: "Heading", LineStart: 9, ChunkIndex: 4,
 			SourceSHA: "old-sha", Text: "exact admitted evidence\n[truncated]", Truncated: true}},
@@ -37,12 +38,13 @@ func TestTurnPayloadRoundTripPreservesEvidenceSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Results, original.Results) || !reflect.DeepEqual(got.Citations, original.Citations) || got.Prompt != original.Prompt || got.Answer != original.Answer {
+	if !reflect.DeepEqual(got.Subject, original.Subject) || !reflect.DeepEqual(got.Results, original.Results) || !reflect.DeepEqual(got.Citations, original.Citations) || got.Prompt != original.Prompt || got.Answer != original.Answer {
 		t.Fatalf("history round trip lost provenance: %+v", got)
 	}
 	delete(payload, "citations_json")
+	delete(payload, "subject_json")
 	legacy, err := turnFromPayload("point-1", payload)
-	if err != nil || len(legacy.Citations) != 0 || !reflect.DeepEqual(legacy.Results, original.Results) {
+	if err != nil || legacy.Subject != nil || len(legacy.Citations) != 0 || !reflect.DeepEqual(legacy.Results, original.Results) {
 		t.Fatalf("legacy read invented or lost evidence: %+v err=%v", legacy, err)
 	}
 }

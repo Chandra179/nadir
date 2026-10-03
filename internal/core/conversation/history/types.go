@@ -39,6 +39,13 @@ type Citation struct {
 	Truncated     bool
 }
 
+// Subject identifies a selected conversation alternative, not factual evidence.
+// The heading comes from a cited source explicitly named in the prior answer.
+type Subject struct {
+	FilePath string
+	Header   string
+}
+
 // Turn is one question/answer exchange within a session.
 type Turn struct {
 	ID             string
@@ -47,6 +54,7 @@ type Turn struct {
 	CreatedAt      time.Time
 	Query          string
 	RewrittenQuery string
+	Subject        *Subject
 	AttachedFiles  []string
 	TopK           int
 	Generate       bool

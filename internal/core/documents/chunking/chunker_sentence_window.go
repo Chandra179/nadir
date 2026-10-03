@@ -32,14 +32,6 @@ func (c *dependencies) chunkSentenceWindow(rawText, filePath string) ([]Chunk, e
 	return chunks, nil
 }
 
-func splitSentences(text string) []string {
-	var sentences []string
-	for _, span := range sentenceRanges(text) {
-		sentences = append(sentences, text[span.start:span.end])
-	}
-	return sentences
-}
-
 func sentenceRanges(text string) []textSpan {
 	indices := sentenceRe.FindAllStringIndex(text, -1)
 	var spans []textSpan

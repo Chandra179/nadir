@@ -101,10 +101,10 @@ inference:
     backend: "torch"
 
 # Process-local operation gates (bounded, finite queues). Indexing is
-# single-writer; destructive mutations (document reset, chat edits and
-# deletions) never run concurrently with an indexing pass. A request that
-# waits longer than queue_timeout fails fast instead of piling up. LLM and
-# embedding concurrency is NOT gated here — the Ollama scheduler owns it.
+# single-writer; destructive mutations have a separate budget. Documents
+# coordinates reset with indexing; Chat coordinates edits/deletions with its
+# active turns. A request exceeding queue_timeout fails with a capacity error.
+# LLM/embedding concurrency is owned by the Ollama scheduler, not these gates.
 # These limits coordinate one API process only; they are not distributed.
 gates:
   indexing:
@@ -148,11 +148,10 @@ chat:
 
 rewriter:
   # Conversational query rewriting (Rewrite-Retrieve-Read): follow-up turns
-  # are rewritten into standalone search queries against the session's last
-  # `turns` turns before retrieval, so "what about the second one?" stops
-  # searching garbage. Skipped when a session has no prior turns; any
-  # rewrite failure falls back to the raw query. Costs +1 LLM call per
-  # follow-up turn.
+  # may be rewritten for retrieval using recent session turns. Explicitly
+  # selected source subjects bypass the LLM rewrite; generation keeps the
+  # original question. First turns skip rewriting, and rewrite failure falls
+  # back to the raw query. An attempted rewrite costs one extra LLM call.
   enabled: true
   turns: 4           # prior turns fed to the rewriter
   request_timeout: 8s

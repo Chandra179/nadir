@@ -1,0 +1,23 @@
+{
+  "measured_at": "2026-10-03T16:10:08.650543+00:00",
+  "owned_test_api_ports": "18113 and 18114 unreachable; earlier API PID absent",
+  "disposable_container": "already absent; container name/ID not present",
+  "owner_qdrant_state": "created",
+  "owner_storage_mount": {
+    "name": "compose_qdrant_data",
+    "destination": "/qdrant/storage"
+  },
+  "old_and_migrated_collection_storage_present": [
+    "chat_history",
+    "documents_chunks__generation_d78c0bf1-eafa-4120-89d8-68ec9689d40c",
+    "documents_chunks_local_v1_20261003",
+    "search_cache",
+    "search_cache_local_v1_20261003"
+  ],
+  "owner_service_or_storage_mutated_by_cleanup": false,
+  "live_collection_check": "Not repeated because owner Qdrant is stopped. Successful inventory/count verification remains dated in migration report.",
+  "copied_config_and_originals_preserved": true,
+  "earlier_approval_failure": "Cleanup action was not executed when auto-review hit its usage limit; review retry after user continue succeeded. Temporary services were already absent on retry.",
+  "scratch_removal": "completed: .local/p1-subject removed",
+  "all_original_and_accepted_source_hashes_rechecked": true
+}

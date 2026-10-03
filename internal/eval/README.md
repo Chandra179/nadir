@@ -1,100 +1,84 @@
 # Retrieval and generation evaluation
 
-Development-only quality measurement for Retrieval and answer generation. The
-evaluator loads a versioned golden set, bypasses semantic cache, passes each
-query-type annotation into Retrieval, records final ranking and latency, and
-reports Hit Rate, Recall, MRR, nDCG, distractor-hit rate, and percentiles. This
-makes calibrated dense/BM25/RRF policies comparable without changing the
-golden fixture or mixing provider score scales.
+Development-only measurement used by `cmd/evaluator`. The harness shares the
+production Retrieval and prompt code, bypasses semantic cache, and records
+Hit Rate, Recall, MRR, nDCG, distractor hits and pooled latency across repeated
+runs. The 133-query golden fixture and 64-query representative fixture are
+synthetic regression inputs, not production release gates.
 
-With `--generation-eval`, it also runs the production answer prompt once per
-query and sends the answer, reference answer, required claims, and retrieved
-context to a separately configured larger judge model. The judge returns four
-scores in `[0,1]`: faithfulness, answer relevancy, context precision, and
-context recall. Invalid judge output and model failures are recorded per query
-instead of becoming a misleading zero score. Each per-query record also stores
-the Retrieval first-hit rank and relevant count, context chunk/token counts,
-truncation status, answer size/status, judge status, failure class, and a
-diagnostic cause. The report stores scores and latency, but not generated
-answers or source text.
+With `--generation-eval`, the harness uses the production prompt, narrow literal
+comparison path and citation correction. It records the answer method, answer,
+exact admitted context, citations, raw judge response, scores and failures.
+Reports therefore contain source excerpts: use ignored local output for owner
+notes and review privacy before publishing evidence.
 
-Answer generation sends deterministic Ollama options with the configured
-`generator.max_output_tokens` as `num_predict` (512 in the shipped config).
-The judge uses a bounded 128-token response, temperature zero, and a JSON
-schema requiring all four numeric scores in `[0,1]`. The parser remains strict:
-malformed, incomplete, or out-of-range output is a judge failure.
+The separately configured judge returns faithfulness, answer relevancy, context
+precision and context recall in `[0,1]`. Its response is bounded to 128 tokens,
+temperature zero and a required JSON schema. Malformed, incomplete and
+out-of-range output is a judge failure. Answer generation uses the configured
+output/context limits and temperature zero. Model size alone does not establish
+judge suitability or calibration; `--judge-suitability` records the operator's
+reasoning and limits. There is no judge endpoint/model fallback.
 
-## Change here when
+## Usage
 
-- Golden-set matching, annotation schema, ranking metrics, report shape, or
-  repeatability changes.
-- Evaluation needs a new quality signal or a new command option.
+Run from the repository root against running Qdrant and Ollama:
 
-Change `retrieval/search/` when production ranking behaviour changes. Change
-`test/evaluation/` for golden queries and checked-in reports. Schema version 3
-queries include everything from schema version 2 plus query tags, two recorded
-relevance judgments, and adjudication metadata. The set metadata identifies
-the corpus manifest, privacy review, and annotator records. Do not put
-evaluation-only shortcuts into production Retrieval or use cached answers as
-quality evidence.
+```bash
+go run ./cmd/evaluator --no-rerank --runs 3
+go run ./cmd/evaluator --golden test/evaluation/representative.json \
+  --no-rerank --runs 3 --report .local/evaluation/representative.json
+```
 
-The committed fixture is currently a schema-v3 pack of 133 expert-authored
-synthetic user-intent queries over `samples/`. It covers factoid, formula,
-procedure, comparison, multi-hop, ambiguous, negative, and distractor cases.
-Its metadata records the exact four-document manifest, the absence of
-production user data, and two separately recorded synthetic evaluator passes.
-Those passes are explicitly not independent human judgments. The canonical
-`relevant` and `distractors` fields are the adjudicated regression labels.
-The fixture is intentionally separate from the production-query collection
-process: real queries require consent-safe sampling, privacy approval,
-independent expert relevance judgments, and answer-faithfulness labels before
-they can serve as a release gate.
+Default output is `.local/evaluation/<unix_ts>.json`, ignored by Git. Use
+`--report` to select another path. Promote reviewed evidence into
+`test/evaluation/reports/` together with its fixture/config/model provenance,
+registration, comparison and limitations; see the
+[retention policy](../../test/evaluation/reports/README.md).
 
-The evaluator keeps that boundary explicit. Use `go run ./cmd/evaluator
---require-release-gate --golden path/to/production-golden.json` only with a
-schema-v3 set whose metadata identifies a consented, non-synthetic production
-dataset, records its provenance, representative corpus manifest, approved
-privacy review, independent human annotators, per-query judgments, and sets
-`release_gate: true`. To review a candidate fixture before starting any
-external dependency, run `go run ./cmd/evaluator --validate-only
---require-release-gate --golden path/to/production-golden.json`. The repository
-cannot create or approve that production evidence on its own.
-
-The repository includes a pending public ARQMath Task 1 candidate pack under
-`test/evaluation/arqmath/`. It deterministically selects 40 topics from each
-the 2020, 2021, and 2022 editions and retains each source qrel candidate pool.
-`scripts/import_arqmath.py` verifies the pinned public artifacts and, when the
-large Posts snapshot is supplied with a trusted SHA-256, normalizes answer
-posts into a manifest-backed corpus. The candidate is not a release gate until
-two real independent math-capable reviewers, adjudication, and privacy/legal
-approval are present.
-
-The captured generation baseline was triaged in
-[`generation-triage-20260916.json`](../../test/evaluation/reports/generation-triage-20260916.json).
-The implementation fixes header-only evidence, bounds answer/judge output,
-and records diagnostic causes. A live post-change generation rerun remains
-pending until Qdrant and Ollama are available; the baseline must not be
-overwritten or presented as post-change evidence.
-
-Generation evaluation requires explicit judge configuration and an operator
-confirmation that the judge is larger than `generator.model`; there is no
-endpoint or model fallback:
+For generation evaluation, choose an already installed judge and explicitly
+record why it is suitable. This diagnostic example uses the previously observed
+Phi-4-mini judge; it is not independently calibrated:
 
 ```bash
 go run ./cmd/evaluator --no-rerank --runs 1 --generation-eval \
-  --judge-addr http://localhost:11434 \
-  --judge-model phi4-mini:latest --judge-is-larger \
-  --report test/evaluation/reports/generation-local.json
+  --judge-addr http://localhost:11434 --judge-model phi4-mini:latest \
+  --judge-suitability 'Diagnostic only; independent human calibration pending' \
+  --report .local/evaluation/generation-local.json
 ```
 
-The committed 133-query candidate is useful for engineering regression checks,
-but its synthetic provenance and non-human annotators prevent it from being a
-production release gate. Use a consent-safe, expert-judged fixture and record
-the answer-model and judge-model hardware for release decisions.
+The [local acceptance](../../docs/LOCAL_V1.md) uses actual answer/source review,
+not automated judge averages. October 3's accepted results and older comparisons
+are indexed in the [report catalog](../../test/evaluation/reports/README.md).
+The September 30 [39-case blind calibration packet](../../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)
+remains awaiting independent human review and applies only to its exact source
+report/model/fixture hashes.
 
-## Verification
+## Release and research boundaries
 
-Run `go test ./internal/eval` for metric and harness changes, then run
-`go run ./cmd/evaluator --runs 3` against the configured corpus when validating
-real ranking quality. Use `--require-release-gate` only after the production
-query collection has passed consent, expert-judgment, and faithfulness review.
+`--require-release-gate` accepts only schema-v3 consented, non-synthetic
+production evidence with approved privacy review, representative corpus,
+independent human judgments and adjudication, and `release_gate: true`.
+Validate a supplied fixture without external services:
+
+```bash
+go run ./cmd/evaluator --validate-only --require-release-gate \
+  --golden path/to/production-golden.json
+```
+
+The committed synthetic fixtures remain `release_gate: false`. Their separate
+synthetic annotator passes are not independent human judgments. The optional
+`scripts/import_arqmath.py` builds public-math research inputs; its licensed
+corpus and candidate pack are not present in this checkout and do not block
+personal/local v1.
+
+## Change and verification
+
+Change this package for metric definitions, fixture validation, report shape
+and harness behavior. Change `internal/core/retrieval/search/` for production
+ranking and `test/evaluation/` for regression fixtures. Avoid evaluation-only
+shortcuts in production Retrieval.
+
+Run `go test ./internal/eval ./cmd/evaluator` for harness changes. Run the live
+retrieval packs when ranking changes require measured evidence. Do not overwrite
+historical reports or use a different fixture/corpus as a controlled baseline.

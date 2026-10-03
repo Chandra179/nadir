@@ -1,6 +1,6 @@
 # 0035 — Preserve source scopes and measure the local quality candidate
 
-- **Status:** Proposed; implemented in the uncommitted working tree, awaiting semantic acceptance
+- **Status:** Accepted for the finite personal/local checklist on 2026-10-03; measured source/model/config provenance is retained with the acceptance evidence
 - **Date:** 2026-10-02
 
 ## Context
@@ -16,7 +16,7 @@ The candidate keeps the existing 512/64 recursive chunks, EmbeddingGemma,
 Gemma 3 4B answer model, Gemma 3 1B rewriter, native Qdrant RRF and disabled
 reranker/fusion. No sample text or fixed evaluation query was rewritten.
 
-## Proposed policy
+## Source policy
 
 - Retain a complete normalized answer window only for sections at most twice
   the chunk size. Central embedding text and source anchors remain bounded.
@@ -37,7 +37,7 @@ reranker/fusion. No sample text or fixed evaluation query was rewritten.
   or ordinal rewrite returns unchanged. Named standalone subjects do not inherit
   an unrelated prior answer. The original generation question remains authoritative.
 
-## Evidence and disposition
+## Historical evidence and disposition (2026-10-02)
 
 Fresh isolated collections and fixed 14-file hashes provide a same-session
 control. The 133-query golden and 64-query broader retrieval packs each run
@@ -82,6 +82,24 @@ Optional placement is implemented through existing config/provider seams;
 verifies operational wiring and [coexistence](../../test/evaluation/reports/quality-cpu-direct-residence-20261002.json),
 not semantic acceptance. None of these reviews is independent human calibration.
 
+## Acceptance update (2026-10-03)
+
+Explicit persisted selected sections, narrow missing-source guards, row-preserving
+literal attribution and complete source excerpts address the observed failures.
+The unchanged full app packs review at 30/30, 5/5, 5/5 and 56/56, 8/8; 13 fragile
+cases pass three repetitions. Hit/MRR/nDCG stay within the registered 0.01 limit
+on both retrieval packs, three runs each. No new material failures were found
+against the saved October 2 fresh control; it was not rerun on October 3.
+Defaults, questions, source hashes and ranked evidence remain unchanged.
+
+A copied-config migration imports 15 real notes, archives 32 exact synthetic
+load originals, preserves the old document/cache/config and existing history,
+and passes full app, duplicate-import and persisted-subject restart checks.
+See [fitness evidence](../P1_EVIDENCE.md) and
+[direct review](../../test/evaluation/reports/p1-accepted-agent-review-20261003.json).
+This accepts the finite local policy and measured workflow; it does not claim
+universal citation entailment, independent judge calibration or owner usefulness.
+
 ## Consequences
 
 Existing source-SHA skipping cannot upgrade unchanged documents to new chunks
@@ -96,7 +114,7 @@ change models or prefixes and does not itself require reindexing; measured
 device numerics and latency can differ. Source window/heading policy still
 requires the full migration described above.
 
-Generation must still preserve selected modes, answer every requested alternative
-and substantiate inline citations. A retrieved source or a correct number alone
+Generation must continue to preserve selected modes, answer every requested alternative
+and substantiate inline citations beyond the finite measured cases. A retrieved source or a correct number alone
 cannot satisfy those requirements. More hardware, a new architecture or owner
 interview is not required to keep diagnosing these concrete failures.

@@ -1,6 +1,6 @@
 # 0008 — Reranker device selection: `RERANKER_DEVICE=auto|cpu|cuda`
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [0027](0027-local-inference-resource-profile.md)
 - **Date:** 2026-09-06; deployment packaging revised 2026-09-09
 - **Deciders:** Chandra, ZCode session
 
@@ -43,3 +43,11 @@ runs for amd64 builds; portable CPU Compose defaults to the torch backend.
   deployments; a swapped model still degrades to fp32 (ADR 0003).
 - CUDA + int8 remains unimplemented until upstream `optimum[onnxruntime-gpu]`
   is usable.
+
+## Current device policy (2026-10-03)
+
+[0027](0027-local-inference-resource-profile.md) supersedes automatic device
+selection for the local profile: CPU is explicit by default, CUDA needs a
+measured GPU profile, and `auto` is permitted only with `inference.profile:
+custom`. [0029](0029-ollama-scheduler-owns-llm-concurrency.md) changes Ollama
+admission without changing that device policy.
