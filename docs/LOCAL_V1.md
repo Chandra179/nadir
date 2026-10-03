@@ -192,9 +192,19 @@ app should state the limitation. This does not block the completed P1 fixes.
 
 Independent human review of the exported 39-case judge packet remains required
 before calling automated scores calibrated ([issue #13](https://github.com/Chandra179/nadir/issues/13)).
-Hosted Actions access and dependency PR #15 remain administrative follow-up.
-The last read-only GitHub observation was October 2: no newer run after
-September 30's billing lock; current account balance is unverified. See the
-[saved observation](../test/evaluation/reports/quality-github-status-20261002.json).
+The coordinated frontend upgrade from [PR #15](https://github.com/Chandra179/nadir/pull/15)
+is integrated with the brace-expansion fix. October 3–4 local validation on Node
+24.19.0 passes typecheck, lint, all 11 unit tests, production build and the mocked
+browser workflow; two opt-in live-stack browser tests were skipped. The npm
+audit reports zero vulnerabilities. Full scoped Go race tests, vet, API build,
+38 Python tests (one optional skip), and the API container build/startup smoke
+check pass. These are maintenance checks, not a new live RAG measurement.
+
+Hosted CI still needs account-owner action: [October 3 run 37092111115](https://github.com/Chandra179/nadir/actions/runs/37092111115)
+never started its jobs because the account is locked by a billing issue. The
+current account balance is unverified. Ten agent-authored questions about the
+recovered owner note are saved privately before testing; owner confirmation and
+review remain pending. [Owner and calibration review instructions](OWNER_REVIEW.md)
+make both human steps explicit.
 These do not block local implementation or direct app review. Public deployment,
 authentication and distributed coordination remain separate future scope.

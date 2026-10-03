@@ -34,7 +34,7 @@ adopted.
 | p1-checks | constraint | Required Go checks and formatting pass | VERIFIED | Full and short scoped Go suites, race tests for chat/eval/generator/history, vet, gofmt and git diff --check pass October 3. Tests use dedicated history integration collection, not existing owner sessions. |
 | owner-usefulness | outcome | Validate usefulness on ten saved actual owner questions | UNVERIFIED | No owner-authored question packet or owner review exists. Simulated tests, including on the recovered upload, do not establish personal usefulness. This is the next product validation step, separate from P1's finite engineering gates. |
 | calibrated-judge | constraint | Independent human calibration before calling judge scores calibrated | NOT APPLICABLE | No calibrated judge/release claim is made. Issue #13's 39-case human review remains outstanding. |
-| hosted-public | constraint | Hosted CI, dependency PR, authentication/distributed deployment | NOT APPLICABLE | Personal/local release scope. Last GitHub observation is dated October 2, not refreshed here; administrative follow-up remains in TODO. |
+| hosted-public | constraint | Hosted CI, dependency PR, authentication/distributed deployment | NOT APPLICABLE | Personal/local release scope. October 3 hosted run 37092111115 did not start because of an account billing lock; the dependency upgrade passes local maintenance checks. Hosted success remains unverified. |
 
 ## Evidence
 

@@ -6,7 +6,10 @@ Gemma 3 1B rewriter and EmbeddingGemma embedder. No further model downloads.
 
 ## Next: validate personal usefulness
 
-- [ ] Save ten common questions against actual owner notes before running them.
+- [ ] Confirm or replace the ten saved agent drafts with common owner questions
+  before running them. The private packet is
+  `.local/local-v1/owner-review/questions.json`; [review instructions](docs/OWNER_REVIEW.md)
+  cover source hashes, execution and review. No owner confirmation is recorded.
 - [ ] Review each answer and citation for usefulness, supported facts and clear
   limitations. Fix reproduced failures in the responsible layer and add focused
   regressions. Synthetic sample acceptance does not establish owner usefulness.
@@ -17,19 +20,19 @@ Manual selection and decline its undocumented outcome.
 
 ## Administrative follow-up
 
-- [ ] Restore hosted Actions access and verify current status. The last saved
-  observation is October 2: the newest run was September 30 and blocked by
-  billing; current account balance is unverified. See the
-  [dated status](test/evaluation/reports/quality-github-status-20261002.json).
-- [ ] Refresh and merge [PR #15](https://github.com/Chandra179/nadir/pull/15)
-  after hosted checks are available. Rebase over the brace-expansion lockfile
-  fix; retain the [prepared patch](test/evaluation/reports/frontend-pr15-audit-fix.patch).
-  The dependency batch also addresses the remaining Vitest 3 mocker advisory.
+- [ ] Resolve the GitHub account billing lock, then rerun hosted checks.
+  October 3 run [37092111115](https://github.com/Chandra179/nadir/actions/runs/37092111115)
+  did not start its jobs because of billing. Account balance is unverified.
+- [x] Integrate [PR #15](https://github.com/Chandra179/nadir/pull/15)'s coordinated
+  frontend tooling upgrade, preserving the brace-expansion fix. Node 24 is
+  selected for CI; typecheck, lint, 11 tests, build and mocked browser workflow
+  pass locally. The refreshed npm audit reports zero vulnerabilities.
 - [ ] Complete independent human review of the
   [39-case judge packet](test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)
   before claiming calibrated judge scores
   ([issue #13](https://github.com/Chandra179/nadir/issues/13)). This does not
-  block the local workflow or direct app review.
+  block the local workflow or direct app review. See the
+  [two-reviewer instructions](docs/OWNER_REVIEW.md).
 
 ## Completed local engineering acceptance
 
