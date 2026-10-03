@@ -5,7 +5,7 @@ Context, Decision, Consequences — one decision per file, numbered
 `NNNN-kebab-case.md`. Superseded records stay and point at their successor. Original paths and
 measurements inside historical decisions describe their date, not current setup.
 Use [the backend map](../../internal/README.md) for current package locations
-and [local acceptance](../LOCAL_V1.md) for current results.
+and [local acceptance](../local-v1.md) for current results.
 
 Current reading path: **0022/0025/0026** for package ownership and composition,
 **0016/0019** for document replacement/reset, **0006/0013/0017** for Chat

@@ -8,7 +8,7 @@ Gemma 3 1B rewriter and EmbeddingGemma embedder. No further model downloads.
 
 - [ ] Confirm or replace the ten saved agent drafts with common owner questions
   before running them. The private packet is
-  `.local/local-v1/owner-review/questions.json`; [review instructions](docs/OWNER_REVIEW.md)
+  `.local/local-v1/owner-review/questions.json`; [review instructions](docs/owner-review.md)
   cover source hashes, execution and review. No owner confirmation is recorded.
 - [ ] Review each answer and citation for usefulness, supported facts and clear
   limitations. Fix reproduced failures in the responsible layer and add focused
@@ -20,19 +20,12 @@ Manual selection and decline its undocumented outcome.
 
 ## Administrative follow-up
 
-- [ ] Resolve the GitHub account billing lock, then rerun hosted checks.
-  October 3 run [37092111115](https://github.com/Chandra179/nadir/actions/runs/37092111115)
-  did not start its jobs because of billing. Account balance is unverified.
-- [x] Integrate [PR #15](https://github.com/Chandra179/nadir/pull/15)'s coordinated
-  frontend tooling upgrade, preserving the brace-expansion fix. Node 24 is
-  selected for CI; typecheck, lint, 11 tests, build and mocked browser workflow
-  pass locally. The refreshed npm audit reports zero vulnerabilities.
 - [ ] Complete independent human review of the
   [39-case judge packet](test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)
   before claiming calibrated judge scores
   ([issue #13](https://github.com/Chandra179/nadir/issues/13)). This does not
   block the local workflow or direct app review. See the
-  [two-reviewer instructions](docs/OWNER_REVIEW.md).
+  [two-reviewer instructions](docs/owner-review.md).
 
 ## Completed local engineering acceptance
 
@@ -40,10 +33,10 @@ P1 passed its finite checklist on October 3: daily 30/30 supported, 5/5 declines
 5/5 follow-ups; broader 56/56 supported and 8/8 declines. These are direct Codex
 reviews of saved synthetic questions, not independent human judgments.
 
-- [Acceptance, limits and copied-config launch/rollback](docs/LOCAL_V1.md)
-- [Requirements and dated verification evidence](docs/P1_EVIDENCE.md)
+- [Acceptance, limits and copied-config launch/rollback](docs/local-v1.md)
+- [Requirements and dated verification evidence](docs/p1-evidence.md)
 - [Retained current and historical reports](test/evaluation/reports/README.md)
-- [Research behind the fixes](docs/RAG_FAILURE_RESEARCH.md)
+- [Research behind the fixes](docs/rag-failure-research.md)
 
 ## Optional work, only with a concrete need
 

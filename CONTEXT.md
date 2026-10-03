@@ -40,6 +40,25 @@ The stable path and content hash used to deduplicate a Document and identify
 its indexed chunks.
 _Avoid_: filename only
 
+**Source version**:
+The content SHA-256 for a source file at indexing time. A changed source version
+produces new deterministic chunk IDs; publication activates the new version
+before retiring the old one.
+_Avoid_: latest file without a hash
+
+**Citation**:
+A numbered snapshot of evidence actually admitted to an answer prompt, with
+its source path, version, section and position. A mapped number identifies
+evidence; it does not by itself prove that the answer's claim is supported.
+_Avoid_: related search result
+
+**Selected subject**:
+A source path and section explicitly selected in the conversation, persisted
+to resolve later references. It supplies no factual evidence and does not
+exclude contrasting sources. An explicit topic change clears the selection;
+ambiguous comparisons do not select one alternative.
+_Avoid_: inferred fact, retrieval filter
+
 ## Relationships
 
 - **Document intake** produces a **Document**.
@@ -47,6 +66,8 @@ _Avoid_: filename only
 - **Retrieval** reads indexed **Documents** and returns ranked chunks.
 - A **Session** contains an ordered sequence of **Chat turns**.
 - A **Chat turn** uses **Retrieval** and may start answer generation.
+- A **Citation** snapshots admitted evidence from a **Source version**.
+- A **Chat turn** may preserve a **Selected subject** for later references.
 
 ## Example dialogue
 

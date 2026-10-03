@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"nadir/internal/core/conversation/history"
 	"nadir/internal/core/conversation/rewriting"
@@ -190,11 +191,12 @@ func needsReferenceContext(query string, last rewriting.Turn) bool {
 		return false
 	}
 	for i, word := range strings.Fields(query) {
-		if i > 0 {
-			r := []rune(word)
-			if len(r) > 0 && unicode.IsUpper(r[0]) {
-				return false
-			}
+		if i == 0 {
+			continue
+		}
+		r, _ := utf8.DecodeRuneInString(word)
+		if unicode.IsUpper(r) {
+			return false
 		}
 	}
 	terms := func(text string) []string {
@@ -205,7 +207,7 @@ func needsReferenceContext(query string, last rewriting.Turn) bool {
 		previous[word] = true
 	}
 	for _, word := range terms(query) {
-		if len([]rune(word)) < 4 || strings.Contains(" does what when which where have this that these those from with their they them about before after should could would matter matters ", " "+word+" ") {
+		if utf8.RuneCountInString(word) < 4 || strings.Contains(" does what when which where have this that these those from with their they them about before after should could would matter matters ", " "+word+" ") {
 			continue
 		}
 		if previous[word] {

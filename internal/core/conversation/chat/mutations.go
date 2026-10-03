@@ -107,7 +107,7 @@ func (m *historyMutations) prepareEdit(ctx context.Context, sessionID string, be
 func (m *historyMutations) append(ctx context.Context, token historyMutation, turn history.Turn, firstTurnTitle string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.currentLocked(token.sessionID).equals(token) {
+	if m.currentLocked(token.sessionID) != token {
 		return errStaleHistoryMutation
 	}
 	return m.history.AppendTurn(ctx, token.sessionID, turn, firstTurnTitle)
@@ -170,7 +170,7 @@ func (m *historyMutations) registerGeneration(turnID string, token historyMutati
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.currentLocked(token.sessionID).equals(token) {
+	if m.currentLocked(token.sessionID) != token {
 		return false
 	}
 	m.active[turnID] = trackedGeneration{sessionID: token.sessionID, stream: stream}
@@ -194,10 +194,4 @@ func (m *historyMutations) cancelSessionLocked(sessionID string) {
 		generation.stream.cancelGeneration()
 		delete(m.active, id)
 	}
-}
-
-func (t historyMutation) equals(other historyMutation) bool {
-	return t.sessionID == other.sessionID &&
-		t.globalRevision == other.globalRevision &&
-		t.sessionRevision == other.sessionRevision
 }

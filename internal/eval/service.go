@@ -9,6 +9,7 @@ import (
 	"math"
 	"nadir/internal/core/retrieval/search"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -222,10 +223,12 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 		out.DistractorHitRateAtK /= float64(len(results))
 		out.RerankCoverage = float64(out.RerankDependencyCalls) / float64(len(results))
 	}
-	out.P50LatMS = Percentile(latencies, 50)
-	out.P95LatMS = Percentile(latencies, 95)
-	out.RerankP50LatMS = Percentile(rerankLatencies, 50)
-	out.RerankP95LatMS = Percentile(rerankLatencies, 95)
+	slices.Sort(latencies)
+	slices.Sort(rerankLatencies)
+	out.P50LatMS = percentileSorted(latencies, 50)
+	out.P95LatMS = percentileSorted(latencies, 95)
+	out.RerankP50LatMS = percentileSorted(rerankLatencies, 50)
+	out.RerankP95LatMS = percentileSorted(rerankLatencies, 95)
 	if len(out.RerankReasons) == 0 {
 		out.RerankReasons = nil
 	}

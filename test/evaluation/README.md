@@ -24,8 +24,8 @@ until calibration is completed or explicitly retired.
 Direct Codex review of fixed app questions: **30/30 supported, 5/5 declines,
 5/5 follow-ups** daily; **56/56 supported, 8/8 declines** broader. Three repeats
 of 13 fragile cases also pass. These finite results are not owner-use validation
-or calibrated judge scores. See [local acceptance](../../docs/LOCAL_V1.md),
-[fitness evidence](../../docs/P1_EVIDENCE.md) and the
+or calibrated judge scores. See [local acceptance](../../docs/local-v1.md),
+[fitness evidence](../../docs/p1-evidence.md) and the
 [accepted report catalog](reports/README.md).
 
 October 2's corrected-prefix and model experiments are historical rejected
@@ -46,7 +46,7 @@ go run ./cmd/evaluator --golden test/evaluation/representative.json \
 Default evaluator output is `.local/evaluation/<unix_ts>.json`. Use
 `--ensure-ingest` only when an import of the configured sources is intended;
 unchanged-file skipping does not upgrade old chunks after an indexing-policy
-change. Use [fresh-collection migration](../../docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely)
+change. Use [fresh-collection migration](../../docs/local-v1.md#reindexing-the-working-source-policy-safely)
 for that change.
 
 ## Run saved app questions

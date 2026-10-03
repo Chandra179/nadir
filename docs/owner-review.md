@@ -1,7 +1,7 @@
 # Owner review
 
 Personal usefulness needs questions you actually ask and your judgment of the
-answers. The engineering acceptance in [P1_EVIDENCE.md](P1_EVIDENCE.md) uses
+answers. The engineering acceptance in [p1-evidence.md](p1-evidence.md) uses
 simulated questions and cannot replace this review.
 
 The ignored local file `.local/local-v1/owner-review/questions.json` contains
@@ -18,7 +18,7 @@ and citations, and removes only sessions it created unless `--keep-sessions`
 is requested. Empty `relevant` lists mean no expected-source annotation;
 citation mapping checks alone never establish correctness.
 
-Start the copied-config local app using [LOCAL_V1.md](LOCAL_V1.md), then run
+Start the copied-config local app using [local-v1.md](local-v1.md), then run
 from the repository root:
 
 ```bash

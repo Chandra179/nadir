@@ -14,7 +14,7 @@ proves that Nadir's installed 4B model will satisfy every P1 requirement.
 The [pre-fix bounded local review](../test/evaluation/reports/p1-default-focused-review-20261003.json)
 records six supported answers out of nine, no operational failures, and three
 material semantic failures. It is historical diagnosis; the subsequent
-[accepted P1 evidence](P1_EVIDENCE.md) records the fixes and current results.
+[accepted P1 evidence](p1-evidence.md) records the fixes and current results.
 The source evidence differentiates the original failures:
 
 - Manual acknowledgement is selected in the prior answer, and its section is

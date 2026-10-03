@@ -1,6 +1,6 @@
-# Knowledge context
+# Documents context
 
-Knowledge turns source files into searchable Documents. Its ordered Indexing
+Documents turns source files into a searchable corpus. Its ordered Indexing
 pass performs intake, normalization, chunking, optional enrichment, embedding,
 deduplication, and versioned publication.
 

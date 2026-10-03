@@ -298,7 +298,9 @@ Go API.
 
 ## Documentation map
 
-- [Overview](docs/OVERVIEW.md) — what Nadir does and how users experience it.
+- [Documentation index](docs/README.md) — all guides, conventions and maintained
+  homes for product, engineering and evaluation documentation.
+- [Overview](docs/overview.md) — what Nadir does and how users experience it.
 - [Architecture decisions](docs/adr/index.md) — accepted ADRs, including the
   single-node design boundaries and the Podman runtime decision.
 - [Active TODO](TODO.md) — open engineering work and evaluation priorities.
@@ -341,7 +343,7 @@ and historical evidence and explains when to promote a new report.
 The optional [ARQMath importer](scripts/import_arqmath.py) can build a public
 math research pack. That pack and its licensed corpus are not checked in.
 ARQMath and independent judge calibration are optional research for the
-personal/local v1; the [local acceptance checklist](docs/LOCAL_V1.md) uses
+personal/local v1; the [local acceptance checklist](docs/local-v1.md) uses
 saved questions and direct answer/source review.
 
 ## PDF ingestion
@@ -381,7 +383,7 @@ error does not require clearing the document index.
 
 Use `POST /api/v1/documents/reset` only when deliberately emptying the corpus.
 Re-upload notes afterward or use the documented
-[fresh-collection migration](docs/LOCAL_V1.md#reindexing-the-working-source-policy-safely)
+[fresh-collection migration](docs/local-v1.md#reindexing-the-working-source-policy-safely)
 when updating indexing policy.
 
 ### Ollama connection refused

@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,8 +12,28 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	domainchat "nadir/internal/core/conversation/chat"
+	"nadir/internal/core/retrieval/search"
 	"nadir/internal/testmocks"
 )
+
+func TestStartTurnProviderFailureReturnsSafeJSON(t *testing.T) {
+	const private = "private-provider-json-canary"
+	retriever := &mocks.MockRetriever{}
+	retriever.EXPECT().Query(mock.Anything, mock.Anything).Return(search.Result{}, errors.New("provider credential="+private))
+	chat := domainchat.NewDependencies(domainchat.DependenciesConfig{Searcher: retriever})
+	w := httptest.NewRecorder()
+	turnTestServer(t, chat).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/turns", strings.NewReader(`{"query":"A question"}`)))
+	var body struct {
+		Error string `json:"error"`
+		Query string `json:"query"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || !strings.Contains(body.Error, "Search failed") || strings.Contains(w.Body.String(), private) || body.Query != "A question" {
+		t.Fatalf("unsafe or incompatible failure response: %d %s", w.Code, w.Body.String())
+	}
+}
 
 func turnTestServer(t *testing.T, chat domainchat.Chat) http.Handler {
 	t.Helper()

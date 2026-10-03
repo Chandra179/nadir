@@ -15,8 +15,8 @@ fragile repeats contribute 39 supported turns. Reviews are Codex reviews of
 synthetic questions, not independent human calibration or owner-use validation.
 The control was saved on October 2; it was not freshly recreated October 3.
 
-See [local acceptance](../../../docs/LOCAL_V1.md) and
-[requirements/evidence](../../../docs/P1_EVIDENCE.md) for full limitations.
+See [local acceptance](../../../docs/local-v1.md) and
+[requirements/evidence](../../../docs/p1-evidence.md) for full limitations.
 Source/model/binary hashes describe the measured run, not later maintenance.
 
 - [Registered requirements and comparison bars](p1-plan-20261003.json)

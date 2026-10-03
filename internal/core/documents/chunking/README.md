@@ -20,7 +20,7 @@ the full path only when the same leaf occurs under distinct Markdown parent
 paths. A label under one unique heading uses `leaf > label`; broad document
 titles do not prefix every precise heading. This policy is a measured working
 candidate, with unresolved semantic answer regressions described in
-[LOCAL_V1.md](../../../../docs/LOCAL_V1.md).
+[local-v1.md](../../../../docs/local-v1.md).
 
 These source scopes and indexing inputs require a full reindex. Source-SHA
 skipping cannot upgrade an unchanged file. Preserve old collections and use a

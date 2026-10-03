@@ -2,7 +2,7 @@ package evaluation
 
 import (
 	"math"
-	"sort"
+	"slices"
 )
 
 // ReciprocalRank returns 1/rank for a 1-based rank, or zero when no result
@@ -96,7 +96,7 @@ func NDCG(hits []bool, numRelevant, k int) float64 {
 	}
 	// Binary callers have no evidence identities. They may credit at most the
 	// canonical evidence count. The harness uses graded, identity-aware gains.
-	hits = append([]bool(nil), hits...)
+	hits = slices.Clone(hits)
 	credited := 0
 	for i, hit := range hits {
 		if hit {
@@ -119,8 +119,9 @@ func gradedNDCG(gains, evidence []float64, k int) float64 {
 	if k <= 0 || len(evidence) == 0 {
 		return 0
 	}
-	ideal := append([]float64(nil), evidence...)
-	sort.Sort(sort.Reverse(sort.Float64Slice(ideal)))
+	ideal := slices.Clone(evidence)
+	slices.Sort(ideal)
+	slices.Reverse(ideal)
 	var dcg, idcg float64
 	for i, gain := range gains {
 		if i >= k {
@@ -141,7 +142,9 @@ func gradedNDCG(gains, evidence []float64, k int) float64 {
 }
 
 func distribution(samples []float64) Distribution {
-	return Distribution{Samples: samples, Min: Percentile(samples, 0), Median: Percentile(samples, 50), Max: Percentile(samples, 100)}
+	sorted := slices.Clone(samples)
+	slices.Sort(sorted)
+	return Distribution{Samples: samples, Min: percentileSorted(sorted, 0), Median: percentileSorted(sorted, 50), Max: percentileSorted(sorted, 100)}
 }
 
 func metricDistributions(values []QualityMetrics) map[string]Distribution {
@@ -182,11 +185,15 @@ func MeanNDCG(hitLists [][]bool, relevantCounts []int, k int) float64 {
 
 // Percentile returns a linearly interpolated percentile of a copied sample.
 func Percentile(values []float64, p float64) float64 {
-	if len(values) == 0 {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	return percentileSorted(sorted, p)
+}
+
+func percentileSorted(sorted []float64, p float64) float64 {
+	if len(sorted) == 0 {
 		return 0
 	}
-	sorted := append([]float64(nil), values...)
-	sort.Float64s(sorted)
 	if p <= 0 {
 		return sorted[0]
 	}

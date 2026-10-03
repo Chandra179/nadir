@@ -24,7 +24,7 @@ top-result margin is strong; it calls the cross-encoder when the legs disagree
 or the margin is weak. The decision and dependency cost are recorded in the
 Retrieval result for evaluation and operations.
 
-Change here for ranking, filtering, top-k, or query orchestration. Use
+Change here for ranking, filtering, top-k, or query orchestration.
 Search owns its candidate and filter values; `providers/` translate them to
 provider protocols. Verify with
 `go test -race ./internal/core/retrieval/search` and the evaluator.

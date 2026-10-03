@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"nadir/internal/core/observability"
 	semanticcache "nadir/internal/core/retrieval/cache"
@@ -59,10 +60,10 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 			return Result{}, err
 		}
 	} else {
-		if len([]rune(strings.TrimSpace(keyword))) > s.maxQueryChars {
-			operationErr = errQueryTooLong
-			finish("error", errQueryTooLong)
-			return Result{}, errQueryTooLong
+		if utf8.RuneCountInString(strings.TrimSpace(keyword)) > s.maxQueryChars {
+			operationErr = ErrQueryTooLong
+			finish("error", ErrQueryTooLong)
+			return Result{}, ErrQueryTooLong
 		}
 		if topK <= 0 {
 			err := fmt.Errorf("search top_k must be greater than zero")
@@ -214,7 +215,7 @@ func (s *dependencies) rerankTopK(ctx context.Context, query string, chunks []Se
 	if err != nil {
 		telemetry.DependencyErr = true
 		observability.StageContext(ctx, s.log, "reranking", "error", started, err, slog.Int("candidates", len(chunks)))
-		s.log.Warn("reranker failed, falling back to un-reranked results", slog.Any("error", err))
+		s.log.Warn("reranker failed, falling back to un-reranked results", slog.String("error_label", observability.ErrorLabel(err)))
 		return trimCandidates(chunks, topK), telemetry
 	}
 	reranked = trimCandidates(reranked, topK)

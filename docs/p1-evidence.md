@@ -1,6 +1,6 @@
 # Fitness verification: P1 local correctness, 2026-10-03
 
-Specification: [personal/local acceptance criteria](LOCAL_V1.md), the P1 requirements
+Specification: [personal/local acceptance criteria](local-v1.md), the P1 requirements
 enumerated below, and the fixed bars/invariants in the
 [registered plan](../test/evaluation/reports/p1-plan-20261003.json).
 The measured implementation was the working tree over `f9f3a8b` at the accepted

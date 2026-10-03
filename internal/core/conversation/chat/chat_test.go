@@ -51,6 +51,7 @@ func (f *fakeRewriter) Rewrite(ctx context.Context, turns []rewriting.Turn, quer
 type fakeGenerator struct {
 	prompt string
 	tokens []string
+	events []generation.Event
 	err    error
 	got    string
 }
@@ -60,9 +61,12 @@ func (f *fakeGenerator) Generate(ctx context.Context, prompt string) (<-chan gen
 	if f.err != nil {
 		return nil, f.err
 	}
-	ch := make(chan generation.Event, len(f.tokens)+1)
+	ch := make(chan generation.Event, len(f.tokens)+len(f.events)+1)
 	for _, tk := range f.tokens {
 		ch <- generation.Event{Kind: generation.EventToken, Text: tk}
+	}
+	for _, event := range f.events {
+		ch <- event
 	}
 	ch <- generation.Event{Kind: generation.EventDone}
 	close(ch)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
@@ -138,14 +139,16 @@ func normalizeFusionConfig(cfg FusionConfig) FusionConfig {
 	return cfg
 }
 
-var errQueryTooLong = errors.New("search query exceeds the configured length limit")
+// ErrQueryTooLong lets callers explain a rejected question without exposing
+// arbitrary provider errors or depending on their text.
+var ErrQueryTooLong = errors.New("search query exceeds the configured length limit")
 
 func (s *dependencies) validateQuery(query string, topK int) error {
 	if strings.TrimSpace(query) == "" {
 		return errors.New("search query must not be empty")
 	}
-	if len([]rune(strings.TrimSpace(query))) > s.maxQueryChars {
-		return errQueryTooLong
+	if utf8.RuneCountInString(strings.TrimSpace(query)) > s.maxQueryChars {
+		return ErrQueryTooLong
 	}
 	if topK <= 0 {
 		return errors.New("search top_k must be greater than zero")

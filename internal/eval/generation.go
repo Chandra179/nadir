@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -568,10 +569,12 @@ func aggregateGeneration(results []GenerationQueryResult) GenerationAggregate {
 		aggregate.ContextPrecision /= count
 		aggregate.ContextRecall /= count
 	}
-	aggregate.AnswerP50LatMS = Percentile(answerLatencies, 50)
-	aggregate.AnswerP95LatMS = Percentile(answerLatencies, 95)
-	aggregate.JudgeP50LatMS = Percentile(judgeLatencies, 50)
-	aggregate.JudgeP95LatMS = Percentile(judgeLatencies, 95)
+	slices.Sort(answerLatencies)
+	slices.Sort(judgeLatencies)
+	aggregate.AnswerP50LatMS = percentileSorted(answerLatencies, 50)
+	aggregate.AnswerP95LatMS = percentileSorted(answerLatencies, 95)
+	aggregate.JudgeP50LatMS = percentileSorted(judgeLatencies, 50)
+	aggregate.JudgeP95LatMS = percentileSorted(judgeLatencies, 95)
 	if len(aggregate.FailureClasses) == 0 {
 		aggregate.FailureClasses = nil
 	}

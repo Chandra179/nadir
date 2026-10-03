@@ -27,7 +27,7 @@ comparison and installed 8B experiment were not adopted.
 These are fixed simulated questions authored before testing, not owner queries,
 independent human review or calibrated automated-judge scores. Review answers
 what the actual question asks; fixture lists can include unasked extra facts.
-The complete [fitness report](P1_EVIDENCE.md) labels current and historical
+The complete [fitness report](p1-evidence.md) labels current and historical
 checks and records the limits of these results.
 
 ## Current answer and retrieval evidence
@@ -99,7 +99,7 @@ ambiguous sources and arbitrary entailment are not automatically validated.
 
 Ollama thinking chunks are consumed separately, final-chunk answer text is kept,
 and empty completion is an error. No new model, sidecar, serving loop or
-self-critic was added. See [research](RAG_FAILURE_RESEARCH.md) and
+self-critic was added. See [research](rag-failure-research.md) and
 [chat implementation boundaries](../internal/core/conversation/chat/README.md).
 
 ## Reindexing the working source policy safely
@@ -204,7 +204,7 @@ Hosted CI still needs account-owner action: [October 3 run 37092111115](https://
 never started its jobs because the account is locked by a billing issue. The
 current account balance is unverified. Ten agent-authored questions about the
 recovered owner note are saved privately before testing; owner confirmation and
-review remain pending. [Owner and calibration review instructions](OWNER_REVIEW.md)
+review remain pending. [Owner and calibration review instructions](owner-review.md)
 make both human steps explicit.
 These do not block local implementation or direct app review. Public deployment,
 authentication and distributed coordination remain separate future scope.

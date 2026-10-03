@@ -47,7 +47,7 @@ go run ./cmd/evaluator --no-rerank --runs 1 --generation-eval \
   --report .local/evaluation/generation-local.json
 ```
 
-The [local acceptance](../../docs/LOCAL_V1.md) uses actual answer/source review,
+The [local acceptance](../../docs/local-v1.md) uses actual answer/source review,
 not automated judge averages. October 3's accepted results and older comparisons
 are indexed in the [report catalog](../../test/evaluation/reports/README.md).
 The September 30 [39-case blind calibration packet](../../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)

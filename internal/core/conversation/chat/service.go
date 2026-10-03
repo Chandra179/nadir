@@ -66,8 +66,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 			d.log.Warn("chat edit prune failed",
 				slog.String("session_id", req.SessionID),
 				slog.Int("edit_sequence", req.EditSequence),
-				slog.Any("error", err))
-			turn.Error = "Unable to edit conversation: " + err.Error()
+				slog.String("error_label", observability.ErrorLabel(err)))
+			turn.Error = failureMessage("Conversation edit", err)
 			return turn
 		}
 	}
@@ -110,8 +110,8 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	turn.FromCache = searchResult.FromCache
 	if err != nil {
 		operationErr = err
-		d.log.Warn("chat search failed", slog.String("query", req.Query), slog.Any("error", err))
-		turn.Error = "Search failed: " + err.Error()
+		d.log.Warn("chat search failed", slog.String("operation_id", operation.ID()), slog.String("error_label", observability.ErrorLabel(err)))
+		turn.Error = failureMessage("Search", err)
 		d.persistStart(ctx, req, turn, mutation, true)
 		return turn
 	}
@@ -145,7 +145,7 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	})
 	if built.Err != nil {
 		operationErr = built.Err
-		turn.GenerateError = "Answer generation failed: " + built.Err.Error()
+		turn.GenerateError = "Question and conversation context exceed the answer budget. Shorten the question or start a new conversation."
 		d.persistStart(ctx, req, turn, mutation, false)
 		return turn
 	}
@@ -188,8 +188,7 @@ func (d *dependencies) startGeneration(ctx context.Context, req Request, turn Tu
 	if err != nil {
 		cancel()
 		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
-		d.log.Warn("chat generate failed", slog.String("query", req.Query), slog.Any("error", err))
-		turn.GenerateError = "Answer generation failed: " + err.Error()
+		turn.GenerateError = failureMessage("Answer generation", err)
 		d.persistStart(ctx, req, turn, mutation, false)
 		return turn, err
 	}
@@ -201,7 +200,7 @@ func (d *dependencies) startGeneration(ctx context.Context, req Request, turn Tu
 		err := errors.New("broker rejected generation")
 		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
 		d.log.Warn("chat broker rejected generation",
-			slog.String("query", req.Query), slog.Int("max_retained_turns", d.broker.maxRetainedTurns))
+			slog.String("operation_id", observability.OperationID(ctx)), slog.Int("max_retained_turns", d.broker.maxRetainedTurns))
 		turn.GenerateError = "Answer generation is temporarily unavailable: too many active streams."
 		d.persistStart(ctx, req, turn, mutation, false)
 		return turn, err
@@ -349,11 +348,11 @@ func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream
 				stream.publish(EventToken, text)
 			}
 		case generation.EventError:
-			if ev.Err != nil {
-				turn.GenerateError = "Answer generation failed: " + ev.Err.Error()
-			} else {
-				turn.GenerateError = "Answer generation failed"
+			operationErr = ev.Err
+			if operationErr == nil {
+				operationErr = errors.New("generation failed")
 			}
+			turn.GenerateError = failureMessage("Answer generation", operationErr)
 		case generation.EventDone:
 		}
 	}
@@ -362,7 +361,6 @@ func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream
 		stream.publish(EventToken, pending)
 	}
 	if turn.GenerateError != "" {
-		operationErr = errors.New(turn.GenerateError)
 		stream.publish(EventError, turn.GenerateError)
 		observability.StageContext(ctx, d.log, "generation", "error", started, operationErr,
 			slog.Int("answer_bytes", answer.Len()))
@@ -385,11 +383,11 @@ func (d *dependencies) Subscribe(ctx context.Context, turnID string, since int64
 		return nil, nil, false
 	}
 	events, cancel := stream.subscribe(since)
-	go func() {
-		<-ctx.Done()
+	stop := context.AfterFunc(ctx, cancel)
+	return events, func() {
+		stop()
 		cancel()
-	}()
-	return events, cancel, true
+	}, true
 }
 
 // rewriteQuery rewrites a follow-up into a standalone query against the
@@ -400,7 +398,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 	turns, err := d.history.ListTurns(ctx, sessionID)
 	if err != nil {
 		d.log.Warn("rewrite skipped: list turns failed",
-			slog.String("session_id", sessionID), slog.Any("error", err))
+			slog.String("session_id", sessionID), slog.String("error_label", observability.ErrorLabel(err)))
 		return query, "", nil
 	}
 	prior := make([]rewriting.Turn, 0, len(turns))
@@ -437,7 +435,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 	rewritten, err := d.rewriter.Rewrite(ctx, prior, query)
 	if err != nil {
 		d.log.Warn("rewrite failed; searching raw query",
-			slog.String("session_id", sessionID), slog.String("query", query), slog.Any("error", err))
+			slog.String("session_id", sessionID), slog.String("error_label", observability.ErrorLabel(err)))
 		return query, reference, nil
 	}
 	if rewritten == query && needsReference {
@@ -451,9 +449,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 	}
 	if rewritten != query {
 		d.log.Info("rewrote follow-up query",
-			slog.String("session_id", sessionID),
-			slog.String("raw", query),
-			slog.String("rewritten", rewritten))
+			slog.String("session_id", sessionID), slog.String("operation_id", observability.OperationID(ctx)))
 	}
 	return rewritten, reference, nil
 }
@@ -464,7 +460,7 @@ func (d *dependencies) rewriteQuery(ctx context.Context, sessionID, query string
 func (d *dependencies) mintSession(ctx context.Context, query string) (string, historyMutation) {
 	session, mutation, err := d.mutations.createSession(ctx, query)
 	if err != nil {
-		d.log.Warn("chat create session failed", slog.String("query", query), slog.Any("error", err))
+		d.log.Warn("chat create session failed", slog.String("operation_id", observability.OperationID(ctx)), slog.String("error_label", observability.ErrorLabel(err)))
 		return "", historyMutation{}
 	}
 	return session.ID, mutation
@@ -512,7 +508,7 @@ func (d *dependencies) logPersistErr(err error, sessionID string) {
 	if errors.Is(err, errStaleHistoryMutation) {
 		return
 	}
-	d.log.Warn("chat append turn failed", slog.String("session_id", sessionID), slog.Any("error", err))
+	d.log.Warn("chat append turn failed", slog.String("session_id", sessionID), slog.String("error_label", observability.ErrorLabel(err)))
 }
 
 // persistStart keeps an edited turn together with its prune before the UI

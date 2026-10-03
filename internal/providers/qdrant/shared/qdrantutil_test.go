@@ -1,6 +1,7 @@
 package qdrantutil
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -24,6 +25,53 @@ func TestPayloadCodecsAndPointIDs(t *testing.T) {
 	}
 	if got := PointIDString(qdrant.NewIDNum(7)); got != "7" {
 		t.Fatalf("PointIDString(number) = %q, want 7", got)
+	}
+}
+
+func TestPayloadDefaultsForAbsentNullAndWrongTypes(t *testing.T) {
+	for _, payload := range []map[string]*qdrant.Value{
+		nil,
+		{},
+		{"field": nil},
+		{"field": {}},
+		{"field": &qdrant.Value{Kind: &qdrant.Value_ListValue{}}},
+	} {
+		if StringFromPayload(payload, "field") != "" || IntFromPayload(payload, "field") != 0 || BoolFromPayload(payload, "field") {
+			t.Fatalf("payload should decode to zero values: %#v", payload)
+		}
+	}
+}
+
+func TestPointIDStringBoundaryValues(t *testing.T) {
+	for _, tc := range []struct {
+		id   *qdrant.PointId
+		want string
+	}{
+		{nil, ""},
+		{&qdrant.PointId{}, ""},
+		{qdrant.NewIDNum(0), "0"},
+		{qdrant.NewIDNum(math.MaxUint64), "18446744073709551615"},
+	} {
+		if got := PointIDString(tc.id); got != tc.want {
+			t.Fatalf("PointIDString(%v) = %q, want %q", tc.id, got, tc.want)
+		}
+	}
+}
+
+func TestPartialCollectionSchema(t *testing.T) {
+	for _, info := range []*qdrant.CollectionInfo{
+		nil,
+		{},
+		{Config: &qdrant.CollectionConfig{}},
+		{Config: &qdrant.CollectionConfig{Params: &qdrant.CollectionParams{}}},
+		{Config: &qdrant.CollectionConfig{Params: &qdrant.CollectionParams{VectorsConfig: &qdrant.VectorsConfig{}}}},
+	} {
+		if err := ValidateDenseCollection("documents", info, 3); err == nil {
+			t.Fatalf("incomplete dense schema should be rejected: %v", info)
+		}
+		if HasSparseVector(info, "bm25") {
+			t.Fatalf("incomplete sparse schema should be absent: %v", info)
+		}
 	}
 }
 

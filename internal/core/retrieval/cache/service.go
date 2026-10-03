@@ -64,10 +64,8 @@ func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool
 	if c.mutations.Load() > 0 || c.cacheVersion() != version || entry.Version != version {
 		return nil, false, nil
 	}
-	if c.ttl > 0 {
-		if !entry.CachedAt.IsZero() && time.Since(entry.CachedAt) > c.ttl {
-			return nil, false, nil
-		}
+	if c.ttl > 0 && !entry.CachedAt.IsZero() && time.Since(entry.CachedAt) > c.ttl {
+		return nil, false, nil
 	}
 	return entry.Results, true, nil
 }

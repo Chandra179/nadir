@@ -1,13 +1,34 @@
 package search
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 
 	"nadir/internal/core/retrieval/cache"
 )
+
+func TestRerankerFailureKeepsPrivateDetailsOutOfDiagnostics(t *testing.T) {
+	const private = "private-reranker-canary"
+	var logs bytes.Buffer
+	d := NewDependencies(DependenciesConfig{
+		Embedder: &searchTestEmbedder{},
+		Store:    &searchTestStore{results: []SearchCandidate{{Text: "Evidence", FilePath: "note.md"}}},
+		Reranker: searchTestReranker{err: errors.New("sidecar: " + private)},
+		Log:      slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	result, err := d.Query(context.Background(), Request{Query: private, TopK: 1})
+	if err != nil || len(result.Chunks) != 1 || !result.Rerank.DependencyErr {
+		t.Fatalf("reranker fallback changed: %+v, %v", result, err)
+	}
+	if strings.Contains(logs.String(), private) || !strings.Contains(logs.String(), "dependency_error") {
+		t.Fatal("diagnostics leaked content or lost the safe failure classification")
+	}
+}
 
 type searchTestEmbedder struct {
 	mu          sync.Mutex

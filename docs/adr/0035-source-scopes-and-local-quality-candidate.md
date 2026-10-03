@@ -95,7 +95,7 @@ Defaults, questions, source hashes and ranked evidence remain unchanged.
 A copied-config migration imports 15 real notes, archives 32 exact synthetic
 load originals, preserves the old document/cache/config and existing history,
 and passes full app, duplicate-import and persisted-subject restart checks.
-See [fitness evidence](../P1_EVIDENCE.md) and
+See [fitness evidence](../p1-evidence.md) and
 [direct review](../../test/evaluation/reports/p1-accepted-agent-review-20261003.json).
 This accepts the finite local policy and measured workflow; it does not claim
 universal citation entailment, independent judge calibration or owner usefulness.
@@ -106,7 +106,7 @@ Existing source-SHA skipping cannot upgrade unchanged documents to new chunks
 or indexing inputs. A full reindex requires all source originals. Use a copied
 configuration and unused document/cache collection names, preserve the old
 collections/configuration for rollback, and do not reset owner data to reproduce
-these experiments. See [safe migration](../LOCAL_V1.md#reindexing-the-working-source-policy-safely).
+these experiments. See [safe migration](../local-v1.md#reindexing-the-working-source-policy-safely).
 
 The task-prefix boundary fix is query-only and requires a fresh/cleared cache
 for measurement, not a source reindex. Optional GPU layer placement does not
