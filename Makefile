@@ -1,7 +1,8 @@
-.PHONY: run compose compose-rerank test race vet build load-benchmark user-path-benchmark check mdn generate-mocks
+.PHONY: run compose compose-rerank test race vet build benchmark benchmark-ui check mdn generate-mocks
 
 GO_PACKAGES := ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
+BENCHMARK_PYTHON ?= .local/benchmark/venv/bin/python
 
 run:
 	./scripts/local.sh
@@ -24,11 +25,11 @@ vet:
 build:
 	go build ./cmd/api
 
-load-benchmark:
-	python3 scripts/benchmark_load.py $(ARGS)
+benchmark:
+	$(BENCHMARK_PYTHON) -m benchmark $(ARGS)
 
-user-path-benchmark:
-	python3 scripts/benchmark_user_paths.py $(ARGS)
+benchmark-ui:
+	$(BENCHMARK_PYTHON) -m benchmark --ui $(ARGS)
 
 check: test vet build
 

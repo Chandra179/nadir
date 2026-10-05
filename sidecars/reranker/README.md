@@ -111,116 +111,29 @@ Check readiness with:
 curl http://localhost:5002/health
 ```
 
-## Benchmarking model and backend profiles
+## API performance and retrieval quality
 
-`scripts/benchmark_reranker.py` measures the running sidecar with a
-consent-safe JSON corpus. Each query supplies candidate passages and an expert
-relevance grade (`0` means non-relevant; positive grades are relevant). The
-report contains HitRate@k, Recall@k, MRR@10, graded nDCG@k, p50/p95 latency,
-sequential throughput, per-request failures/timeouts, and optional RSS/VRAM
-samples. The health response records the exact loaded model, backend, and
-device so reports from different profiles are comparable.
+Use the [Locust suite](../../benchmark/README.md) to measure retrieval and chat
+through the Nadir API with this sidecar enabled. Direct sidecar and model-profile
+benchmark tools were retired October 5. Locust records API workflow latency and
+throughput alongside the API's available process metrics.
 
-Example dataset:
-
-```json
-{
-  "schema_version": 1,
-  "metadata": {"provenance": "consent-safe expert judgments"},
-  "queries": [
-    {
-      "id": "q-001",
-      "query": "what is the secant formula?",
-      "candidates": [
-        {"text": "The secant formula is ...", "relevance": 2},
-        {"text": "An unrelated passage ...", "relevance": 0}
-      ]
-    }
-  ]
-}
-```
-
-Run one profile from the repository root:
+Use the Go evaluator to compare retrieval quality on the same explicit query
+set and matching corpus with and without reranking:
 
 ```bash
-python scripts/benchmark_reranker.py \
-  --dataset ./reranker-benchmark.json \
-  --endpoint http://127.0.0.1:5002/rerank \
-  --pid <sidecar-pid> \
-  --runs 3 \
-  --json-out test/evaluation/reports/reranker-bge-cpu.json
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
+  QDRANT_COLLECTION=documents_chunks_evaluation \
+  go run ./cmd/evaluator --golden /absolute/path/to/questions.json --runs 3
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
+  QDRANT_COLLECTION=documents_chunks_evaluation \
+  go run ./cmd/evaluator --golden /absolute/path/to/questions.json --no-rerank --runs 3
 ```
 
-The committed Retrieval fixture can be benchmarked directly without creating a
-second copy of its annotations. The adapter resolves each `relevant` and
-`distractors` entry from `test/evaluation/golden.json` into passages from the
-sample corpus:
-
-```bash
-python scripts/benchmark_reranker.py \
-  --dataset test/evaluation/golden.json \
-  --corpus-dir samples \
-  --endpoint http://127.0.0.1:5002/rerank \
-  --pid <sidecar-pid> \
-  --runs 1 \
-  --json-out test/evaluation/reports/reranker-bge-m3-golden.json
-```
-
-This is a repeatable synthetic-corpus baseline, not a production release
-gate. Use the same golden fixture and corpus for every profile so quality and
-resource measurements remain comparable.
-
-For a production comparison, require the release-gate metadata and full
-judgment set. This rejects the committed synthetic fixture and refuses to
-truncate the dataset:
-
-```bash
-python scripts/benchmark_reranker.py \
-  --dataset /path/to/production-golden.json \
-  --corpus-dir /path/to/production-corpus \
-  --require-release-gate \
-  --endpoint http://127.0.0.1:5002/rerank \
-  --runs 3 \
-  --json-out test/evaluation/reports/reranker-production-bge.json
-```
-
-For Compose, replace `--pid` with `--container "$(podman compose -f
-deploy/compose/compose.yaml ps -q reranker)"`. For a CUDA process, add
-`--gpu-pid` to sample process VRAM through `nvidia-smi`. Repeat the command
-after changing `RERANKER_MODEL`, `RERANKER_BACKEND`, or
-`RERANKER_DEVICE`; do not compare reports unless their corpus, candidate
-lists, runs, and hardware are the same. The health probe measures readiness,
-not process startup; measure container startup separately when completing the
-production comparison.
-
-For repeatable model/backend comparisons, the profile runner owns sidecar
-startup and shutdown and records startup latency/RSS alongside the direct
-benchmark:
-
-```bash
-python scripts/benchmark_reranker_profiles.py \
-  --dataset test/evaluation/golden.json \
-  --corpus-dir samples \
-  --output-dir /tmp/nadir-reranker-profiles \
-  --json-out test/evaluation/reports/reranker-profile-comparison.json \
-  --quantized-dir /path/to/int8_avx2
-```
-
-The runner records unavailable CUDA, missing weights, and model-load failures
-as evidence gaps. It never substitutes a different model or backend. GTE
-multilingual reranker models require `RERANKER_TRUST_REMOTE_CODE=true`; only
-enable that for a reviewed model source.
-
-The direct benchmark isolates reranker behavior. Run the full evaluator as
-well to measure end-to-end Retrieval quality and dependency latency:
-
-```bash
-go run ./cmd/evaluator --runs 3
-go run ./cmd/evaluator --no-rerank --runs 3
-```
-
-The benchmark harness and unit tests use only the Python standard library;
-they do not download models or create synthetic production evidence.
+Record the sidecar model, backend, device and hardware when comparing API runs.
+Keep inputs fixed; the historical synthetic fixtures require their original
+corpus and do not establish production quality. See the
+[evaluator guide](../../internal/eval/README.md) for quality metrics and limits.
 
 The repository launcher `./scripts/local.sh` starts this sidecar from the
 project virtual environment and starts Qdrant and the Go API separately.

@@ -1,19 +1,28 @@
 package chunking
 
 import (
-	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
 
 func TestRecursiveOverlapRetainsAcknowledgementModeScope(t *testing.T) {
-	raw, err := os.ReadFile("../../../../samples/rabbitmq.md")
-	if err != nil {
-		t.Fatal(err)
-	}
+	const raw = `# Consumer
+
+## Acknowledgement Modes
+
+**Auto acknowledgement (autoAck: true)**
+The broker considers a message delivered as soon as it sends it over the socket.
+* Fastest, no risk of forgetting to ack.
+* Messages can be lost if the consumer crashes before processing.
+
+**Manual acknowledgement (autoAck: false)**
+The application must explicitly call channel.ack(deliveryTag) after successful processing.
+* nack (or reject) can use requeue=true to return the message to the queue.
+* Gives full control over at-least-once delivery semantics.
+`
 	d := NewDependencies(DependenciesConfig{ChunkSize: 512, ChunkOverlap: 64})
-	chunks, err := d.Chunk(string(raw), "rabbitmq.md")
+	chunks, err := d.Chunk(raw, "acknowledgements.md")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -105,8 +105,10 @@ failures to 3, at ~9× answer latency on this hardware.
 **Decision:** `generator.model` default moves to `gemma3:4b` per the
 pre-registration (4b passes the gate → flip). gemma3:1b remains the
 documented low-latency fallback and still passes the gate post-fixes.
-Reports: [gemma3:1b](../../test/evaluation/reports/generation-gemma1b-fixes-fullcorpus-20260929.json),
-[gemma3:4b](../../test/evaluation/reports/generation-gemma4b-fullcorpus-20260929.json).
+These are September 29 measurements with an uncalibrated automatic judge.
+The raw 1B/4B reports were archived on October 5; the dated results and model
+decision remain above. See the
+[archive index and restoration instructions](../../test/evaluation/reports/README.md#archived-experiments-and-restoration).
 
 ## Consequences
 
@@ -114,12 +116,9 @@ Reports: [gemma3:1b](../../test/evaluation/reports/generation-gemma1b-fixes-full
   reset + re-ingest; point count 368 → 442 with code content indexed).
 - The golden `contains` matching is content-based, so no fixture change was
   needed; retrieval gates passed unchanged.
-- Reports: [512 run 1](../../test/evaluation/reports/chunker-fix-512-fullcorpus-20260929-run1.json),
-  [512 run 2](../../test/evaluation/reports/chunker-fix-512-fullcorpus-20260929-run2.json),
-  [2048 run 1](../../test/evaluation/reports/chunk-2048-fullcorpus-20260929-run1.json),
-  [2048 run 2](../../test/evaluation/reports/chunk-2048-fullcorpus-20260929-run2.json),
-  [pre-fix baseline](../../test/evaluation/reports/pre-fix-baseline-512-fullcorpus-20260929.json),
-  [pre-fix rerank](../../test/evaluation/reports/pre-fix-rerank-gpu-fullcorpus-20260929.json).
+- September 29's two 512 runs, two 2048 runs, pre-fix baseline and reranker
+  comparison are archived with their original hashes. The tables above retain
+  the historical comparison; October 3 acceptance is a separate measurement.
 - Operational note: the CUDA reranker profile (~3.7 GiB VRAM) and Ollama
   LLM serving do not fit together on a 6 GiB GPU — phi4-mini judge calls
   fail with `cudaMalloc failed: out of memory` while the sidecar holds the

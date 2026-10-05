@@ -51,20 +51,23 @@ three times. Aggregates below are the evaluator's median across runs:
 | nDCG@5 | 0.8369 | 0.8599 | 0.8180 | 0.8544 |
 | Distractor hit@5 | 0.2256 | 0.2782 | 0.2188 | 0.2344 |
 
-This is the latest corrected-prefix arm, not the earlier retained candidate.
+This is the corrected-prefix arm measured on October 2, separate from the
+earlier candidate retained with the historical control review.
 Registered Hit/MRR/nDCG guards pass, but distractor exposure increases. Central
 text rescoring confirms golden gains without window annotation inflation;
-broader central-only MRR/nDCG are 0.8140/0.8478. See [registration](../../test/evaluation/reports/quality-plan-20261002.json),
-[golden](../../test/evaluation/reports/quality-prefix-retrieval-20261002.json),
-[broader](../../test/evaluation/reports/quality-prefix-representative-retrieval-20261002.json)
-and [central audit](../../test/evaluation/reports/quality-prefix-central-evidence-audit-20261002.json).
+broader central-only MRR/nDCG are 0.8140/0.8478. The registration, corrected-prefix
+retrieval outputs and central audit were archived on October 5. Their original
+identities and hashes remain in the
+[archive index](../../test/evaluation/reports/manifest.json), with
+[restoration instructions](../../test/evaluation/reports/README.md#archived-experiments-and-restoration).
 
 Full app replay reviews at **28/30 supported, 5/5 declines and 2/5 follow-ups**;
 broader results are **49/56 and 7/8**. The fresh control is 23/30, 5/5, 4/5 and
 47/56, 5/8. All 104 turns complete without operational failures or unmapped IDs.
 Wrong cited sections, omitted alternatives and lost follow-up mode mean semantic
 no-regression and local acceptance fail. **This policy is not accepted as a
-quality release.** See the [latest direct review](../../test/evaluation/reports/quality-prefix-agent-review-20261002.json).
+quality release.** Its October 2 direct review is archived with the rejected
+experiment; this section preserves its dated outcome.
 
 The earlier retained arm's 26/30, 4/5 and 52/56 remain a separate historical
 measurement. All-ancestor indexing failed broader Hit@5. Stronger prompts,
@@ -74,13 +77,13 @@ mode failure; captured-prompt experiments are diagnostic, not full app runs.
 
 An installed-8B generator/rewriter experiment confirmed repeated model eviction
 with GPU-default embeddings. Explicit CPU embedding made both models resident
-on existing hardware, but the full 104-case [semantic review](../../test/evaluation/reports/quality-cpue-model-agent-review-20261002.json)
-still fails at 26/30, 5/5, 3/5 and 49/56, 8/8. The 8B model is not adopted.
+on existing hardware, but the full 104-case semantic review still fails at
+26/30, 5/5, 3/5 and 49/56, 8/8. The 8B model is not adopted.
 Optional placement is implemented through existing config/provider seams;
 `embedder.num_gpu` is unset by default and explicit zero is preserved. The
-[direct-provider smoke](../../test/evaluation/reports/quality-cpu-direct-smoke-20261002.json)
-verifies operational wiring and [coexistence](../../test/evaluation/reports/quality-cpu-direct-residence-20261002.json),
-not semantic acceptance. None of these reviews is independent human calibration.
+direct-provider smoke verified operational wiring and model coexistence,
+not semantic acceptance. The model comparison, smoke and residence reports
+were archived on October 5. None of these reviews is independent human calibration.
 
 ## Acceptance update (2026-10-03)
 
@@ -95,8 +98,7 @@ Defaults, questions, source hashes and ranked evidence remain unchanged.
 A copied-config migration imports 15 real notes, archives 32 exact synthetic
 load originals, preserves the old document/cache/config and existing history,
 and passes full app, duplicate-import and persisted-subject restart checks.
-See [fitness evidence](../p1-evidence.md) and
-[direct review](../../test/evaluation/reports/p1-accepted-agent-review-20261003.json).
+See the [direct review](../../test/evaluation/reports/2026-10-03/local-acceptance/review.json).
 This accepts the finite local policy and measured workflow; it does not claim
 universal citation entailment, independent judge calibration or owner usefulness.
 
@@ -106,7 +108,7 @@ Existing source-SHA skipping cannot upgrade unchanged documents to new chunks
 or indexing inputs. A full reindex requires all source originals. Use a copied
 configuration and unused document/cache collection names, preserve the old
 collections/configuration for rollback, and do not reset owner data to reproduce
-these experiments. See [safe migration](../local-v1.md#reindexing-the-working-source-policy-safely).
+these experiments.
 
 The task-prefix boundary fix is query-only and requires a fresh/cleared cache
 for measurement, not a source reindex. Optional GPU layer placement does not

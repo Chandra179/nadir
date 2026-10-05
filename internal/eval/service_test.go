@@ -109,7 +109,7 @@ func TestMatchedDistractors(t *testing.T) {
 	}
 }
 
-func TestActiveGoldenFixtureIsAnnotated(t *testing.T) {
+func TestHistoricalGoldenFixtureIsAnnotated(t *testing.T) {
 	_, sourceFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
@@ -117,7 +117,7 @@ func TestActiveGoldenFixtureIsAnnotated(t *testing.T) {
 	path := filepath.Join(filepath.Dir(sourceFile), "../../test/evaluation/golden.json")
 	golden, err := LoadGoldenSet(path)
 	if err != nil {
-		t.Fatalf("LoadGoldenSet(active fixture): %v", err)
+		t.Fatalf("LoadGoldenSet(historical fixture): %v", err)
 	}
 	if golden.SchemaVersion != 3 {
 		t.Fatalf("schema version = %d, want 3", golden.SchemaVersion)

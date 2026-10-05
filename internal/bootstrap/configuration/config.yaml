@@ -20,8 +20,7 @@ middleware:
 
 documents:
   mode: "upload-only"       # upload-only | mirror; mirror removes missing files under documents.paths
-  paths:
-    - "samples"
+  paths: []               # upload documents in the dashboard; add source directories for automatic ingestion
   ignore_patterns: []
 
 ingest:
@@ -37,7 +36,7 @@ ingest:
 
 qdrant:
   addr: "localhost:6334"
-  collection: "documents_chunks"
+  collection: "documents_chunks_reading"
   top_k: 5
   prefetch_mul: 5  # store-level candidate multiplier for hybrid search legs
 
@@ -125,14 +124,14 @@ enrichment:
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
-  collection: "search_cache"
+  collection: "search_cache_reading"
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
 
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
   ollama_addr: "http://localhost:11434"
-  model: "gemma3:4b"  # explicitly configured answer model; finite local acceptance and limits are in docs/local-v1.md; no automatic model fallback
+  model: "gemma3:4b"  # explicitly configured answer model; dated acceptance and limits are in test/evaluation/reports/README.md; no automatic model fallback
   request_timeout: 120s
   max_output_tokens: 512 # bound answer generation; prevents an unending stream
   num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX)

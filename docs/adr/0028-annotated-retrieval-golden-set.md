@@ -51,3 +51,12 @@ active release gate until those external artifacts are present.
   be compared with new reports as if the datasets were identical.
 - A production release gate still requires real user queries, expert labels,
   and generation-side evaluation.
+
+## Maintenance, October 5, 2026
+
+The sample corpus has been removed. The committed fixture remains unchanged
+for schema checks and interpreting historical reports. Live evaluation now
+requires an explicit `--golden` input and an available matching corpus; the
+schema and production-gate requirements above still apply.
+The ARQMath importer was also retired because its source corpus and candidate
+pack were absent; the public-data decision above describes the earlier research.

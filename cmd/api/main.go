@@ -59,9 +59,10 @@ func startupConfiguration(cfg *config.Config) map[string]any {
 		host = "127.0.0.1"
 	}
 	return map[string]any{
-		"api_url":          "http://" + net.JoinHostPort(host, port),
-		"reranker_enabled": cfg.Reranker.Enabled,
-		"reranker_model":   cfg.Reranker.Model,
-		"reranker_addr":    cfg.Reranker.Addr,
+		"api_url":                    "http://" + net.JoinHostPort(host, port),
+		"reranker_enabled":           cfg.Reranker.Enabled,
+		"reranker_model":             cfg.Reranker.Model,
+		"reranker_addr":              cfg.Reranker.Addr,
+		"documents_paths_configured": len(cfg.Documents.Paths) > 0,
 	}
 }

@@ -6,18 +6,15 @@ index maps each topic to its maintained home.
 | Topic | Read here |
 |---|---|
 | Product behavior, architecture and algorithms | [Overview](overview.md) |
-| Personal/local finish line, acceptance and corpus migration | [Local v1](local-v1.md) |
 | Current priorities | [TODO](../TODO.md) |
-| Owner questions and independent judge review | [Owner review](owner-review.md) |
 | Domain language and relationships | [CONTEXT](../CONTEXT.md) |
 | Backend ownership and package map | [Backend README](../internal/README.md) |
 | Commands, dependency boundaries and agent rules | [AGENTS](../AGENTS.md) |
-| Configuration groups and change rules | [Configuration](configuration.md) |
+| Configuration values and overrides | [Configuration](../internal/bootstrap/configuration/config.yaml), [agent rules](../AGENTS.md) |
 | Go conventions | [Style](style.md), [errors](errors.md), [logging](logging.md) |
 | Architecture decisions and their history | [ADR index](adr/index.md) |
-| P1 requirements and dated verification | [P1 evidence](p1-evidence.md) |
-| Research behind the RAG fixes | [RAG failure research](rag-failure-research.md) |
 | Evaluation commands and fixture definitions | [Evaluation guide](../test/evaluation/README.md) |
+| API performance workloads and reports | [Locust benchmarks](../benchmark/README.md) |
 | Accepted and historical measurements | [Report catalog](../test/evaluation/reports/README.md) |
 | Podman deployment | [Compose guide](../deploy/compose/README.md) |
 | Optional model/conversion services | [Reranker](../sidecars/reranker/README.md), [document converter](../sidecars/document-converter/README.md) |
@@ -36,6 +33,6 @@ notes live in `docs/agents/`; evaluation fixtures and immutable raw evidence liv
 under `test/evaluation/`.
 
 Update the maintained home of a fact, then link to it elsewhere. Keep measured
-results and their limits in local acceptance and dated evidence; the overview
+results and their limits in the report catalog and dated evidence; the overview
 introduces the product. Historical ADR paths and raw reports describe their
 recorded snapshot and are not current setup instructions.

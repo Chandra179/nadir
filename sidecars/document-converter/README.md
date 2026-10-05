@@ -84,27 +84,21 @@ podman compose -f deploy/compose/compose.yaml \
   --profile pdf up -d --build docling
 ```
 
-## Benchmarking
+## API upload benchmarks
 
-Use the standard-library benchmark from the repository root with a
-representative, consent-safe PDF corpus. It checks sidecar health, performs a
-warmup, measures each conversion, records failures and request timeouts, and
-reports p50/p95 latency. Add `--pid` for a host process or `--container` for a
-container to sample resident memory during each request:
+Use the [Locust upload workload](../../benchmark/README.md) against a separate
+Nadir evaluation API with Docling enabled and a representative PDF input:
 
 ```bash
-python scripts/benchmark_docling.py \
-  --input-dir ./pdfs/benchmark \
-  --endpoint http://127.0.0.1:5003/convert \
-  --pid <docling-pid> \
-  --runs 3 \
-  --json-out test/evaluation/reports/docling-benchmark.json
+make benchmark ARGS="--host http://127.0.0.1:8200 --workload upload --upload-file /absolute/path/to/evaluation.pdf"
 ```
 
-For Compose, obtain the container ID with
-`podman compose -f deploy/compose/compose.yaml ps -q docling` and pass
-it to `--container`. The benchmark stores document paths and measurements, not
-PDF contents. Do not use private or identifiable documents without the
-appropriate consent and redaction process. Memory is sampled periodically, so
-very short-lived peaks may not be observed; use container-level limits and
-multiple representative runs when setting an operational budget.
+Run the command from the repository root after installing the benchmark's
+dedicated dependencies. Each upload gets a unique filename and measures the
+complete intake, conversion and indexing workflow. Uploaded documents remain
+in the target index, so use dedicated evaluation collections and source inputs.
+Native Locust reports and API process metrics are saved under ignored
+`.local/benchmark/`.
+
+The direct conversion benchmark was retired October 5. The API workload does
+not isolate sidecar conversion time or sample sidecar RSS/VRAM.

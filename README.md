@@ -22,14 +22,15 @@ ollama pull gemma3:1b   # configured follow-up rewrite model
 
 ### 1. Configure your data source
 
-Edit `internal/bootstrap/configuration/config.yaml` → `documents.paths` to point at your source documents:
+The default has no source directories. Upload documents using the dashboard's
+paperclip, or edit `internal/bootstrap/configuration/config.yaml` →
+`documents.paths` to enable directory ingestion:
 
 ```yaml
 documents:
   mode: "upload-only"     # upload-only | mirror
   paths:
-    - "samples"           # 14 sample technical notes
-    - "~/my-documents"    # your own data
+    - "/path/to/documents"
 ```
 
 `upload-only` keeps existing Documents when a source file disappears. Set
@@ -44,7 +45,8 @@ directories. Multipart uploads never trigger mirror deletion.
 ```
 
 This starts Qdrant and the Go API, starts the host reranker only when enabled,
-ingests the configured sources, and blocks on the server. Reranking is off
+ingests source directories when configured, and blocks on the server. With
+`documents.paths: []`, it starts ready for uploads. Reranking is off
 by default. Run the React dashboard separately:
 
 ```bash
@@ -60,10 +62,12 @@ switching to a different URL.
 
 ### 3. Test search
 
+Upload a document first, then ask about its contents:
+
 ```bash
 curl -X POST localhost:8100/api/v1/turns \
   -H 'content-type: application/json' \
-  -d '{"query":"secant formula","generate":false}'
+  -d '{"query":"What are the main ideas in the uploaded document?","generate":false}'
 ```
 
 The control API uses JSON requests and responses. Live generated answers are
@@ -77,7 +81,7 @@ Set `generate` to `true` to run answer generation over the retrieved chunks:
 ```bash
 curl -X POST localhost:8100/api/v1/turns \
   -H 'content-type: application/json' \
-  -d '{"query":"secant formula","generate":true}'
+  -d '{"query":"What are the main ideas in the uploaded document?","generate":true}'
 ```
 
 ## Daily use and corpus visibility
@@ -108,8 +112,9 @@ files that are no longer present, while `mirror` removes missing files after a
 fully successful sweep. A failed conversion or embedding pass never triggers
 destructive reconciliation.
 
-A sample set is included at `samples/` (14 markdown files covering math and
-system-design topics). To use your own data:
+The sample corpus has been removed. Documents can be any
+material you want to read, including documents written by others. To enable
+directory ingestion:
 
 ```yaml
 # internal/bootstrap/configuration/config.yaml
@@ -130,7 +135,7 @@ podman compose -f deploy/compose/compose.yaml up -d qdrant
 # 2. Start Go server
 go run ./cmd/api
 
-# 3. Ingest documents
+# 3. Ingest configured directories (or upload files using the dashboard paperclip)
 curl -X POST localhost:8100/api/v1/documents
 ```
 
@@ -165,8 +170,15 @@ Open `http://localhost:3002` after Vite starts. Set `DASHBOARD_PORT` to choose
 another available port; Vite uses a strict port and will fail clearly if it is
 occupied.
 
-The default source mount is `./samples`. Set `DOCUMENTS_DIR` in `.env` to a
-different host directory. On Apple Silicon, keep the default CPU reranker
+The base stack accepts uploads without a source mount. To mount an existing
+host directory, use an absolute path and the optional source override:
+
+```bash
+DOCUMENTS_DIR=/absolute/path/to/documents podman compose \
+  -f deploy/compose/compose.yaml -f deploy/compose/compose.sources.yaml up -d --build
+```
+
+On Apple Silicon, keep the default CPU reranker
 backend (`RERANKER_BACKEND=torch`); the AVX2 quantized artifact is skipped for
 portable builds. Ollama can still use Apple Metal acceleration on the host.
 
@@ -202,7 +214,7 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 | Var | Default (Podman Compose) | Purpose |
 |-----|--------------------------|---------|
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
-| `QDRANT_COLLECTION` | `documents_chunks` | Qdrant collection name |
+| `QDRANT_COLLECTION` | `documents_chunks_reading` | Qdrant collection name; older collections are not selected automatically |
 | `OLLAMA_ADDR` | `http://host.containers.internal:11434` | Ollama host |
 | `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:4b` | Explicit answer-generation endpoint and model |
 | `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
@@ -216,9 +228,9 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 | `RERANKER_ADAPTIVE_MARGIN_THRESHOLD` | `0.01` | Relative fused top-result margin below which adaptive reranking is required |
 | `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
 | `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
-| `DOCUMENTS_PATHS` | — | Comma-separated documents paths; Compose normally sets this to `/app/source` |
+| `DOCUMENTS_PATHS` | empty | Comma-separated source directories; the optional Compose source override uses `/app/source` |
 | `DOCUMENTS_MODE` | `upload-only` | `upload-only` retains removed files; `mirror` reconciles configured source roots |
-| `DOCUMENTS_DIR` | `./samples` | Host directory mounted into Compose as `/app/source` |
+| `DOCUMENTS_DIR` | unset | Existing absolute host directory required by `compose.sources.yaml` |
 | `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
 | `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
 | `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous reranker inferences |
@@ -319,32 +331,54 @@ go test -count=1 ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 
 The evaluation command runs the golden query set against the configured Qdrant
 collection, bypasses semantic cache, and reports HitRate, Recall, MRR, nDCG,
-and latency percentiles. It uses the configured reranker by default:
+and latency percentiles. It uses the configured reranker by default. Supply
+`--golden` with a question set for an available matching corpus:
 
 ```bash
-go run ./cmd/evaluator --runs 3
-go run ./cmd/evaluator --no-rerank --runs 3
-go run ./cmd/evaluator --ensure-ingest --report .local/evaluation/local.json
+go run ./cmd/evaluator --golden /path/to/questions.json --runs 3
+go run ./cmd/evaluator --golden /path/to/questions.json --no-rerank --runs 3
+go run ./cmd/evaluator --golden /path/to/questions.json \
+  --ensure-ingest --report .local/evaluation/local.json
 ```
 
-The active golden set is a schema-v3 pack of 133 expert-authored synthetic
+The historical golden set is a schema-v3 pack of 133 expert-authored synthetic
 user-intent queries with direct, formula, procedure, comparison, multi-hop,
 ambiguous, negative, and distractor cases. It records the sample corpus
-manifest and two synthetic judgment passes, but contains no production user
-data and is not a release gate. Historical reports still contain the original
-34-query measurements. Collect consent-safe production queries, privacy
-approval, and independent expert judgments before treating a score as a
-production release gate.
+manifest and two synthetic judgment passes, but its source corpus is no longer
+present. The fixture remains for schema checks and interpreting historical
+reports; it contains no production user data and is not a release gate.
+Earlier 34-query measurements remain in
+archived reports and Git history. Collect consent-safe production queries,
+privacy approval, and independent expert judgments before treating a score as
+a production release gate.
 
 Scratch evaluation reports default to ignored `.local/evaluation/`. The
-[report catalog](test/evaluation/reports/README.md) indexes retained accepted
-and historical evidence and explains when to promote a new report.
+[report catalog](test/evaluation/reports/README.md) indexes the October 3
+acceptance and required historical support, explains the dated naming format,
+and provides archive restoration instructions.
 
-The optional [ARQMath importer](scripts/import_arqmath.py) can build a public
-math research pack. That pack and its licensed corpus are not checked in.
-ARQMath and independent judge calibration are optional research for the
-personal/local v1; the [local acceptance checklist](docs/local-v1.md) uses
-saved questions and direct answer/source review.
+The sample-based generators, optional public-math importer and saved-answer
+runner have been retired. For usefulness validation, review answers and cited
+passages for chosen documents and questions as described in [TODO](TODO.md).
+The generic judge-calibration utility remains available for new complete
+reviewer packets; no independent calibration is claimed.
+
+## API performance benchmarks
+
+Use the [Locust suite](benchmark/README.md) for retrieval, chat, mixed traffic,
+cache reuse, follow-up turns and uploads. Install its dedicated dependencies:
+
+```bash
+python3.12 -m venv .local/benchmark/venv
+.local/benchmark/venv/bin/python -m pip install -r benchmark/requirements.txt
+make benchmark ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexed document'"
+make benchmark-ui ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexed document'"
+```
+
+Headless defaults are one user, one user/second, 60 seconds and a 120-second
+timeout. CSV/HTML reports and run metadata go to ignored `.local/benchmark/`.
+Use completed workflow throughput in metadata when interpreting results.
+Upload runs retain their documents and require a separate evaluation API.
 
 ## PDF ingestion
 
@@ -382,9 +416,9 @@ ports (normally 6333/6334/11434/8100; 5002 when reranking is enabled). Check
 error does not require clearing the document index.
 
 Use `POST /api/v1/documents/reset` only when deliberately emptying the corpus.
-Re-upload notes afterward or use the documented
-[fresh-collection migration](docs/local-v1.md#reindexing-the-working-source-policy-safely)
-when updating indexing policy.
+Re-upload documents afterward. When updating indexing policy, use a copied
+configuration with unused document/cache collection names and all source
+originals; preserve the old configuration and collections for rollback.
 
 ### Ollama connection refused
 

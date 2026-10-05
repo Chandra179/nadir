@@ -19,10 +19,9 @@ headings and a label, if present, for persisted citation context. Indexing uses
 the full path only when the same leaf occurs under distinct Markdown parent
 paths. A label under one unique heading uses `leaf > label`; broad document
 titles do not prefix every precise heading. This policy is a measured working
-candidate, with unresolved semantic answer regressions described in
-[local-v1.md](../../../../docs/local-v1.md).
+candidate whose October 3 acceptance and limitations are recorded in the
+[direct review](../../../../test/evaluation/reports/2026-10-03/local-acceptance/review.json).
 
 These source scopes and indexing inputs require a full reindex. Source-SHA
 skipping cannot upgrade an unchanged file. Preserve old collections and use a
-copied config with new document/cache collection names and all source originals;
-see the safe migration steps in the local-v1 record.
+copied config with new document/cache collection names and all source originals.

@@ -1,0 +1,8 @@
+# Optional directory ingestion. Set DOCUMENTS_DIR to an existing absolute host
+# directory and layer this file after compose.yaml. The base stack uses uploads.
+services:
+  app:
+    environment:
+      DOCUMENTS_PATHS: ${HOST_DOCUMENTS_PATHS:-/app/source}
+    volumes:
+      - ${DOCUMENTS_DIR:?Set DOCUMENTS_DIR to an existing source directory}:/app/source:ro

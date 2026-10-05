@@ -312,14 +312,16 @@ RAGAs metrics and need independent human calibration.
 Provenance records fixture and configuration hashes, source-byte fingerprints
 and observed model metadata. File fingerprints do not prove the index contains
 those versions. The 133-question golden and 64-question representative fixtures
-are synthetic regressions. Production gates require consented, independently
+are historical synthetic inputs; their source corpus has been removed.
+Production gates require consented, independently
 reviewed schema-v3 evidence and are outside the personal release target.
 
 ## Status and limits
 
 The local engineering checklist passed on October 3, 2026 with installed
-defaults and agent-reviewed simulated questions. Owner usefulness review and
-independent judge calibration remain pending. See project docs below for
+defaults and agent-reviewed simulated questions. Usefulness review remains
+pending, and automated judge scores remain uncalibrated. The old calibration
+packet was retired with its missing source report. See project docs below for
 results, latencies and migration/rollback instructions.
 
 The component composition resembles Haystack pipelines [10](#references), but
@@ -346,8 +348,7 @@ cancellation and latency budgets.
 The [documentation directory](https://github.com/Chandra179/nadir/tree/main/docs)
 contains the maintained guides and design records.
 
-- [Local acceptance](https://github.com/Chandra179/nadir/blob/main/docs/local-v1.md), [P1 evidence](https://github.com/Chandra179/nadir/blob/main/docs/p1-evidence.md) and [owner review](https://github.com/Chandra179/nadir/blob/main/docs/owner-review.md): measured results and remaining validation.
-- [RAG failure research](https://github.com/Chandra179/nadir/blob/main/docs/rag-failure-research.md): observed failures and evaluated approaches.
+- [Report catalog](../test/evaluation/reports/README.md) and [TODO](../TODO.md): dated results and remaining usefulness validation.
 - Design records: [event log](https://github.com/Chandra179/nadir/blob/main/docs/adr/0006-chat-streams-over-domain-owned-event-log.md), [capability seams](https://github.com/Chandra179/nadir/blob/main/docs/adr/0020-consumer-owned-capability-seams.md), [bounded contexts](https://github.com/Chandra179/nadir/blob/main/docs/adr/0022-bounded-context-layout.md) and [shared runtime](https://github.com/Chandra179/nadir/blob/main/docs/adr/0026-shared-runtime-composition.md).
 - Implementation guides: [chunking](https://github.com/Chandra179/nadir/blob/main/internal/core/documents/chunking/README.md), [Chat](https://github.com/Chandra179/nadir/blob/main/internal/core/conversation/chat/README.md) and [evaluation](https://github.com/Chandra179/nadir/blob/main/internal/eval/README.md).
 - [Fixtures and review instructions](https://github.com/Chandra179/nadir/blob/main/test/evaluation/README.md) and [report catalog](https://github.com/Chandra179/nadir/blob/main/test/evaluation/reports/README.md): retained evaluation inputs and evidence.

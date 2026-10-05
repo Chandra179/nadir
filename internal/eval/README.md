@@ -22,18 +22,22 @@ reasoning and limits. There is no judge endpoint/model fallback.
 
 ## Usage
 
-Run from the repository root against running Qdrant and Ollama:
+Run from the repository root against running Qdrant and Ollama. The default
+reading configuration has no source paths. Supply a query set and matching
+source directories explicitly, using a separate evaluation collection:
 
 ```bash
-go run ./cmd/evaluator --no-rerank --runs 3
-go run ./cmd/evaluator --golden test/evaluation/representative.json \
-  --no-rerank --runs 3 --report .local/evaluation/representative.json
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
+  QDRANT_COLLECTION=documents_chunks_evaluation \
+  go run ./cmd/evaluator --golden /absolute/path/to/questions.json \
+  --no-rerank --runs 3 --report .local/evaluation/retrieval.json
 ```
 
 Default output is `.local/evaluation/<unix_ts>.json`, ignored by Git. Use
 `--report` to select another path. Promote reviewed evidence into
-`test/evaluation/reports/` together with its fixture/config/model provenance,
-registration, comparison and limitations; see the
+`test/evaluation/reports/YYYY-MM-DD/run-name/artifact.json` together with its
+fixture/config/model provenance, registration, comparison and limitations.
+Record its original identity, hash and retention reason in the manifest; see the
 [retention policy](../../test/evaluation/reports/README.md).
 
 For generation evaluation, choose an already installed judge and explicitly
@@ -41,18 +45,23 @@ record why it is suitable. This diagnostic example uses the previously observed
 Phi-4-mini judge; it is not independently calibrated:
 
 ```bash
-go run ./cmd/evaluator --no-rerank --runs 1 --generation-eval \
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
+  QDRANT_COLLECTION=documents_chunks_evaluation \
+  go run ./cmd/evaluator --golden /absolute/path/to/questions.json \
+  --no-rerank --runs 1 --generation-eval \
   --judge-addr http://localhost:11434 --judge-model phi4-mini:latest \
-  --judge-suitability 'Diagnostic only; independent human calibration pending' \
+  --judge-suitability 'Diagnostic only; judge is not independently calibrated' \
   --report .local/evaluation/generation-local.json
 ```
 
-The [local acceptance](../../docs/local-v1.md) uses actual answer/source review,
-not automated judge averages. October 3's accepted results and older comparisons
-are indexed in the [report catalog](../../test/evaluation/reports/README.md).
-The September 30 [39-case blind calibration packet](../../test/evaluation/judge-calibration/20260930-phi4-mini/manifest.json)
-remains awaiting independent human review and applies only to its exact source
-report/model/fixture hashes.
+Acceptance uses actual answer/source review. Results measured October 3 and
+required older comparisons are indexed in the
+[report catalog](../../test/evaluation/reports/README.md).
+The sample corpus has been removed. Committed synthetic fixtures retain their
+historical source identities for schema checks and interpreting dated reports;
+live runs need an available matching corpus. The September 30 calibration
+packet was retired with its missing source report. No independent judge
+calibration is claimed.
 
 ## Release and research boundaries
 
@@ -67,10 +76,9 @@ go run ./cmd/evaluator --validate-only --require-release-gate \
 ```
 
 The committed synthetic fixtures remain `release_gate: false`. Their separate
-synthetic annotator passes are not independent human judgments. The optional
-`scripts/import_arqmath.py` builds public-math research inputs; its licensed
-corpus and candidate pack are not present in this checkout and do not block
-personal/local v1.
+synthetic annotator passes are not independent human judgments. The public-math
+importer was retired because its corpus and candidate pack were absent.
+API performance tests use the [Locust suite](../../benchmark/README.md).
 
 ## Change and verification
 

@@ -58,3 +58,10 @@ plain CDI device name.
 - `.github/dependabot.yml` keeps `package-ecosystem: docker` for
   `/deploy/compose` — that ecosystem tracks image references in Compose files
   and Containerfiles regardless of the engine.
+
+## Maintenance, October 5, 2026
+
+The Python API/sidecar benchmark scripts were retired after a verified backup.
+API performance now uses the [Locust suite](../../benchmark/README.md), which
+records available API process metrics. It does not sample container RSS/VRAM.
+The Podman build and deployment decisions above remain in effect.

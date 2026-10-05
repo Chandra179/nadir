@@ -66,5 +66,7 @@ unchanged.
   index and line start), so any future switch requires a full reindex —
   versioned replacement handles it, and the reset path invalidates the
   semantic cache.
-- Reports: [recursive](../../test/evaluation/reports/chunk-recursive-goldencorpus-20260927.json),
-  [sentence-window](../../test/evaluation/reports/chunk-sentencewindow-goldencorpus-20260927.json).
+- The September 27 raw recursive/sentence-window comparison was archived on
+  October 5. The dated measurements and decision above remain unchanged. See
+  the [archive index and restoration instructions](../../test/evaluation/reports/README.md#archived-experiments-and-restoration)
+  for the original report identities and hashes.

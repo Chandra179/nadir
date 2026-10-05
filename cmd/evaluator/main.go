@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/evaluator [--config internal/bootstrap/configuration/config.yaml] [--golden test/evaluation/golden.json]
+//	go run ./cmd/evaluator --golden path/to/questions.json [--config internal/bootstrap/configuration/config.yaml]
 //	                         [--top-k N] [--no-rerank] [--runs N]
 //	                         [--report path] [--ensure-ingest]
 //	                         [--require-release-gate] [--validate-only]
@@ -32,7 +32,7 @@ import (
 
 func main() {
 	configPath := flag.String("config", config.DefaultPath, "path to config file")
-	goldenPath := flag.String("golden", "test/evaluation/golden.json", "path to golden query set")
+	goldenPath := flag.String("golden", "", "required path to a golden query set for the configured corpus")
 	topK := flag.Int("top-k", 0, "results per query (0 uses qdrant.top_k)")
 	noRerank := flag.Bool("no-rerank", false, "bypass the configured reranker")
 	runs := flag.Int("runs", 3, "runs per query; retain all rankings, median run quality, pooled request latency")
@@ -75,6 +75,9 @@ type generationOptions struct {
 }
 
 func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) error {
+	if strings.TrimSpace(goldenPath) == "" {
+		return fmt.Errorf("--golden is required; provide a query set for the configured corpus")
+	}
 	golden, err := evaluation.LoadGoldenSet(goldenPath)
 	if err != nil {
 		return err

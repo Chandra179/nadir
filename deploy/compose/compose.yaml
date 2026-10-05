@@ -12,7 +12,7 @@ services:
       - "${NADIR_PORT:-8100}:8100"
     environment:
       QDRANT_ADDR: ${HOST_QDRANT_ADDR:-qdrant:6334}
-      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks_reading}
       OLLAMA_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
       EMBEDDER_MODEL: ${EMBEDDER_MODEL:-embeddinggemma-300m-q8:latest}
       EMBEDDER_DIMENSIONS: ${EMBEDDER_DIMENSIONS:-768}
@@ -35,12 +35,10 @@ services:
       RERANKER_QUEUE_TIMEOUT: ${RERANKER_QUEUE_TIMEOUT:-30s}
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cpu}
       RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}
-      DOCUMENTS_PATHS: ${HOST_DOCUMENTS_PATHS:-/app/source}
+      DOCUMENTS_PATHS: ${HOST_DOCUMENTS_PATHS:-}
       DOCUMENTS_IGNORE_PATTERNS: ${DOCUMENTS_IGNORE_PATTERNS:-}
       DOCLING_ENABLED: ${DOCLING_ENABLED:-false}
       DOCLING_ADDR: ${HOST_DOCLING_ADDR:-http://host.containers.internal:5003}
-    volumes:
-      - ${DOCUMENTS_DIR:-../../samples}:/app/source:ro
     restart: unless-stopped
     depends_on:
       qdrant:

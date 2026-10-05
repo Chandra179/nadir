@@ -21,6 +21,20 @@ are usable. `/api/v1/health` remains the dependency-free liveness endpoint.
 podman compose -f deploy/compose/compose.yaml up -d --build
 ```
 
+The base stack starts without a source directory and accepts file uploads
+using the dashboard's paperclip. For optional directory ingestion, provide
+an existing absolute host path and layer the source override:
+
+```bash
+DOCUMENTS_DIR=/absolute/path/to/documents podman compose \
+  -f deploy/compose/compose.yaml -f deploy/compose/compose.sources.yaml up -d --build
+```
+
+The override mounts that directory at `/app/source` and sets `DOCUMENTS_PATHS`
+accordingly. Add it alongside the GPU override when both are needed. The
+sample corpus has been removed; evaluation runs require explicit source
+documents and matching question sets.
+
 On Linux (or Windows WSL2) with an NVIDIA GPU, layer the GPU override for the
 reranker after generating the CDI spec:
 

@@ -30,12 +30,13 @@ trap 'exit 143' TERM
 echo "==> Building API..."
 go build -o "$LOCAL_BUILD_DIR/api" ./cmd/api
 STARTUP_JSON="$("$LOCAL_BUILD_DIR/api" --config "$CONFIG_PATH" --startup-config)"
-STARTUP_LINES="$(python3 -c 'import json,sys; c=json.load(sys.stdin); print(c["api_url"]); print(str(c["reranker_enabled"]).lower()); print(c["reranker_model"]); print(c["reranker_addr"])' <<< "$STARTUP_JSON")"
+STARTUP_LINES="$(python3 -c 'import json,sys; c=json.load(sys.stdin); print(c["api_url"]); print(str(c["reranker_enabled"]).lower()); print(c["reranker_model"]); print(c["reranker_addr"]); print(str(c["documents_paths_configured"]).lower())' <<< "$STARTUP_JSON")"
 {
   IFS= read -r API_URL
   IFS= read -r RERANKER_ENABLED
   IFS= read -r RERANKER_MODEL
   IFS= read -r RERANKER_URL
+  IFS= read -r DOCUMENTS_PATHS_CONFIGURED
 } <<< "$STARTUP_LINES"
 export RERANKER_MODEL
 RERANKER_URL="${RERANKER_URL%/}"
@@ -74,9 +75,13 @@ echo "==> Starting API..."
 SERVER_PID=$!
 wait_ready API "$API_URL/api/v1/ready" "$SERVER_PID"
 
-echo "==> Ingesting configured source documents..."
-curl -sf --max-time "$STARTUP_TIMEOUT" -X POST "$API_URL/api/v1/documents"
-echo ""
+if [[ "$DOCUMENTS_PATHS_CONFIGURED" == true ]]; then
+  echo "==> Ingesting configured source documents..."
+  curl -sf --max-time "$STARTUP_TIMEOUT" -X POST "$API_URL/api/v1/documents"
+  echo ""
+else
+  echo "==> No source directories configured. Upload documents using the dashboard paperclip."
+fi
 echo "Local stack running. API: $API_URL; server PID=$SERVER_PID"
 echo "  Dashboard: http://localhost:${DASHBOARD_PORT} (cd web/dashboard && npm run dev)"
 echo "  Ctrl-C stops this launcher's API and sidecar. Qdrant remains available."

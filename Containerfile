@@ -10,6 +10,5 @@ RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=builder /nadir /app/nadir
 COPY internal/bootstrap/configuration/config.yaml /app/internal/bootstrap/configuration/config.yaml
-COPY samples /app/samples
 EXPOSE 8100
 ENTRYPOINT ["/app/nadir"]

@@ -23,16 +23,16 @@ go run ./cmd/api
 go test -short -count=1 ./cmd/... ./internal/... # unit tests only
 go test -count=1 ./cmd/... ./internal/...       # all Go tests
 go test -run TestMatchPattern ./internal/core/documents/indexing/   # focused pkg test
-make load-benchmark ARGS="--mode all --requests 30 --concurrency 8" # live p50/p95/p99 load evidence
+make benchmark ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexed document'" # Locust API load evidence
 
 # Quick ops (server must be on :8100)
 curl -X POST localhost:8100/api/v1/documents
-curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"secant formula","generate":false}'
+curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"What are the main ideas in the uploaded document?","generate":false}'
 curl -X POST localhost:8100/api/v1/documents/reset                    # safely reset the Document collection
 
 # Retrieval quality evaluation (Qdrant + embedder, optional reranker must be running)
-go run ./cmd/evaluator --runs 3
-go run ./cmd/evaluator --no-rerank --runs 3
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents QDRANT_COLLECTION=documents_chunks_evaluation go run ./cmd/evaluator --golden /absolute/path/to/questions.json --runs 3
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents QDRANT_COLLECTION=documents_chunks_evaluation go run ./cmd/evaluator --golden /absolute/path/to/questions.json --no-rerank --runs 3
 ```
 
 ## Architecture
@@ -105,6 +105,15 @@ logs; this endpoint is diagnostic telemetry, not a distributed metrics store.
 Every enabled LLM role must declare its own `ollama_addr` and `model`; generator, rewriter, and contextual enrichment do not inherit another role's endpoint or model. The default `inference.profile: local` delegates LLM/embedding concurrency to the Ollama scheduler (`OLLAMA_NUM_PARALLEL`) with per-role request timeouts and a finite `keep_alive`, and limits the reranker to one explicit CPU operation behind a client-side queue. Set `RERANKER_DEVICE=cuda` and `RERANKER_BACKEND=torch` only with the GPU Compose override and a measured hardware budget; `auto` is reserved for `inference.profile: custom`. The base Compose stack is CPU-safe (`RERANKER_GPU=0`, `RERANKER_DEVICE=cpu`); `deploy/compose/compose.gpu.yaml` adds the CUDA build and the NVIDIA CDI device (`nvidia.com/gpu=all`) for Linux/Windows WSL2. The dev flow (`local.sh`) runs the sidecar from the repo `venv/` on the host with the explicit local CPU profile and only starts Qdrant via Podman. Apple Silicon should use the CPU `torch` backend; the AVX2 quantized bake is skipped for portable builds.
 The `gates` section configures `internal/bootstrap/gates` process-wide finite queues for indexing (single-writer) and destructive operations. These budgets coordinate one API process only; they do not make Chat, Indexing, or model serving distributed-safe.
 
-## Sample data
+## Document and evaluation inputs
 
-`./scripts/local.sh` ingests from `documents.paths` in config. A sample set lives at `samples/` (14 markdown files covering math and system-design topics). Add your own dirs to `documents.paths` in `internal/bootstrap/configuration/config.yaml`.
+`documents.paths` defaults to an empty list. `./scripts/local.sh` skips automatic
+ingestion until source directories are configured; upload chosen documents in
+the dashboard paperclip instead. The base Compose stack also has no source mount; use
+`deploy/compose/compose.sources.yaml` with an explicit `DOCUMENTS_DIR` for one.
+The sample corpus has been removed. Historical evaluation fixtures remain for
+schema checks and interpreting dated reports. Live evaluations require an
+explicit query set and matching source directories in a separate collection,
+as shown above. API performance workloads live in `benchmark/`; see its README
+for the dedicated Python environment and explicit workload inputs. `scripts/`
+keeps local startup, Podman setup and generic judge calibration utilities.

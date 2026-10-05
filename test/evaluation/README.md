@@ -1,79 +1,87 @@
-# Evaluation fixtures
+# Evaluation inputs and historical fixtures
 
-These JSON files are maintained test inputs. Reviewed outputs live in
+These JSON files preserve the inputs behind dated reports and fixture-schema
+checks. Their sample source corpus has been removed, so they cannot be rerun
+against the current reading index. Live runs require new question sets for an
+available matching corpus. Reviewed outputs live in
 [reports/](reports/README.md); new scratch outputs belong in ignored
 `.local/evaluation/`.
 
 | Fixture | Purpose |
 |---|---|
-| [golden.json](golden.json) | 133 synthetic retrieval queries over four manifest-backed sample documents; used by evaluator tests and CLI defaults |
+| [golden.json](golden.json) | 133 historical synthetic retrieval queries over four manifest-backed source documents; used by fixture-schema tests |
 | [representative.json](representative.json) and [representative-corpus.json](representative-corpus.json) | 64 broader retrieval/generation queries over all 14 samples and their source hashes |
 | [daily-use-questions.json](daily-use-questions.json) | 30 supported questions, 5 unsupported/private/live requests and 5 follow-ups through the actual chat API |
 | [representative-app-questions.json](representative-app-questions.json) | The broader 64 queries expressed as API workflow cases |
 | [user-paths.json](user-paths.json) | Semantic-cache and query-rewriting benchmark cases |
-| [Judge packet](judge-calibration/20260930-phi4-mini/manifest.json) | 39-case blind human-review packet tied to a specific historical report and fixture by hash |
+| [Fragile questions](fixtures/2026-10-02/fragile-repeats/questions.json) | Fixed repetition inputs shared by retained October 2 and October 3 reports |
+| [Focused baseline](fixtures/2026-10-03/focused-baseline/questions.json) and [accepted focused questions](fixtures/2026-10-03/local-acceptance/questions-focused.json) | Frozen inputs for the focused diagnosis and accepted reproduction checks |
 
 The questions and relevance labels are synthetic. Separate recorded synthetic
 judgment passes are not independent human judgments; `release_gate` remains
-false. Reviewer A and B files are intentionally separate blank forms, not
-redundant completed reviews. Keep both and their exact source report/fixture
-until calibration is completed or explicitly retired.
+false. The September 30 calibration packet and both blank reviewer forms were
+retired on October 5 because the exact source report was absent. Their backup
+is indexed in the [report catalog](reports/README.md).
 
-## Current acceptance, October 3
+## Acceptance measured October 3
 
 Direct Codex review of fixed app questions: **30/30 supported, 5/5 declines,
 5/5 follow-ups** daily; **56/56 supported, 8/8 declines** broader. Three repeats
 of 13 fragile cases also pass. These finite results are not owner-use validation
-or calibrated judge scores. See [local acceptance](../../docs/local-v1.md),
-[fitness evidence](../../docs/p1-evidence.md) and the
-[accepted report catalog](reports/README.md).
+or calibrated judge scores. See the [accepted report catalog](reports/README.md).
 
 October 2's corrected-prefix and model experiments are historical rejected
 candidates. Their results do not describe the accepted implementation. The
-report catalog retains baselines and decisions; superseded scratch arms are
-removed from the active tree after a hash-verified local backup.
+report catalog retains the key acceptance evidence and its dependencies;
+superseded experiments are archived after a hash-verified local backup.
+Reports use `reports/YYYY-MM-DD/run-name/artifact.json`. Their unchanged raw
+contents keep historical paths; the [identity manifest](reports/manifest.json)
+maps those paths to the current locations. The three dated fixtures above were
+moved out of reports without changing their bytes or hashes. Stable reusable
+fixtures keep their existing paths.
 
 ## Run retrieval checks
 
-From the repository root with Qdrant and Ollama running:
+From the repository root with Qdrant and Ollama running, provide a question
+set and its matching source directories in a separate collection. `--golden`
+is required:
 
 ```bash
-go run ./cmd/evaluator --no-rerank --runs 3
-go run ./cmd/evaluator --golden test/evaluation/representative.json \
-  --no-rerank --runs 3 --report .local/evaluation/representative.json
+DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
+  QDRANT_COLLECTION=documents_chunks_evaluation \
+  go run ./cmd/evaluator --golden /absolute/path/to/questions.json \
+  --no-rerank --runs 3 --report .local/evaluation/retrieval.json
 ```
 
 Default evaluator output is `.local/evaluation/<unix_ts>.json`. Use
 `--ensure-ingest` only when an import of the configured sources is intended;
 unchanged-file skipping does not upgrade old chunks after an indexing-policy
-change. Use [fresh-collection migration](../../docs/local-v1.md#reindexing-the-working-source-policy-safely)
-for that change.
+change. For a full reindex, use a copied configuration with unused document/cache
+collection names and all source originals, preserving old collections and
+configuration for rollback.
 
-## Run saved app questions
+## API performance and usefulness review
 
-```bash
-python3 scripts/run_daily_use.py --base-url http://127.0.0.1:8100 \
-  --report .local/evaluation/daily.json
-python3 scripts/run_daily_use.py --base-url http://127.0.0.1:8100 \
-  --fixture test/evaluation/representative-app-questions.json \
-  --report .local/evaluation/broader.json
-```
+The saved-answer and user-path runners were retired October 5. Use the
+[Locust suite](../../benchmark/README.md) for API performance: retrieval, chat,
+mixed traffic, cache reuse, follow-ups and uploads. It records timings without
+saving complete answers. Use a separate evaluation API for upload runs because
+uploaded documents remain indexed.
 
-The runner checks source hashes, refuses to overwrite a report and deletes only
-its own sessions unless `--keep-sessions` is used. It captures full answers and
-citations. Mapped citation IDs are structural diagnostics; inspect whether the
-actual cited passage supports each claim. Owner-note excerpts must stay in
-ignored local reports unless separately approved for publication.
+For usefulness review, save questions for chosen indexed documents and inspect
+dashboard answers and citations. Check whether the actual cited passage
+supports each claim. Keep document excerpts in ignored local review records;
+use the Go evaluator above for repeatable retrieval/answer-quality checks.
 
 ## Fixture maintenance and optional research
 
-`scripts/generate_evaluation_candidate.py` and
-`scripts/generate_representative_evaluation.py` regenerate synthetic inputs.
+The two generators tied to the removed sample corpus have been retired.
+Preserve historical fixture bytes and author new inputs for a new corpus.
 Do not change a fixture to make a failing implementation pass. Record changed
 source/fixture hashes and evaluate a new baseline when inputs intentionally
 change.
 
 See the [evaluator guide](../../internal/eval/README.md) for generation-judge
-configuration and release-gate validation. Independent human calibration is
-pending. The optional ARQMath importer can build public-math inputs, but that
-pack and licensed corpus are not checked in and are outside the local release.
+configuration and release-gate validation. Automated judge scores remain
+uncalibrated. The optional public-math importer was retired with its absent
+corpus and candidate pack.

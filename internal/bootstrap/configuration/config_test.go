@@ -31,6 +31,9 @@ func TestLoadShippedYAML(t *testing.T) {
 	if cfg.Documents.Mode != DocumentsModeUploadOnly {
 		t.Fatalf("shipped config documents mode = %q, want %q", cfg.Documents.Mode, DocumentsModeUploadOnly)
 	}
+	if len(cfg.Documents.Paths) != 0 {
+		t.Fatalf("shipped config must leave source directories opt-in, got %v", cfg.Documents.Paths)
+	}
 	if cfg.Inference.Profile != "local" ||
 		cfg.Inference.Reranker.Device != "cpu" || cfg.Inference.Reranker.MaxConcurrent != 1 {
 		t.Fatalf("shipped config must use the conservative local inference profile, got %+v", cfg.Inference)
