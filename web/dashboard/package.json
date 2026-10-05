@@ -30,7 +30,7 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^6.1.1",
-    "eslint": "^9.39.5",
+    "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.26",
     "jsdom": "^26.1.0",
