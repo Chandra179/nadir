@@ -1,6 +1,6 @@
 # 0035 — Preserve source scopes and measure the local quality candidate
 
-- **Status:** Accepted for the finite personal/local checklist on 2026-10-03; measured source/model/config provenance is retained with the acceptance evidence
+- **Status:** Adopted on 2026-10-03; generated retrieval measurements are retained, and manual app/workflow interpretations are archived
 - **Date:** 2026-10-02
 
 ## Context
@@ -37,70 +37,24 @@ reranker/fusion. No sample text or fixed evaluation query was rewritten.
   or ordinal rewrite returns unchanged. Named standalone subjects do not inherit
   an unrelated prior answer. The original generation question remains authoritative.
 
-## Historical evidence and disposition (2026-10-02)
+## Historical measurements and archived interpretation
 
-Fresh isolated collections and fixed 14-file hashes provide a same-session
-control. The 133-query golden and 64-query broader retrieval packs each run
-three times. Aggregates below are the evaluator's median across runs:
+The [report catalog](../../test/evaluation/reports/README.md) retains the
+October 2 control and October 3 candidate Go evaluator outputs for the 133-query
+golden and 64-query broader packs. Each pack records three retrieval runs,
+rankings, model/config/corpus provenance and aggregate metrics. The control was
+not rerun October 3. These generated measurements describe the removed sample
+corpus and cannot establish quality for current uploaded documents.
 
-| Metric | Golden control | Working candidate | Broader control | Working candidate |
-|---|---:|---:|---:|---:|
-| Hit@5 | 0.9774 | 1.0000 | 0.9464 | 0.9464 |
-| Recall@5 | 0.9687 | 0.9862 | 0.9464 | 0.9464 |
-| MRR@10 | 0.8169 | 0.8416 | 0.7738 | 0.8229 |
-| nDCG@5 | 0.8369 | 0.8599 | 0.8180 | 0.8544 |
-| Distractor hit@5 | 0.2256 | 0.2782 | 0.2188 | 0.2344 |
-
-This is the corrected-prefix arm measured on October 2, separate from the
-earlier candidate retained with the historical control review.
-Registered Hit/MRR/nDCG guards pass, but distractor exposure increases. Central
-text rescoring confirms golden gains without window annotation inflation;
-broader central-only MRR/nDCG are 0.8140/0.8478. The registration, corrected-prefix
-retrieval outputs and central audit were archived on October 5. Their original
-identities and hashes remain in the
-[archive index](../../test/evaluation/reports/manifest.json), with
-[restoration instructions](../../test/evaluation/reports/README.md#archived-experiments-and-restoration).
-
-Full app replay reviews at **28/30 supported, 5/5 declines and 2/5 follow-ups**;
-broader results are **49/56 and 7/8**. The fresh control is 23/30, 5/5, 4/5 and
-47/56, 5/8. All 104 turns complete without operational failures or unmapped IDs.
-Wrong cited sections, omitted alternatives and lost follow-up mode mean semantic
-no-regression and local acceptance fail. **This policy is not accepted as a
-quality release.** Its October 2 direct review is archived with the rejected
-experiment; this section preserves its dated outcome.
-
-The earlier retained arm's 26/30, 4/5 and 52/56 remain a separate historical
-measurement. All-ancestor indexing failed broader Hit@5. Stronger prompts,
-message roles, quote planning and scope filtering introduced false claims or
-wrong citations and were rejected. Three earlier app repetitions retained the
-mode failure; captured-prompt experiments are diagnostic, not full app runs.
-
-An installed-8B generator/rewriter experiment confirmed repeated model eviction
-with GPU-default embeddings. Explicit CPU embedding made both models resident
-on existing hardware, but the full 104-case semantic review still fails at
-26/30, 5/5, 3/5 and 49/56, 8/8. The 8B model is not adopted.
-Optional placement is implemented through existing config/provider seams;
-`embedder.num_gpu` is unset by default and explicit zero is preserved. The
-direct-provider smoke verified operational wiring and model coexistence,
-not semantic acceptance. The model comparison, smoke and residence reports
-were archived on October 5. None of these reviews is independent human calibration.
-
-## Acceptance update (2026-10-03)
-
-Explicit persisted selected sections, narrow missing-source guards, row-preserving
-literal attribution and complete source excerpts address the observed failures.
-The unchanged full app packs review at 30/30, 5/5, 5/5 and 56/56, 8/8; 13 fragile
-cases pass three repetitions. Hit/MRR/nDCG stay within the registered 0.01 limit
-on both retrieval packs, three runs each. No new material failures were found
-against the saved October 2 fresh control; it was not rerun on October 3.
-Defaults, questions, source hashes and ranked evidence remain unchanged.
-
-A copied-config migration imports 15 real notes, archives 32 exact synthetic
-load originals, preserves the old document/cache/config and existing history,
-and passes full app, duplicate-import and persisted-subject restart checks.
-See the [direct review](../../test/evaluation/reports/2026-10-03/local-acceptance/review.json).
-This accepts the finite local policy and measured workflow; it does not claim
-universal citation entailment, independent judge calibration or owner usefulness.
+Earlier manually assessed app runs identified wrong source scopes, omitted
+alternatives and lost follow-up modes. Selected sections, narrow missing-source
+guards, row-preserving literal attribution and complete source excerpts were
+adopted to address those observations. Manual app reviews, repetitions, model
+smoke tests and migration/restart checklists are archived; their records and
+original hashes remain in the [manifest](../../test/evaluation/reports/manifest.json).
+They are dated design history, separate from the generated retrieval results
+retained in the active catalog. No independent judge calibration or current
+owner usefulness is established by those archived interpretations.
 
 ## Consequences
 

@@ -4,7 +4,7 @@
   "source_git_revision": "75af7ac25a329a885d00636241d43f2e5f7d85b8",
   "path_base": "repository root",
   "naming": "reports/YYYY-MM-DD/run-name/artifact[-NN].ext; fixtures use the same dated grouping",
-  "raw_content_policy": "Retained raw bytes are unchanged. Original paths inside frozen reports resolve through artifacts.original_path to artifacts.path.",
+  "raw_content_policy": "Retained evaluator results use shared run envelopes. Original payload values remain unchanged; original_sha256 identifies the pre-normalization file. Historical paths resolve through artifacts.original_path to artifacts.path.",
   "archive": {
     "path": ".local/report-archive/2026-10-05-key-evidence/before-cleanup.tar.gz",
     "sha256": "baf481c60607a8c9f9cad13c60d9534b97dcaeb6212f0086bf0d2ff0ef82de64",
@@ -14,11 +14,11 @@
   },
   "summary": {
     "original_artifacts": 73,
-    "retained_reports": 31,
+    "retained_reports": 4,
     "retained_question_fixtures": 3,
-    "archived_artifacts": 39,
-    "retained_bytes": 10559309,
-    "archived_bytes": 19061270
+    "archived_artifacts": 66,
+    "retained_bytes": 5962339,
+    "archived_bytes": 24694297
   },
   "artifacts": [
     {
@@ -77,30 +77,36 @@
     },
     {
       "original_path": "test/evaluation/reports/daily-use-lifecycle-20261001.json",
-      "path": "test/evaluation/reports/2026-10-01/local-workflow/lifecycle.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "ab29d9be6c95dcab6c689e284f1e7e2852ca92ea600048b097484c6d6528d7f1",
       "bytes": 10592,
-      "retention_reason": "Dated workflow and lifecycle evidence supporting the October 3 acceptance record."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-01/local-workflow/lifecycle.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/daily-use-local-v1-20261001.json",
-      "path": "test/evaluation/reports/2026-10-01/local-workflow/answers-daily.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "3fbb191ea9570c5fac58e1bb628bc486486784d66fed204371dcc537ccf53b1f",
       "bytes": 430332,
-      "retention_reason": "Dated workflow and lifecycle evidence supporting the October 3 acceptance record."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-01/local-workflow/answers-daily.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/daily-use-validation-20261001.json",
-      "path": "test/evaluation/reports/2026-10-01/local-workflow/validation.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "4a7607cc491f7c9020c6a3ef01952c9d6d14e0e070be62e23d9e0b5c14695e4a",
       "bytes": 1749,
-      "retention_reason": "Dated workflow and lifecycle evidence supporting the October 3 acceptance record."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-01/local-workflow/validation.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/frontend-pr15-audit-fix.patch",
@@ -167,111 +173,143 @@
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-agent-review-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/review.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "7ea1cc5c8678b768704100b8e22d15134a96fa0e422c0dc72ff874010dc745c1",
       "bytes": 80078,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/review.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-broader-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-broader.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "a770b9b834b2dde938a7a6b8375d5f468590025e0b32a7c33dd3b86650358aa7",
       "bytes": 657602,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-broader.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-daily-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-daily.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "fe2f0e5ed46704540670b5854d85582649b7db69335d8115e480e55fadcfd8e6",
       "bytes": 499960,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-daily.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-focused-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-focused.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "b2a7e3881b40887d3c399cae89dbd9b298d12965d04fcd80e73f33df94e1d6bc",
       "bytes": 305189,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-focused.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-fragile-1-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-01.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "b31752fdbf7e102687f67ef0b6db648ee4709650f9c8f11f7f1b9ab196ff10b4",
       "bytes": 183935,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-01.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-fragile-2-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-02.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "d45eed86e3007cf4570663d8cdbdde7825c76194e4a1803d165d499e44ae6a94",
       "bytes": 183935,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-02.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-fragile-3-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-03.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "aef454efc690f9d3a9d442c1d527dddf686b6073e033e7df8689be8b508f1451",
       "bytes": 183934,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/answers-fragile-03.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-provenance-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/provenance.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "a75bb60f5cb01095a2ab783f12ce1ce3b9c34adf5547f9b23976050bb07e392d",
       "bytes": 27727,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/provenance.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-retrieval-broader-20261003.json",
       "path": "test/evaluation/reports/2026-10-03/local-acceptance/retrieval-broader.json",
       "disposition": "retained",
       "artifact_type": "evaluation-report",
-      "sha256": "8f9c0e588cdd039f65ca11c7b5fcc00fb1acb8ffe6a710ff46647fa0765dcc9e",
-      "bytes": 673929,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "sha256": "e303d06933a62b5215c0d389c623bf66e48da66061e35a164f36b09481998a51",
+      "bytes": 827601,
+      "retention_reason": "Historical Go evaluator output, normalized by its offline mode; original metrics and provenance are preserved.",
+      "original_sha256": "8f9c0e588cdd039f65ca11c7b5fcc00fb1acb8ffe6a710ff46647fa0765dcc9e",
+      "original_bytes": 673929,
+      "normalization": {
+        "original_sha256": "8f9c0e588cdd039f65ca11c7b5fcc00fb1acb8ffe6a710ff46647fa0765dcc9e",
+        "normalized_at": "2026-10-05T16:05:32.650213714Z"
+      }
     },
     {
       "original_path": "test/evaluation/reports/p1-accepted-retrieval-golden-20261003.json",
       "path": "test/evaluation/reports/2026-10-03/local-acceptance/retrieval-golden.json",
       "disposition": "retained",
       "artifact_type": "evaluation-report",
-      "sha256": "716d1437c182b3eb7b270645b13f01a941d889d193fcac82f491f570d0f9e525",
-      "bytes": 1692570,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "sha256": "711b8aa99057ea501f6bf3f0c863ded6df5f1d6095a9260b9cbb3cd82ae520fe",
+      "bytes": 2043214,
+      "retention_reason": "Historical Go evaluator output, normalized by its offline mode; original metrics and provenance are preserved.",
+      "original_sha256": "716d1437c182b3eb7b270645b13f01a941d889d193fcac82f491f570d0f9e525",
+      "original_bytes": 1692570,
+      "normalization": {
+        "original_sha256": "716d1437c182b3eb7b270645b13f01a941d889d193fcac82f491f570d0f9e525",
+        "normalized_at": "2026-10-05T16:05:32.687913235Z"
+      }
     },
     {
       "original_path": "test/evaluation/reports/p1-cleanup-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/cleanup.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "b6a36dacf860ee7e8f5d459be51fb6dc7e5e6c9f7bde8e429cfa411f802877c1",
       "bytes": 1173,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/cleanup.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-default-focused-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/focused-baseline/answers-focused.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "3a1b5d2647f009d0bff7d3f71e2c0315329f7355587dd200222790d14ccf211d",
       "bytes": 144400,
-      "retention_reason": "Focused pre-fix diagnosis referenced by acceptance registration and failure research."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/focused-baseline/answers-focused.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-default-focused-fixture-20261003.json",
@@ -284,57 +322,69 @@
     },
     {
       "original_path": "test/evaluation/reports/p1-default-focused-review-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/focused-baseline/review.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "7f798c29d1992a120013fee770175459d892fcea184ca5bdae3fb1c33dca4b6d",
       "bytes": 5247,
-      "retention_reason": "Focused pre-fix diagnosis referenced by acceptance registration and failure research."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/focused-baseline/review.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-migration-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/migration.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "a5bdeeaf478fdccd2b0c7c9441932b07bd381605cdc17c074480294301b3880b",
       "bytes": 16991,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/migration.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-migration-preflight-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/migration-preflight.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "7a69673a33389550ec37f63ac6cd7366475c466dcf1bac5f1ab6e3161bea6388",
       "bytes": 18019,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/migration-preflight.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-migration-restart-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/migration-restart.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "c1e666e06e3472ed8c06116afdc1f99cac40a2072b0dc11321b16e07b8da4581",
       "bytes": 759,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/migration-restart.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-plan-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/plan.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "7b258dfb215bbe8613388caadc8542d3f521d6849d70bd6cb906f5fe086fd9c1",
       "bytes": 3945,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/plan.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-validation-20261003.json",
-      "path": "test/evaluation/reports/2026-10-03/local-acceptance/validation.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "ae82957a0198bedff5e0c189595e073aaaa1b9ce4fd62aed0337328cc67d8e4c",
       "bytes": 1394,
-      "retention_reason": "October 3 accepted local engineering measurement, registration or operational evidence."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-03/local-acceptance/validation.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/p1-verified-focused-fixture-20261003.json",
@@ -365,12 +415,14 @@
     },
     {
       "original_path": "test/evaluation/reports/quality-agent-review-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/review.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "2f97dc0eeac874f7b73923874c7731d60a6206c0dbdde2792cd1a204100c4f72",
       "bytes": 114175,
-      "retention_reason": "Historical control review referenced by the unchanged October 3 accepted review."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/review.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-citation-20261002.jpg",
@@ -383,39 +435,55 @@
     },
     {
       "original_path": "test/evaluation/reports/quality-control-daily-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/control/answers-daily.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "1be24c097d5d725142cb2022e8dc590db84437b07cb0f314684f1624220a05fd",
       "bytes": 399888,
-      "retention_reason": "Historical control answers or retrieval measurements used in October 3 comparisons."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/control/answers-daily.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-control-representative-answers-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/control/answers-broader.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "a3bb44e908e1117d37141894daf54622cda5e91f4b7b4e8fa99f41b9be5a3915",
       "bytes": 584396,
-      "retention_reason": "Historical control answers or retrieval measurements used in October 3 comparisons."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/control/answers-broader.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-control-representative-retrieval-20261002.json",
       "path": "test/evaluation/reports/2026-10-02/quality-comparison/control/retrieval-broader.json",
       "disposition": "retained",
       "artifact_type": "evaluation-report",
-      "sha256": "3a85977d65996096beb36eef2aa35031687728983873bbc46363f82f159fe2a2",
-      "bytes": 729535,
-      "retention_reason": "Historical control answers or retrieval measurements used in October 3 comparisons."
+      "sha256": "064bfc36422cf4a1a27ce536d609d1a8bea32c9b470d6767f926fd596121098e",
+      "bytes": 892890,
+      "retention_reason": "Historical Go evaluator output, normalized by its offline mode; original metrics and provenance are preserved.",
+      "original_sha256": "3a85977d65996096beb36eef2aa35031687728983873bbc46363f82f159fe2a2",
+      "original_bytes": 729535,
+      "normalization": {
+        "original_sha256": "3a85977d65996096beb36eef2aa35031687728983873bbc46363f82f159fe2a2",
+        "normalized_at": "2026-10-05T16:05:32.562596343Z"
+      }
     },
     {
       "original_path": "test/evaluation/reports/quality-control-retrieval-20261002.json",
       "path": "test/evaluation/reports/2026-10-02/quality-comparison/control/retrieval-golden.json",
       "disposition": "retained",
       "artifact_type": "evaluation-report",
-      "sha256": "ec14472ee98ebc89a679ec1c97d10a53d9087c32fc2ed72e91fca43a7337b0d3",
-      "bytes": 1793761,
-      "retention_reason": "Historical control answers or retrieval measurements used in October 3 comparisons."
+      "sha256": "4cbe0381a52750b197b842f856ad90bccc85ca8ac130a5738d39dbaa21fc6647",
+      "bytes": 2162147,
+      "retention_reason": "Historical Go evaluator output, normalized by its offline mode; original metrics and provenance are preserved.",
+      "original_sha256": "ec14472ee98ebc89a679ec1c97d10a53d9087c32fc2ed72e91fca43a7337b0d3",
+      "original_bytes": 1793761,
+      "normalization": {
+        "original_sha256": "ec14472ee98ebc89a679ec1c97d10a53d9087c32fc2ed72e91fca43a7337b0d3",
+        "normalized_at": "2026-10-05T16:05:32.601437901Z"
+      }
     },
     {
       "original_path": "test/evaluation/reports/quality-cpu-direct-provenance-20261002.json",
@@ -581,48 +649,58 @@
     },
     {
       "original_path": "test/evaluation/reports/quality-retained-daily-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-daily.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "e8b0fc993163e77befab1474d9dd9bf03c769c8882e057c667e7f78447083f05",
       "bytes": 506465,
-      "retention_reason": "Required dependency of the frozen October 2 control review; this candidate is historical, not accepted."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-daily.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-retained-repeat-1-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-01.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "bbecea9cfc1b0044fcb57b78812a965b8b3d0d803a60499a892f0e866bfae155",
       "bytes": 190337,
-      "retention_reason": "Required dependency of the frozen October 2 control review; this candidate is historical, not accepted."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-01.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-retained-repeat-2-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-02.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "034e425076cf64cbcbc29844f2140242aec79360919411644e7b3e7e7fa6285f",
       "bytes": 190338,
-      "retention_reason": "Required dependency of the frozen October 2 control review; this candidate is historical, not accepted."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-02.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-retained-repeat-3-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-03.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "40ea8abbb27a7a6a55696674fb2e56e506e856172cb29b24843f0c764435869d",
       "bytes": 190340,
-      "retention_reason": "Required dependency of the frozen October 2 control review; this candidate is historical, not accepted."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-repeat-03.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-retained-representative-answers-20261002.json",
-      "path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-broader.json",
-      "disposition": "retained",
+      "path": null,
+      "disposition": "archived",
       "artifact_type": "evaluation-report",
       "sha256": "aa5d85053cca19dfefab7c3d3c64de4ae8bf6ec2b6b8f0009c9b0006423cd838",
       "bytes": 700127,
-      "retention_reason": "Required dependency of the frozen October 2 control review; this candidate is historical, not accepted."
+      "retention_reason": "Removed from active results: produced by a retired saved-answer runner or manually assembled review/workflow code, rather than the supported evaluator or Locust suite.",
+      "last_active_path": "test/evaluation/reports/2026-10-02/quality-comparison/candidate/answers-broader.json",
+      "archive_path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz"
     },
     {
       "original_path": "test/evaluation/reports/quality-scoped-representative-retrieval-20261002.json",
@@ -754,6 +832,17 @@
       "status": "removed",
       "recovery_git_revision": "75af7ac25a329a885d00636241d43f2e5f7d85b8",
       "fixture_policy": "Historical fixture bytes remain unchanged for report traceability and schema checks; live evaluation requires explicit inputs and an available matching corpus."
+    }
+  },
+  "tool_generated_cleanup": {
+    "performed_on": "2026-10-05",
+    "source_git_revision": "e4388bb1e10e2d084039e18869bd8a440aa4114b",
+    "retained_reports": 4,
+    "removed_reports": 27,
+    "backup": {
+      "path": ".local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz",
+      "sha256": "8148a8d9d36aa7e855d6177cb2f76e755e88264d2b823381215b16709dc32f1a",
+      "inventory": ".local/report-archive/2026-10-05-tool-generated-64568657/inventory.json"
     }
   }
 }

@@ -15,6 +15,25 @@ import (
 	"nadir/internal/providers/reranker"
 )
 
+func TestEvaluationStartupFailureWritesSharedReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.json")
+	err := run("missing-config.yaml", "missing-questions.json", 0, false, 1, path, false, false, false)
+	if err == nil {
+		t.Fatal("missing fixture succeeded")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report evaluation.RunReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Tool != "evaluator" || len(report.Runs) != 1 || report.Runs[0].Status != "failed" || len(report.Runs[0].Errors) == 0 || report.Runs[0].EndedAt == nil {
+		t.Fatalf("startup failure not recorded: %+v", report)
+	}
+}
+
 func TestValidateOnlyAcceptsReleaseGateFixtureWithoutConfig(t *testing.T) {
 	golden := evaluation.GoldenSet{
 		SchemaVersion: 3,

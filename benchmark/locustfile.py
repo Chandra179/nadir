@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import hashlib
-import json
 import logging
 from pathlib import Path
 import platform
-import subprocess
 import time
 
 import gevent
 from locust import HttpUser, __version__ as locust_version, constant, events, task
 from locust.exception import StopUser
+from locust.stats import StatsError
 import requests
 
 from benchmark.api import ApiClient, BenchmarkError, Config, Measurement
+from benchmark.report import begin, now, save, snapshot_artifacts
 
 
 @events.init_command_line_parser.add_listener
@@ -31,7 +30,7 @@ def arguments(parser):
     parser.add_argument("--upload-file", default="", help="file to index with a unique filename each iteration")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--timeout", type=float, default=120, help="request and complete-workflow timeout in seconds")
-    parser.add_argument("--report-dir", default="", include_in_web_ui=False, help="metadata directory; set by python -m benchmark")
+    parser.add_argument("--report-dir", default="", include_in_web_ui=False, help="run report directory; set by python -m benchmark")
 
 
 def configuration(environment) -> Config:
@@ -58,50 +57,31 @@ def snapshot(host: str, path: str, timeout: float, *, required=False):
         return {"unavailable": str(error)}
 
 
-def save_metadata(environment):
-    if getattr(environment, "benchmark_metadata_path", None):
-        environment.benchmark_metadata_path.write_text(json.dumps(environment.benchmark_metadata, indent=2) + "\n")
-
-
 @events.test_start.add_listener
 def prepare(environment, **kwargs):
     environment.benchmark_startup_error = None
     environment.benchmark_config = None
     try:
+        options = environment.parsed_options
+        inputs = {"host": environment.host or options.host or "", "workload": options.workload,
+                  "query": options.query, "follow_up": options.follow_up, "upload_file": options.upload_file,
+                  "top_k": options.top_k, "timeout_seconds": options.timeout,
+                  "users": options.num_users, "spawn_rate": options.spawn_rate,
+                  "run_time_seconds": options.run_time}
+        run = begin(environment, inputs, {"locust_version": locust_version,
+                    "python_version": platform.python_version(),
+                    "process_scope": "metrics describe one target API process"})
         config = configuration(environment)
+        environment.benchmark_config = config
         readiness = snapshot(config.host, "/api/v1/ready", config.timeout, required=True)
         if readiness.get("ready") is not True or readiness.get("error"):
             raise BenchmarkError("API readiness did not confirm ready=true")
-        environment.benchmark_config = config
-        environment.benchmark_started = time.perf_counter()
-        if not environment.parsed_options.report_dir:
-            return
-        directory = Path(environment.parsed_options.report_dir)
-        directory.mkdir(parents=True, exist_ok=True)
-        path = directory / "metadata.json"
-        if not getattr(environment, "benchmark_metadata", None):
-            environment.benchmark_metadata = {"schema_version": 1, "runs": []}
-            environment.benchmark_metadata_path = path
-            with path.open("x") as output:
-                json.dump(environment.benchmark_metadata, output)
-        try:
-            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip()
-        except (OSError, subprocess.CalledProcessError):
-            head = None
-        run = {"started_at": dt.datetime.now(dt.timezone.utc).isoformat(), "host": config.host,
-               "workload": config.workload, "query": config.query, "follow_up": config.follow_up,
-               "top_k": config.top_k, "timeout_seconds": config.timeout,
-               "users": environment.parsed_options.num_users, "spawn_rate": environment.parsed_options.spawn_rate,
-               "run_time_seconds": environment.parsed_options.run_time, "git_head": head,
-               "locust_version": locust_version, "python_version": platform.python_version(),
-               "process_scope": "metrics describe one target API process",
-               "corpus_before": snapshot(config.host, "/api/v1/documents", config.timeout),
-               "metrics_before": snapshot(config.host, "/debug/metrics", config.timeout)}
+        run["provenance"].update({"corpus_before": snapshot(config.host, "/api/v1/documents", config.timeout),
+                                  "metrics_before": snapshot(config.host, "/debug/metrics", config.timeout)})
         if config.workload == "upload":
-            run["upload"] = {"path": str(config.upload_file), "bytes": config.upload_file.stat().st_size,
-                             "sha256": hashlib.sha256(config.upload_file.read_bytes()).hexdigest()}
-        environment.benchmark_metadata["runs"].append(run)
-        save_metadata(environment)
+            run["inputs"]["upload"] = {"path": str(config.upload_file), "bytes": config.upload_file.stat().st_size,
+                                       "sha256": hashlib.sha256(config.upload_file.read_bytes()).hexdigest()}
+        save(environment)
     except (BenchmarkError, OSError, ValueError) as error:
         logging.error("Benchmark startup failed: %s", error)
         environment.benchmark_startup_error = str(error)
@@ -111,36 +91,63 @@ def prepare(environment, **kwargs):
 
 @events.test_stop.add_listener
 def finish(environment, **kwargs):
+    run = getattr(environment, "benchmark_run", None)
+    if not run or run["ended_at"] is not None:
+        return
     config = getattr(environment, "benchmark_config", None)
-    metadata = getattr(environment, "benchmark_metadata", None)
-    if config and metadata and metadata["runs"]:
-        run = metadata["runs"][-1]
-        elapsed = time.perf_counter() - environment.benchmark_started
-        workflows = [entry for entry in environment.stats.entries.values() if entry.method == "WORKFLOW"]
-        failed = environment.stats.total.num_failures > 0
-        if failed:
-            environment.process_exit_code = 1
-        run.update({"ended_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-                    "status": "failed" if failed else "passed" if workflows else "empty",
-                    "failed_http_operations": sum(entry.num_failures for entry in environment.stats.entries.values()
+    elapsed = max(time.perf_counter() - environment.benchmark_started, 1e-9)
+    entries = list(environment.stats.entries.values())
+    workflows = [entry for entry in entries if entry.method == "WORKFLOW"]
+    failures = [f"{item.method} {item.name}: {StatsError.parse_error(item.error)}"
+                for item in environment.stats.errors.values()]
+    failures.extend(str(item["msg"]) for item in environment.runner.exceptions.values())
+    startup_error = getattr(environment, "benchmark_startup_error", None)
+    if startup_error:
+        failures.insert(0, startup_error)
+    interrupted = any("workflow interrupted before completion" in error for error in failures)
+    status = "interrupted" if interrupted else "failed" if failures else "completed" if workflows else "empty"
+    if status == "empty":
+        failures.append("no workflows were attempted")
+    run.update({"ended_at": now(), "status": status, "errors": list(dict.fromkeys(failures)),
+                "results": {"stats": [entry.serialize() for entry in entries],
+                            "exceptions": environment.runner.exceptions},
+                "summary": {"elapsed_seconds": elapsed,
+                    "failed_http_operations": sum(entry.num_failures for entry in entries
                                                   if entry.method not in {"WORKFLOW", "TTFT"}),
-                    "elapsed_seconds": elapsed,
                     "workflows": [{"name": entry.name, "completed": entry.num_requests - entry.num_failures,
                                    "failed": entry.num_failures} for entry in workflows],
                     "completed_workflows_per_second": sum(entry.num_requests - entry.num_failures
                                                            for entry in workflows) / elapsed,
-                    "corpus_after": snapshot(config.host, "/api/v1/documents", config.timeout),
-                    "metrics_after": snapshot(config.host, "/debug/metrics", config.timeout)})
-        save_metadata(environment)
+                    "latency": [{"type": entry.method, "name": entry.name,
+                                 "p50_ms": entry.get_response_time_percentile(0.5),
+                                 "p95_ms": entry.get_response_time_percentile(0.95),
+                                 "p99_ms": entry.get_response_time_percentile(0.99)} for entry in entries]}})
+    if config:
+        run["provenance"].update({"corpus_after": snapshot(config.host, "/api/v1/documents", config.timeout),
+                                  "metrics_after": snapshot(config.host, "/debug/metrics", config.timeout)})
+    try:
+        run["artifacts"] = snapshot_artifacts(environment)
+    except Exception as error:
+        run["errors"].append(f"artifact reporting failed: {error}")
+        run["status"] = "failed"
+    if run["status"] != "completed":
+        environment.process_exit_code = 2 if startup_error or status == "empty" else 1
+    try:
+        save(environment)
+    except (OSError, ValueError) as error:
+        logging.error("Benchmark report failed: %s", error)
+        environment.process_exit_code = 2
 
 
 @events.quitting.add_listener
 def check_exit(environment, **kwargs):
-    workflows = [entry for entry in environment.stats.entries.values() if entry.method == "WORKFLOW"]
-    if getattr(environment, "benchmark_startup_error", None) or not sum(entry.num_requests for entry in workflows):
+    # Locust fires quitting before stopping users; test_stop records final samples.
+    report = getattr(environment, "benchmark_report", {})
+    runs = report.get("runs") or [getattr(environment, "benchmark_run", {})]
+    if not any(run for run in runs):
         environment.process_exit_code = 2
-    elif environment.stats.total.num_failures or any(entry.num_failures for entry in workflows):
-        environment.process_exit_code = 1
+    elif any(run.get("ended_at") is not None and run.get("status") != "completed" for run in runs):
+        environment.process_exit_code = environment.process_exit_code or 1
     # Preserve Locust's native exception/failure exit status otherwise.
 
 

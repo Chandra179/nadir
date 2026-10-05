@@ -30,6 +30,19 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def evaluator_payload(report: dict) -> dict:
+    """Read the new envelope or legacy native JSON; hashes cover the whole file."""
+    # Native retrieval reports also have a numeric `runs` repetition count.
+    if "tool" not in report and not isinstance(report.get("runs"), list):
+        return report
+    if report.get("schema_version") != 1 or report.get("tool") != "evaluator":
+        raise ValueError("calibration requires an evaluator run report")
+    runs = report.get("runs")
+    if not isinstance(runs, list) or len(runs) != 1 or not isinstance(runs[0], dict) or not isinstance(runs[0].get("results"), dict):
+        raise ValueError("calibration requires exactly one persisted evaluator result")
+    return runs[0]["results"]
+
+
 def json_bytes(value: object) -> bytes:
     return (json.dumps(value, indent=2, ensure_ascii=False) + "\n").encode()
 
@@ -86,7 +99,7 @@ def pick_cases(results: list[dict], count: int, seed: str) -> list[dict]:
 def export(report_path: Path, golden_path: Path, output_dir: Path, count: int = 40, seed: str = "nadir-judge-calibration-v1") -> dict:
     if count < 1:
         raise ValueError("sample size must be positive")
-    report = read_json(report_path)
+    report = evaluator_payload(read_json(report_path))
     golden = read_json(golden_path)
     report_sha = sha_bytes(report_path.read_bytes())
     golden_sha = sha_bytes(golden_path.read_bytes())
@@ -157,7 +170,7 @@ def score(manifest_path: Path, review_paths: list[Path], min_cases: int = 20, ma
     golden_path = Path(manifest["source_golden"])
     if sha_bytes(golden_path.read_bytes()) != manifest["source_golden_sha256"]:
         raise ValueError("source fixture changed since packet export")
-    generation = read_json(report_path)["generation"]
+    generation = evaluator_payload(read_json(report_path))["generation"]
     judged = {result["id"]: result for result in generation["per_query"]}
     reviews = []
     reviewer_ids = set()

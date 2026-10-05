@@ -15,7 +15,7 @@ index maps each topic to its maintained home.
 | Architecture decisions and their history | [ADR index](adr/index.md) |
 | Evaluation commands and fixture definitions | [Evaluation guide](../test/evaluation/README.md) |
 | API performance workloads and reports | [Locust benchmarks](../benchmark/README.md) |
-| Accepted and historical measurements | [Report catalog](../test/evaluation/reports/README.md) |
+| Generated retrieval measurements and archive | [Report catalog](../test/evaluation/reports/README.md) |
 | Podman deployment | [Compose guide](../deploy/compose/README.md) |
 | Optional model/conversion services | [Reranker](../sidecars/reranker/README.md), [document converter](../sidecars/document-converter/README.md) |
 | Agent issue workflow | [Domain](agents/domain.md), [issue tracker](agents/issue-tracker.md), [triage labels](agents/triage-labels.md) |

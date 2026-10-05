@@ -3,12 +3,10 @@ package evaluation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
 	"nadir/internal/core/retrieval/search"
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -42,7 +40,8 @@ func (h *Harness) Run(ctx context.Context, golden *GoldenSet, topK, runs int) (*
 			found, err := h.searcher.Query(ctx, search.Request{Query: query.Query, TopK: depth, SkipCache: true, QueryType: search.QueryType(query.Type)})
 			latency := float64(time.Since(started).Microseconds()) / 1000
 			if err != nil {
-				return nil, fmt.Errorf("query %q run %d: %w", query.ID, run, err)
+				report.PerQuery = append(report.PerQuery, result)
+				return report, fmt.Errorf("query %q run %d: %w", query.ID, run, err)
 			}
 			observed := scoreRun(found.Chunks, relevant, query.Distractors, topK)
 			observed.Run = run
@@ -233,16 +232,4 @@ func aggregate(results []QueryResult, topK int) Aggregate {
 		out.RerankReasons = nil
 	}
 	return out
-}
-
-// WriteReport persists an auditable report as stable JSON.
-func WriteReport(path string, report *Report) error {
-	data, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal report: %w", err)
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("write report: %w", err)
-	}
-	return nil
 }

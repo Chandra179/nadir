@@ -16,15 +16,16 @@ Gemma 3 1B rewriter and EmbeddingGemma embedder. No further model downloads.
   regressions. Synthetic sample acceptance does not establish usefulness for
   the chosen documents and questions.
 
-## Completed local engineering acceptance
+## Recorded maintenance and measurements
 
 Sample auto-import is disabled in local and Compose startup. The current
 index/cache were cleared; normal startup selects an empty reading index.
 History and the older rollback index remain. These are October 5 maintenance
 changes; they are not a new answer-quality measurement.
 
-P1 passed its finite checklist on October 3: daily 30/30 supported, 5/5 declines,
-5/5 follow-ups; broader 56/56 supported and 8/8 declines. These are direct Codex
-reviews of saved synthetic questions, not independent human judgments.
+The active evidence consists of four evaluator-generated retrieval reports
+measured October 2 and October 3 against the former sample corpus. Earlier app
+reviews and workflow checklists are archived. Usefulness for chosen documents
+still needs the review described above.
 
-- [Dated acceptance evidence, supporting reports and archive](test/evaluation/reports/README.md)
+- [Generated evaluator measurements and archive](test/evaluation/reports/README.md)

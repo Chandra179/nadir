@@ -131,7 +131,7 @@ semantic_cache:
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
   ollama_addr: "http://localhost:11434"
-  model: "gemma3:4b"  # explicitly configured answer model; dated acceptance and limits are in test/evaluation/reports/README.md; no automatic model fallback
+  model: "gemma3:4b"  # explicitly configured answer model; historical retrieval measurements are in test/evaluation/reports/README.md; no automatic model fallback
   request_timeout: 120s
   max_output_tokens: 512 # bound answer generation; prevents an unending stream
   num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX)

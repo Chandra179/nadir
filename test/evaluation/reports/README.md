@@ -1,152 +1,98 @@
-# Retained evaluation evidence
+# Generated evaluator results
 
-This catalog contains **31 reports**, about **10.1 MiB** including their three
-supporting question fixtures. These are dated measurements, not proof that the
-current configuration or a newly uploaded corpus has been evaluated. The latest
-recorded local engineering acceptance is **October 3, 2026**.
+The active catalog contains **four Go evaluator reports**, measured October 2
+and October 3, 2026. They measure retrieval over the former sample corpus. They
+are historical records; the current reading index and its uploaded documents
+have not been evaluated by these runs. The sample corpus has been removed.
 
-## Structure and original identities
+| Measurement | Golden queries | Broader queries |
+|---|---|---|
+| October 2 control | [Report](2026-10-02/quality-comparison/control/retrieval-golden.json) | [Report](2026-10-02/quality-comparison/control/retrieval-broader.json) |
+| October 3 candidate | [Report](2026-10-03/local-acceptance/retrieval-golden.json) | [Report](2026-10-03/local-acceptance/retrieval-broader.json) |
 
-Reports use `YYYY-MM-DD/run-name/artifact.ext`, with lowercase names separated
-by hyphens. Repeated runs use two digits, such as `answers-fragile-01.json`.
-Comparison arms live under `control/` and `candidate/` within their run group.
-Question inputs live in the corresponding dated groups under `../fixtures/`.
-The stable reusable fixtures, such as `../golden.json`, keep their existing paths.
+The October 2 control was not rerun October 3. The reports preserve their
+original corpus/config/model provenance and complete rankings. Their input
+hashes match [golden.json](../golden.json) and
+[representative.json](../representative.json); the latter also uses
+[representative-corpus.json](../representative-corpus.json).
 
-All retained raw report and question-fixture bytes are unchanged. The
-[manifest](manifest.json) maps each original repository-relative path to its
-new `path`, exact `sha256`, size and retention reason. Paths recorded inside
-frozen reports retain their original historical identity; look up those paths
-in `artifacts[].original_path` to find the current file. An archived artifact
-has `path: null` and is recoverable using the instructions below.
+## Shared result format
 
-## Local acceptance measured October 3
+The Go evaluator and [Locust suite](../../../benchmark/README.md) emit the same
+versioned JSON envelope. The [contract](../../run-report-contract.json) defines
+its required fields and permitted tools/statuses; focused tests enforce it.
 
-The 16 artifacts below record registration, accepted fixed-question runs,
-review, serving provenance, migration and cleanup. Daily: 30/30 supported,
-5/5 declines, 5/5 follow-ups. Broader: 56/56 supported, 8/8 declines. Three
-fragile repeats contribute 39 supported turns. Reviews are Codex reviews of
-synthetic questions, not independent human calibration or usefulness validation.
-The control was saved October 2 and was not rerun October 3. Source/model/binary
-hashes describe that measurement, not later maintenance.
+- `schema_version`: `1`; `tool`: `evaluator` or `locust`; `runs`: run records.
+- Each run has `run_id`, `run_type`, `status`, `started_at`, `ended_at`,
+  `git_revision`, `inputs`, `provenance`, `summary`, `results`, `errors`, and
+  `artifacts`. Inputs, provenance and summary are objects; results is an object
+  or null; errors is an array of strings. Unknown timestamps/revisions are null.
+- Status is `completed`, `failed`, `interrupted`, or `empty`. It describes
+  execution. A completed evaluation is not a quality acceptance decision.
+- `results` contains the complete native evaluator report or Locust's serialized
+  request statistics and exceptions. Summary metrics are specific to each tool.
+- Locust artifact records have relative paths, kind, SHA-256 and byte size.
+  Each UI run retains its own native CSV/HTML snapshots under `runs/<run_id>/`.
 
-The direct review below records the observed failures, comparison limits and
-remaining validation work.
+An evaluator invocation records one run. Locust UI starts append runs. New
+outputs default to ignored `.local/evaluation/<timestamp>-<run-id>/report.json`
+and `.local/benchmark/<timestamp>-<run-id>/report.json`. Explicit output paths
+remain supported. Available partial results and operational errors are saved
+on failure; an unwritable output location is reported through stderr/nonzero exit.
 
-- [Registered requirements and comparison bars](2026-10-03/local-acceptance/plan.json)
-- [Daily answers and citations](2026-10-03/local-acceptance/answers-daily.json)
-- [Broader answers and citations](2026-10-03/local-acceptance/answers-broader.json)
-- [Focused reproduction checks](2026-10-03/local-acceptance/answers-focused.json)
-- [Fragile repetition 01](2026-10-03/local-acceptance/answers-fragile-01.json)
-- [Fragile repetition 02](2026-10-03/local-acceptance/answers-fragile-02.json)
-- [Fragile repetition 03](2026-10-03/local-acceptance/answers-fragile-03.json)
-- [Direct review, control comparison and rejected-attempt dispositions](2026-10-03/local-acceptance/review.json)
-- [Measured source, configuration, models and serving binary](2026-10-03/local-acceptance/provenance.json)
-- [Golden retrieval, three runs](2026-10-03/local-acceptance/retrieval-golden.json)
-- [Broader retrieval, three runs](2026-10-03/local-acceptance/retrieval-broader.json)
-- [Original-note recovery and hashes](2026-10-03/local-acceptance/migration-preflight.json)
-- [Fresh collection migration and separate 15-note review](2026-10-03/local-acceptance/migration.json)
-- [Persisted Subject and inventory after restart](2026-10-03/local-acceptance/migration-restart.json)
-- [Dated implementation checks](2026-10-03/local-acceptance/validation.json)
-- [Temporary-service cleanup and preserved storage](2026-10-03/local-acceptance/cleanup.json)
+## Historical normalization and identities
 
-## Required historical support
+The four reports were wrapped by the evaluator's offline `--normalize-report`
+mode on October 5. Their original payloads live in `runs[0].results`, including
+the original measurement timestamp, values and provenance. Normalization does
+not run retrieval or models. Missing historical start/end times and producer
+Git revisions remain null; `normalization` records the original file SHA-256
+and wrapping time separately.
 
-October 2's control review contains both its control and an earlier candidate.
-Its five candidate outputs remain so the unchanged review stays traceable;
-those candidate results are not accepted evidence.
-
-| Group | Retained files |
-|---|---|
-| October 2 comparison | [Review](2026-10-02/quality-comparison/review.json); control [daily answers](2026-10-02/quality-comparison/control/answers-daily.json), [broader answers](2026-10-02/quality-comparison/control/answers-broader.json), [golden retrieval](2026-10-02/quality-comparison/control/retrieval-golden.json), [broader retrieval](2026-10-02/quality-comparison/control/retrieval-broader.json) |
-| Dependencies of that review | Candidate [daily answers](2026-10-02/quality-comparison/candidate/answers-daily.json), [broader answers](2026-10-02/quality-comparison/candidate/answers-broader.json), repetitions [01](2026-10-02/quality-comparison/candidate/answers-repeat-01.json), [02](2026-10-02/quality-comparison/candidate/answers-repeat-02.json), [03](2026-10-02/quality-comparison/candidate/answers-repeat-03.json) |
-| October 3 focused baseline | [Answers](2026-10-03/focused-baseline/answers-focused.json), [review](2026-10-03/focused-baseline/review.json) |
-| October 1 local workflow | [Daily answers](2026-10-01/local-workflow/answers-daily.json), [lifecycle](2026-10-01/local-workflow/lifecycle.json), [validation](2026-10-01/local-workflow/validation.json) |
-
-The three relocated inputs also retain their exact bytes and hashes:
-
-- [Fragile repetition questions](../fixtures/2026-10-02/fragile-repeats/questions.json)
-- [Focused baseline questions](../fixtures/2026-10-03/focused-baseline/questions.json)
-- [Accepted focused questions](../fixtures/2026-10-03/local-acceptance/questions-focused.json)
+The [manifest](manifest.json) maps original identities to active paths and
+records both original and normalized hashes. Historical paths inside payloads
+resolve through `artifacts[].original_path` to `artifacts[].path`. Archived
+entries have a null path. Original report bytes remain recoverable from backups
+and Git history.
 
 ## Archived experiments and restoration
 
-The October 5 cleanup archives **39 artifacts**, about **18.2 MiB**:
-September chunking/model experiments, older standalone benchmarks, frontend
-dependency review, superseded October 2 prefix/model/diagnostic arms, and the
-missing browser screenshot and September 30 generation source report.
-Their outcomes remain summarized in ADRs
-[0033](../../../docs/adr/0033-default-chunker-recursive.md),
-[0034](../../../docs/adr/0034-chunker-fixes-and-size.md), and
-[0035](../../../docs/adr/0035-source-scopes-and-local-quality-candidate.md).
-The manifest records each removed artifact's original path and hash.
+On October 5, **27 additional reports** were removed from the active catalog:
+saved-answer runner output, manual reviews, workflow/migration records, and
+validation notes. The earlier cleanup had archived 39 artifacts. The manifest
+now indexes 66 archived artifacts and four active reports, plus the three
+unchanged dated input fixtures. Input fixtures are not measurement results.
 
-The missing screenshot and source report were retired at the user's request.
-The dependent calibration manifest and two blank reviewer packets were removed
-from the active tree, together with two generators for the removed sample
-corpus. Their verified backups are under ignored
-`.local/report-archive/2026-10-05-retired-missing-evidence/`:
-`before-retirement.tar.gz` preserves the packet and preceding documentation;
-`before-dependency-cleanup.tar.gz` preserves the generators and preceding code.
-The manifest's `retirement` section records their paths and hashes.
-
-Before any move or removal, all 73 artifacts, evaluation inputs, calibration
-packet and documentation were backed up and verified against their SHA-256
-hashes in ignored
-`.local/report-archive/2026-10-05-key-evidence/before-cleanup.tar.gz`.
-Its `inventory.json` and `selection.json` record the snapshot and selection.
-The manifest records the archive hash and pre-cleanup Git revision. Local
-backups are not distributed with Git; committed originals also remain at that
-revision in Git history.
-
-To recover a file without overwriting the organized tree, find its
-`original_path` in the manifest and extract it into a temporary directory:
+Before this change, 115 affected source, documentation and data files were
+backed up and SHA-256 verified in ignored
+`.local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz`.
+Its `inventory.json` and the manifest's `tool_generated_cleanup` section record
+hashes and restoration identities. Extract a last active path from that backup:
 
 ```bash
 mkdir -p /tmp/nadir-report-restore
-tar -xzf .local/report-archive/2026-10-05-key-evidence/before-cleanup.tar.gz \
-  -C /tmp/nadir-report-restore test/evaluation/reports/REPORT_NAME.json
+tar -xzf .local/report-archive/2026-10-05-tool-generated-64568657/before-change.tar.gz \
+  -C /tmp/nadir-report-restore test/evaluation/reports/2026-10-03/local-acceptance/answers-daily.json
 ```
 
-The earlier October 3 cleanup reduced 229 artifacts (about 72.3 MiB) to 73
-(about 28.3 MiB). Its 156 pruned files remain in the separate ignored
-`.local/report-archive/20261003-cleanup/before-cleanup.tar.gz` backup. The
-October 5 archive contains the 73-artifact tree, not those earlier pruned files.
-
-The source corpus has also been removed. Historical source paths in unchanged
-reports and question fixtures describe that dated corpus, not current files.
-Original source files remain in Git history at `source_git_revision`; live
-evaluations require a question set and an available matching corpus.
+Local backups are not distributed with Git. The preceding committed files also
+remain at revision `e4388bb`. Older archive and calibration retirement records
+remain in the manifest. ADRs preserve dated design decisions and archived
+interpretations; the active catalog makes no app acceptance claim from them.
 
 ## Retention policy
 
-1. Write exploratory runs to ignored `.local/evaluation/`, the evaluator's
-   default output directory. API performance reports belong in ignored
-   `.local/benchmark/`; see the [Locust guide](../../../benchmark/README.md).
-2. Promote key accepted evidence and its required controls, reviews, provenance
-   and fixed inputs using the dated structure above. Record identities and
-   retention reasons in the manifest. Private document excerpts stay local.
-3. Preserve raw bytes when renaming evidence. Update navigation and executable
-   metadata paths without changing measured
-   results, source hashes or frozen reviewer content.
-4. Archive superseded experiments after recording their disposition and
-   checking dependencies. A calibration packet needs its exact source and
-   fixture until completed or explicitly retired. Never present old results
-   as a new measurement.
+1. Generate results through `cmd/evaluator` or `python -m benchmark`. Keep run
+   outputs local by default because inputs/results can contain source excerpts,
+   query text and filesystem paths.
+2. Commit selected generated reports with their exact input hashes and update
+   the catalog/manifest. Preserve generated values; use the maintained offline
+   wrapping mode for supported legacy evaluator formats.
+3. Keep manual usefulness notes and calibration reviewer inputs separate from
+   generated result artifacts. Reports from retired runners or temporary code
+   do not enter this catalog.
+4. Archive removed files after checking dependencies and backup hashes. Treat
+   retained historical records as measurements of their original corpus/config.
 
-## Maintenance verification, October 5
-
-The original backup's 137 members and all 34 active retained artifacts match
-their hashes. The six reusable fixtures are unchanged. Retired support files
-were backed up and verified before removal. Documentation links, active input
-references, manifest counts and formatting were checked after retirement.
-
-The initial cleanup ran the focused Go evaluator suites and both Python
-question-runner tests. Tests and live answer-quality or latency evaluations
-were not rerun for retirement. Current retirement checks are saved in ignored
-`.local/report-archive/2026-10-05-retired-missing-evidence/verification.json`.
-
-The October 5 Locust migration also retired the legacy benchmark tools and
-saved-answer runner after a separate verified backup. Their historical paths
-inside raw evidence describe the original measurement. Tool restoration and
-current benchmark commands are in the [Locust guide](../../../benchmark/README.md).
+The fixture-schema and report-contract tests run in CI. Reporting verification
+uses local stubs and fixtures; it does not rerun historical model measurements.

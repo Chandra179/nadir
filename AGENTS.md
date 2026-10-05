@@ -117,3 +117,8 @@ explicit query set and matching source directories in a separate collection,
 as shown above. API performance workloads live in `benchmark/`; see its README
 for the dedicated Python environment and explicit workload inputs. `scripts/`
 keeps local startup, Podman setup and generic judge calibration utilities.
+
+Evaluator and Locust outputs share the versioned run-report contract in
+`test/run-report-contract.json`. Generated reports stay in ignored `.local/`
+by default. The active result catalog retains four historical evaluator
+measurements; manual app/workflow records and retired runner output are archived.

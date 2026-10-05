@@ -27,6 +27,39 @@ type generationTestGenerator struct {
 	prompts  []string
 }
 
+type cancellingTestGenerator struct {
+	cancel context.CancelFunc
+}
+
+func (g cancellingTestGenerator) Generate(ctx context.Context, _ string) (<-chan conversationgeneration.Event, error) {
+	g.cancel()
+	return nil, ctx.Err()
+}
+
+func TestGenerationHarnessRetainsAnswerWhenJudgeIsInterrupted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	answer := "A supported answer."
+	harness := NewGenerationDependencies(GenerationDependenciesConfig{
+		Searcher:        generationTestRetriever{chunks: []search.Chunk{{FilePath: "doc.md", Text: answer}}},
+		AnswerGenerator: &generationTestGenerator{response: answer}, JudgeGenerator: cancellingTestGenerator{cancel: cancel},
+		AnswerModel: "answer", JudgeModel: "judge", JudgeSuitability: "uncalibrated test judge",
+	})
+	report, err := harness.Run(ctx, &GoldenSet{SchemaVersion: 2, Queries: []GoldenQuery{{
+		ID: "q", Query: "question", Relevant: []RelevantChunk{{File: "doc.md"}},
+	}}}, 5)
+	if !errors.Is(err, context.Canceled) || report == nil || len(report.PerQuery) != 1 {
+		t.Fatalf("report=%+v, err=%v", report, err)
+	}
+	result := report.PerQuery[0]
+	if result.Answer != answer || result.AdmittedContext == "" || result.AnswerStatus != "success" || result.JudgeStatus != "error" {
+		t.Fatalf("available answer/context lost on interruption: %+v", result)
+	}
+	if report.Aggregate.Failures != 1 || report.Aggregate.Evaluated != 0 {
+		t.Fatalf("interrupted judgment counted as evaluated: %+v", report.Aggregate)
+	}
+}
+
 func (g *generationTestGenerator) Generate(_ context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
 	g.prompts = append(g.prompts, prompt)
 	if g.err != nil {

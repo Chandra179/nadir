@@ -262,14 +262,15 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 			QueryType: search.QueryType(goldenQuery.Type),
 		})
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
 			result.Error = "retrieval: " + err.Error()
 			result.AnswerStatus = "not_run"
 			result.JudgeStatus = "not_run"
 			result.FailureClass = failureRetrievalMiss
 			report.PerQuery = append(report.PerQuery, result)
+			if ctx.Err() != nil {
+				report.Aggregate = aggregateGeneration(report.PerQuery)
+				return report, ctx.Err()
+			}
 			continue
 		}
 		result.RetrievedChunks = len(searchResult.Chunks)
@@ -303,15 +304,16 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		answerCancel()
 		result.AnswerLatencyMS = elapsedMS(answerStarted)
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
 			result.Error = "answer generation: " + err.Error()
 			result.AnswerStatus = "error"
 			result.FailureClass = classifyGenerationFailure(err, false)
 			result.DiagnosticCause = diagnoseRetrieval(result)
 			result.JudgeStatus = "not_run"
 			report.PerQuery = append(report.PerQuery, result)
+			if ctx.Err() != nil {
+				report.Aggregate = aggregateGeneration(report.PerQuery)
+				return report, ctx.Err()
+			}
 			continue
 		}
 		answer = chat.CorrectCitationAttributions(goldenQuery.Query, answer, contextBuild.Citations)
@@ -346,14 +348,15 @@ func (h *GenerationHarness) Run(ctx context.Context, golden *GoldenSet, topK int
 		judgeCancel()
 		result.JudgeLatencyMS = elapsedMS(judgeStarted)
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
 			result.Error = "judge generation: " + err.Error()
 			result.JudgeStatus = "error"
 			result.FailureClass = classifyGenerationFailure(err, true)
 			result.DiagnosticCause = diagnoseRetrieval(result)
 			report.PerQuery = append(report.PerQuery, result)
+			if ctx.Err() != nil {
+				report.Aggregate = aggregateGeneration(report.PerQuery)
+				return report, ctx.Err()
+			}
 			continue
 		}
 		result.JudgeStatus = "success"

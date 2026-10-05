@@ -33,12 +33,31 @@ DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
   --no-rerank --runs 3 --report .local/evaluation/retrieval.json
 ```
 
-Default output is `.local/evaluation/<unix_ts>.json`, ignored by Git. Use
-`--report` to select another path. Promote reviewed evidence into
-`test/evaluation/reports/YYYY-MM-DD/run-name/artifact.json` together with its
-fixture/config/model provenance, registration, comparison and limitations.
-Record its original identity, hash and retention reason in the manifest; see the
-[retention policy](../../test/evaluation/reports/README.md).
+Default output is `.local/evaluation/<timestamp>-<run-id>/report.json`, ignored
+by Git. `--report` selects another file. The shared envelope has
+`schema_version: 1`, `tool: evaluator`, and one `runs[]` entry. Its `results`
+contains the complete native retrieval report and optional generation report;
+`summary` contains available aggregate metrics. See the
+[report contract and retention policy](../../test/evaluation/reports/README.md).
+
+Statuses describe execution: `completed`, `failed`, `interrupted`, or `empty`.
+Operational failures exit nonzero and persist available partial results and
+errors. Low quality scores alone do not turn a completed run into acceptance
+or failure. SIGINT/SIGTERM cancel external requests and save the report when
+its output location is writable. Validation-only does not create a measurement.
+
+Legacy native evaluator reports can be wrapped without external services:
+
+```bash
+go run ./cmd/evaluator --normalize-report /path/to/legacy.json \
+  --report /path/to/normalized.json
+```
+
+This records original hashes and wrapping time, preserves original values,
+and leaves unknown historical timing and producer revisions null. It rejects
+unrelated report formats and already wrapped files. New results must be emitted
+by the maintained evaluator or Locust suite; hand-created measurements and
+retired/temporary runner output stay outside the active result catalog.
 
 For generation evaluation, choose an already installed judge and explicitly
 record why it is suitable. This diagnostic example uses the previously observed
@@ -54,14 +73,16 @@ DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
   --report .local/evaluation/generation-local.json
 ```
 
-Acceptance uses actual answer/source review. Results measured October 3 and
-required older comparisons are indexed in the
+Usefulness still requires actual answer/source review. The four retained
+historical retrieval measurements are indexed in the
 [report catalog](../../test/evaluation/reports/README.md).
 The sample corpus has been removed. Committed synthetic fixtures retain their
 historical source identities for schema checks and interpreting dated reports;
 live runs need an available matching corpus. The September 30 calibration
 packet was retired with its missing source report. No independent judge
-calibration is claimed.
+calibration is claimed. The generic calibration utility reads both legacy
+native evaluator JSON and the shared envelope; source hashes cover the exact
+whole file supplied to export/scoring.
 
 ## Release and research boundaries
 

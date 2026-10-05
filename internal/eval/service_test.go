@@ -2,6 +2,7 @@ package evaluation
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,30 @@ import (
 	"nadir/internal/core/retrieval/search"
 	"nadir/internal/testmocks"
 )
+
+func TestHarnessRetainsCompletedAndPartialQueriesOnFailure(t *testing.T) {
+	searcher := &mocks.MockRetriever{}
+	searcher.EXPECT().Query(mock.Anything, mock.Anything).
+		Return(search.Result{Chunks: []search.Chunk{{FilePath: "doc.md", Text: "evidence"}}}, nil).Times(3)
+	want := errors.New("retrieval offline")
+	searcher.EXPECT().Query(mock.Anything, mock.Anything).Return(search.Result{}, want).Once()
+	report, err := NewDependencies(DependenciesConfig{Searcher: searcher}).Run(context.Background(), &GoldenSet{
+		Queries: []GoldenQuery{
+			{ID: "complete", Query: "one", Relevant: []RelevantChunk{{File: "doc.md"}}},
+			{ID: "partial", Query: "two", Relevant: []RelevantChunk{{File: "doc.md"}}},
+		},
+	}, 5, 2)
+	if !errors.Is(err, want) || report == nil || len(report.PerQuery) != 2 {
+		t.Fatalf("report=%+v, err=%v", report, err)
+	}
+	if len(report.PerQuery[0].Runs) != 2 || report.PerQuery[0].RepresentativeRun == 0 ||
+		len(report.PerQuery[1].Runs) != 1 || report.PerQuery[1].RepresentativeRun != 0 {
+		t.Fatalf("partial rankings not retained: %+v", report.PerQuery)
+	}
+	if report.Aggregate.Queries != 0 {
+		t.Fatal("failed dataset presented as a complete aggregate")
+	}
+}
 
 func TestHarnessBypassesCacheAndAggregatesResults(t *testing.T) {
 	searcher := &mocks.MockRetriever{}

@@ -17,8 +17,8 @@ make benchmark-ui ARGS="--host http://127.0.0.1:8100 --query 'What does the inde
 
 The UI listens at `http://127.0.0.1:8089`. Choose the workload and its inputs
 before starting users. Stop the run, then exit Locust to save the HTML report.
-Metadata records each UI run; native CSV and HTML statistics describe the latest
-run. `BENCHMARK_PYTHON` can select another Python environment in the Make commands.
+The shared `report.json` appends each UI run and references its preserved native
+CSV/HTML snapshots; root native files describe the latest run. `BENCHMARK_PYTHON` can select another Python environment in the Make commands.
 
 An explicit `--host` is required. The API must pass `/api/v1/ready`. Query
 workloads require a nonempty `--query`; follow-up also needs `--follow-up`;
@@ -70,10 +70,19 @@ Reports default to ignored `.local/benchmark/<UTC timestamp>-<run id>/`:
   `locust_exceptions.csv`: native Locust CSVs. Final statistics are refreshed
   using Locust's serializer so short runs retain their last samples.
 - `locust.html`: native Locust HTML report.
-- `metadata.json`: host, workload, supplied queries, upload path/hash/size,
-  top-k, timeout, load settings, Git revision, corpus inventory and available
-  process metrics before and after the run. Unavailable optional snapshots
-  carry an error. Inputs can contain sensitive text; output stays local.
+- `report.json`: the shared evaluator/Locust envelope (`schema_version`, `tool`,
+  `runs`). Each run records inputs, timestamps, Git revision and dirty state,
+  provenance, execution status, errors, summary metrics and native serialized
+  statistics. Corpus inventory and available process metrics are captured
+  before and after the run. Unavailable optional snapshots carry an error.
+- `runs/<run_id>/`: native CSV/history/HTML snapshots preserved for each run,
+  with relative paths, SHA-256 and byte sizes in `runs[].artifacts`.
+
+Inputs can contain sensitive text; output stays local. The
+[shared report contract](../test/evaluation/reports/README.md#shared-result-format)
+also applies to evaluator reports. `completed` describes successful execution;
+`failed`, `interrupted`, and `empty` records retain errors/partial measurements.
+Startup failures produce a report when the output directory is writable.
 
 `python -m benchmark --output-dir /absolute/new/run-dir ...` chooses a new output
 directory. Existing directories are rejected to preserve earlier runs. Native
@@ -85,9 +94,9 @@ directory. Existing directories are rejected to preserve earlier runs. Native
 | `WORKFLOW` | Full retrieval/chat/cache/follow-up/upload attempt, including required polling and all answer tokens; cleanup runs afterward. |
 | `TTFT` | Time from the generating POST until the first nonempty token, for successful streamed answers only. Immediate answers have no TTFT sample. |
 
-For throughput, use **`completed_workflows_per_second` in metadata**: successful
+For throughput, use **`runs[].summary.completed_workflows_per_second` in `report.json`**: successful
 `WORKFLOW` completions divided by elapsed run time. Per-workload completed and
-failed counts are recorded there too. Native `WORKFLOW` rows provide workflow
+failed counts are recorded in `runs[].summary.workflows`. Native `WORKFLOW` rows provide workflow
 latency percentiles; their request counts include failed attempts. Locust's
 `Aggregated` row mixes HTTP, workflow and TTFT samples, so it does not represent
 completed-workflow throughput. Mixed runs have separate retrieval and chat rows.
@@ -127,8 +136,8 @@ tar -xzf .local/benchmark-migration/2026-10-05-144042/before-migration.tar.gz \
   -C /tmp/nadir-tool-restore scripts/RETIRED_FILE.py
 ```
 
-Local backups are not distributed with Git. Historical evidence retains its
-original bytes and dated tool identities in the
+Local backups are not distributed with Git. Historical evaluator payloads and
+original hashes remain traceable through the
 [report catalog](../test/evaluation/reports/README.md). Retrieval/answer quality
 checks use the [Go evaluator](../internal/eval/README.md); manual usefulness
 review remains in [TODO](../TODO.md). Local startup and generic judge calibration

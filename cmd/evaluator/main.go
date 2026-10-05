@@ -12,11 +12,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	config "nadir/internal/bootstrap/configuration"
@@ -28,6 +33,8 @@ import (
 	"nadir/internal/providers/reranker"
 
 	"log/slog"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -36,7 +43,7 @@ func main() {
 	topK := flag.Int("top-k", 0, "results per query (0 uses qdrant.top_k)")
 	noRerank := flag.Bool("no-rerank", false, "bypass the configured reranker")
 	runs := flag.Int("runs", 3, "runs per query; retain all rankings, median run quality, pooled request latency")
-	reportPath := flag.String("report", "", "output report path (default: .local/evaluation/<unix_ts>.json)")
+	reportPath := flag.String("report", "", "output report path (default: .local/evaluation/<timestamp>-<run-id>/report.json)")
 	ensureIngest := flag.Bool("ensure-ingest", false, "run an ingest pass over documents.paths before evaluating")
 	requireReleaseGate := flag.Bool("require-release-gate", false, "reject synthetic/unconsented golden sets")
 	validateOnly := flag.Bool("validate-only", false, "validate the golden set and release-gate metadata without starting external services")
@@ -46,7 +53,20 @@ func main() {
 	judgeSuitability := flag.String("judge-suitability", "", "required acknowledgement describing why the judge is suitable and its calibration limits")
 	judgeNumCtx := flag.Int("judge-num-ctx", 8192, "independent Ollama judge window; rejects prompts that would overflow")
 	contextBudget := flag.Int("context-budget", 0, "generation-eval admitted-context budget in tokens (0 uses chat.max_context_tokens); the context-selection experiment arm")
+	normalizeReport := flag.String("normalize-report", "", "offline: wrap a legacy evaluator JSON; requires --report")
 	flag.Parse()
+
+	if *normalizeReport != "" {
+		if *goldenPath != "" || *validateOnly || *generationEval || *ensureIngest {
+			fmt.Fprintln(os.Stderr, "--normalize-report cannot be combined with evaluation modes")
+			os.Exit(1)
+		}
+		if err := evaluation.NormalizeReport(*normalizeReport, *reportPath); err != nil {
+			fmt.Fprintln(os.Stderr, "normalize report:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if err := runWithOptions(*configPath, *goldenPath, *topK, *noRerank, *runs, *reportPath, *ensureIngest, *requireReleaseGate, *validateOnly, generationOptions{
 		Enabled:          *generationEval,
@@ -66,15 +86,93 @@ func run(configPath, goldenPath string, topK int, noRerank bool, runs int, repor
 }
 
 type generationOptions struct {
-	Enabled          bool
-	JudgeAddr        string
-	JudgeModel       string
-	JudgeSuitability string
-	JudgeNumCtx      int
-	ContextBudget    int
+	Enabled          bool   `json:"enabled"`
+	JudgeAddr        string `json:"judge_addr"`
+	JudgeModel       string `json:"judge_model"`
+	JudgeSuitability string `json:"judge_suitability"`
+	JudgeNumCtx      int    `json:"judge_num_ctx"`
+	ContextBudget    int    `json:"context_budget"`
 }
 
-func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) error {
+func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs int, reportPath string, ensureIngest, requireReleaseGate, validateOnly bool, generationOptions generationOptions) (runErr error) {
+	var report *evaluation.Report
+	inputs := map[string]any{"golden": goldenPath, "config": configPath, "top_k": topK, "runs": runs,
+		"no_rerank": noRerank, "ensure_ingest": ensureIngest, "require_release_gate": requireReleaseGate}
+	if generationOptions.Enabled {
+		inputs["generation"] = generationOptions
+	}
+	ctx := context.Background()
+	if !validateOnly {
+		var stop context.CancelFunc
+		ctx, stop = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		runID := uuid.NewString()
+		started := time.Now().UTC().Format(time.RFC3339Nano)
+		if reportPath == "" {
+			reportPath = filepath.Join(".local", "evaluation", time.Now().UTC().Format("20060102T150405Z")+"-"+runID[:8], "report.json")
+		}
+		record := evaluation.RunRecord{RunID: runID, RunType: "retrieval", Status: "failed", StartedAt: &started,
+			Inputs:     inputs,
+			Provenance: map[string]any{}, Summary: map[string]any{}, Errors: []string{}, Artifacts: []any{}}
+		if generationOptions.Enabled {
+			record.RunType = "retrieval-and-generation"
+		}
+		producer := map[string]any{"entrypoint": "cmd/evaluator"}
+		if head, err := exec.Command("git", "rev-parse", "HEAD").Output(); err == nil {
+			revision := strings.TrimSpace(string(head))
+			record.GitRevision = &revision
+		}
+		if dirty, err := exec.Command("git", "status", "--porcelain").Output(); err == nil {
+			producer["working_tree_dirty"] = len(dirty) > 0
+		}
+		defer func() {
+			ended := time.Now().UTC().Format(time.RFC3339Nano)
+			record.EndedAt = &ended
+			record.Status = "completed"
+			if runErr != nil {
+				record.Status = "failed"
+				record.Errors = append(record.Errors, runErr.Error())
+			}
+			if ctx.Err() != nil {
+				record.Status = "interrupted"
+				if runErr == nil {
+					runErr = ctx.Err()
+					record.Errors = append(record.Errors, runErr.Error())
+				}
+			}
+			if report != nil {
+				var marshalErr error
+				record.Results, marshalErr = json.Marshal(report)
+				if marshalErr != nil {
+					runErr = errors.Join(runErr, marshalErr)
+					record.Status = "failed"
+					record.Errors = append(record.Errors, marshalErr.Error())
+				}
+				completedQueries := 0
+				for _, query := range report.PerQuery {
+					if query.RepresentativeRun > 0 {
+						completedQueries++
+					}
+				}
+				summary := map[string]any{"completed_queries": completedQueries}
+				if report.Aggregate.Queries > 0 {
+					summary["retrieval"] = report.Aggregate
+				}
+				if report.Generation != nil {
+					summary["generation"] = report.Generation.Aggregate
+				}
+				record.Summary = summary
+				record.Provenance = map[string]any{"producer": producer, "measurement": report.Provenance}
+			} else {
+				record.Provenance = map[string]any{"producer": producer}
+			}
+			if err := evaluation.WriteRunReport(reportPath, &evaluation.RunReport{SchemaVersion: 1, Tool: "evaluator", Runs: []evaluation.RunRecord{record}}); err != nil {
+				runErr = errors.Join(runErr, err)
+			} else {
+				fmt.Println("\nreport written to", reportPath)
+			}
+		}()
+	}
 	if strings.TrimSpace(goldenPath) == "" {
 		return fmt.Errorf("--golden is required; provide a query set for the configured corpus")
 	}
@@ -107,7 +205,6 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 		return fmt.Errorf("init logger: %w", err)
 	}
 
-	ctx := context.Background()
 	if topK <= 0 {
 		topK = cfg.Qdrant.TopK
 	}
@@ -116,6 +213,10 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 	}
 	if runs < 1 {
 		runs = 1
+	}
+	inputs["top_k"], inputs["runs"] = topK, runs
+	if generationOptions.Enabled {
+		inputs["generation"] = generationOptions
 	}
 	if cfg.Search.MaxTopK < 10 {
 		return fmt.Errorf("evaluation MRR@10 requires search.max_top_k >= 10, got %d", cfg.Search.MaxTopK)
@@ -145,10 +246,13 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 
 	rerankEnabled := cfg.Reranker.Enabled && !noRerank
 
-	report, err := evaluation.NewDependencies(evaluation.DependenciesConfig{
+	report, err = evaluation.NewDependencies(evaluation.DependenciesConfig{
 		Searcher: graph.Searcher,
 		Log:      log,
 	}).Run(ctx, golden, topK, runs)
+	if report != nil {
+		report.Provenance = provenance
+	}
 	if err != nil {
 		return err
 	}
@@ -199,25 +303,16 @@ func runWithOptions(configPath, goldenPath string, topK int, noRerank bool, runs
 			RequestTimeout:           cfg.Generator.RequestTimeout,
 			Log:                      log,
 		}).Run(ctx, golden, topK)
+		report.Generation = generationReport
 		if generationErr != nil {
 			return generationErr
 		}
-		report.Generation = generationReport
+		if generationReport.Aggregate.Failures > 0 {
+			return fmt.Errorf("generation evaluation has %d operational failures", generationReport.Aggregate.Failures)
+		}
 	}
 	printReport(report)
 
-	if reportPath == "" {
-		reportPath = filepath.Join(".local", "evaluation", fmt.Sprintf("%d.json", time.Now().Unix()))
-	}
-	if dir := filepath.Dir(reportPath); dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create report directory: %w", err)
-		}
-	}
-	if err := evaluation.WriteReport(reportPath, report); err != nil {
-		return err
-	}
-	fmt.Println("\nreport written to", reportPath)
 	return nil
 }
 

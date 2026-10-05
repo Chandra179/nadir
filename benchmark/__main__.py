@@ -21,6 +21,7 @@ def main() -> None:
                    or (len(flag) == 2 and argument.startswith(flag) and len(argument) > 2)
                    for argument in arguments for flag in flags)
 
+    output = None
     if not supplied("--help", "-h", "--version", "-V"):
         output = options.output_dir or Path(".local/benchmark") / (
             dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
@@ -55,26 +56,40 @@ def main() -> None:
 
     environments = []
     events.init.add_listener(lambda environment, **kwargs: environments.append(environment))
+    failure = None
     try:
         locust_main()
+    except BaseException as error:
+        failure = error
+        raise
     finally:
         # Native periodic CSVs can miss the last samples, especially in short runs.
         # Refresh them using Locust's serializer after its file handles are closed.
         if environments:
             environment = environments[0]
+            from benchmark.locustfile import finish
+            finish(environment)
             if environment.parsed_options.csv_prefix:
                 writer = StatsCSV(environment, PERCENTILES_TO_REPORT)
                 prefix = environment.parsed_options.csv_prefix
                 for suffix, write in [("stats", writer.requests_csv), ("failures", writer.failures_csv),
                                       ("exceptions", writer.exceptions_csv)]:
-                    with open(f"{prefix}_{suffix}.csv", "w", newline="") as output:
-                        write(csv.writer(output))
+                    with open(f"{prefix}_{suffix}.csv", "w", newline="") as handle:
+                        write(csv.writer(handle))
             if environment.parsed_options.html_file:
                 # Also preserve the native HTML report on SIGTERM shutdown.
                 process_html_filename(environment.parsed_options)
                 Path(environment.parsed_options.html_file).write_text(
                     get_html_report(environment, show_download_link=False), encoding="utf-8")
             # UI shutdown can finish stopping users after Locust chooses its exit code.
+        if output is not None and not (output / "report.json").exists():
+            from benchmark.report import startup_failure
+            startup_failure(output, arguments, str(failure or "no workload was started"),
+                            empty=failure is None or isinstance(failure, SystemExit) and failure.code == 0)
+        if environments:
+            environment = environments[0]
+            if environment.process_exit_code:
+                raise SystemExit(environment.process_exit_code)
             if environment.stats.total.num_failures:
                 raise SystemExit(1)
 

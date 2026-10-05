@@ -353,9 +353,9 @@ privacy approval, and independent expert judgments before treating a score as
 a production release gate.
 
 Scratch evaluation reports default to ignored `.local/evaluation/`. The
-[report catalog](test/evaluation/reports/README.md) indexes the October 3
-acceptance and required historical support, explains the dated naming format,
-and provides archive restoration instructions.
+[report catalog](test/evaluation/reports/README.md) retains four generated
+retrieval measurements from October 2 and October 3, explains the shared run
+report format, and provides archive restoration instructions.
 
 The sample-based generators, optional public-math importer and saved-answer
 runner have been retired. For usefulness validation, review answers and cited
@@ -376,8 +376,9 @@ make benchmark-ui ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexe
 ```
 
 Headless defaults are one user, one user/second, 60 seconds and a 120-second
-timeout. CSV/HTML reports and run metadata go to ignored `.local/benchmark/`.
-Use completed workflow throughput in metadata when interpreting results.
+timeout. CSV/HTML artifacts and shared `report.json` run records go to ignored
+`.local/benchmark/`. Use `runs[].summary.completed_workflows_per_second` when
+interpreting throughput. Evaluator outputs use the same report envelope.
 Upload runs retain their documents and require a separate evaluation API.
 
 ## PDF ingestion

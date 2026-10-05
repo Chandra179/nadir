@@ -1,6 +1,7 @@
 import locust  # Cooperative subprocess waits let the stub serve child requests.
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 import socket
@@ -14,6 +15,7 @@ import gevent
 import requests
 
 from test_api import StubAPI
+from benchmark.report import validate_report
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +39,7 @@ class CliTests(unittest.TestCase):
         completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=15)
         return completed, output
 
-    def test_each_workload_runs_with_native_reports_and_metadata(self):
+    def test_each_workload_runs_with_native_reports_and_envelope(self):
         upload = self.root / "input.md"
         upload.write_text("# Test document")
         for workload in ["retrieval", "chat", "upload", "mixed", "cache", "followup"]:
@@ -51,17 +53,24 @@ class CliTests(unittest.TestCase):
                 workflows = [row for row in rows if row["Type"] == "WORKFLOW"]
                 self.assertTrue(workflows)
                 self.assertGreater(sum(int(row["Request Count"]) for row in workflows), 0)
-                metadata = json.loads((output / "metadata.json").read_text())["runs"][0]
-                self.assertEqual(metadata["workload"], workload)
-                self.assertEqual(metadata["corpus_before"]["count"], 1)
-                self.assertIn("metrics_after", metadata)
-                self.assertEqual(metadata["users"], 1)
-                self.assertEqual(metadata["spawn_rate"], 1)
-                self.assertEqual(metadata["status"], "passed")
-                self.assertEqual(sum(row["completed"] for row in metadata["workflows"]),
+                report = json.loads((output / "report.json").read_text())
+                validate_report(report)
+                metadata = report["runs"][0]
+                self.assertEqual(metadata["inputs"]["workload"], workload)
+                self.assertEqual(metadata["provenance"]["corpus_before"]["count"], 1)
+                self.assertIn("metrics_after", metadata["provenance"])
+                self.assertEqual(metadata["inputs"]["users"], 1)
+                self.assertEqual(metadata["inputs"]["spawn_rate"], 1)
+                self.assertEqual(metadata["status"], "completed")
+                self.assertEqual(sum(row["completed"] for row in metadata["summary"]["workflows"]),
                                  sum(int(row["Request Count"]) for row in workflows))
-                self.assertAlmostEqual(metadata["completed_workflows_per_second"],
-                                       sum(row["completed"] for row in metadata["workflows"]) / metadata["elapsed_seconds"])
+                self.assertAlmostEqual(metadata["summary"]["completed_workflows_per_second"],
+                                       sum(row["completed"] for row in metadata["summary"]["workflows"]) / metadata["summary"]["elapsed_seconds"])
+                self.assertGreaterEqual(len(metadata["artifacts"]), 5)
+                for artifact in metadata["artifacts"]:
+                    content = (output / artifact["path"]).read_bytes()
+                    self.assertEqual(hashlib.sha256(content).hexdigest(), artifact["sha256"])
+                    self.assertEqual(len(content), artifact["bytes"])
         self.assertEqual(set(self.stub.sessions), {"existing-session"})
 
     def test_failed_workflows_and_cleanup_exit_nonzero(self):
@@ -70,9 +79,11 @@ class CliTests(unittest.TestCase):
                 completed, output = self.run_suite(query, "--workload", "chat", "--query", query)
                 self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
                 self.assertTrue((output / "locust.html").is_file())
-                metadata = json.loads((output / "metadata.json").read_text())["runs"][0]
+                report = json.loads((output / "report.json").read_text())
+                validate_report(report)
+                metadata = report["runs"][0]
                 self.assertEqual(metadata["status"], "failed")
-                self.assertEqual(metadata["completed_workflows_per_second"], 0)
+                self.assertEqual(metadata["summary"]["completed_workflows_per_second"], 0)
                 with (output / "locust_failures.csv").open() as source:
                     self.assertTrue(any(row["Method"] == "WORKFLOW" for row in csv.DictReader(source)))
         self.stub.fail_cleanup = True
@@ -85,11 +96,16 @@ class CliTests(unittest.TestCase):
                    ("no-followup", ["--workload", "followup", "--query", "question"], True)]
         for name, arguments, host in invalid:
             with self.subTest(name=name):
-                completed, _ = self.run_suite(name, *arguments, host=host)
+                completed, output = self.run_suite(name, *arguments, host=host)
                 self.assertNotEqual(completed.returncode, 0)
+                report = json.loads((output / "report.json").read_text())
+                validate_report(report)
+                self.assertEqual(report["runs"][0]["status"], "failed")
+                self.assertTrue(report["runs"][0]["errors"])
         self.stub.ready = False
-        completed, _ = self.run_suite("not-ready", "--query", "question")
+        completed, output = self.run_suite("not-ready", "--query", "question")
         self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(json.loads((output / "report.json").read_text())["runs"][0]["status"], "failed")
         self.assertFalse(any(path == "/api/v1/turns" for _, path, _ in self.stub.records))
 
     def test_help_exposes_native_and_workload_options(self):
@@ -103,13 +119,29 @@ class CliTests(unittest.TestCase):
         completed, output = self.run_suite("empty", "--query", "question", "--users", "0")
         self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertTrue((output / "locust.html").is_file())
-        completed, _ = self.run_suite("interrupted", "--workload", "chat", "--query", "timeout",
+        self.assertEqual(json.loads((output / "report.json").read_text())["runs"][0]["status"], "empty")
+        completed, output = self.run_suite("interrupted", "--workload", "chat", "--query", "timeout",
                                       "--timeout", "5", "--stop-timeout", "0")
         self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(json.loads((output / "report.json").read_text())["runs"][0]["status"], "interrupted")
         self.assertIn("timeout", self.stub.cancelled)
         self.assertEqual(set(self.stub.sessions), {"existing-session"})
 
-    def test_ui_exposes_options_and_preserves_multiple_run_metadata(self):
+    def test_parser_failure_and_native_output_overrides(self):
+        completed, output = self.run_suite("parser-error", "--invalid-benchmark-flag")
+        self.assertNotEqual(completed.returncode, 0)
+        report = json.loads((output / "report.json").read_text())
+        validate_report(report)
+        self.assertEqual(report["runs"][0]["status"], "failed")
+        prefix, html = self.root / "native", self.root / "native.html"
+        completed, output = self.run_suite("override", "--query", "question", "--csv", str(prefix), "--html", str(html))
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertTrue(html.is_file())
+        self.assertTrue(prefix.with_name("native_stats.csv").is_file())
+        report = json.loads((output / "report.json").read_text())
+        self.assertTrue(all((output / artifact["path"]).is_file() for artifact in report["runs"][0]["artifacts"]))
+
+    def test_ui_exposes_options_and_preserves_multiple_run_envelopes(self):
         with socket.socket() as socket_for_port:
             socket_for_port.bind(("127.0.0.1", 0))
             port = socket_for_port.getsockname()[1]
@@ -160,9 +192,16 @@ class CliTests(unittest.TestCase):
             stdout, stderr = process.communicate(timeout=10)
             self.assertNotEqual(process.returncode, 0, stdout + stderr)
             self.assertTrue((output / "locust.html").is_file())
-            runs = json.loads((output / "metadata.json").read_text())["runs"]
-            self.assertEqual([run["workload"] for run in runs], ["retrieval", "chat", "chat"])
-            self.assertEqual([run["status"] for run in runs], ["passed", "passed", "failed"])
+            runs = json.loads((output / "report.json").read_text())["runs"]
+            self.assertEqual([run["inputs"]["workload"] for run in runs], ["retrieval", "chat", "chat"])
+            self.assertEqual([run["status"] for run in runs], ["completed", "completed", "interrupted"])
+            artifact_paths = [artifact["path"] for run in runs for artifact in run["artifacts"]]
+            self.assertEqual(len(artifact_paths), len(set(artifact_paths)))
+            for run in runs:
+                csv_path = next(artifact["path"] for artifact in run["artifacts"] if artifact["path"].endswith("_stats.csv"))
+                with (output / csv_path).open() as source:
+                    rows = [row for row in csv.DictReader(source) if row["Type"] == "WORKFLOW"]
+                self.assertEqual({row["Name"] for row in rows}, {run["inputs"]["workload"]})
             self.assertIn("timeout", self.stub.cancelled)
             self.assertEqual(set(self.stub.sessions), {"existing-session"})
         finally:
