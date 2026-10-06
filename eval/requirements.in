@@ -1,0 +1,6 @@
+ragas==0.4.3
+openai==2.29.0
+httpx==0.28.1
+httpx-sse==0.4.3
+# Ragas imports legacy ChatVertexAI; later community releases remove that module.
+langchain-community==0.3.31

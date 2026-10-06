@@ -12,7 +12,7 @@ search, RRF, semantic cache lookup, reranking, and final context selection.
 Change a child when the concept already exists. Add a new child only for a new
 retrieval stage with a meaningful seam and independent tests. Qdrant payloads
 stay in its Adapter; generation and prompt construction stay in Conversation;
-quality claims are measured in `internal/eval/`.
+quality claims are measured in the root Python `eval/` suite.
 
 ## Verification
 

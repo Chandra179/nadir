@@ -1,6 +1,6 @@
 # 0035 — Preserve source scopes and measure the local quality candidate
 
-- **Status:** Adopted on 2026-10-03; generated retrieval measurements are retained, and manual app/workflow interpretations are archived
+- **Status:** Adopted on 2026-10-03; historical evaluation assets retired on 2026-10-06
 - **Date:** 2026-10-02
 
 ## Context
@@ -39,22 +39,23 @@ reranker/fusion. No sample text or fixed evaluation query was rewritten.
 
 ## Historical measurements and archived interpretation
 
-The [report catalog](../../test/evaluation/reports/README.md) retains the
-October 2 control and October 3 candidate Go evaluator outputs for the 133-query
-golden and 64-query broader packs. Each pack records three retrieval runs,
+The October 2 control and October 3 candidate Go evaluator outputs used the
+133-query golden and 64-query broader packs. Each pack records three retrieval runs,
 rankings, model/config/corpus provenance and aggregate metrics. The control was
 not rerun October 3. These generated measurements describe the removed sample
-corpus and cannot establish quality for current uploaded documents.
+corpus and cannot establish quality for current uploaded documents. The
+historical inputs and results were retired on October 6 and are recoverable
+from Git revision `31c84e4`; see the
+[evaluator recovery guide](../../eval/README.md#retired-assets-and-recovery).
 
 Earlier manually assessed app runs identified wrong source scopes, omitted
 alternatives and lost follow-up modes. Selected sections, narrow missing-source
 guards, row-preserving literal attribution and complete source excerpts were
 adopted to address those observations. Manual app reviews, repetitions, model
 smoke tests and migration/restart checklists are archived; their records and
-original hashes remain in the [manifest](../../test/evaluation/reports/manifest.json).
-They are dated design history, separate from the generated retrieval results
-retained in the active catalog. No independent judge calibration or current
-owner usefulness is established by those archived interpretations.
+original hash manifest are recoverable from the preceding Git history and
+local backups. They are dated design history. No independent judge calibration
+or current owner usefulness is established by those archived interpretations.
 
 ## Consequences
 

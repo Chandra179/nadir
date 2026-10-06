@@ -35,7 +35,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		Logger: log,
 	})
 
-	graph, err := runtime.NewDependencies(startupCtx, cfg, log, runtime.Options{})
+	graph, err := runtime.NewDependencies(startupCtx, cfg, log)
 	if err != nil {
 		log.Error("shared runtime init failed", slog.Any("error", err))
 		return fmt.Errorf("shared runtime: %w", err)

@@ -11,11 +11,10 @@ import (
 // cachePolicyVersion fingerprints the ranking and embedding contract. Corpus
 // freshness is a separate cache generation; credentials never enter this
 // policy identity. JSON gives deterministic ordering to fusion-profile maps.
-func cachePolicyVersion(cfg *config.Config, opts Options) string {
+func cachePolicyVersion(cfg *config.Config) string {
 	embedding := cfg.Embedder
 	embedding.APIKey = ""
 	ranking := cfg.Reranker
-	ranking.Enabled = ranking.Enabled && !opts.DisableReranker
 	if !ranking.Enabled {
 		ranking = config.RerankerConfig{}
 	}

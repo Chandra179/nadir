@@ -32,14 +32,6 @@ import (
 	"log/slog"
 )
 
-// Options controls executable-specific changes to the configured graph.
-// Evaluators can bypass optional production features without rebuilding their
-// own copies of the infrastructure composition.
-type Options struct {
-	DisableReranker      bool
-	DisableSemanticCache bool
-}
-
 // Runtime is the shared retrieval and indexing graph. Function fields are
 // deliberately narrow Seams: callers receive capabilities without depending
 // on adapter implementations or storage lifecycle details.
@@ -51,7 +43,6 @@ type Runtime struct {
 	Searcher         search.Retriever
 	Ingest           indexing.Ingest
 	Reset            func(context.Context) error
-	Stats            func(context.Context) (qdrantstore.Stats, error)
 	DocumentVersions func(context.Context) (map[string]string, error)
 	QdrantHealth     func(context.Context) error
 	EmbeddingProbe   func(context.Context) (ollamaembedding.ProbeResult, error)
@@ -87,7 +78,7 @@ func retrievalFusionConfig(cfg config.FusionConfig) search.FusionConfig {
 // NewDependencies builds the shared Qdrant, embedding, indexing, cache, and
 // retrieval graph and validates its collections before returning. The caller
 // owns the returned Runtime and must call Close when its process exits.
-func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, opts Options) (*Runtime, error) {
+func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Runtime, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("runtime config is required")
 	}
@@ -134,7 +125,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		Clients:         clients,
 		Collection:      cfg.Qdrant.Collection,
 		PrefetchMul:     cfg.Qdrant.PrefetchMul,
-		AdaptiveSignals: (cfg.Reranker.AdaptiveEnabled && !opts.DisableReranker) || cfg.Search.Fusion.Enabled,
+		AdaptiveSignals: cfg.Reranker.AdaptiveEnabled || cfg.Search.Fusion.Enabled,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("qdrant store init: %w", err)
@@ -153,7 +144,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 	}
 
 	var semanticCache cache.SemanticCache
-	if cfg.SemanticCache.Enabled && !opts.DisableSemanticCache {
+	if cfg.SemanticCache.Enabled {
 		backend, cacheErr := qdrantcache.NewDependencies(qdrantcache.DependenciesConfig{
 			Clients:    clients,
 			Collection: cfg.SemanticCache.Collection,
@@ -170,7 +161,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 				TTL:         cfg.SemanticCache.TTL,
 				Telemetry:   telemetry,
 				QueryPrefix: cfg.Embedder.QueryPrefix,
-				Version:     cachePolicyVersion(cfg, opts),
+				Version:     cachePolicyVersion(cfg),
 			})
 			if candidateErr != nil {
 				log.Error("semantic cache init failed", slog.Any("error", candidateErr))
@@ -208,7 +199,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		Telemetry:               telemetry,
 		Log:                     log,
 	}
-	if cfg.Reranker.Enabled && !opts.DisableReranker {
+	if cfg.Reranker.Enabled {
 		rankerAdapter := reranker.NewDependencies(reranker.DependenciesConfig{
 			Addr:           cfg.Reranker.Addr,
 			Model:          cfg.Reranker.Model,
@@ -302,7 +293,6 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger, 
 		Searcher:         searcher,
 		Ingest:           ingestService,
 		Reset:            ingestService.DeleteAll,
-		Stats:            store.Stats,
 		DocumentVersions: store.GetAllFileSHAs,
 		QdrantHealth: func(ctx context.Context) error {
 			_, err := qdrantHealth.HealthCheck(ctx, &qdrant.HealthCheckRequest{})

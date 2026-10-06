@@ -297,7 +297,7 @@ type ContextualConfig struct {
 }
 
 // DefaultPath is the shipped YAML configuration, relative to the repository
-// root where `go run ./cmd/api` and `go run ./cmd/evaluator` are invoked.
+// root where `go run ./cmd/api` is invoked.
 const DefaultPath = "internal/bootstrap/configuration/config.yaml"
 
 // Load reads the YAML file at path, applies environment overrides, and

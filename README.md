@@ -329,39 +329,21 @@ go test -count=1 ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 
 ## Evaluate Retrieval quality
 
-The evaluation command runs the golden query set against the configured Qdrant
-collection, bypasses semantic cache, and reports HitRate, Recall, MRR, nDCG,
-and latency percentiles. It uses the configured reranker by default. Supply
-`--golden` with a question set for an available matching corpus:
+The Python [Ragas evaluator](eval/README.md) captures complete answers and source
+contexts from the public API, then scores the saved captures with an explicitly
+configured local or hosted OpenAI-compatible judge. See the guide for Python
+setup, current dataset inputs, re-scoring and the shared report format.
 
 ```bash
-go run ./cmd/evaluator --golden /path/to/questions.json --runs 3
-go run ./cmd/evaluator --golden /path/to/questions.json --no-rerank --runs 3
-go run ./cmd/evaluator --golden /path/to/questions.json \
-  --ensure-ingest --report .local/evaluation/local.json
+make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model phi4-mini:latest"
 ```
 
-The historical golden set is a schema-v3 pack of 133 expert-authored synthetic
-user-intent queries with direct, formula, procedure, comparison, multi-hop,
-ambiguous, negative, and distractor cases. It records the sample corpus
-manifest and two synthetic judgment passes, but its source corpus is no longer
-present. The fixture remains for schema checks and interpreting historical
-reports; it contains no production user data and is not a release gate.
-Earlier 34-query measurements remain in
-archived reports and Git history. Collect consent-safe production queries,
-privacy approval, and independent expert judgments before treating a score as
-a production release gate.
+Use [Locust](benchmark/README.md) for API performance. Both tools generate fresh
+reports under ignored `.local/` directories. Historical assets and retired tools
+are recoverable from commit `31c84e4`; see [recovery information](eval/README.md#retired-assets-and-recovery).
 
-Scratch evaluation reports default to ignored `.local/evaluation/`. The
-[report catalog](test/evaluation/reports/README.md) retains four generated
-retrieval measurements from October 2 and October 3, explains the shared run
-report format, and provides archive restoration instructions.
-
-The sample-based generators, optional public-math importer and saved-answer
-runner have been retired. For usefulness validation, review answers and cited
-passages for chosen documents and questions as described in [TODO](TODO.md).
-The generic judge-calibration utility remains available for new complete
-reviewer packets; no independent calibration is claimed.
+For usefulness validation, review answers and cited passages for chosen
+documents and questions as described in [TODO](TODO.md).
 
 ## API performance benchmarks
 

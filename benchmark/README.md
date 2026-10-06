@@ -79,7 +79,7 @@ Reports default to ignored `.local/benchmark/<UTC timestamp>-<run id>/`:
   with relative paths, SHA-256 and byte sizes in `runs[].artifacts`.
 
 Inputs can contain sensitive text; output stays local. The
-[shared report contract](../test/evaluation/reports/README.md#shared-result-format)
+[shared result format](../eval/README.md#shared-result-format)
 also applies to evaluator reports. `completed` describes successful execution;
 `failed`, `interrupted`, and `empty` records retain errors/partial measurements.
 Startup failures produce a report when the output directory is writable.
@@ -112,7 +112,7 @@ new turns are deleted. Cleanup failures appear as failed HTTP operations and
 make headless runs fail; cleanup is retried when a user stops. There is no reset
 of all sessions or documents.
 
-## Focused verification and retained evidence
+## Focused verification
 
 ```bash
 .local/benchmark/venv/bin/python -m unittest discover -s benchmark/tests -p 'test_*.py' -v
@@ -136,9 +136,9 @@ tar -xzf .local/benchmark-migration/2026-10-05-144042/before-migration.tar.gz \
   -C /tmp/nadir-tool-restore scripts/RETIRED_FILE.py
 ```
 
-Local backups are not distributed with Git. Historical evaluator payloads and
-original hashes remain traceable through the
-[report catalog](../test/evaluation/reports/README.md). Retrieval/answer quality
-checks use the [Go evaluator](../internal/eval/README.md); manual usefulness
-review remains in [TODO](../TODO.md). Local startup and generic judge calibration
-tools remain in `scripts/`.
+Local backups are not distributed with Git. The
+[evaluator guide](../eval/README.md#retired-assets-and-recovery) records
+recovery information for the retired historical evaluation data and calibration
+tool. Retrieval/answer quality checks use the [Ragas evaluator](../eval/README.md);
+manual usefulness review remains in [TODO](../TODO.md). Local startup and Podman
+setup tools live in `scripts/`.

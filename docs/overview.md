@@ -268,61 +268,34 @@ Fixture -> Evaluator ----------+
                     JSON report + provenance
                                |
                                v
-                 Owner review + judge calibration
+                    Answer and source review
 ```
 
 ### Retrieval metrics
 
-Evaluation bypasses the cache and requests `max(topK, 10)` results. It matches
-chunks to fixture source-path and text annotations. Duplicate annotations
-collapse to one evidence identity at the highest grade. Recall and nDCG credit
-each identity once, so overlapping chunks do not inflate gain.
+The root Python `eval/` suite evaluates the running public API with Ragas 0.4.3.
+Collection bypasses semantic cache, saves complete immediate/SSE answers, ranked
+retrieved chunks and admitted citation evidence, then scoring uses the immutable
+capture. Faithfulness uses admitted evidence, factual correctness uses reference
+answers, and context precision/recall use ranked retrieved chunks and references.
 
-| Metric | Definition |
-|---|---|
-| Hit Rate@k | Fraction of answerable questions with relevant evidence in the first k results |
-| Recall@k | Mean fraction of each question's annotated evidence found in the first k |
-| MRR@10 | Mean reciprocal rank of the first relevant result through rank ten; misses score zero |
-| Graded nDCG@k | Gain `2^grade - 1`, discounted by `log2(rank + 1)` and normalized against the ideal annotated ranking |
-| Distractor Hit Rate@k | Fraction of all questions with an annotated non-relevant distractor in the first k |
+The evaluator uses standard Ragas metric prompts and scoring, with an explicit
+OpenAI-compatible judge endpoint and model. Reports include per-sample scores,
+coverage, failures, input/artifact hashes, observed corpus/model metadata and Git
+provenance. Re-scoring creates a new report without generating new answers.
+Undefined values remain null with reasons. These scores need a fresh baseline;
+the former ranking metrics and custom judge were retired on October 6, 2026.
 
-Ranked metrics follow standard IR evaluation [8](#references); canonical
-evidence matching is Nadir's fixture policy. Questions without relevant
-annotations are abstention cases and are excluded from answerable denominators.
-Retrieval metrics do not measure whether an answer declines them correctly.
-
-Reports retain rankings and latencies for each run. Aggregate quality is the
-median of dataset-level metrics. Latency percentiles pool request samples and
-use linear interpolation. Reports preserve run order and identify the
-representative run used for legacy ranking fields.
-
-### Generation checks and provenance
-
-Reports retain the answer method, answer, admitted context, citation snapshots,
-judge response and failure class. The judge requires an explicit endpoint, a
-model distinct from the answer model, and a suitability explanation. Both
-models use temperature zero. Judge output is bounded and validated against a
-JSON score schema; there is no automatic fallback.
-
-The judge scores faithfulness, answer relevancy, context precision and context
-recall, plus abstention. These dimensions relate to RAGAs [9](#references), but
-Nadir uses its own local judge prompt. The scores are not interchangeable with
-RAGAs metrics and need independent human calibration.
-
-Provenance records fixture and configuration hashes, source-byte fingerprints
-and observed model metadata. File fingerprints do not prove the index contains
-those versions. The 133-question golden and 64-question representative fixtures
-are historical synthetic inputs; their source corpus has been removed.
-Production gates require consented, independently
-reviewed schema-v3 evidence and are outside the personal release target.
+Locust independently measures API workflow throughput and latency. Both tools
+use the version-1 report envelope and ignored `.local/` output directories. See
+the [evaluator guide](../eval/README.md) for inputs, commands and recovery.
 
 ## Status and limits
 
-The local engineering checklist passed on October 3, 2026 with installed
-defaults and agent-reviewed simulated questions. Usefulness review remains
-pending, and automated judge scores remain uncalibrated. The old calibration
-packet was retired with its missing source report. See project docs below for
-results, latencies and migration/rollback instructions.
+Usefulness review for chosen documents remains pending, and automated judge
+scores remain uncalibrated. Historical sample inputs/results and the optional
+calibration tool are retired. The evaluator guide describes fresh measurements
+and recovery of the former assets; ADRs retain dated design decisions.
 
 The component composition resembles Haystack pipelines [10](#references), but
 Nadir uses Go interfaces and functions and does not depend on Haystack or RAGAs
@@ -348,7 +321,7 @@ cancellation and latency budgets.
 The [documentation directory](https://github.com/Chandra179/nadir/tree/main/docs)
 contains the maintained guides and design records.
 
-- [Report catalog](../test/evaluation/reports/README.md) and [TODO](../TODO.md): dated results and remaining usefulness validation.
+- [Evaluator guide](../eval/README.md) and [TODO](../TODO.md): current measurements and remaining usefulness validation.
 - Design records: [event log](https://github.com/Chandra179/nadir/blob/main/docs/adr/0006-chat-streams-over-domain-owned-event-log.md), [capability seams](https://github.com/Chandra179/nadir/blob/main/docs/adr/0020-consumer-owned-capability-seams.md), [bounded contexts](https://github.com/Chandra179/nadir/blob/main/docs/adr/0022-bounded-context-layout.md) and [shared runtime](https://github.com/Chandra179/nadir/blob/main/docs/adr/0026-shared-runtime-composition.md).
-- Implementation guides: [chunking](https://github.com/Chandra179/nadir/blob/main/internal/core/documents/chunking/README.md), [Chat](https://github.com/Chandra179/nadir/blob/main/internal/core/conversation/chat/README.md) and [evaluation](https://github.com/Chandra179/nadir/blob/main/internal/eval/README.md).
-- [Fixtures and review instructions](https://github.com/Chandra179/nadir/blob/main/test/evaluation/README.md) and [report catalog](https://github.com/Chandra179/nadir/blob/main/test/evaluation/reports/README.md): retained evaluation inputs and evidence.
+- Implementation guides: [chunking](https://github.com/Chandra179/nadir/blob/main/internal/core/documents/chunking/README.md), [Chat](https://github.com/Chandra179/nadir/blob/main/internal/core/conversation/chat/README.md) and [evaluation](https://github.com/Chandra179/nadir/blob/main/eval/README.md).
+- [Locust benchmarks](../benchmark/README.md): API workloads and generated performance reports.

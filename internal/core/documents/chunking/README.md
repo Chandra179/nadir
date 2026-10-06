@@ -18,9 +18,11 @@ an automatic-mode warning does not become unlabeled manual-mode evidence.
 headings and a label, if present, for persisted citation context. Indexing uses
 the full path only when the same leaf occurs under distinct Markdown parent
 paths. A label under one unique heading uses `leaf > label`; broad document
-titles do not prefix every precise heading. This policy is a measured working
-candidate whose dated retrieval measurements and archived design history are
-indexed in the [report catalog](../../../../test/evaluation/reports/README.md).
+titles do not prefix every precise heading. The policy's dated measurements
+and design history are recorded in
+[ADR 0035](../../../../docs/adr/0035-source-scopes-and-local-quality-candidate.md).
+Use the [evaluator guide](../../../../eval/README.md) for new measurements on the
+current corpus.
 
 These source scopes and indexing inputs require a full reindex. Source-SHA
 skipping cannot upgrade an unchanged file. Preserve old collections and use a

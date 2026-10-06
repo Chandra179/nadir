@@ -13,7 +13,7 @@ func TestCachePolicyVersionChangesWithRetrievalContract(t *testing.T) {
 		Search:   config.SearchConfig{MaxFragments: 16, MaxChunksPerFile: 3},
 		Reranker: config.RerankerConfig{Enabled: true, Model: "ranker", CandidateMul: 3},
 	}
-	want := cachePolicyVersion(&base, Options{})
+	want := cachePolicyVersion(&base)
 	for _, test := range []struct {
 		name string
 		edit func(*config.Config)
@@ -37,13 +37,10 @@ func TestCachePolicyVersionChangesWithRetrievalContract(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			changed := base
 			test.edit(&changed)
-			if got := cachePolicyVersion(&changed, Options{}); got == want {
+			if got := cachePolicyVersion(&changed); got == want {
 				t.Fatal("retrieval policy change reused the same cache identity")
 			}
 		})
-	}
-	if got := cachePolicyVersion(&base, Options{DisableReranker: true}); got == want {
-		t.Fatal("runtime reranker override reused the same cache identity")
 	}
 }
 
@@ -56,7 +53,7 @@ func TestCachePolicyVersionIgnoresCredentialsAndMapInsertionOrder(t *testing.T) 
 	second.Search.Fusion.Profiles = map[string]config.FusionProfileConfig{
 		"factoid": {DenseWeight: 1}, "formula": {DenseWeight: 2},
 	}
-	if cachePolicyVersion(&first, Options{}) != cachePolicyVersion(&second, Options{}) {
+	if cachePolicyVersion(&first) != cachePolicyVersion(&second) {
 		t.Fatal("equivalent retrieval policies produced different cache identities")
 	}
 }

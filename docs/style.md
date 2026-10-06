@@ -29,7 +29,9 @@ conventions and [`logging.md`](logging.md) for logging conventions.
   ownership, and change cadence—not with arbitrary file counts. See
   [`../internal/README.md`](../internal/README.md) for the module contract.
 - Use Mockery-generated mocks for interfaces at unit-test seams. Keep generated
-  mocks under `mocks/`, out of production code, and configure Mockery once in
-  `.mockery.yaml`; do not hand-write a new fake for every test file. A small
+  mocks under `internal/testmocks/`, out of production code, and configure Mockery
+  once in `.mockery.yaml`; do not hand-write a new fake for every test file. A small
   hand-written stub remains acceptable when it is clearer for a value object or
   a one-line behavior, but it must not duplicate a reusable Mockery seam.
+  Run `make generate-mocks` to regenerate the configured Chat, Reader and
+  Retriever mocks with the pinned Mockery version.

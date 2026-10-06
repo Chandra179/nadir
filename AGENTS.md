@@ -30,17 +30,16 @@ curl -X POST localhost:8100/api/v1/documents
 curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"What are the main ideas in the uploaded document?","generate":false}'
 curl -X POST localhost:8100/api/v1/documents/reset                    # safely reset the Document collection
 
-# Retrieval quality evaluation (Qdrant + embedder, optional reranker must be running)
-DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents QDRANT_COLLECTION=documents_chunks_evaluation go run ./cmd/evaluator --golden /absolute/path/to/questions.json --runs 3
-DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents QDRANT_COLLECTION=documents_chunks_evaluation go run ./cmd/evaluator --golden /absolute/path/to/questions.json --no-rerank --runs 3
+# Ragas quality evaluation (a separate API index and explicit judge)
+make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model phi4-mini:latest"
 ```
 
 ## Architecture
 
-`cmd/api` and `cmd/evaluator` are the normal entrypoints. `internal/bootstrap`
-loads configuration and wires the process. `internal/edge/http` maps the
-versioned JSON/SSE API with `net/http`. The evaluator is a separate CLI that
-uses the same Retrieval and prompt code.
+`cmd/api` is the backend entrypoint. `internal/bootstrap` loads configuration
+and wires the process. `internal/edge/http` maps the versioned JSON/SSE API with
+`net/http`. Python `eval/` evaluates the public API using Ragas; `benchmark/`
+uses Locust for performance.
 
 ```
 GET  /api/v1/documents → active file/version inventory and last import this process
@@ -62,8 +61,7 @@ GET  /api/v1/health → liveness; GET /api/v1/ready → dependency readiness
 - `internal/bootstrap/gates/` owns process-local operation gates for indexing
   and destructive operations plus bounded background jobs; LLM/embedding
   concurrency is owned by the Ollama scheduler.
-- `internal/eval/` is the evaluator library; it shares retrieval and prompt
-  building with the API.
+- Root `eval/` owns capture, Ragas scoring and shared report helpers; it does not import application internals.
 
 The React dashboard remains in `web/dashboard`, and the Python reranker and
 optional Docling processes remain in `sidecars/`. Compose builds `cmd/api`, so
@@ -81,7 +79,7 @@ normal local and Compose startup use the same backend.
 - Optional `embedder.num_gpu` (`EMBEDDER_NUM_GPU`) preserves Ollama placement when omitted; `0` runs embeddings on CPU, `-1` lets Ollama choose, and positive values request GPU layers. Measure model coexistence and latency before changing a hardware profile.
 - Embedder task prefixes (`embedder.query_prefix`/`document_prefix`) apply at call sites, not in the embedder; changing either requires a reindex
 - The enrichment flag (`enrichment.contextual.enabled`) affects ingest only; enabling after a prior ingest requires a reindex
-- Retrieval fusion is opt-in under `search.fusion`; it uses weighted rank-RRF plus optional exact/header boosts and must be compared against the default Qdrant RRF path on the golden set before enabling.
+- Retrieval fusion is opt-in under `search.fusion`; it uses weighted rank-RRF plus optional exact/header boosts and must be compared against the default Qdrant RRF path on current reference questions before enabling.
 
 ## Addresses: local vs Podman Compose
 
@@ -111,14 +109,16 @@ The `gates` section configures `internal/bootstrap/gates` process-wide finite qu
 ingestion until source directories are configured; upload chosen documents in
 the dashboard paperclip instead. The base Compose stack also has no source mount; use
 `deploy/compose/compose.sources.yaml` with an explicit `DOCUMENTS_DIR` for one.
-The sample corpus has been removed. Historical evaluation fixtures remain for
-schema checks and interpreting dated reports. Live evaluations require an
-explicit query set and matching source directories in a separate collection,
+The sample corpus and historical evaluation assets have been removed. Live
+evaluations require an explicit query set and matching source directories in a separate collection,
 as shown above. API performance workloads live in `benchmark/`; see its README
 for the dedicated Python environment and explicit workload inputs. `scripts/`
-keeps local startup, Podman setup and generic judge calibration utilities.
+keeps local startup and Podman setup tools. Evaluator input definitions and
+report guidance live in `eval/README.md`; synthetic fixtures are created
+inside the evaluation tests.
 
 Evaluator and Locust outputs share the versioned run-report contract in
-`test/run-report-contract.json`. Generated reports stay in ignored `.local/`
-by default. The active result catalog retains four historical evaluator
-measurements; manual app/workflow records and retired runner output are archived.
+`eval/run-report-contract.json`. Generated reports stay in ignored `.local/`
+by default. Historical data and the optional calibration tool are recoverable
+from Git revision `31c84e4` or the verified local backup recorded in the
+evaluator guide.

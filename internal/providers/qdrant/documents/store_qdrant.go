@@ -545,26 +545,6 @@ func (s *dependencies) getAllFileSHAs(ctx context.Context) (map[string]string, e
 	return shas, nil
 }
 
-func (s *dependencies) Stats(ctx context.Context) (Stats, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	shas, err := s.getAllFileSHAs(ctx)
-	if err != nil {
-		return Stats{}, fmt.Errorf("stats file count: %w", err)
-	}
-
-	info, err := s.collection.Get(ctx, &qdrant.GetCollectionInfoRequest{CollectionName: s.activeAlias})
-	if err != nil {
-		return Stats{}, fmt.Errorf("stats collection info: %w", err)
-	}
-
-	return Stats{
-		Documents: len(shas),
-		Chunks:    int(info.GetResult().GetPointsCount()),
-	}, nil
-}
-
 var chunkIDNamespace = uuid.MustParse("a3b4c5d6-e7f8-4a5b-9c0d-1e2f3a4b5c6d")
 
 // pointID derives a stable UUID for a chunk from its document-version

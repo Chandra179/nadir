@@ -107,8 +107,9 @@ pre-registration (4b passes the gate → flip). gemma3:1b remains the
 documented low-latency fallback and still passes the gate post-fixes.
 These are September 29 measurements with an uncalibrated automatic judge.
 The raw 1B/4B reports were archived on October 5; the dated results and model
-decision remain above. See the
-[archive index and restoration instructions](../../test/evaluation/reports/README.md#archived-experiments-and-restoration).
+decision remain above. Following the October 6 cleanup, see the
+[evaluator recovery guide](../../eval/README.md#retired-assets-and-recovery)
+for Git history and local backups of the former evaluation assets.
 
 ## Consequences
 

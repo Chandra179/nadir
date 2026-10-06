@@ -54,9 +54,18 @@ active release gate until those external artifacts are present.
 
 ## Maintenance, October 5, 2026
 
-The sample corpus has been removed. The committed fixture remains unchanged
-for schema checks and interpreting historical reports. Live evaluation now
+The sample corpus was removed. At that point the committed fixture remained
+for schema checks and interpreting historical reports. Live evaluation
 requires an explicit `--golden` input and an available matching corpus; the
 schema and production-gate requirements above still apply.
 The ARQMath importer was also retired because its source corpus and candidate
 pack were absent; the public-data decision above describes the earlier research.
+
+## Maintenance, October 6, 2026
+
+The historical fixtures, reports and schema-v3 Go harness are retired. The
+new [Ragas API evaluator](../../eval/README.md) requires `user_input` and
+`reference` inputs for the current corpus. The earlier schema and production-gate
+decisions above describe historical policy, not the new CLI. Earlier assets are
+recoverable at Git revision `31c84e4`; see the
+[evaluator guide](../../eval/README.md#retired-assets-and-recovery).

@@ -1,6 +1,6 @@
 # 0018 — Restore a repeatable Retrieval evaluation Module
 
-- **Status:** Accepted
+- **Status:** Superseded by [0036](0036-ragas-api-evaluation.md)
 - **Date:** 2026-09-12
 - **Deciders:** Chandra, Codex
 - **Supersedes:** [0010](0010-remove-offline-eval-harness.md)
@@ -37,3 +37,11 @@ server or becomes a runtime dependency.
   corpus and generation faithfulness is evaluated separately.
 - The evaluator is an additional development entrypoint, not a production
   server process or distributed coordinator.
+
+## Maintenance, October 6, 2026
+
+The Go command and evaluation-only library are retired in favor of root `eval/`
+using the deployed API and Ragas. This ADR preserves the original decision;
+its ranking metrics and custom judge are not the current scoring contract.
+See [0036](0036-ragas-api-evaluation.md) and the
+[recovery guide](../../eval/README.md#retired-assets-and-recovery).

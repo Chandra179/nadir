@@ -118,22 +118,10 @@ through the Nadir API with this sidecar enabled. Direct sidecar and model-profil
 benchmark tools were retired October 5. Locust records API workflow latency and
 throughput alongside the API's available process metrics.
 
-Use the Go evaluator to compare retrieval quality on the same explicit query
-set and matching corpus with and without reranking:
-
-```bash
-DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
-  QDRANT_COLLECTION=documents_chunks_evaluation \
-  go run ./cmd/evaluator --golden /absolute/path/to/questions.json --runs 3
-DOCUMENTS_PATHS=/absolute/path/to/evaluation-documents \
-  QDRANT_COLLECTION=documents_chunks_evaluation \
-  go run ./cmd/evaluator --golden /absolute/path/to/questions.json --no-rerank --runs 3
-```
-
-Record the sidecar model, backend, device and hardware when comparing API runs.
-Keep inputs fixed; the historical synthetic fixtures require their original
-corpus and do not establish production quality. See the
-[evaluator guide](../../internal/eval/README.md) for quality metrics and limits.
+Run separately configured API instances with reranking enabled and disabled,
+then use the same dataset with `make eval`. See the [Ragas evaluator guide](../../eval/README.md)
+for capture, re-scoring and metric limits. Record the sidecar model, backend,
+device and hardware; keep input questions and indexed source versions fixed.
 
 The repository launcher `./scripts/local.sh` starts this sidecar from the
 project virtual environment and starts Qdrant and the Go API separately.

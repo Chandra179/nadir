@@ -23,9 +23,8 @@ index/cache were cleared; normal startup selects an empty reading index.
 History and the older rollback index remain. These are October 5 maintenance
 changes; they are not a new answer-quality measurement.
 
-The active evidence consists of four evaluator-generated retrieval reports
-measured October 2 and October 3 against the former sample corpus. Earlier app
-reviews and workflow checklists are archived. Usefulness for chosen documents
-still needs the review described above.
-
-- [Generated evaluator measurements and archive](test/evaluation/reports/README.md)
+Historical sample inputs and results were retired on October 6. New quality
+checks use questions for chosen documents and the
+[Ragas evaluator](eval/README.md); performance runs use
+[Locust](benchmark/README.md). Reports are generated under ignored `.local/`.
+Usefulness for chosen documents still needs the review described above.
