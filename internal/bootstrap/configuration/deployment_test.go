@@ -39,6 +39,10 @@ func TestDeploymentModelDefaultsMatchLocalConfiguration(t *testing.T) {
 		"EMBEDDER_DOCUMENT_PREFIX": local.Embedder.DocumentPrefix,
 		"GENERATOR_MODEL":          local.Generator.Model,
 		"REWRITE_MODEL":            local.Rewriter.Model,
+		"CONTEXTUAL_MODEL":         local.Enrichment.Contextual.Model,
+		"GENERATOR_THINK":          "false",
+		"REWRITE_THINK":            "false",
+		"CONTEXTUAL_THINK":         "false",
 		"RERANKER_ENABLED":         "false",
 	}
 	for name, want := range defaults {

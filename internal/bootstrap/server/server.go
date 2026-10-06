@@ -52,6 +52,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		gen = ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
 			Addr:           generatorEndpoint.Addr,
 			Model:          generatorEndpoint.Model,
+			Think:          cfg.Generator.Think,
 			RequestTimeout: cfg.Generator.RequestTimeout,
 			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 			Options: map[string]any{
@@ -133,6 +134,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			chatRewriter = ollamarewriter.NewDependencies(ollamarewriter.DependenciesConfig{
 				Addr:           rewriteEndpoint.Addr,
 				Model:          rewriteEndpoint.Model,
+				Think:          cfg.Rewriter.Think,
 				RequestTimeout: cfg.Rewriter.RequestTimeout,
 				KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
 			})

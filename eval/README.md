@@ -51,7 +51,7 @@ the same questions and indexed source versions.
 .local/eval/venv/bin/python -m eval validate --dataset /absolute/path/questions.json
 
 # Complete local run, explicitly selecting the installed judge
-make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model phi4-mini:latest"
+make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model qwen3.5:4b --judge-reasoning-effort none"
 
 # Save answers first; no judge required
 .local/eval/venv/bin/python -m eval collect \
@@ -69,6 +69,14 @@ dataset and judge endpoint/model are required where applicable. Credentials are
 read from the named environment variable; only its name enters reports. Local
 services accepting no credentials receive a placeholder key. No endpoint/model
 fallback occurs. Only OpenAI-compatible chat-completion endpoints are supported.
+
+`--judge-reasoning-effort` explicitly forwards the chosen endpoint's supported
+effort to Ragas's model factory. Omit it to retain the endpoint's default. For
+Ollama Qwen, the example selects `none` to keep the framework's bounded output
+available for structured judgments; default thinking can exhaust that budget
+before returning JSON. This option changes model inference settings, preserving
+Ragas prompts and metric algorithms. Ollama documents the compatibility mapping
+in its [OpenAI-compatible API](https://docs.ollama.com/api/openai-compatibility).
 
 Defaults: top-k 5, one repetition, sequential samples and metrics, 120 seconds
 per complete API workflow and 300 seconds per metric. Override with `--top-k`,

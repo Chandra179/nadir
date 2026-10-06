@@ -101,6 +101,9 @@ func (d *dependencies) chat(ctx context.Context, system, user string) (string, e
 			"num_predict": 128,
 		},
 	}
+	if d.think != nil {
+		payload["think"] = *d.think
+	}
 	if d.keepAlive != "" {
 		payload["keep_alive"] = d.keepAlive
 	}

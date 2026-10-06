@@ -108,9 +108,14 @@ against the cited evidence.
 | Role | Default | Behavior |
 |---|---|---|
 | Embeddings | EmbeddingGemma 300M (`embeddinggemma-300m-q8:latest`) | 768 dimensions; changing the model or task prefixes requires a reindex |
-| Answers | Gemma 3 4B (`gemma3:4b`) | Streamed, bounded output; no automatic model fallback |
-| Follow-up rewriting | Gemma 3 1B (`gemma3:1b`) | Used for unresolved references; failure retains the original wording |
-| Contextual enrichment | Gemma 3 1B (`gemma3:1b`) | Off by default; changing enrichment requires a reindex |
+| Answers | Qwen 3.5 4B (`qwen3.5:4b`) | Streamed, bounded output; no automatic model fallback |
+| Follow-up rewriting | Qwen 3.5 4B (`qwen3.5:4b`) | Used for unresolved references; failure retains the original wording |
+| Contextual enrichment | Qwen 3.5 4B (`qwen3.5:4b`) | Off by default; changing enrichment requires a reindex |
+
+These text roles explicitly disable Ollama thinking so bounded generation and
+rewrite requests return final text. Each role's optional `think` setting accepts
+`true` or `false`; omission preserves the model default. Embeddings and the
+optional cross-encoder continue to use models suited to those tasks.
 | Reranking | BAAI BGE reranker v2-M3 | Off by default; one request at a time |
 
 Configure models in

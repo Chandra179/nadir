@@ -232,6 +232,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		enricher = ollamaenrichment.NewDependencies(ollamaenrichment.DependenciesConfig{
 			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
 			ContextualModel: cfg.Enrichment.Contextual.Model,
+			Think:           cfg.Enrichment.Contextual.Think,
 			RequestTimeout:  cfg.Enrichment.RequestTimeout,
 			KeepAlive:       cfg.Inference.Ollama.KeepAlive.String(),
 		})

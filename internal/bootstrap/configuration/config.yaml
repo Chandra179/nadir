@@ -120,7 +120,8 @@ enrichment:
   contextual:
     enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
     ollama_addr: "http://localhost:11434"
-    model: "gemma3:1b"
+    model: "qwen3.5:4b"
+    think: false             # request final context text without a reasoning trace
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
@@ -131,7 +132,8 @@ semantic_cache:
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
   ollama_addr: "http://localhost:11434"
-  model: "gemma3:4b"  # explicitly configured answer model; evaluation commands are in eval/README.md; no automatic model fallback
+  model: "qwen3.5:4b"  # explicitly configured answer model; evaluation commands are in eval/README.md; no automatic model fallback
+  think: false          # keep the bounded output budget for the answer
   request_timeout: 120s
   max_output_tokens: 512 # bound answer generation; prevents an unending stream
   num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX)
@@ -155,7 +157,8 @@ rewriter:
   turns: 4           # prior turns fed to the rewriter
   request_timeout: 8s
   ollama_addr: "http://localhost:11434"
-  model: "gemma3:1b"
+  model: "qwen3.5:4b"
+  think: false       # a bounded rewrite must return the search query
 
 history:
   enabled: true              # persists chat sessions/turns to Qdrant, no extra infra

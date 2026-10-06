@@ -14,9 +14,12 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 
 ```bash
 ollama pull embeddinggemma-300m-q8
-ollama pull gemma3:4b   # configured answer model
-ollama pull gemma3:1b   # configured follow-up rewrite model
+ollama pull qwen3.5:4b   # generation, follow-up rewriting and optional enrichment
 ```
+
+The default text roles use Qwen with `think: false`. This keeps their bounded
+output budgets available for answer text and search rewrites. Each role can set
+`think: true`; omitting the setting leaves Ollama's model default in effect.
 
 ## Quick start
 
@@ -216,10 +219,13 @@ of every knob, open `internal/bootstrap/configuration/config.yaml`.
 | `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
 | `QDRANT_COLLECTION` | `documents_chunks_reading` | Qdrant collection name; older collections are not selected automatically |
 | `OLLAMA_ADDR` | `http://host.containers.internal:11434` | Ollama host |
-| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `gemma3:4b` | Explicit answer-generation endpoint and model |
+| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `qwen3.5:4b` | Explicit answer-generation endpoint and model |
+| `GENERATOR_THINK` | `false` | Request model thinking for answer generation; enabling it consumes the bounded output budget |
 | `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
-| `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `gemma3:1b` | Explicit follow-up-rewriting endpoint and model |
-| `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `gemma3:1b` | Explicit contextual-enrichment endpoint and model |
+| `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `qwen3.5:4b` | Explicit follow-up-rewriting endpoint and model |
+| `REWRITE_THINK` | `false` | Request model thinking for follow-up rewrites |
+| `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `qwen3.5:4b` | Explicit contextual-enrichment endpoint and model |
+| `CONTEXTUAL_THINK` | `false` | Request model thinking for optional contextual enrichment |
 | `EMBEDDER_NUM_GPU` | unset | Optional Ollama embedder placement: `0` CPU, `-1` automatic, positive GPU layer count |
 | `EMBEDDER_API_KEY` | — | Embedder API key, if required |
 | `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
@@ -335,7 +341,7 @@ configured local or hosted OpenAI-compatible judge. See the guide for Python
 setup, current dataset inputs, re-scoring and the shared report format.
 
 ```bash
-make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model phi4-mini:latest"
+make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model qwen3.5:4b --judge-reasoning-effort none"
 ```
 
 Use [Locust](benchmark/README.md) for API performance. Both tools generate fresh
@@ -431,8 +437,7 @@ document reindex.
 
 ```bash
 ollama pull embeddinggemma-300m-q8
-ollama pull gemma3:4b   # configured answer model
-ollama pull gemma3:1b   # configured follow-up rewrite model
+ollama pull qwen3.5:4b   # generation, follow-up rewriting and optional enrichment
 ```
 
 ### Qdrant gRPC errors

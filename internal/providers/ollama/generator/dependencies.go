@@ -12,6 +12,7 @@ import (
 type DependenciesConfig struct {
 	Addr           string
 	Model          string
+	Think          *bool // nil leaves the model default unchanged
 	RequestTimeout time.Duration
 	KeepAlive      string
 	Format         any
@@ -22,6 +23,7 @@ type DependenciesConfig struct {
 type dependencies struct {
 	addr      string
 	model     string
+	think     *bool
 	client    *http.Client
 	keepAlive string
 	format    any
@@ -39,6 +41,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
 		addr:      cfg.Addr,
 		model:     cfg.Model,
+		think:     cfg.Think,
 		keepAlive: cfg.KeepAlive,
 		format:    cfg.Format,
 		options:   cloneOptions(cfg.Options),

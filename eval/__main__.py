@@ -44,6 +44,7 @@ def parser():
             sub.add_argument("--judge-base-url", required=True)
             sub.add_argument("--judge-model", required=True)
             sub.add_argument("--judge-api-key-env")
+            sub.add_argument("--judge-reasoning-effort", help="explicit endpoint-supported effort, e.g. none for Ollama Qwen")
             sub.add_argument("--metric-timeout", type=positive, default=300)
         if command != "validate":
             sub.add_argument("--output-dir", type=Path)
@@ -61,7 +62,7 @@ async def execute(options, run):
             run, options.dataset, options.host, options.top_k, options.timeout, options.repetitions)
         if options.command in {"run", "score"}:
             await score(run, path, JudgeConfig(options.judge_base_url, options.judge_model,
-                                             options.judge_api_key_env, options.metric_timeout))
+                                             options.judge_api_key_env, options.metric_timeout, options.judge_reasoning_effort))
     except (asyncio.CancelledError, KeyboardInterrupt):
         interrupted = True
         run.record["errors"].append("evaluation interrupted")
@@ -89,7 +90,7 @@ def main(argv=None):
             validate_url(options.host)
         if options.command in {"run", "score"}:
             JudgeConfig(options.judge_base_url, options.judge_model,
-                        options.judge_api_key_env, options.metric_timeout).validate()
+                        options.judge_api_key_env, options.metric_timeout, options.judge_reasoning_effort).validate()
         inputs = {k: str(v) if isinstance(v, Path) else v for k, v in vars(options).items() if k != "output_dir"}
         run = Run(options.command, inputs, options.output_dir)
     except (ValueError, OSError) as error:

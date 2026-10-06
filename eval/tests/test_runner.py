@@ -173,6 +173,11 @@ class InputTests(unittest.TestCase):
             JudgeConfig("http://local/v1", "model", "NONEXISTENT_NADIR_JUDGE_KEY").validate()
         with self.assertRaises(ValueError):
             JudgeConfig("http://local/v1", " ").validate()
+        with self.assertRaises(ValueError):
+            JudgeConfig("http://local/v1", "model", reasoning_effort=" ").validate()
+        config = JudgeConfig("http://local/v1", "qwen3.5:4b", reasoning_effort="none")
+        config.validate()
+        self.assertEqual(config.provenance()["reasoning_effort"], "none")
 
     def test_cli_judge_failure_and_interruption_exit_codes(self):
         with tempfile.TemporaryDirectory() as folder:

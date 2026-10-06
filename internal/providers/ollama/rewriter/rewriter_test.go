@@ -147,3 +147,36 @@ func TestBuildPromptShape(t *testing.T) {
 		t.Errorf("prompt shows %d assistant replies, want 1", got)
 	}
 }
+
+func TestThinkingControlPreservesExplicitFalseTrueAndModelDefault(t *testing.T) {
+	for _, name := range []string{"default", "false", "true"} {
+		t.Run(name, func(t *testing.T) {
+			var think *bool
+			if name != "default" {
+				value := name == "true"
+				think = &value
+			}
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request map[string]json.RawMessage
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Errorf("decode request: %v", err)
+					return
+				}
+				got, present := request["think"]
+				if name == "default" {
+					if present {
+						t.Errorf("think must be omitted for model default, got %s", got)
+					}
+				} else if !present || string(got) != name {
+					t.Errorf("think = %s (present=%v), want %s", got, present, name)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]string{"content": "question?"}})
+			}))
+			defer srv.Close()
+			d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "qwen3.5:4b", Think: think})
+			if _, err := d.Rewrite(context.Background(), nil, "question?"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

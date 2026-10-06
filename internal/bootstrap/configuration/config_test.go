@@ -405,3 +405,64 @@ func TestDoclingRequiresAddressWhenEnabled(t *testing.T) {
 		t.Fatal("Validate() succeeded with enabled Docling and empty address")
 	}
 }
+
+func TestOllamaThinkingConfiguration(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range []struct {
+		name, model string
+		think       *bool
+	}{
+		{"generator", cfg.Generator.Model, cfg.Generator.Think},
+		{"rewriter", cfg.Rewriter.Model, cfg.Rewriter.Think},
+		{"contextual", cfg.Enrichment.Contextual.Model, cfg.Enrichment.Contextual.Think},
+	} {
+		if role.model != "qwen3.5:4b" || role.think == nil || *role.think {
+			t.Errorf("%s must explicitly select Qwen with thinking disabled", role.name)
+		}
+	}
+	for _, env := range []string{"GENERATOR_THINK", "REWRITE_THINK", "CONTEXTUAL_THINK"} {
+		for _, value := range []string{"true", "false", "invalid"} {
+			t.Run(env+"/"+value, func(t *testing.T) {
+				t.Setenv(env, value)
+				cfg, err := Load("config.yaml")
+				if value == "invalid" {
+					if err == nil || !strings.Contains(err.Error(), env) {
+						t.Fatalf("error = %v, want invalid %s", err, env)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := map[string]*bool{"GENERATOR_THINK": cfg.Generator.Think, "REWRITE_THINK": cfg.Rewriter.Think, "CONTEXTUAL_THINK": cfg.Enrichment.Contextual.Think}[env]
+				if got == nil || *got != (value == "true") {
+					t.Fatalf("%s override = %v, want %s", env, got, value)
+				}
+			})
+		}
+	}
+	data, err := os.ReadFile("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.Contains(line, "think:") {
+			lines = append(lines, line)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Generator.Think != nil || cfg.Rewriter.Think != nil || cfg.Enrichment.Contextual.Think != nil {
+		t.Fatal("omitted thinking settings must preserve the model defaults")
+	}
+}

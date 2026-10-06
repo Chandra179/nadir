@@ -43,6 +43,9 @@ func (d *dependencies) chat(ctx context.Context, addr, model, system, user strin
 			"temperature": 0.2,
 		},
 	}
+	if d.think != nil {
+		payload["think"] = *d.think
+	}
 	if d.keepAlive != "" {
 		payload["keep_alive"] = d.keepAlive
 	}

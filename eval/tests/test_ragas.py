@@ -42,7 +42,7 @@ class RagasTests(unittest.IsolatedAsyncioTestCase):
                   "retrieved_contexts": ["full-first", "irrelevant", "full-third"],
                   "admitted_contexts": ["truncated admitted evidence"]}
         with patch.dict(os.environ, {"EVAL_TEST_KEY": "private-test-key"}):
-            judge = RagasJudge(JudgeConfig("https://judge.example/custom/v1", "selected-judge", "EVAL_TEST_KEY"),
+            judge = RagasJudge(JudgeConfig("https://judge.example/custom/v1", "selected-judge", "EVAL_TEST_KEY", reasoning_effort="none"),
                                transport=httpx.MockTransport(handler))
             try:
                 scores = {name: await judge.score(name, sample) for name in METRICS}
@@ -57,9 +57,11 @@ class RagasTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("truncated admitted evidence", nli_prompts[0])
         self.assertNotIn("full-first", nli_prompts[0])
         self.assertEqual(len(requests), 10)
+        self.assertTrue(all(body.get("reasoning_effort") == "none" for body in requests))
 
     async def test_framework_undefined_and_invalid_json(self):
         async def handler(request):
+            self.assertNotIn("reasoning_effort", json.loads(request.content))
             return httpx.Response(200, json={"id": "stub", "object": "chat.completion", "created": 1,
                 "model": "test", "choices": [{"index": 0,
                     "message": {"role": "assistant", "content": '{"statements": []}'}, "finish_reason": "stop"}]})

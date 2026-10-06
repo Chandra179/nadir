@@ -11,6 +11,7 @@ import (
 type DependenciesConfig struct {
 	Addr           string        // Ollama base addr, e.g. http://localhost:11434
 	Model          string        // instruct LLM used for rewriting
+	Think          *bool         // nil leaves the model default unchanged
 	RequestTimeout time.Duration // timeout for one rewrite request
 	KeepAlive      string
 }
@@ -19,6 +20,7 @@ type DependenciesConfig struct {
 type dependencies struct {
 	addr      string
 	model     string
+	think     *bool
 	client    *http.Client
 	keepAlive string
 }
@@ -34,6 +36,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
 		addr:      cfg.Addr,
 		model:     cfg.Model,
+		think:     cfg.Think,
 		keepAlive: cfg.KeepAlive,
 		client:    &http.Client{Timeout: timeout},
 	}

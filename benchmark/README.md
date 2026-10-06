@@ -55,6 +55,11 @@ Retrieval, chat, mixed and follow-up bypass semantic cache. Cache runs reuse it;
 existing cache entries can make the seed a hit too. Follow-up history is polled
 before the second turn because persistence can lag the seed response.
 
+Cache reuse requires at least `--top-k` reusable results. The default API admits
+at most three chunks per source file, so a one-file corpus can miss repeatedly
+at top-k 5. Index additional sources or explicitly choose a smaller top-k for
+that corpus; the workload reports a miss as a failure.
+
 Each upload uses a unique filename to prevent unchanged-file skipping. Uploaded
 documents **remain in the target index**. Use a separate
 evaluation API configured with dedicated document, cache and history collections

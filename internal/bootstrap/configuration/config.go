@@ -248,7 +248,8 @@ type SemanticCacheConfig struct {
 type GeneratorConfig struct {
 	Enabled         bool          `yaml:"enabled"`
 	OllamaAddr      string        `yaml:"ollama_addr"`
-	Model           string        `yaml:"model"` // LLM model, e.g. llama3.1:8b-instruct-q4_K_M
+	Model           string        `yaml:"model"` // explicitly selected Ollama answer model
+	Think           *bool         `yaml:"think"` // nil uses the model default; false reserves the output budget for answers
 	RequestTimeout  time.Duration `yaml:"request_timeout"`
 	MaxOutputTokens int           `yaml:"max_output_tokens"`
 	// NumCtx pins the Ollama context window so the assembled prompt
@@ -277,6 +278,7 @@ type RewriterConfig struct {
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 	OllamaAddr     string        `yaml:"ollama_addr"`
 	Model          string        `yaml:"model"`
+	Think          *bool         `yaml:"think"`
 }
 
 // EnrichmentConfig controls index-time LLM enrichment. It costs one-time
@@ -294,6 +296,7 @@ type ContextualConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	OllamaAddr string `yaml:"ollama_addr"`
 	Model      string `yaml:"model"`
+	Think      *bool  `yaml:"think"`
 }
 
 // DefaultPath is the shipped YAML configuration, relative to the repository
@@ -353,6 +356,9 @@ func (c *Config) applyEnv() error {
 	}
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
+	if err := c.envOptionalBool(&c.Generator.Think, "GENERATOR_THINK"); err != nil {
+		return err
+	}
 	if err := c.envInt(&c.Generator.MaxOutputTokens, "GENERATOR_MAX_OUTPUT_TOKENS"); err != nil {
 		return err
 	}
@@ -431,11 +437,17 @@ func (c *Config) applyEnv() error {
 	}
 	c.envStr(&c.Enrichment.Contextual.OllamaAddr, "CONTEXTUAL_ADDR")
 	c.envStr(&c.Enrichment.Contextual.Model, "CONTEXTUAL_MODEL")
+	if err := c.envOptionalBool(&c.Enrichment.Contextual.Think, "CONTEXTUAL_THINK"); err != nil {
+		return err
+	}
 	if err := c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED"); err != nil {
 		return err
 	}
 	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
 	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
+	if err := c.envOptionalBool(&c.Rewriter.Think, "REWRITE_THINK"); err != nil {
+		return err
+	}
 	if err := c.envInt(&c.Rewriter.Turns, "REWRITE_TURNS"); err != nil {
 		return err
 	}
@@ -494,6 +506,18 @@ func (c *Config) envBool(dst *bool, env string) error {
 			return fmt.Errorf("config: %s must be one of true, false, 1, or 0", env)
 		}
 	}
+	return nil
+}
+
+func (c *Config) envOptionalBool(dst **bool, env string) error {
+	if os.Getenv(env) == "" {
+		return nil
+	}
+	var value bool
+	if err := c.envBool(&value, env); err != nil {
+		return err
+	}
+	*dst = &value
 	return nil
 }
 

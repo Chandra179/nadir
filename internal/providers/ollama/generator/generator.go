@@ -17,6 +17,7 @@ import (
 
 type ollamaChatRequest struct {
 	Model     string          `json:"model"`
+	Think     *bool           `json:"think,omitempty"`
 	Messages  []ollamaMessage `json:"messages"`
 	Stream    bool            `json:"stream"`
 	KeepAlive string          `json:"keep_alive,omitempty"`
@@ -42,6 +43,7 @@ type ollamaChatChunk struct {
 func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
 	body, err := json.Marshal(ollamaChatRequest{
 		Model:     g.model,
+		Think:     g.think,
 		Messages:  []ollamaMessage{{Role: "user", Content: prompt}},
 		Stream:    true,
 		KeepAlive: g.keepAlive,

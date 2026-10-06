@@ -12,6 +12,7 @@ import (
 type DependenciesConfig struct {
 	ContextualAddr  string        // Ollama base addr for contextual retrieval
 	ContextualModel string        // instruct LLM used for contextual retrieval
+	Think           *bool         // nil leaves the model default unchanged
 	RequestTimeout  time.Duration // timeout for one enrichment request
 	KeepAlive       string
 }
@@ -20,6 +21,7 @@ type DependenciesConfig struct {
 type dependencies struct {
 	contextualAddr  string
 	contextualModel string
+	think           *bool
 	client          *http.Client
 	keepAlive       string
 }
@@ -35,6 +37,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 	return &dependencies{
 		contextualAddr:  cfg.ContextualAddr,
 		contextualModel: cfg.ContextualModel,
+		think:           cfg.Think,
 		client:          &http.Client{Timeout: timeout},
 		keepAlive:       cfg.KeepAlive,
 	}

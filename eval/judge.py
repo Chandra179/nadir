@@ -15,6 +15,7 @@ class JudgeConfig:
     model: str
     api_key_env: str | None = None
     timeout: float = 300
+    reasoning_effort: str | None = None
 
     def validate(self):
         validate_url(self.base_url)
@@ -24,10 +25,13 @@ class JudgeConfig:
             raise ValueError("judge timeout must be positive and finite")
         if self.api_key_env and not os.environ.get(self.api_key_env):
             raise ValueError(f"judge credential environment variable {self.api_key_env} is empty")
+        if self.reasoning_effort is not None and not self.reasoning_effort.strip():
+            raise ValueError("judge reasoning effort must be nonempty when specified")
 
     def provenance(self):
         return {"base_url": self.base_url, "model": self.model,
-                "api_key_env": self.api_key_env, "metric_timeout_seconds": self.timeout}
+                "api_key_env": self.api_key_env, "metric_timeout_seconds": self.timeout,
+                "reasoning_effort": self.reasoning_effort}
 
 
 class RagasJudge:
@@ -45,7 +49,8 @@ class RagasJudge:
             timeout=config.timeout, max_retries=0,
             http_client=httpx.AsyncClient(transport=transport, timeout=config.timeout, trust_env=transport is None),
         )
-        llm = llm_factory(config.model, client=self.client, provider="openai")
+        model_options = {} if config.reasoning_effort is None else {"reasoning_effort": config.reasoning_effort}
+        llm = llm_factory(config.model, client=self.client, provider="openai", **model_options)
         self.metrics = {
             "faithfulness": Faithfulness(llm=llm),
             "factual_correctness": FactualCorrectness(llm=llm, mode="f1"),
