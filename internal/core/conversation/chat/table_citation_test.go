@@ -23,7 +23,7 @@ func TestLiteralTableCellUsesQueryRowAndSourceDeclaredColumnAlias(t *testing.T) 
 			t.Fatalf("literal cell cited definition: %q, %v", answer, terminal)
 		}
 		waitFor(t, func() bool { return len(history.turns()) == 1 })
-		if history.turns()[0].Answer != answer || CorrectCitationAttributions(turn.Query, "12.5 [2]", turn.Citations) != answer {
+		if history.turns()[0].Answer != answer || correctCitationAttributions(turn.Query, "12.5 [2]", turn.Citations) != answer {
 			t.Fatal("stream, history and evaluator citation correction differ")
 		}
 	}
@@ -41,12 +41,12 @@ func TestTableAttributionDoesNotGuessRowColumnOrComputeValues(t *testing.T) {
 		{"How much does the count differ from target in Zone 2?", "8 [2]"},
 		{"How much does the count differ from target in Zone 2?", "42 [2]"},
 	} {
-		if got := CorrectCitationAttributions(tc.query, tc.answer, citations); got != tc.answer {
+		if got := correctCitationAttributions(tc.query, tc.answer, citations); got != tc.answer {
 			t.Fatalf("guessed table support: query=%q answer=%q got=%q", tc.query, tc.answer, got)
 		}
 	}
 	duplicate := append(citations, Citation{Number: 3, Text: table})
-	if got := CorrectCitationAttributions("What is the count in Zone 2?", "42 [2]", duplicate); got != "42 [2]" {
+	if got := correctCitationAttributions("What is the count in Zone 2?", "42 [2]", duplicate); got != "42 [2]" {
 		t.Fatalf("ambiguous table attribution changed: %q", got)
 	}
 }
@@ -61,11 +61,11 @@ func TestMalformedTableFragmentsCannotPanicOrEstablishAttribution(t *testing.T) 
 
 func TestRecordedUnitConversionRequiresBothUnitsAndTheLiteralCell(t *testing.T) {
 	citations := []Citation{{Number: 1, Text: "| Meters | Feet |\n|---|---|\n| 30 | 98.4 |\n| 40 | 131.2 |"}, {Number: 2, Text: "Feet measure distance."}}
-	if got := CorrectCitationAttributions("30 meters expressed in feet", "98.4 [2]", citations); got != "98.4 [1]" {
+	if got := correctCitationAttributions("30 meters expressed in feet", "98.4 [2]", citations); got != "98.4 [1]" {
 		t.Fatalf("recorded conversion cited definition: %q", got)
 	}
 	for _, query := range []string{"30 seconds expressed in feet", "40 meters expressed in feet", "35 meters expressed in feet"} {
-		if got := CorrectCitationAttributions(query, "98.4 [2]", citations); got != "98.4 [2]" {
+		if got := correctCitationAttributions(query, "98.4 [2]", citations); got != "98.4 [2]" {
 			t.Fatalf("units, row or absent conversion guessed: %q for %q", got, query)
 		}
 	}

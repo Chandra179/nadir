@@ -13,7 +13,7 @@ import gevent
 from gevent.pywsgi import WSGIServer
 from locust.env import Environment
 
-from benchmark.api import ApiClient, BenchmarkError, Config, consume_stream
+from benchmark.api import BenchmarkError, Config, consume_stream
 from benchmark.locustfile import NadirUser
 
 

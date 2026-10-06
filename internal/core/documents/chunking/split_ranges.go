@@ -110,11 +110,3 @@ func hardSplitRanges(value string, span textSpan, size, overlap int) []textSpan 
 	}
 	return chunks
 }
-
-func hardSplit(value string, size, overlap int) []string {
-	var chunks []string
-	for _, span := range hardSplitRanges(value, textSpan{0, len(value)}, size, overlap) {
-		chunks = append(chunks, value[span.start:span.end])
-	}
-	return chunks
-}

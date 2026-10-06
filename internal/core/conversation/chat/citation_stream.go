@@ -252,13 +252,6 @@ func matchesQualifiedProperty(c Citation, claim string) bool {
 	return false
 }
 
-// CorrectCitationAttributions applies the same conservative stream correction
-// to an evaluator's collected answer. It does not validate semantic support.
-func CorrectCitationAttributions(query, answer string, citations []Citation) string {
-	stream := citationStream{query: query, citations: citations}
-	return stream.push(answer) + stream.flush()
-}
-
 func matchesVerbatimSentence(text, claim string) bool {
 	// Retain line boundaries: a condition or negation just before/after the
 	// copied words must not be mistaken for a supported complete assertion.

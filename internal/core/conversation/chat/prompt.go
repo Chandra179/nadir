@@ -67,7 +67,7 @@ type ContextBuild struct {
 	Citations []Citation
 }
 
-// PromptBuild is one shared assembly result for generation, judging and
+// PromptBuild is one shared assembly result for generation and
 // source display. Err is set when the question alone exhausts the model budget.
 type PromptBuild struct {
 	Prompt  string
@@ -168,14 +168,6 @@ func BuildContextWithStats(chunks []search.Chunk, maxTokens int) ContextBuild {
 	built.Stats.IncludedChunks = len(built.Citations)
 	return built
 }
-
-func BuildContext(chunks []search.Chunk, maxTokens int) string {
-	return BuildContextWithStats(chunks, maxTokens).Text
-}
-
-// EstimateTokens is the shared conservative prompt estimate for answer and
-// judge model windows. It is independent of a provider-specific tokenizer.
-func EstimateTokens(s string) int { return estimateTokens(s) }
 
 // estimateTokens uses both character density and lexical boundaries. Word
 // count alone badly undercounts equations, code, long identifiers and CJK.

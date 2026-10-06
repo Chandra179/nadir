@@ -8,6 +8,13 @@ import (
 	"nadir/internal/core/retrieval/search"
 )
 
+// correctCitationAttributions feeds a complete answer through the production
+// stream implementation for focused citation regression checks.
+func correctCitationAttributions(query, answer string, citations []Citation) string {
+	stream := citationStream{query: query, citations: citations}
+	return stream.push(answer) + stream.flush()
+}
+
 func TestVerbatimClaimUsesUniqueSupportingSectionInStreamAndHistory(t *testing.T) {
 	const claim = "Backpressure: limit queues and concurrent work when producers are faster than consumers."
 	store := &fakeHistory{}
@@ -29,11 +36,11 @@ func TestVerbatimClaimUsesUniqueSupportingSectionInStreamAndHistory(t *testing.T
 func TestLiteralDenialDropsAnUnrelatedCitationOnlyForItsCompleteAssertion(t *testing.T) {
 	const answer = "No. Scripts provide atomic execution, not a transaction with another service [1, 2]."
 	citations := []Citation{{Number: 1, Text: "Scripts provide atomic execution, not a transaction with another service."}, {Number: 2, Text: "A lock expires after processing."}}
-	if got := CorrectCitationAttributions("Does a script make another service atomic?", answer, citations); got != "No. Scripts provide atomic execution, not a transaction with another service [1]." {
+	if got := correctCitationAttributions("Does a script make another service atomic?", answer, citations); got != "No. Scripts provide atomic execution, not a transaction with another service [1]." {
 		t.Fatalf("complete denial kept unrelated source: %q", got)
 	}
 	separate := strings.Replace(answer, "[1, 2]", "[1], [2]", 1)
-	if got := CorrectCitationAttributions("Does a script make another service atomic?", separate, citations); got != "No. Scripts provide atomic execution, not a transaction with another service [1], [1]." {
+	if got := correctCitationAttributions("Does a script make another service atomic?", separate, citations); got != "No. Scripts provide atomic execution, not a transaction with another service [1], [1]." {
 		t.Fatalf("adjacent citation retained unrelated source: %q", got)
 	}
 }
@@ -41,22 +48,22 @@ func TestLiteralDenialDropsAnUnrelatedCitationOnlyForItsCompleteAssertion(t *tes
 func TestCompleteVerticalAndImperativeListsUseTheirActualSources(t *testing.T) {
 	citations := []Citation{{Number: 1, Text: "A record stores more than its body. Record fields:\nName\nOwner\nSize\n\nA record has an identifier."}, {Number: 2, Text: "A header."}}
 	const answer = "Record fields: Name, Owner, and Size [1, 2]."
-	if got := CorrectCitationAttributions("Which record fields are stored?", answer, citations); got != "Record fields: Name, Owner, and Size [1]." {
+	if got := correctCitationAttributions("Which record fields are stored?", answer, citations); got != "Record fields: Name, Owner, and Size [1]." {
 		t.Fatalf("complete vertical list kept unrelated source: %q", got)
 	}
 	for _, text := range []string{"Record fields:\nName\nOwner\nSize\nSecret", "Record fields:\nName\nOwner\nSize only for active records\n", "If active, Record fields:\nName\nOwner\nSize\n"} {
 		citations[0].Text = text
-		if got := CorrectCitationAttributions("Which record fields are stored?", answer, citations); got != answer {
+		if got := correctCitationAttributions("Which record fields are stored?", answer, citations); got != answer {
 			t.Fatalf("incomplete/conditional vertical list accepted: %q", got)
 		}
 	}
 	citations[0].Text = "estimate request rate, payload size, retention, and concurrent users."
 	const list = "request rate, payload size, retention, and concurrent users [1, 2]."
-	if got := CorrectCitationAttributions("Which workload estimates are needed?", list, citations); got != "request rate, payload size, retention, and concurrent users [1]." {
+	if got := correctCitationAttributions("Which workload estimates are needed?", list, citations); got != "request rate, payload size, retention, and concurrent users [1]." {
 		t.Fatalf("explicit imperative list kept unrelated source: %q", got)
 	}
 	citations[0].Text = "estimate request rate, payload size, retention, and concurrent users only for peak load."
-	if got := CorrectCitationAttributions("Which workload estimates are needed?", list, citations); got != list {
+	if got := correctCitationAttributions("Which workload estimates are needed?", list, citations); got != list {
 		t.Fatalf("imperative condition omitted: %q", got)
 	}
 }
@@ -64,12 +71,12 @@ func TestCompleteVerticalAndImperativeListsUseTheirActualSources(t *testing.T) {
 func TestExactSubsectionLabelUsesItsSourceWithoutDroppingLabelConditions(t *testing.T) {
 	const answer = "Using Unique Keys / Idempotent Updates [2]."
 	citations := []Citation{{Number: 1, Text: "Using Unique Keys / Idempotent Updates: repeated writes produce the same result."}, {Number: 2, Text: "Consumers support batching."}}
-	if got := CorrectCitationAttributions("How should a consumer handle duplicate writes?", answer, citations); got != "Using Unique Keys / Idempotent Updates [1]." {
+	if got := correctCitationAttributions("How should a consumer handle duplicate writes?", answer, citations); got != "Using Unique Keys / Idempotent Updates [1]." {
 		t.Fatalf("explicit subsection label cited unrelated source: %q", got)
 	}
 	for _, text := range []string{"Using Unique Keys / Idempotent Updates only with deduplication: repeats are safe.", "If deduplication is enabled, Using Unique Keys / Idempotent Updates: repeats are safe."} {
 		citations[0].Text = text
-		if got := CorrectCitationAttributions("How should a consumer handle duplicate writes?", answer, citations); got != answer {
+		if got := correctCitationAttributions("How should a consumer handle duplicate writes?", answer, citations); got != answer {
 			t.Fatalf("label condition omitted: %q", got)
 		}
 	}
@@ -81,7 +88,7 @@ func TestCompleteNamedPropertyCanRepeatInOneVersionedSection(t *testing.T) {
 	copy := source
 	copy.Number = 3
 	citations := []Citation{source, {Number: 2, Text: "Rules constrain legal predicates."}, copy}
-	if got := CorrectCitationAttributions("Which ownership and activity examples distinguish these edges?", answer, citations); got != "Ownership: MEMBER_OF, OWNED_BY, OPERATED_BY [1]." {
+	if got := correctCitationAttributions("Which ownership and activity examples distinguish these edges?", answer, citations); got != "Ownership: MEMBER_OF, OWNED_BY, OPERATED_BY [1]." {
 		t.Fatalf("repeated exact property kept unrelated source: %q", got)
 	}
 	for _, changed := range []Citation{
@@ -89,7 +96,7 @@ func TestCompleteNamedPropertyCanRepeatInOneVersionedSection(t *testing.T) {
 		{Number: 3, FilePath: source.FilePath, Header: source.Header, SourceSHA: "version2", Text: source.Text},
 	} {
 		citations[2] = changed
-		if got := CorrectCitationAttributions("Which examples?", answer, citations); got != answer {
+		if got := correctCitationAttributions("Which examples?", answer, citations); got != answer {
 			t.Fatalf("different sections/versions treated as one source: %q", got)
 		}
 	}
@@ -99,7 +106,7 @@ func TestCompleteNamedListAttributionDoesNotUseItsClippedTail(t *testing.T) {
 	const query = "Which capacity limits should the design identify?"
 	const answer = "memory, storage, bandwidth, or connections [2]."
 	citations := []Citation{{Number: 1, Text: "Identify capacity limits: memory, storage, bandwidth, or connections."}, {Number: 2, Text: "ry, storage, bandwidth, or connections."}}
-	if got := CorrectCitationAttributions(query, answer, citations); got != "memory, storage, bandwidth, or connections [1]." {
+	if got := correctCitationAttributions(query, answer, citations); got != "memory, storage, bandwidth, or connections [1]." {
 		t.Fatalf("complete list kept clipped source: %q", got)
 	}
 	for _, text := range []string{
@@ -109,7 +116,7 @@ func TestCompleteNamedListAttributionDoesNotUseItsClippedTail(t *testing.T) {
 		"Other criteria: memory, storage, bandwidth, or connections.",
 	} {
 		citations[0].Text = text
-		if got := CorrectCitationAttributions(query, answer, citations); got != answer {
+		if got := correctCitationAttributions(query, answer, citations); got != answer {
 			t.Fatalf("list omitted condition or ignored field: %q from %q", got, text)
 		}
 	}
@@ -148,12 +155,12 @@ func TestSectionQualifiedVerbatimPropertyUsesItsActualSource(t *testing.T) {
 		{Number: 2, Header: "Optimization > Epsilon Method", Text: "A succession of estimates approximates an optimum."},
 		{Number: 3, Header: "Optimization > Delta Method > Properties", Text: "Does not require calculating gradients"},
 	}
-	if got := CorrectCitationAttributions("Does the epsilon method require gradients?", answer, citations); got != "The epsilon method does not require calculating gradients [1]." {
+	if got := correctCitationAttributions("Does the epsilon method require gradients?", answer, citations); got != "The epsilon method does not require calculating gradients [1]." {
 		t.Fatalf("section-qualified property cited introduction: %q", got)
 	}
 	for _, text := range []string{"Does not require calculating gradients if the approximation is accurate", "Does require calculating gradients", "Does not require calculating Gradients"} {
 		citations[0].Text = text
-		if got := CorrectCitationAttributions("Does the epsilon method require gradients?", answer, citations); got != answer {
+		if got := correctCitationAttributions("Does the epsilon method require gradients?", answer, citations); got != answer {
 			t.Fatalf("qualifier ignored a condition, negation or symbol case: %q with %q", got, text)
 		}
 	}

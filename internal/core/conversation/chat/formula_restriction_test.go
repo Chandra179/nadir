@@ -17,10 +17,10 @@ func TestCopiedFormulaRetainsItsRecordedDomainInStreamHistoryAndEvaluation(t *te
 	}}, Generator: &fakeGenerator{tokens: strings.Split(raw, "")}})
 	turn := d.StartTurn(context.Background(), Request{Query: "What is the rate formula?", Generate: true})
 	answer, _ := drain(t, d, turn)
-	if answer != want || CorrectCitationAttributions(turn.Query, raw, turn.Citations) != want {
+	if answer != want || correctCitationAttributions(turn.Query, raw, turn.Citations) != want {
 		t.Fatalf("formula lost its literal domain: %q", answer)
 	}
-	if got := CorrectCitationAttributions(turn.Query, answer, turn.Citations); got != answer {
+	if got := correctCitationAttributions(turn.Query, answer, turn.Citations); got != answer {
 		t.Fatalf("restriction duplicated on replay: %q", got)
 	}
 	waitFor(t, func() bool { return len(h.turns()) == 1 })
@@ -42,7 +42,7 @@ func TestFormulaRestrictionIsNeverInferredOrBorrowedFromAnUncitedSection(t *test
 		if c.Number != 2 {
 			citations = append(citations, Citation{Number: 2, Text: "Other evidence."})
 		}
-		if got := CorrectCitationAttributions("What is the rate?", answer, citations); got != answer {
+		if got := correctCitationAttributions("What is the rate?", answer, citations); got != answer {
 			t.Fatalf("unrecorded or differently scoped restriction added: %q", got)
 		}
 	}

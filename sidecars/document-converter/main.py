@@ -101,7 +101,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         main_cli()
     elif app is not None:
-        import uvicorn
         uvicorn.run(app, host="0.0.0.0", port=5003)
     else:
         print("install fastapi+uvicorn for server mode, or pass --input/--output for CLI mode")

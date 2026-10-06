@@ -5,10 +5,6 @@ export function listDocuments(): Promise<DocumentsResponse> {
   return request<DocumentsResponse>("/api/v1/documents");
 }
 
-export function resetDocuments(): Promise<void> {
-  return request<void>("/api/v1/documents/reset", { method: "POST" });
-}
-
 export function ingestDocuments(files: File[]): Promise<IngestResponse> {
   const form = new FormData();
   for (const file of files) form.append("files", file);

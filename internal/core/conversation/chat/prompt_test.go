@@ -8,11 +8,11 @@ import (
 )
 
 func TestBuildContextIncludesSectionHeaders(t *testing.T) {
-	got := BuildContext([]search.Chunk{{
+	got := BuildContextWithStats([]search.Chunk{{
 		FilePath: "linear-algebra.md",
 		Header:   "Special Matrices",
 		Text:     "Identity, diagonal, symmetric, and orthogonal matrices.",
-	}}, 100)
+	}}, 100).Text
 
 	if !strings.Contains(got, "source: linear-algebra.md > Special Matrices") {
 		t.Fatalf("context = %q, want section header in source citation", got)

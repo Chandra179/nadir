@@ -99,8 +99,3 @@ export type DocumentsResponse = {
   last_import?: { completed_at: string; result: IngestResponse };
   last_import_scope: "since_process_start";
 };
-
-export type DeleteResponse = {
-  deleted: boolean;
-  error?: string;
-};

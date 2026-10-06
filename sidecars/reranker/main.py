@@ -150,9 +150,6 @@ class TorchInt8Reranker:
         scores = logits.squeeze(-1) if logits.ndim > 1 else logits
         return torch.sigmoid(scores)
 
-    def to(self, device):
-        return self  # CPU-only; CrossEncoder-interface compatibility
-
 
 def baked_quantized_file() -> str | None:
     """Return the baked int8 onnx filename if it matches RERANKER_MODEL.

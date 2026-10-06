@@ -144,9 +144,13 @@ func TestSentenceWindowChunkerBuildsBoundedWindows(t *testing.T) {
 }
 
 func TestHardSplitHandlesUnicodeAndOverlap(t *testing.T) {
-	got := hardSplit("αβγδεζη", 3, 1)
+	const value = "αβγδεζη"
+	var got []string
+	for _, span := range hardSplitRanges(value, textSpan{0, len(value)}, 3, 1) {
+		got = append(got, value[span.start:span.end])
+	}
 	if len(got) != 3 || got[0] != "αβγ" || got[1] != "γδε" || got[2] != "εζη" {
-		t.Fatalf("hardSplit() = %#v, want rune-safe overlapping chunks", got)
+		t.Fatalf("hardSplitRanges() = %#v, want rune-safe overlapping chunks", got)
 	}
 }
 

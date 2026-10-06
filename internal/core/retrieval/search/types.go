@@ -33,8 +33,8 @@ type HybridSearchResult struct {
 }
 
 // QueryType is an optional retrieval hint. Production callers may leave it
-// empty and let Search classify the query; evaluation callers should pass the
-// golden-set annotation so calibration is measured against a stable label.
+// empty and let Search classify the query; internal callers may supply a stable
+// label to select a configured fusion profile.
 type QueryType string
 
 const (
@@ -74,9 +74,8 @@ type FusionConfig struct {
 }
 
 // RerankTelemetry describes the decision and cost of the optional reranker
-// for one Retrieval request. It is intentionally provider-neutral so the
-// evaluator can measure coverage and dependency load without coupling to an
-// adapter implementation.
+// for one Retrieval request. It is provider-neutral and records coverage and
+// dependency load without coupling callers to an adapter implementation.
 type RerankTelemetry struct {
 	Enabled       bool    `json:"enabled"`
 	Attempted     bool    `json:"attempted"`
