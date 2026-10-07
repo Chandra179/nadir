@@ -1,332 +1,139 @@
 ---
 title: "Nadir"
-description: "Nadir is a private-document RAG chat app with hybrid search."
-seoTitle: "Nadir: Private-Document RAG Chat with Hybrid Search"
-seoDescription: "Nadir is a private-document RAG chat app with hybrid search."
-answerSummary: "Nadir is a private-document RAG chat app with hybrid search."
+description: "Nadir answers questions from private documents using meaning and keyword search."
+seoTitle: "Nadir: Answers from Private Documents"
+seoDescription: "How Nadir searches documents, writes answers, and checks quality and speed."
+answerSummary: "Nadir finds useful text by meaning and by matching words, then uses it to write answers with source references. Ragas checks answer quality, and Locust measures speed."
 tags: [system-design, llm, rag]
 links:
   github: "https://github.com/Chandra179/nadir"
 created: 2026-09-10
-updated: 2026-10-04
+updated: 2026-10-07
 ---
 
-# Nadir: A Private-Document RAG Chat with Hybrid Search
+# Nadir: Answers from Private Documents
 
-Nadir searches documents, answers questions from retrieved passages, and saves
-cited text for review. The current release targets one person working with
-local Markdown technical notes.
+Nadir answers questions from documents you choose. It finds useful text in
+those documents, then asks a language model to write an answer using it.
 
-## How it works
+You can import documents, inspect sources, ask follow-up questions, edit a
+conversation and stop an answer. Answers appear as they are written. Documents
+and conversations stay local when the storage and models run locally.
 
-```text
-Documents -> chunk + embed -> Qdrant
-                               |
-                               v
-Question + history -------> retrieve
-                               |
-                               v
-                        context + sources
-                               |
-                               v
-                          answer -> browser
-```
-
-The React dashboard supports imports, source inspection, follow-ups, edits,
-cancellation and saved conversations. Search combines semantic and keyword
-retrieval. Similar questions can reuse cached passages, and imports skip
-unchanged documents.
-
-Documents, questions and answers stay local when all configured services run
-locally. Reranking, contextual enrichment and PDF conversion are off by
-default. PDF intake requires the Docling sidecar and is outside the current
-release target.
-
-## Algorithms
-
-### Chunking and source versions
-
-The default recursive chunker uses Goldmark's Markdown syntax tree to retain
-headings, short bold labels and source locations. It splits on paragraph,
-line, sentence and word boundaries, with a Unicode-safe fallback. Chunks
-default to 512 runes with 64-rune overlap. Short split sections retain a bounded
-full-section window for generation. A sentence-window chunker is experimental.
-
-Each chunk gets a deterministic UUIDv5 from
-`filePath:sourceSHA:lineStart:chunkIndex`. Replacements are staged before
-activation; old versions are then deactivated and cleaned. Imports skip
-unchanged source hashes. Changes to chunking, embedding inputs or enrichment
-require a full reindex into a separate collection. Publication coordination
-covers one API process.
-
-### Dense and lexical retrieval
-
-An embedding model maps questions and passages to 768-dimensional vectors for
-semantic search. The lexical encoder lowercases and tokenizes text, hashes
-terms with FNV-1a, and stores term-frequency sparse vectors. Qdrant applies
-corpus IDF.
-
-Natural-question encoding drops common English function words but keeps
-negation and numbers. Indexed documents and keyword lookups keep all terms.
-This is a **BM25-style TF/IDF signal**, without BM25 term saturation or
-document-length normalization.
-
-### Rank fusion and reranking
-
-Reciprocal Rank Fusion (RRF) combines dense and lexical result ranks without
-comparing raw scores [1](#references). The default uses Qdrant's native fusion
-[2](#references). An opt-in local variant sums `weight / (k + rank)` using
-one-based ranks and `k=60`, with optional exact-match and heading boosts. Its
-scoring differs from Qdrant's and should be measured before use.
-
-An optional cross-encoder reranks leading passages against the question. If it
-fails, retrieval keeps the existing order.
-
-### Semantic cache
-
-The cache reuses retrieved passages when a question exceeds a similarity
-threshold. Cache compatibility includes the embedding configuration, TTL and
-a local invalidation generation. Publishing documents suspends reuse and
-invalidates outstanding writes, so delayed work cannot restore stale results.
-Filtered searches and evaluations bypass the cache.
-
-### Context and answer generation
-
-The prompt builder selects passages in retrieval order, preserves source
-labels and reserves an output budget. Token counts are estimates. The answer
-model is instructed to use the selected material. Saved citations retain the
-cited text and source version after reindexing.
-
-Literal-comparison and citation rules handle explicit source statements.
-Follow-up guards preserve a selected subject and decline conditions documented
-only for a competing alternative. These rules cover specific English and
-literal cases; they do not verify support for arbitrary answers. Review answers
-against the cited evidence.
-
-## Models and configuration
-
-| Role | Default | Behavior |
-|---|---|---|
-| Embeddings | EmbeddingGemma 300M (`embeddinggemma-300m-q8:latest`) | 768 dimensions; changing the model or task prefixes requires a reindex |
-| Answers | Qwen 3.5 4B (`qwen3.5:4b`) | Streamed, bounded output; no automatic model fallback |
-| Follow-up rewriting | Qwen 3.5 4B (`qwen3.5:4b`) | Used for unresolved references; failure retains the original wording |
-| Contextual enrichment | Qwen 3.5 4B (`qwen3.5:4b`) | Off by default; changing enrichment requires a reindex |
-
-These text roles explicitly disable Ollama thinking so bounded generation and
-rewrite requests return final text. Each role's optional `think` setting accepts
-`true` or `false`; omission preserves the model default. Embeddings and the
-optional cross-encoder continue to use models suited to those tasks.
-| Reranking | BAAI BGE reranker v2-M3 | Off by default; one request at a time |
-
-Configure models in
-[`config.yaml`](https://github.com/Chandra179/nadir/blob/main/internal/bootstrap/configuration/config.yaml)
-with environment overrides. Each enabled text-model role has its own Ollama
-endpoint and model. Readiness checks the index, embedder, enabled reranker and
-answer/rewrite model metadata. Metadata does not prove inference capacity;
-actual turns check serving on the current hardware.
-
-## Runtime and hardware profiles
-
-Both local workflows run on one workstation. `./scripts/local.sh` runs the API
-and optional reranker on the host, with Qdrant in Podman. Podman Compose runs
-the API, Qdrant and optional reranker in containers. Both connect to Ollama on
-the host; the dashboard runs separately. See the
-[Compose deployment guide](../deploy/compose/README.md) for setup instructions.
+## Algorithms and approach
 
 ```text
-Dashboard (browser)
-       |
-       v
-API [host: local.sh | Podman: Compose] ----> Qdrant [Podman]
-       |                                      (both workflows)
-       +-----------------------------------> Ollama [host]
-       +-----------------------------------> Reranker [optional]
-                                                host: local.sh
-                                                Podman: Compose
-                                                CPU default; NVIDIA GPU overlay
+Documents -> Markdown AST -> small pieces -> saved numbers + word counts
+                                                       |
+Question -> follow-up rewrite -> numbers + word counts -+
+                                                       |
+                                            Meaning + keyword search
+                                                       |
+                                            RRF combines rankings
+                                                       |
+                                            BGE reranking (optional)
+                                                       |
+                                            Qwen answer + source references
 ```
 
-The reranker is off by default and uses CPU when enabled. NVIDIA GPU reranking
-uses an opt-in Compose overlay on Linux or Windows WSL2 with NVIDIA CDI. It
-shares GPU memory with Ollama, so measure capacity before enabling it. On
-Apple Silicon, keep reranking on CPU; Ollama can use Metal.
+### Parse and split documents
 
-Indexing and destructive-operation coordination, along with live generation
-events, are local to each API process. Run one API instance; multiple instances
-won't coordinate operations or share live events.
+Goldmark parses Markdown into an abstract syntax tree (AST): a tree of headings,
+lists and text blocks. Recursive splitting breaks that text at paragraph, line,
+sentence and word boundaries while keeping headings and source locations.
+Short sections can retain surrounding text to keep their meaning.
 
-## Application architecture
+### Index documents
 
-Nadir is a modular monolith with ports and adapters [3](#references). Documents,
-Retrieval and Conversation run in one Go process and own separate
-responsibilities. Core packages define their interfaces and do not import
-HTTP, provider or frontend code.
+EmbeddingGemma 300M turns each piece into a list of numbers, called an embedding
+or vector, that represents its meaning. Indexing saves these numbers, word
+counts, text and source details for searching.
 
-```text
-Browser (React + TypeScript + Vite)
-                 |
-                 | JSON requests + SSE
-                 v
-HTTP edge (Go net/http)
-                 |
-                 v
-Core: Documents | Retrieval | Conversation
-                 |
-                 | calls through core-owned interfaces
-                 v
-Providers: Qdrant | Ollama | reranker | Docling
+### Rewrite follow-up questions
 
-Bootstrap wires the API and evaluator from these components.
-```
+Qwen 3.5 4B uses recent messages to make follow-ups understandable on their own
+before searching (Rewrite-Retrieve-Read). Rules keep the selected subject when
+the question says “it” or “the second one.” First questions skip rewriting;
+failed rewrites use the original question. The answer still uses the original
+question and document text.
 
-Documents handles intake, indexing and source versions. Retrieval handles
-search, fusion, reranking and cache. Conversation handles sessions, history,
-generation and event replay. Bootstrap wires the API and evaluator from shared
-components.
+### Search by meaning and words
 
-Goldmark parses Markdown. Go's standard library handles HTTP, cancellation,
-Unicode and slice operations. The application defines source identity, context
-admission, conversation revisions and evidence matching.
+EmbeddingGemma also turns the question into numbers. **Cosine similarity**
+compares those numbers with the document numbers. Higher scores suggest a
+closer match in meaning.
 
-### Retrieval flow
+**TF/IDF keyword search** matches words. TF counts how often a word appears;
+IDF gives words found in fewer documents more weight. This helps with exact
+names and technical terms.
 
-```text
-Question
-   |
-   v
-Compatible cache hit? -- yes --> cached passages
-   |
-   no
-   v
-Split into sub-questions when applicable
-   |
-   v
-Dense + lexical search -> rank fusion
-   |
-   v
-Limit passages per document -> optional reranking
-   |
-   v
-Final passages -> cache when eligible
-```
+**Reciprocal Rank Fusion (RRF)** combines the two search rankings using each
+result's position in the lists. Text that ranks highly in both gets more weight.
 
-### Conversation lifecycle
+### Rerank the found text
 
-Follow-ups use recent history and, when available, a saved source section. A
-selected subject bypasses rewriting; unresolved references may be rewritten
-for retrieval. Generation receives the original question and bounded
-reference context separately. This follows Rewrite-Retrieve-Read
-[4](#references) with a local rewriter.
+The optional BGE reranker v2-M3 is a **cross-encoder**: it reads each question/text
+pair, gives it a match score and reorders the text. This step is currently off;
+if it fails, the original search order is kept.
 
-| Mechanism | Behavior and boundary |
-|---|---|
-| Supervised generation | Chat runs generation independently of the HTTP request. Closing the page detaches its observer; explicit cancellation saves a partial answer. Provider failure, timeout or shutdown can also stop generation. |
-| Replayable event log | Monotonic IDs support replay and live events. Slow observers disconnect; expired cursors receive a resync event. The bounded log is in memory. |
-| Revision validation | Editing removes the selected turn and later turns before answering from earlier history. Edits and deletions cancel affected work; a local mutex prevents stale saves from restoring removed turns. |
-| Source snapshots | Saved turns retain citation text and source hashes across reindexing. Chats, documents and cached results have separate deletion lifecycles. |
+### Generate an answer
 
-Within one process, revision validation follows Optimistic Offline Lock
-[5](#references). SSE event IDs and `Last-Event-ID` support reconnection
-[6](#references). Go's `context.AfterFunc` detaches cancelled subscriptions
-[7](#references).
+Qwen 3.5 4B is instructed to answer using the best text that fits within its input
+limit and add numbered source references. Those references keep the text shown
+to the model. They help you check an answer but do not guarantee correctness.
 
-Written history survives restarts; live generation and replay logs do not.
-Graceful shutdown tries to save partial answers before a timeout. An abrupt
-failure can lose the final write.
+### Reuse search results
 
-### Resource limits
+A cache saves found text and can reuse it for a similar question. Document
+updates clear stale results. Quality tests skip this reuse and search again.
 
-Indexing has a single-writer budget; destructive operations use a separate
-finite queue. Reset coordinates with indexing, and queue timeouts return
-capacity errors. Ollama schedules LLM and embedding work. The optional
-reranker has a one-at-a-time client queue. These limits apply to one API
-process.
+## Evaluation with Ragas
 
-## Evaluation
+Ragas 0.4.3 checks whether answers agree with the source text and expected answers,
+and whether search finds useful text. Scores range from 0 to 1; higher is better.
 
-The evaluator CLI uses the API's Retrieval service, context builder,
-literal-comparison path and citation correction. API tests and app review check
-browser streaming and full conversation lifecycles separately.
+October 6, 2026: Qwen 3.5 4B answered and graded three questions from two documents,
+using EmbeddingGemma 300M for embeddings, with reranking off.
 
-```text
-API conversation --------------+
-                               |
-Fixture -> Evaluator ----------+
-                               |
-                               v
-                       Shared Retrieval
-                               |
-                 +-------------+-------------+
-                 |                           |
-                 v                           v
-         Retrieval metrics          Shared prompt + citations
-                 |                           |
-                 |                           v
-                 |                 Answer model or literal path
-                 |                           |
-                 |                           v
-                 |                     Explicit judge
-                 |                           |
-                 +-------------+-------------+
-                               |
-                               v
-                    JSON report + provenance
-                               |
-                               v
-                    Answer and source review
-```
+| Score | What it measures | Result |
+|---|---|---:|
+| Faithfulness | Answer claims supported by the text shown to the model | 1.0000 |
+| Factual correctness (F1) | Agreement with the expected answer, counting extra and missing facts | 0.6133 |
+| Context precision | Useful text appears near the top of the search results | 0.8611 |
+| Context recall | How much of the expected answer is supported by the found text | 0.8333 |
 
-### Retrieval metrics
+Three questions are too few to judge overall quality; the model's grading also
+needs checking against human ratings.
 
-The root Python `eval/` suite evaluates the running public API with Ragas 0.4.3.
-Collection bypasses semantic cache, saves complete immediate/SSE answers, ranked
-retrieved chunks and admitted citation evidence, then scoring uses the immutable
-capture. Faithfulness uses admitted evidence, factual correctness uses reference
-answers, and context precision/recall use ranked retrieved chunks and references.
+## Benchmark with Locust
 
-The evaluator uses standard Ragas metric prompts and scoring, with an explicit
-OpenAI-compatible judge endpoint and model. Reports include per-sample scores,
-coverage, failures, input/artifact hashes, observed corpus/model metadata and Git
-provenance. Re-scoring creates a new report without generating new answers.
-Undefined values remain null with reasons. These scores need a fresh baseline;
-the former ranking metrics and custom judge were retired on October 6, 2026.
+Locust 2.46.7 measures how quickly search, chat, cache reuse, follow-ups and uploads
+finish, and how many complete tasks finish per second.
 
-Locust independently measures API workflow throughput and latency. Both tools
-use the version-1 report envelope and ignored `.local/` output directories. See
-the [evaluator guide](../eval/README.md) for inputs, commands and recovery.
+October 6, 2026: Qwen 3.5 4B with EmbeddingGemma 300M, two documents, one user,
+runs requested for 5–12 seconds and a pause of one second between tasks.
 
-## Status and limits
+| Test | Completed/failed | Tasks/s | Median time (s) | p95 (s) | First text (s) |
+|---|---:|---:|---:|---:|---:|
+| Search only | 8 / 0 | 0.811 | 0.210 | 0.220 | — |
+| Chat | 2 / 0 | 0.120 | 6.20 | 6.20 | 5.8 |
+| Mixed search and chat | 4 / 0 | 0.223 | 0.210 / 5.20 | 0.210 / 5.20 | 4.8 |
+| Cache reuse | 3 / 0 | 0.613 | 0.490 | 0.560 | — |
+| Follow-up | 1 / 0 | 0.071 | 12.0 | 12.0 | 11 |
+| Upload | 4 / 0 | 0.507 | 0.470 | 0.570 | — |
 
-Usefulness review for chosen documents remains pending, and automated judge
-scores remain uncalibrated. Historical sample inputs/results and the optional
-calibration tool are retired. The evaluator guide describes fresh measurements
-and recovery of the former assets; ADRs retain dated design decisions.
+Median is the middle time; p95 estimates when 95% of tasks finish; first text is
+the median wait for the first generated text (— means it does not apply).
+Mixed times list search then chat; its first text time is for chat.
+Tasks/s includes pauses and cleanup.
 
-The component composition resembles Haystack pipelines [10](#references), but
-Nadir uses Go interfaces and functions and does not depend on Haystack or RAGAs
-at runtime. Evaluate changes to scoring, fusion, reranking or models against
-reproduced failures while preserving source identity, citation order,
-cancellation and latency budgets.
+Short runs with one user cannot establish capacity, and these small samples make
+p95 unreliable.
 
 ## References
 
-1. [Cormack, Clarke and Buettcher: Reciprocal Rank Fusion (SIGIR 2009)](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) - the rank-fusion method.
-2. [Qdrant: Hybrid queries](https://qdrant.tech/documentation/search/hybrid-queries/) - native fusion and hybrid search.
-3. [Alistair Cockburn: Hexagonal architecture](https://alistair.cockburn.us/hexagonal-architecture) - ports and adapters.
-4. [Ma et al.: Query Rewriting for Retrieval-Augmented Large Language Models](https://arxiv.org/abs/2305.14283) - Rewrite-Retrieve-Read.
-5. [Martin Fowler: Optimistic Offline Lock](https://martinfowler.com/eaaCatalog/optimisticOfflineLock.html) - validation before committing changes.
-6. [WHATWG: Server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html#the-last-event-id-header) - event IDs and reconnection.
-7. [Go: context.AfterFunc](https://pkg.go.dev/context#AfterFunc) - cancellation callbacks.
-8. [Stanford IR textbook: Evaluation of ranked retrieval results](https://nlp.stanford.edu/IR-book/html/htmledition/evaluation-of-ranked-retrieval-results-1.html) - ranked retrieval metrics.
-9. [Es et al.: RAGAs, Automated Evaluation of Retrieval Augmented Generation](https://aclanthology.org/2024.eacl-demo.16/) - RAG evaluation dimensions.
-10. [Haystack: Pipelines](https://docs.haystack.deepset.ai/docs/pipelines) - a component-pipeline architecture comparison.
-
-### Project documentation
-
-The [documentation directory](https://github.com/Chandra179/nadir/tree/main/docs)
-contains the maintained guides and design records.
-
-- [Evaluator guide](../eval/README.md) and [TODO](../TODO.md): current measurements and remaining usefulness validation.
-- Design records: [event log](https://github.com/Chandra179/nadir/blob/main/docs/adr/0006-chat-streams-over-domain-owned-event-log.md), [capability seams](https://github.com/Chandra179/nadir/blob/main/docs/adr/0020-consumer-owned-capability-seams.md), [bounded contexts](https://github.com/Chandra179/nadir/blob/main/docs/adr/0022-bounded-context-layout.md) and [shared runtime](https://github.com/Chandra179/nadir/blob/main/docs/adr/0026-shared-runtime-composition.md).
-- Implementation guides: [chunking](https://github.com/Chandra179/nadir/blob/main/internal/core/documents/chunking/README.md), [Chat](https://github.com/Chandra179/nadir/blob/main/internal/core/conversation/chat/README.md) and [evaluation](https://github.com/Chandra179/nadir/blob/main/eval/README.md).
-- [Locust benchmarks](../benchmark/README.md): API workloads and generated performance reports.
+- [RRF paper](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf).
+- [Qdrant: Combining search methods](https://qdrant.tech/documentation/search/hybrid-queries/).
+- [Query rewriting paper](https://arxiv.org/abs/2305.14283).
+- [Ragas: Scoring methods](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/).
+- [Locust: Performance testing](https://docs.locust.io/en/stable/what-is-locust.html).
