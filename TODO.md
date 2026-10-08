@@ -59,6 +59,18 @@ what the latest measurements did and did not show.
    workload correctly reports that as a failure. Not yet measured: a cold-model
    request (the smoke test showed about 4.4 s answer-model load) and larger
    corpora.
+   **Ragas rerun (2026-10-09).** `eval/golden/ragas-questions.json` (33 fact and
+   distractor questions from the golden set, references written by the author and
+   not yet human-reviewed), answered by Qwen 3.5 4B and judged by
+   `llama3.1:8b-instruct-q4_K_M` (50 minutes to score; details in `docs/evaluation-log.md`).
+   Faithfulness 0.74, factual correctness 0.63, context precision 0.96, context
+   recall 0.90 (6 of 33 failed with `IncompleteOutputException`, a judge
+   `max_tokens` limit, so the run status is `failed`). Spot checks found correct
+   answers scored 0 (fact-07, fact-08, fact-21, fact-23), so the 8B judge is not
+   reliable for faithfulness or factual correctness; it likely penalises the `[1]`
+   citation marker and one-line answers. Next: review the references, try another
+   judge or `--judge-reasoning-effort`, raise the judge output limit, and rate
+   about 20 answers by hand to calibrate.
 2. **Reviewed Ragas question set (40–60).** Review `eval/samples` drafts against
    their passages (the October 7 phi4-mini draft has garbled questions,
    duplicates and a hallucinated reference) or author questions directly. Cover

@@ -1,0 +1,167 @@
+[
+  {
+    "id": "fact-01",
+    "user_input": "How many hash slots does Redis Cluster divide the key space into?",
+    "reference": "Redis Cluster divides the key space into 16,384 hash slots."
+  },
+  {
+    "id": "fact-02",
+    "user_input": "What does the NX option do when setting a Redis lock marker?",
+    "reference": "NX makes Redis create the lock marker only if it does not already exist."
+  },
+  {
+    "id": "fact-03",
+    "user_input": "In the Go scheduler model, what does the letter P stand for?",
+    "reference": "P stands for a worker slot with a to-do list (a processor slot where goroutines wait in line); it is not a process or a CPU core."
+  },
+  {
+    "id": "fact-04",
+    "user_input": "What decides how many Ps the Go runtime has?",
+    "reference": "The number of Ps is set by GOMAXPROCS, which defaults to the number of CPU cores."
+  },
+  {
+    "id": "fact-05",
+    "user_input": "How long does an assigned driver have to accept a ride offer?",
+    "reference": "The assigned driver has 15 seconds to accept or decline an offer."
+  },
+  {
+    "id": "fact-06",
+    "user_input": "How often do active driver apps send their location?",
+    "reference": "Active driver apps send their location about every 4 seconds."
+  },
+  {
+    "id": "fact-07",
+    "user_input": "What chunk size and overlap does Nadir's default chunker use?",
+    "reference": "The default chunker uses 512-rune chunks with a 64-rune overlap."
+  },
+  {
+    "id": "fact-08",
+    "user_input": "Which hash function does Nadir's lexical encoder apply to terms?",
+    "reference": "The lexical encoder hashes terms with FNV-1a."
+  },
+  {
+    "id": "fact-09",
+    "user_input": "What value of k does the local RRF variant use?",
+    "reference": "The local RRF variant uses k=60."
+  },
+  {
+    "id": "fact-10",
+    "user_input": "What reference corpus are the personality score percentiles relative to?",
+    "reference": "The percentiles are relative to about 4,000 blog posts in the Blog Authorship Corpus."
+  },
+  {
+    "id": "fact-11",
+    "user_input": "How well did the personality trait ranking perform on the labelled essays?",
+    "reference": "Trait-ranking AUC was only 0.524 to 0.554, which is near chance (0.5)."
+  },
+  {
+    "id": "fact-12",
+    "user_input": "Which source offers a general digital library with download counts and ratings?",
+    "reference": "The Internet Archive is a general digital library with download counts and ratings."
+  },
+  {
+    "id": "fact-13",
+    "user_input": "How many pages deep can book results go before the list runs dry?",
+    "reference": "Results go about ten pages deep, at twenty-four books per page, before the list ends."
+  },
+  {
+    "id": "fact-14",
+    "user_input": "How long are the time windows in the ledger's account batching engine?",
+    "reference": "Updates to one account are grouped into 250 ms windows."
+  },
+  {
+    "id": "fact-15",
+    "user_input": "What does the business layer of the microservice organization contain?",
+    "reference": "The business layer holds shared capabilities used across all products, such as payments, identity (passports) and billing."
+  },
+  {
+    "id": "fact-16",
+    "user_input": "How large is the header Go uses to represent a string on a 64-bit system?",
+    "reference": "Go uses a 16-byte string header on a 64-bit system: an 8-byte data pointer and an 8-byte length."
+  },
+  {
+    "id": "fact-17",
+    "user_input": "What is the largest integer JavaScript can represent safely in a Number?",
+    "reference": "JavaScript's Number safely represents integers only up to 9,007,199,254,740,991."
+  },
+  {
+    "id": "fact-18",
+    "user_input": "In what unit should an API store money values?",
+    "reference": "Store money as an integer in the smallest currency unit, such as cents."
+  },
+  {
+    "id": "fact-19",
+    "user_input": "What kind of chunks does the upload service split a video into for parallel processing?",
+    "reference": "The upload service splits the video into 2 to 5 second GOP (Group of Pictures) chunks."
+  },
+  {
+    "id": "fact-20",
+    "user_input": "How does the recommender narrow millions of videos down for a user?",
+    "reference": "A candidate-generation model uses user history, search tokens and other signals to reduce millions of videos to a few hundred candidates, which a ranking model then scores and orders."
+  },
+  {
+    "id": "fact-21",
+    "user_input": "How many chemical elements count as rare-earth elements?",
+    "reference": "There are 17 rare-earth elements."
+  },
+  {
+    "id": "fact-22",
+    "user_input": "How many protons does neodymium have?",
+    "reference": "Neodymium has 60 protons."
+  },
+  {
+    "id": "fact-23",
+    "user_input": "What does valid time mean in bi-temporal modeling?",
+    "reference": "Valid time is the real-world period when the fact was true, for example valid from 2012 to 2018."
+  },
+  {
+    "id": "fact-24",
+    "user_input": "What do threads in one process keep private versus share?",
+    "reference": "Threads in one process share its memory (code, global variables and heap), but each thread has its own private stack."
+  },
+  {
+    "id": "fact-25",
+    "user_input": "What trust question must be answered before strangers can trade?",
+    "reference": "Trust: whether the other side will keep its promise."
+  },
+  {
+    "id": "distractor-01",
+    "user_input": "How does the book search merge rankings from different catalogs?",
+    "reference": "It uses Reciprocal Rank Fusion, which combines the rankings from the collections without requiring them to use the same scoring system."
+  },
+  {
+    "id": "distractor-02",
+    "user_input": "How does the RAG chat app fuse dense and keyword search results?",
+    "reference": "It uses Reciprocal Rank Fusion to combine dense and lexical ranks without comparing raw scores. By default it uses Qdrant's native fusion; an opt-in local variant sums weight/(k+rank) with k=60."
+  },
+  {
+    "id": "distractor-03",
+    "user_input": "How does the ride-matching system avoid matching one driver to two riders at once?",
+    "reference": "It uses atomic state transitions and Redis locks (SETNX with a time-to-live) so two riders cannot match the same driver at once."
+  },
+  {
+    "id": "distractor-04",
+    "user_input": "How does a Lua script claim a driver for a rider without a race in the Redis guide?",
+    "reference": "A Lua script checks that the driver status is AVAILABLE and then writes the match in one atomic execution, so no other request can interleave."
+  },
+  {
+    "id": "distractor-05",
+    "user_input": "What is the main difference between N:1, 1:1 and M:N scheduling?",
+    "reference": "It is how logical tasks map to OS threads: N:1 puts many tasks on one OS thread, 1:1 gives each thread its own OS thread, and M:N maps many tasks onto many OS threads."
+  },
+  {
+    "id": "distractor-06",
+    "user_input": "How long does the OS scheduler let a runnable task execute before it can be preempted?",
+    "reference": "The scheduler decides how long a runnable task executes before preemption, and that depends on the scheduling policy, task priority, system load and whether the task blocks; it is often measured in milliseconds."
+  },
+  {
+    "id": "distractor-07",
+    "user_input": "How does the video platform deliver streams through edge caches near viewers?",
+    "reference": "Video is delivered through Google Global Cache, with edge servers inside ISP networks: hot content on NVMe/SSD edge servers, warm content in regional caches, and cold content from central blob storage."
+  },
+  {
+    "id": "distractor-08",
+    "user_input": "How does Nadir keep its semantic cache correct while documents are being published?",
+    "reference": "Publishing documents suspends cache reuse and invalidates outstanding writes, so delayed work cannot restore stale results."
+  }
+]

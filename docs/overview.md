@@ -8,7 +8,7 @@ tags: [system-design, llm, rag]
 links:
   github: "https://github.com/Chandra179/nadir"
 created: 2026-09-10
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 # Nadir: Answers from Private Documents
@@ -87,19 +87,21 @@ to the model. They help you check an answer but do not guarantee correctness.
 Ragas checks whether answers agree with the source text and expected answers,
 and whether search finds useful text. Scores range from 0 to 1; higher is better.
 
-October 6, 2026: a small local language model answered and graded three questions
-from two documents, using an embedding model for search, with reranking off.
+October 9, 2026: 33 questions with short reference answers, answered by a small
+local language model and graded by a different local model, with an embedding
+model for search and reranking off.
 
 | Score | What it measures | Result |
 |---|---|---:|
-| Faithfulness | Answer claims supported by the text shown to the model | 1.0000 |
-| Factual correctness (F1) | Agreement with the expected answer, counting extra and missing facts | 0.6133 |
-| Context precision | Useful text appears near the top of the search results | 0.8611 |
-| Context recall | How much of the expected answer is supported by the found text | 0.8333 |
+| Faithfulness | Answer claims supported by the text shown to the model | 0.74 |
+| Factual correctness (F1) | Agreement with the expected answer, counting extra and missing facts | 0.63 |
+| Context precision | Useful text appears near the top of the search results | 0.96 |
+| Context recall | How much of the expected answer is supported by the found text | 0.90 |
 
-Three questions are too few to judge overall quality. The same language model was both the
-answer model and the judge, which favors its own phrasing, and the grading still
-needs checking against human ratings.
+The first two scores understate quality: the grader marked several correct
+answers as wrong. Six recall scores could not be computed, and the questions
+and reference answers are not yet reviewed by a person. Run time, errors and
+next steps are in the [evaluation log](evaluation-log.md).
 
 ## Search check with a golden set
 
