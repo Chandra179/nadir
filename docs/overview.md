@@ -31,9 +31,9 @@ Question -> follow-up rewrite -> numbers + word counts -+
                                                        |
                                             RRF combines rankings
                                                        |
-                                            BGE reranking (optional)
+                                            Reranker model (optional)
                                                        |
-                                            Qwen answer + source references
+                                            Language model answer + source references
 ```
 
 ### Parse and split documents
@@ -45,13 +45,13 @@ Short sections can retain surrounding text to keep their meaning.
 
 ### Index documents
 
-EmbeddingGemma 300M turns each piece into a list of numbers, called an embedding
+An embedding model turns each piece into a list of numbers, called an embedding
 or vector, that represents its meaning. Indexing saves these numbers, word
 counts, text and source details for searching.
 
 ### Rewrite follow-up questions
 
-Qwen 3.5 4B uses recent messages to make follow-ups understandable on their own
+The language model uses recent messages to make follow-ups understandable on their own
 before searching (Rewrite-Retrieve-Read). Rules keep the selected subject when
 the question says “it” or “the second one.” First questions skip rewriting;
 failed rewrites use the original question. The answer still uses the original
@@ -59,7 +59,7 @@ question and document text.
 
 ### Search by meaning and words
 
-EmbeddingGemma also turns the question into numbers. **Cosine similarity**
+The same embedding model also turns the question into numbers. **Cosine similarity**
 compares those numbers with the document numbers. Higher scores suggest a
 closer match in meaning.
 
@@ -72,28 +72,23 @@ result's position in the lists. Text that ranks highly in both gets more weight.
 
 ### Rerank the found text
 
-The optional BGE reranker v2-M3 is a **cross-encoder**: it reads each question/text
+The optional reranker model is a **cross-encoder**: it reads each question/text
 pair, gives it a match score and reorders the text. This step is currently off;
 if it fails, the original search order is kept.
 
 ### Generate an answer
 
-Qwen 3.5 4B is instructed to answer using the best text that fits within its input
+The language model is instructed to answer using the best text that fits within its input
 limit and add numbered source references. Those references keep the text shown
 to the model. They help you check an answer but do not guarantee correctness.
 
-### Reuse search results
-
-A cache saves found text and can reuse it for a similar question. Document
-updates clear stale results. Quality tests skip this reuse and search again.
-
 ## Evaluation with Ragas
 
-Ragas 0.4.3 checks whether answers agree with the source text and expected answers,
+Ragas checks whether answers agree with the source text and expected answers,
 and whether search finds useful text. Scores range from 0 to 1; higher is better.
 
-October 6, 2026: Qwen 3.5 4B answered and graded three questions from two documents,
-using EmbeddingGemma 300M for embeddings, with reranking off.
+October 6, 2026: a small local language model answered and graded three questions
+from two documents, using an embedding model for search, with reranking off.
 
 | Score | What it measures | Result |
 |---|---|---:|
@@ -102,7 +97,7 @@ using EmbeddingGemma 300M for embeddings, with reranking off.
 | Context precision | Useful text appears near the top of the search results | 0.8611 |
 | Context recall | How much of the expected answer is supported by the found text | 0.8333 |
 
-Three questions are too few to judge overall quality. Qwen 3.5 4B was both the
+Three questions are too few to judge overall quality. The same language model was both the
 answer model and the judge, which favors its own phrasing, and the grading still
 needs checking against human ratings.
 
@@ -136,10 +131,10 @@ reject them yet.
 
 ## Benchmark with Locust
 
-Locust 2.46.7 measures how quickly search, chat, cache reuse and follow-ups
+Locust measures how quickly search, chat, cache reuse and follow-ups
 finish, and how many complete tasks finish per second.
 
-October 8, 2026: Qwen 3.5 4B with EmbeddingGemma 300M, 13 documents, 60 seconds
+October 8, 2026: a small local language model and embedding model, 13 documents, 60 seconds
 per level after a discarded 20-second warm-up, no failed requests. Cells show
 1 / 2 / 4 simultaneous users.
 
@@ -158,6 +153,12 @@ and the wait for first text rises 38%. About 85% of a chat answer is spent
 waiting for the model to start. Uploads were not rerun, and a cold model (about
 4.4 seconds to load) and larger document sets are not measured. Short runs with
 few users cannot establish capacity.
+
+## Models used
+
+Answers, follow-up rewriting and grading use Qwen 3.5 4B; embeddings use
+EmbeddingGemma 300M; the optional reranker is BGE reranker v2-M3 (off by
+default). Ragas 0.4.3 and Locust 2.46.7 produced the results above.
 
 ## References
 
