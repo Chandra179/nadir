@@ -53,11 +53,32 @@ type fakeGenerator struct {
 	tokens []string
 	events []generation.Event
 	err    error
-	got    string
+	// gate, when set, blocks Generate (the model dial) until it is closed or
+	// the generation context ends, like Ollama loading a model.
+	gate chan struct{}
+	mu   sync.Mutex
+	got  string
+}
+
+// received returns the prompt handed to Generate. The dial runs on the
+// supervisor goroutine, so tests read it through this accessor.
+func (f *fakeGenerator) received() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.got
 }
 
 func (f *fakeGenerator) Generate(ctx context.Context, prompt string) (<-chan generation.Event, error) {
+	f.mu.Lock()
 	f.got = prompt
+	f.mu.Unlock()
+	if f.gate != nil {
+		select {
+		case <-f.gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -370,7 +391,7 @@ func TestStartTurnGenerationStreamsAndPersists(t *testing.T) {
 	}
 }
 
-func TestStartTurnGenerateStartFailurePersistsError(t *testing.T) {
+func TestStartTurnGenerateStartFailureIsReportedOnTheStream(t *testing.T) {
 	h := &fakeHistory{}
 	d := NewDependencies(DependenciesConfig{
 		Searcher:  &fakeSearcher{chunks: []search.Chunk{{}}},
@@ -383,12 +404,101 @@ func TestStartTurnGenerateStartFailurePersistsError(t *testing.T) {
 	if turn.Error != "" {
 		t.Fatal("search succeeded; Error must stay empty")
 	}
-	if turn.GenerateError == "" || turn.Streaming || turn.ID != "" {
-		t.Fatalf("expected generate-start failure with no stream, got %+v", turn)
+	// The model is dialed after the sources are returned, so the start failure
+	// arrives as a stream error rather than a synchronous GenerateError.
+	if !turn.Streaming || turn.ID == "" || turn.GenerateError != "" || len(turn.Citations) != 1 {
+		t.Fatalf("expected a streaming turn that carries its sources, got %+v", turn)
+	}
+	text, kind := drain(t, d, turn)
+	if kind != EventError || text != "" {
+		t.Fatalf("start failure must end the stream with an error event, got %q (%v)", text, kind)
 	}
 	waitFor(t, func() bool { return len(h.turns()) == 1 })
 	if h.turns()[0].GenerateError == "" || h.turns()[0].HasAnswer {
 		t.Fatalf("failed start must persist a generate-stage error, got %+v", h.turns()[0])
+	}
+}
+
+func TestStartTurnReturnsSourcesBeforeTheModelAnswers(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &fakeGenerator{tokens: []string{"Answer [1]."}, gate: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md", Text: "evidence"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+
+	returned := make(chan Turn, 1)
+	go func() { returned <- d.StartTurn(context.Background(), Request{Query: "q", Generate: true}) }()
+	var turn Turn
+	select {
+	case turn = <-returned:
+	case <-time.After(time.Second):
+		t.Fatal("StartTurn waited for the model dial")
+	}
+	if !turn.Streaming || turn.ID == "" || len(turn.Citations) != 1 || turn.Prompt == "" {
+		t.Fatalf("sources and stream must be available while the model loads: %+v", turn)
+	}
+	if len(h.turns()) != 0 {
+		t.Fatal("nothing persists until the supervisor finishes")
+	}
+
+	close(gen.gate)
+	text, kind := drain(t, d, turn)
+	if text != "Answer [1]." || kind != EventDone {
+		t.Fatalf("answer after the dial completes: %q (%v)", text, kind)
+	}
+	waitFor(t, func() bool { return len(h.turns()) == 1 })
+}
+
+func TestCancelTurnDuringModelDialEndsWithoutAnError(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &fakeGenerator{gate: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+	turn := d.StartTurn(context.Background(), Request{Query: "q", Generate: true})
+	awaitPrompt(t, gen)
+
+	if !d.CancelTurn(turn.ID) {
+		t.Fatal("CancelTurn must find a turn whose model is still loading")
+	}
+	text, kind := drain(t, d, turn)
+	if text != "" || kind != EventDone {
+		t.Fatalf("cancel before the first token must end as done, got %q (%v)", text, kind)
+	}
+	waitFor(t, func() bool { return len(h.turns()) == 1 })
+	if saved := h.turns()[0]; saved.GenerateError != "" || saved.Answer != "" {
+		t.Fatalf("cancellation is not a provider failure: %+v", saved)
+	}
+}
+
+func TestDrainCancelsGenerationStillDialingTheModel(t *testing.T) {
+	h := &fakeHistory{}
+	gen := &fakeGenerator{gate: make(chan struct{})}
+	d := NewDependencies(DependenciesConfig{
+		Searcher:  &fakeSearcher{chunks: []search.Chunk{{FilePath: "a.md"}}},
+		Generator: gen,
+		History:   h,
+		Log:       testLogger(),
+	})
+	turn := d.StartTurn(context.Background(), Request{Query: "q", Generate: true})
+	if !turn.Streaming {
+		t.Fatalf("expected active generation, got %+v", turn)
+	}
+	awaitPrompt(t, gen)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := d.Drain(ctx); err != nil {
+		t.Fatalf("Drain must cancel and wait for a dialing supervisor: %v", err)
+	}
+	if len(h.turns()) != 1 {
+		t.Fatalf("drained turn was not persisted: %d turns", len(h.turns()))
 	}
 }
 
@@ -468,13 +578,13 @@ func TestStartTurnRewritesFollowUpAgainstPriorTurns(t *testing.T) {
 	if h.turns()[0].Query != "what about the second one?" {
 		t.Fatalf("history must persist the raw user query, got %q", h.turns()[0].Query)
 	}
-	if !strings.Contains(gen.got, "what is the derivative of cos(x)?") {
-		t.Fatalf("generation prompt must embed the rewritten query, got %q", gen.got)
+	if !strings.Contains(awaitPrompt(t, gen), "what is the derivative of cos(x)?") {
+		t.Fatalf("generation prompt must embed the rewritten query, got %q", awaitPrompt(t, gen))
 	}
-	if !strings.Contains(gen.got, "Question: what about the second one?") {
-		t.Fatalf("generation must preserve the user's question as well as the retrieval rewrite, got %q", gen.got)
+	if !strings.Contains(awaitPrompt(t, gen), "Question: what about the second one?") {
+		t.Fatalf("generation must preserve the user's question as well as the retrieval rewrite, got %q", awaitPrompt(t, gen))
 	}
-	if strings.LastIndex(gen.got, "Question: what about the second one?") < strings.LastIndex(gen.got, "what is the derivative of cos(x)?") {
+	if strings.LastIndex(awaitPrompt(t, gen), "Question: what about the second one?") < strings.LastIndex(awaitPrompt(t, gen), "what is the derivative of cos(x)?") {
 		t.Fatal("conversation references must precede the current question, so generation does not answer the prior topic")
 	}
 }
@@ -574,6 +684,15 @@ func TestSubscribeUnknownTurnID(t *testing.T) {
 	if d.CancelTurn("nope") {
 		t.Fatal("CancelTurn on unknown id must return false")
 	}
+}
+
+// awaitPrompt waits for the supervisor goroutine to dial the generator and
+// returns the prompt it received.
+func awaitPrompt(t *testing.T, g *fakeGenerator) string {
+	t.Helper()
+	var prompt string
+	waitFor(t, func() bool { prompt = g.received(); return prompt != "" })
+	return prompt
 }
 
 // blockingGenerator emits one token, then holds the stream open until its

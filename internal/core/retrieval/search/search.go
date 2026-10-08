@@ -18,13 +18,44 @@ import (
 
 var sentenceSplit = regexp.MustCompile(`[.?;]+\s*`)
 
-func (s *dependencies) search(ctx context.Context, query string, queryType QueryType, topK int, filter *Filter) ([]SearchCandidate, RerankTelemetry, error) {
+// capOverfetchMul is how many times the requested candidates each store leg
+// returns before the per-file cap is applied. The cap discards results after
+// ranking, so without extra candidates a question answered by one long
+// document would return fewer than top_k chunks instead of backfilling from
+// lower ranks.
+const capOverfetchMul = 3
+
+// embeddedQuery is a question split into search fragments with one dense
+// vector each. The first fragment is the full question, so its vector also
+// keys the semantic cache: each turn embeds its question exactly once.
+type embeddedQuery struct {
+	fragments []string
+	vectors   [][]float32
+}
+
+// cacheVector is the dense vector that represents the whole question.
+func (q embeddedQuery) cacheVector() []float32 { return q.vectors[0] }
+
+// prepareQuery splits query into fragments and embeds them in one batch.
+func (s *dependencies) prepareQuery(ctx context.Context, query string) (embeddedQuery, error) {
+	fragments := splitFragments(query, s.maxFragments)
+	vecs, err := s.embedFragments(ctx, fragments)
+	if err != nil {
+		return embeddedQuery{}, fmt.Errorf("embed: %w", err)
+	}
+	if len(vecs) != len(fragments) {
+		return embeddedQuery{}, fmt.Errorf("embed returned %d vectors for %d fragments", len(vecs), len(fragments))
+	}
+	return embeddedQuery{fragments: fragments, vectors: vecs}, nil
+}
+
+func (s *dependencies) search(ctx context.Context, query string, queryType QueryType, topK int, filter *Filter, embedded embeddedQuery) ([]SearchCandidate, RerankTelemetry, error) {
 	fetchN := topK
 	if s.reranker != nil {
 		fetchN = topK * s.candidateMul
 	}
 
-	result, err := s.multiSearch(ctx, query, queryType, fetchN, filter)
+	result, err := s.multiSearch(ctx, query, embedded, queryType, fetchN, filter)
 
 	if err != nil {
 		return nil, RerankTelemetry{}, err
@@ -91,16 +122,25 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 	// automatically classified query, so it cannot share query-only entries.
 	cacheEligible := s.cache != nil && !request.SkipCache && isEmptyFilter(filter) && query != "" &&
 		(!s.fusion.Enabled || request.QueryType == QueryTypeUnknown)
-	var cacheSet func(context.Context, string, []semanticcache.Candidate) error
+	var cacheSet func(context.Context, string, []float32, []semanticcache.Candidate, int) error
 	if cacheEligible {
 		cacheSet = s.cache.PrepareWrite()
 	}
-	if cached, ok := s.getCached(ctx, query, topK, filter, !cacheEligible); ok {
-		finish("cache_hit", nil, slog.Bool("from_cache", true), slog.Int("results", len(cached)))
-		return Result{Chunks: fromStoreChunks(cached), FromCache: true, OperationID: operation.ID()}, nil
+	// One embedding serves the cache lookup, the search and the cache write.
+	embedded, err := s.prepareQuery(ctx, query)
+	if err != nil {
+		operationErr = err
+		finish("error", err)
+		return Result{}, err
+	}
+	if cacheEligible {
+		if cached, ok := s.getCached(ctx, embedded.cacheVector(), topK); ok {
+			finish("cache_hit", nil, slog.Bool("from_cache", true), slog.Int("results", len(cached)))
+			return Result{Chunks: fromStoreChunks(cached), FromCache: true, OperationID: operation.ID()}, nil
+		}
 	}
 
-	chunks, telemetry, err := s.search(ctx, query, request.QueryType, topK, filter)
+	chunks, telemetry, err := s.search(ctx, query, request.QueryType, topK, filter, embedded)
 	if err != nil {
 		operationErr = err
 		finish("error", err)
@@ -111,7 +151,7 @@ func (s *dependencies) Query(ctx context.Context, request Request) (Result, erro
 		write := func(workCtx context.Context) {
 			cacheCtx, cacheOperation := observability.Start(workCtx, s.telemetry, s.log, "cache_write")
 			cacheStarted := time.Now()
-			err := cacheSet(cacheCtx, query, toCacheCandidates(chunks))
+			err := cacheSet(cacheCtx, query, embedded.cacheVector(), toCacheCandidates(chunks), topK)
 			outcome := "success"
 			if err != nil {
 				outcome = "error"
@@ -142,23 +182,29 @@ func fromStoreChunks(chunks []SearchCandidate) []Chunk {
 	return out
 }
 
-// getCached consults the semantic cache unless the caller asked to skip it.
-// Returns false on miss or cache error so lookups stay best-effort; hits
-// are truncated to topK to match a fresh search's result size.
-func (s *dependencies) getCached(ctx context.Context, query string, topK int, filter *Filter, skip bool) ([]SearchCandidate, bool) {
+// getCached consults the semantic cache with the question's vector.
+// Returns false on miss or cache error so lookups stay best-effort. An entry
+// answers a request when the search that produced it asked for at least topK
+// results: a complete result set can be shorter than topK (a small corpus or
+// the per-file cap), and must still hit. Hits are truncated to topK to match
+// a fresh search's result size.
+func (s *dependencies) getCached(ctx context.Context, vector []float32, topK int) ([]SearchCandidate, bool) {
 	started := time.Now()
-	if s.cache == nil || skip || query == "" || !isEmptyFilter(filter) {
-		return nil, false
-	}
-	cached, hit, err := s.cache.Get(ctx, query)
+	lookup, hit, err := s.cache.Get(ctx, vector)
 	if err != nil {
 		observability.StageContext(ctx, s.log, "cache_read", "error", started, err)
 		return nil, false
 	}
-	if !hit || len(cached) < topK {
+	requested := lookup.RequestedTopK
+	if requested <= 0 {
+		// Entries without a recorded request size can only vouch for what they hold.
+		requested = len(lookup.Results)
+	}
+	if !hit || len(lookup.Results) == 0 || requested < topK {
 		observability.StageContext(ctx, s.log, "cache_read", "miss", started, nil)
 		return nil, false
 	}
+	cached := lookup.Results
 	if len(cached) > topK {
 		cached = cached[:topK]
 	}
@@ -262,17 +308,10 @@ func relativeMargin(first, second float32) float32 {
 	return delta / denominator
 }
 
-func (s *dependencies) multiSearch(ctx context.Context, query string, queryType QueryType, topK int, filter *Filter) (HybridSearchResult, error) {
-	fragments := splitFragments(query, s.maxFragments)
+func (s *dependencies) multiSearch(ctx context.Context, query string, embedded embeddedQuery, queryType QueryType, topK int, filter *Filter) (HybridSearchResult, error) {
+	fragments, vecs := embedded.fragments, embedded.vectors
 	queryType = resolveQueryType(query, queryType)
-
-	vecs, err := s.embedFragments(ctx, fragments)
-	if err != nil {
-		return HybridSearchResult{}, fmt.Errorf("embed: %w", err)
-	}
-	if len(vecs) != len(fragments) {
-		return HybridSearchResult{}, fmt.Errorf("embed returned %d vectors for %d fragments", len(vecs), len(fragments))
-	}
+	storeLimit := topK * capOverfetchMul
 
 	var (
 		mu       sync.Mutex
@@ -289,7 +328,7 @@ func (s *dependencies) multiSearch(ctx context.Context, query string, queryType 
 		go func(frag string, vec []float32) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results, err := s.store.HybridSearch(ctx, vec, frag, topK, filter)
+			results, err := s.store.HybridSearch(ctx, vec, frag, storeLimit, filter)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {

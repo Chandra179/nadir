@@ -18,7 +18,7 @@ func TestExplicitOrderAnswersRequestedPairInsteadOfThirdSubject(t *testing.T) {
 		g := &fakeGenerator{tokens: []string{"Theta is the answer [1]."}}
 		d := NewDependencies(DependenciesConfig{History: h, Searcher: &fakeSearcher{chunks: chunks}, Generator: g})
 		turn := d.StartTurn(context.Background(), Request{Query: tc.query, Generate: true})
-		if turn.Streaming || turn.Answer != tc.want || g.got != "" {
+		if turn.Streaming || turn.Answer != tc.want || g.received() != "" {
 			t.Fatalf("explicit ordered pair lost: %+v", turn)
 		}
 		waitFor(t, func() bool { return len(h.turns()) == 1 })

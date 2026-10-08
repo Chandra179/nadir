@@ -11,6 +11,7 @@ import (
 	"time"
 
 	conversationgeneration "nadir/internal/core/conversation/generation"
+	"nadir/internal/core/observability"
 )
 
 func TestGenerateHTTPContractAndStreamClosure(t *testing.T) {
@@ -309,5 +310,59 @@ func TestThinkingControlPreservesExplicitFalseTrueAndModelDefault(t *testing.T) 
 				}
 			}
 		})
+	}
+}
+
+func TestGenerateRecordsOllamaTimingsFromTheFinalChunk(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, `{"message":{"content":"hello"}}`)
+		_, _ = fmt.Fprintln(w, `{"done":true,"total_duration":6000000000,"load_duration":2000000000,"prompt_eval_duration":3000000000,"eval_duration":1000000000}`)
+	}))
+	defer srv.Close()
+
+	recorder := observability.NewRecorder()
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "answer", RequestTimeout: time.Second, Telemetry: recorder})
+	events, err := d.Generate(context.Background(), "prompt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range events {
+	}
+
+	got := map[string]float64{}
+	for _, metric := range recorder.Snapshot().Operations {
+		if metric.Count != 1 || metric.Outcome != "success" {
+			t.Fatalf("metric %+v, want one successful sample", metric)
+		}
+		got[metric.Operation] = metric.DurationSumMS
+	}
+	want := map[string]float64{"ollama.generate.load": 2000, "ollama.generate.prefill": 3000, "ollama.generate.decode": 1000}
+	if len(got) != len(want) {
+		t.Fatalf("recorded operations = %v, want %v", got, want)
+	}
+	for operation, ms := range want {
+		if got[operation] != ms {
+			t.Fatalf("%s = %vms, want %vms", operation, got[operation], ms)
+		}
+	}
+}
+
+func TestGenerateRecordsNoTimingsForAStreamWithoutThem(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, `{"message":{"content":"hello"}}`)
+		_, _ = fmt.Fprintln(w, `{"done":true}`)
+	}))
+	defer srv.Close()
+
+	recorder := observability.NewRecorder()
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "answer", RequestTimeout: time.Second, Telemetry: recorder})
+	events, err := d.Generate(context.Background(), "prompt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range events {
+	}
+	if operations := recorder.Snapshot().Operations; len(operations) != 0 {
+		t.Fatalf("recorded %+v for a stream that reported no timings", operations)
 	}
 }

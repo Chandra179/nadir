@@ -2,25 +2,19 @@ package cache
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 )
 
-type cacheTestEmbedder struct {
-	inputs []string
-	err    error
-}
+var testVector = []float32{1, 2}
 
-func (e *cacheTestEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
-	e.inputs = append(e.inputs, text)
-	if e.err != nil {
-		return nil, e.err
+// write persists results through the same path Retrieval uses.
+func write(t *testing.T, d *dependencies, query string, results []Candidate, requestedTopK int) {
+	t.Helper()
+	if err := d.PrepareWrite()(context.Background(), query, testVector, results, requestedTopK); err != nil {
+		t.Fatal(err)
 	}
-	return []float32{1, 2}, nil
 }
-
-func (e *cacheTestEmbedder) Dimensions() int { return 2 }
 
 type cacheTestBackend struct {
 	entry      Entry
@@ -57,31 +51,25 @@ var _ backend = (*cacheTestBackend)(nil)
 
 func TestSemanticCacheDelegatesPersistenceAndAppliesQueryPolicy(t *testing.T) {
 	backend := &cacheTestBackend{}
-	embedder := &cacheTestEmbedder{}
 	d, err := NewDependencies(DependenciesConfig{
-		Backend:     backend,
-		Embedder:    embedder,
-		Threshold:   0.87,
-		QueryPrefix: "query: ",
-		Version:     "embed:v1",
+		Backend:   backend,
+		Threshold: 0.87,
+		Version:   "embed:v1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	want := []Candidate{{Text: "answer", Score: 0.9}}
-	if err := d.Set(context.Background(), "what is x?", want); err != nil {
-		t.Fatal(err)
+	write(t, d, "what is x?", []Candidate{{Text: "answer", Score: 0.9}}, 5)
+	if backend.query != "what is x?" || backend.entry.Version != d.cacheVersion() || backend.entry.RequestedTopK != 5 {
+		t.Fatalf("backend entry = %+v, query=%q; want current cache version and request size", backend.entry, backend.query)
 	}
-	if backend.query != "what is x?" || backend.entry.Version != d.cacheVersion() {
-		t.Fatalf("backend entry = %+v, query=%q; want current cache version", backend.entry, backend.query)
-	}
-	if len(embedder.inputs) != 1 || embedder.inputs[0] != "query: what is x?" {
-		t.Fatalf("embed inputs = %q, want prefixed query", embedder.inputs)
+	if len(backend.putVector) != 2 || backend.putVector[0] != 1 {
+		t.Fatalf("backend stored vector %v, want the caller's vector", backend.putVector)
 	}
 
-	got, hit, err := d.Get(context.Background(), "what is x?")
-	if err != nil || !hit || len(got) != 1 || got[0].Text != "answer" {
+	got, hit, err := d.Get(context.Background(), testVector)
+	if err != nil || !hit || len(got.Results) != 1 || got.Results[0].Text != "answer" || got.RequestedTopK != 5 {
 		t.Fatalf("Get() = %+v, hit=%v, err=%v", got, hit, err)
 	}
 	if backend.threshold != 0.87 || len(backend.findVector) != 2 {
@@ -92,23 +80,20 @@ func TestSemanticCacheDelegatesPersistenceAndAppliesQueryPolicy(t *testing.T) {
 func TestSemanticCacheClearRejectsStaleBackendEntries(t *testing.T) {
 	backend := &cacheTestBackend{}
 	d, err := NewDependencies(DependenciesConfig{
-		Backend:  backend,
-		Embedder: &cacheTestEmbedder{},
-		Version:  "embed:v1",
+		Backend: backend,
+		Version: "embed:v1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.Set(context.Background(), "query", []Candidate{{Text: "old"}}); err != nil {
-		t.Fatal(err)
-	}
+	write(t, d, "query", []Candidate{{Text: "old"}}, 5)
 	if err := d.Clear(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if backend.clearCalls != 1 {
 		t.Fatalf("clear calls = %d, want 1", backend.clearCalls)
 	}
-	if _, hit, err := d.Get(context.Background(), "query"); err != nil {
+	if _, hit, err := d.Get(context.Background(), testVector); err != nil {
 		t.Fatal(err)
 	} else if hit {
 		t.Fatal("Get() returned a stale entry after cache invalidation")
@@ -125,50 +110,47 @@ func TestSemanticCacheExpiresOldEntry(t *testing.T) {
 		},
 	}
 	d, err := NewDependencies(DependenciesConfig{
-		Backend:  backend,
-		Embedder: &cacheTestEmbedder{},
-		Version:  "embed:v1",
-		TTL:      time.Minute,
+		Backend: backend,
+		Version: "embed:v1",
+		TTL:     time.Minute,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	backend.entry.Version = d.cacheVersion()
-	if _, hit, err := d.Get(context.Background(), "query"); err != nil {
+	if _, hit, err := d.Get(context.Background(), testVector); err != nil {
 		t.Fatal(err)
 	} else if hit {
 		t.Fatal("Get() returned an expired entry")
 	}
 }
 
-func TestSemanticCacheWrapsEmbedderErrors(t *testing.T) {
-	d, err := NewDependencies(DependenciesConfig{
-		Backend:  &cacheTestBackend{},
-		Embedder: &cacheTestEmbedder{err: errors.New("provider down")},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := d.Get(context.Background(), "query"); err == nil {
-		t.Fatal("Get() succeeded despite embedder failure")
-	}
-}
-
 func TestSemanticCacheRestartDoesNotRevivePreviousProcessEntry(t *testing.T) {
 	backend := &cacheTestBackend{}
-	config := DependenciesConfig{Backend: backend, Embedder: &cacheTestEmbedder{}, Version: "embed:v1"}
+	config := DependenciesConfig{Backend: backend, Version: "embed:v1"}
 	first, err := NewDependencies(config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := first.Set(context.Background(), "query", []Candidate{{Text: "previous corpus"}}); err != nil {
-		t.Fatal(err)
-	}
+	write(t, first, "query", []Candidate{{Text: "previous corpus"}}, 5)
 	restarted, err := NewDependencies(config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, hit, err := restarted.Get(context.Background(), "query"); err != nil || hit {
+	if _, hit, err := restarted.Get(context.Background(), testVector); err != nil || hit {
 		t.Fatalf("restarted cache revived previous process entry: hit=%v err=%v", hit, err)
+	}
+}
+
+func TestSemanticCacheReturnsLegacyEntryWithoutRequestSize(t *testing.T) {
+	backend := &cacheTestBackend{hit: true}
+	d, err := NewDependencies(DependenciesConfig{Backend: backend, Version: "embed:v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.entry = Entry{Version: d.cacheVersion(), CachedAt: time.Now(), Results: []Candidate{{Text: "a"}, {Text: "b"}}}
+	got, hit, err := d.Get(context.Background(), testVector)
+	if err != nil || !hit || got.RequestedTopK != 0 || len(got.Results) != 2 {
+		t.Fatalf("legacy entry = %+v hit=%v err=%v; callers must see the unset request size", got, hit, err)
 	}
 }

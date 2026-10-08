@@ -138,6 +138,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		NumGPU:         cfg.Embedder.NumGPU,
 		RequestTimeout: cfg.Embedder.RequestTimeout,
 		KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
+		Telemetry:      telemetry,
 	})
 	if err := store.EnsureCollection(ctx, emb.Dimensions()); err != nil {
 		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
@@ -155,13 +156,11 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 			log.Error("semantic cache ensure collection failed", slog.Any("error", cacheErr))
 		} else {
 			candidate, candidateErr := cache.NewDependencies(cache.DependenciesConfig{
-				Backend:     backend,
-				Embedder:    emb,
-				Threshold:   cfg.SemanticCache.Threshold,
-				TTL:         cfg.SemanticCache.TTL,
-				Telemetry:   telemetry,
-				QueryPrefix: cfg.Embedder.QueryPrefix,
-				Version:     cachePolicyVersion(cfg),
+				Backend:   backend,
+				Threshold: cfg.SemanticCache.Threshold,
+				TTL:       cfg.SemanticCache.TTL,
+				Telemetry: telemetry,
+				Version:   cachePolicyVersion(cfg),
 			})
 			if candidateErr != nil {
 				log.Error("semantic cache init failed", slog.Any("error", candidateErr))

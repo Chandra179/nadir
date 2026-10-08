@@ -7,7 +7,6 @@ import (
 
 	qdrant "github.com/qdrant/go-client/qdrant"
 
-	"nadir/internal/core/embedding"
 	"nadir/internal/providers/qdrant/shared"
 )
 
@@ -21,11 +20,14 @@ const (
 	docTypeTurn    = "turn"
 )
 
-// DependenciesConfig groups the shared Qdrant clients and history embedder.
+// DependenciesConfig groups the shared Qdrant clients and the history
+// collection's vector size.
 type DependenciesConfig struct {
-	Clients      qdrantutil.Clients
-	Collection   string
-	Embedder     embedding.Embedder
+	Clients    qdrantutil.Clients
+	Collection string
+	// Dimensions is the dense vector size of the history collection. It must
+	// match the collection, which shares the document embedding dimensions.
+	Dimensions   int
 	TurnPageSize int
 }
 
@@ -33,7 +35,7 @@ type dependencies struct {
 	points       qdrant.PointsClient
 	collection   qdrant.CollectionsClient
 	name         string
-	embedder     embedding.Embedder
+	placeholder  []float32
 	dimensions   int
 	turnPageSize uint32
 	writeMu      sync.Mutex
@@ -49,8 +51,8 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	if cfg.Clients.Points == nil || cfg.Clients.Collections == nil {
 		return nil, fmt.Errorf("qdrant clients are required")
 	}
-	if cfg.Embedder == nil {
-		return nil, fmt.Errorf("history embedder is required")
+	if cfg.Dimensions <= 0 {
+		return nil, fmt.Errorf("history vector dimensions must be positive")
 	}
 	turnPageSize := cfg.TurnPageSize
 	if turnPageSize <= 0 {
@@ -60,8 +62,8 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 		points:       cfg.Clients.Points,
 		collection:   cfg.Clients.Collections,
 		name:         collection,
-		embedder:     cfg.Embedder,
-		dimensions:   cfg.Embedder.Dimensions(),
+		placeholder:  placeholderVector(cfg.Dimensions),
+		dimensions:   cfg.Dimensions,
 		turnPageSize: uint32(turnPageSize),
 	}, nil
 }
@@ -87,4 +89,16 @@ func (d *dependencies) lockWrites() func() {
 	// history writes are low-volume compared with retrieval.
 	d.writeMu.Lock()
 	return d.writeMu.Unlock
+}
+
+// placeholderVector returns the constant vector stored with every history
+// point. Qdrant requires a vector for a dense collection, but history is only
+// listed, scrolled and filtered by payload; nothing searches it by similarity,
+// so embedding titles and questions would spend model time for no reader. A
+// unit vector keeps the point valid under the collection's cosine distance and
+// leaves existing collections and their older embedded points compatible.
+func placeholderVector(dimensions int) []float32 {
+	vec := make([]float32, dimensions)
+	vec[0] = 1
+	return vec
 }

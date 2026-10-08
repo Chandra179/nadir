@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"nadir/internal/core/observability"
 )
 
 func TestEmbedBatchHTTPContract(t *testing.T) {
@@ -177,5 +179,41 @@ func TestProbeRejectsUnexpectedDimensions(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "embed", Dimensions: 3, RequestTimeout: time.Second})
 	if _, err := d.Probe(context.Background()); err == nil || !strings.Contains(err.Error(), "want 3") {
 		t.Fatalf("Probe() error = %v, want dimension mismatch", err)
+	}
+}
+
+func TestEmbedBatchRecordsOllamaModelLoadTimings(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"embeddings":[[1,2]],"total_duration":2500000000,"load_duration":2000000000}`))
+	}))
+	defer srv.Close()
+
+	recorder := observability.NewRecorder()
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "embed", RequestTimeout: time.Second, Telemetry: recorder})
+	if _, err := d.EmbedBatch(context.Background(), []string{"one"}); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]float64{}
+	for _, metric := range recorder.Snapshot().Operations {
+		got[metric.Operation] = metric.DurationSumMS
+	}
+	if got["ollama.embed.total"] != 2500 || got["ollama.embed.load"] != 2000 || len(got) != 2 {
+		t.Fatalf("recorded timings %v, want embed total 2500ms and load 2000ms", got)
+	}
+}
+
+func TestEmbedBatchWithoutTimingsRecordsNothing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"embeddings":[[1,2]]}`))
+	}))
+	defer srv.Close()
+
+	recorder := observability.NewRecorder()
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "embed", RequestTimeout: time.Second, Telemetry: recorder})
+	if _, err := d.EmbedBatch(context.Background(), []string{"one"}); err != nil {
+		t.Fatal(err)
+	}
+	if operations := recorder.Snapshot().Operations; len(operations) != 0 {
+		t.Fatalf("recorded %+v without reported timings", operations)
 	}
 }

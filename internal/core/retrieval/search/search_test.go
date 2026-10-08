@@ -57,6 +57,7 @@ type searchTestStore struct {
 	mu            sync.Mutex
 	hybridCalls   int
 	hybridQueries []string
+	hybridLimits  []int
 	lastFilter    *Filter
 	results       []SearchCandidate
 	signals       HybridSearchResult
@@ -66,10 +67,11 @@ func (s *searchTestStore) KeywordSearch(context.Context, string, int, *Filter) (
 	return nil, nil
 }
 
-func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, query string, _ int, filter *Filter) (HybridSearchResult, error) {
+func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, query string, limit int, filter *Filter) (HybridSearchResult, error) {
 	s.mu.Lock()
 	s.hybridCalls++
 	s.hybridQueries = append(s.hybridQueries, query)
+	s.hybridLimits = append(s.hybridLimits, limit)
 	if filter != nil {
 		copyFilter := *filter
 		s.lastFilter = &copyFilter
@@ -78,6 +80,10 @@ func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, query str
 	if results.Fused == nil {
 		results.Fused = append([]SearchCandidate(nil), s.results...)
 	}
+	// Like a real store, never return more than the requested limit.
+	if limit > 0 && len(results.Fused) > limit {
+		results.Fused = results.Fused[:limit]
+	}
 	s.mu.Unlock()
 	return results, nil
 }
@@ -85,19 +91,35 @@ func (s *searchTestStore) HybridSearch(_ context.Context, _ []float32, query str
 var _ documentSearcher = (*searchTestStore)(nil)
 
 type searchTestCache struct {
-	chunks       []cache.Candidate
-	hit          bool
-	getCalls     int
-	prepareCalls int
+	chunks []cache.Candidate
+	// requestedTopK is the request size the stored entry reports; zero models
+	// an entry that only vouches for what it holds.
+	requestedTopK int
+	hit           bool
+	getCalls      int
+	getVectors    [][]float32
+	prepareCalls  int
+	writes        []searchTestCacheWrite
 }
 
-func (c *searchTestCache) Get(context.Context, string) ([]cache.Candidate, bool, error) {
-	c.getCalls++
-	return append([]cache.Candidate(nil), c.chunks...), c.hit, nil
+type searchTestCacheWrite struct {
+	query         string
+	vector        []float32
+	results       []cache.Candidate
+	requestedTopK int
 }
-func (c *searchTestCache) PrepareWrite() func(context.Context, string, []cache.Candidate) error {
+
+func (c *searchTestCache) Get(_ context.Context, vector []float32) (cache.Lookup, bool, error) {
+	c.getCalls++
+	c.getVectors = append(c.getVectors, append([]float32(nil), vector...))
+	return cache.Lookup{Results: append([]cache.Candidate(nil), c.chunks...), RequestedTopK: c.requestedTopK}, c.hit, nil
+}
+func (c *searchTestCache) PrepareWrite() func(context.Context, string, []float32, []cache.Candidate, int) error {
 	c.prepareCalls++
-	return func(context.Context, string, []cache.Candidate) error { return nil }
+	return func(_ context.Context, query string, vector []float32, results []cache.Candidate, requestedTopK int) error {
+		c.writes = append(c.writes, searchTestCacheWrite{query, append([]float32(nil), vector...), results, requestedTopK})
+		return nil
+	}
 }
 func (c *searchTestCache) Clear(context.Context) error { return nil }
 

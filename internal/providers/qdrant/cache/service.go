@@ -64,6 +64,8 @@ func (c *dependencies) Find(ctx context.Context, vector []float32, threshold flo
 	entry := semanticcache.Entry{
 		Version: qdrantutil.StringFromPayload(payload, "cache_version"),
 		Results: results,
+		// Absent on records written before the field existed, which reads as 0.
+		RequestedTopK: int(qdrantutil.IntFromPayload(payload, "requested_top_k")),
 	}
 	if cachedAt := qdrantutil.StringFromPayload(payload, "cached_at"); cachedAt != "" {
 		entry.CachedAt, _ = time.Parse(time.RFC3339, cachedAt)
@@ -84,10 +86,11 @@ func (c *dependencies) Put(ctx context.Context, query string, vector []float32, 
 		cachedAt = time.Now().UTC()
 	}
 	payload := map[string]*qdrant.Value{
-		"query":         qdrantutil.StringValue(query),
-		"results_json":  qdrantutil.StringValue(string(raw)),
-		"cached_at":     qdrantutil.StringValue(cachedAt.UTC().Format(time.RFC3339)),
-		"cache_version": qdrantutil.StringValue(entry.Version),
+		"query":           qdrantutil.StringValue(query),
+		"results_json":    qdrantutil.StringValue(string(raw)),
+		"cached_at":       qdrantutil.StringValue(cachedAt.UTC().Format(time.RFC3339)),
+		"cache_version":   qdrantutil.StringValue(entry.Version),
+		"requested_top_k": qdrantutil.IntValue(int64(entry.RequestedTopK)),
 	}
 
 	_, err = c.points.Upsert(ctx, &qdrant.UpsertPoints{

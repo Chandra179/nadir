@@ -121,6 +121,7 @@ langchain-core==1.6.6
     #   langchain
     #   langchain-community
     #   langchain-openai
+    #   langchain-text-splitters
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
@@ -132,6 +133,8 @@ langchain-protocol==0.0.19
     # via
     #   langchain-core
     #   langgraph-sdk
+langchain-text-splitters==1.1.3
+    # via -r eval/requirements.in
 langgraph==1.2.13
     # via langchain
 langgraph-checkpoint==4.2.0
@@ -232,6 +235,8 @@ pyyaml==6.0.3
     #   langchain-community
     #   langchain-core
 ragas==0.4.3
+    # via -r eval/requirements.in
+rapidfuzz==3.14.6
     # via -r eval/requirements.in
 regex==2026.9.29
     # via

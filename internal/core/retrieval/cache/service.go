@@ -35,7 +35,7 @@ func (c *dependencies) Clear(ctx context.Context) error {
 		}
 		operation.End(outcome, operationErr)
 	}()
-	// Invalidate logically before deleting records. A concurrent detached Set
+	// Invalidate logically before deleting records. A concurrent detached write
 	// may still finish after the delete, but its captured older generation will
 	// never be accepted by Get.
 	c.generation.Add(1)
@@ -43,69 +43,50 @@ func (c *dependencies) Clear(ctx context.Context) error {
 	return operationErr
 }
 
-func (c *dependencies) Get(ctx context.Context, query string) ([]Candidate, bool, error) {
+func (c *dependencies) Get(ctx context.Context, vector []float32) (Lookup, bool, error) {
 	if c.mutations.Load() > 0 {
-		return nil, false, nil
+		return Lookup{}, false, nil
 	}
 	version := c.cacheVersion()
-	vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
+	entry, hit, err := c.backend.Find(ctx, vector, c.threshold)
 	if err != nil {
-		return nil, false, fmt.Errorf("semantic cache embed: %w", err)
-	}
-
-	entry, hit, err := c.backend.Find(ctx, vec, c.threshold)
-	if err != nil {
-		return nil, false, fmt.Errorf("semantic cache search: %w", err)
+		return Lookup{}, false, fmt.Errorf("semantic cache search: %w", err)
 	}
 	if !hit {
-		return nil, false, nil
+		return Lookup{}, false, nil
 	}
 
 	if c.mutations.Load() > 0 || c.cacheVersion() != version || entry.Version != version {
-		return nil, false, nil
+		return Lookup{}, false, nil
 	}
 	if c.ttl > 0 && !entry.CachedAt.IsZero() && time.Since(entry.CachedAt) > c.ttl {
-		return nil, false, nil
+		return Lookup{}, false, nil
 	}
-	return entry.Results, true, nil
-}
-
-func (c *dependencies) Set(ctx context.Context, query string, candidates []Candidate) error {
-	return c.PrepareWrite()(ctx, query, candidates)
+	return Lookup{Results: entry.Results, RequestedTopK: entry.RequestedTopK}, true, nil
 }
 
 // PrepareWrite binds a result write to the corpus generation that Retrieval
 // will read. Capturing here, before Retrieval, also covers work whose detached
 // callback does not begin until after an invalidation.
-func (c *dependencies) PrepareWrite() func(context.Context, string, []Candidate) error {
+func (c *dependencies) PrepareWrite() func(context.Context, string, []float32, []Candidate, int) error {
 	version := c.cacheVersion()
 	if c.mutations.Load() > 0 {
-		return func(context.Context, string, []Candidate) error { return nil }
+		return func(context.Context, string, []float32, []Candidate, int) error { return nil }
 	}
-	return func(ctx context.Context, query string, candidates []Candidate) error {
-		if c.mutations.Load() > 0 || c.cacheVersion() != version {
-			return nil
-		}
-		vec, err := c.embedder.Embed(ctx, c.embedQuery(query))
-		if err != nil {
-			return fmt.Errorf("semantic cache embed for set: %w", err)
-		}
+	return func(ctx context.Context, query string, vector []float32, candidates []Candidate, requestedTopK int) error {
 		if c.mutations.Load() > 0 || c.cacheVersion() != version {
 			return nil
 		}
 
 		// Clear can still overlap persistence; the record carries the older
 		// generation and Get rejects it even if physical deletion failed.
-		return c.backend.Put(ctx, query, vec, Entry{
-			Version:  version,
-			CachedAt: time.Now().UTC(),
-			Results:  candidates,
+		return c.backend.Put(ctx, query, vector, Entry{
+			Version:       version,
+			CachedAt:      time.Now().UTC(),
+			Results:       candidates,
+			RequestedTopK: requestedTopK,
 		})
 	}
-}
-
-func (c *dependencies) embedQuery(query string) string {
-	return c.queryPrefix + query
 }
 
 func (c *dependencies) cacheVersion() string {

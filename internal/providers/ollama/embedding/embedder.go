@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // ProbeResult describes the embedding runtime observed by Probe.
@@ -55,10 +56,18 @@ func (e *dependencies) EmbedBatch(ctx context.Context, texts []string) ([][]floa
 	}
 
 	var result struct {
-		Embeddings [][]float32 `json:"embeddings"`
+		Embeddings    [][]float32 `json:"embeddings"`
+		TotalDuration int64       `json:"total_duration"`
+		LoadDuration  int64       `json:"load_duration"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("ollama embed batch decode: %w", err)
+	}
+	if result.TotalDuration > 0 {
+		// A load duration above zero means this request paid for loading the
+		// embedding model, for example after another model evicted it.
+		e.telemetry.Record("ollama.embed.total", "success", time.Duration(result.TotalDuration))
+		e.telemetry.Record("ollama.embed.load", "success", time.Duration(result.LoadDuration))
 	}
 	if len(result.Embeddings) != len(texts) {
 		return nil, fmt.Errorf("ollama embed batch: got %d embeddings for %d inputs", len(result.Embeddings), len(texts))

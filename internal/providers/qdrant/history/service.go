@@ -79,16 +79,11 @@ func (d *dependencies) CreateSession(ctx context.Context, title string) (Session
 	now := time.Now().UTC()
 	id := uuid.NewString()
 
-	vec, err := d.embedder.Embed(ctx, title)
-	if err != nil {
-		return Session{}, fmt.Errorf("history: embed session title: %w", err)
-	}
-
-	_, err = d.points.Upsert(ctx, &qdrant.UpsertPoints{
+	_, err := d.points.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: d.name,
 		Points: []*qdrant.PointStruct{{
 			Id:      qdrant.NewIDUUID(id),
-			Vectors: qdrant.NewVectors(vec...),
+			Vectors: qdrant.NewVectors(d.placeholder...),
 			Payload: sessionPayload(title, now, now, 0),
 		}},
 	})
@@ -110,15 +105,11 @@ func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Tu
 	if err != nil {
 		session = Session{ID: sessionID, Title: truncateTitle(firstTurnTitle), CreatedAt: now}
 
-		vec, embErr := d.embedder.Embed(ctx, session.Title)
-		if embErr != nil {
-			return fmt.Errorf("history: embed session title: %w", embErr)
-		}
 		if _, err := d.points.Upsert(ctx, &qdrant.UpsertPoints{
 			CollectionName: d.name,
 			Points: []*qdrant.PointStruct{{
 				Id:      qdrant.NewIDUUID(sessionID),
-				Vectors: qdrant.NewVectors(vec...),
+				Vectors: qdrant.NewVectors(d.placeholder...),
 				Payload: sessionPayload(session.Title, now, now, 0),
 			}},
 		}); err != nil {
@@ -127,11 +118,6 @@ func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Tu
 	}
 
 	turnID := uuid.NewString()
-	vec, err := d.embedder.Embed(ctx, turn.Query)
-	if err != nil {
-		return fmt.Errorf("history: embed turn query: %w", err)
-	}
-
 	payload, err := turnPayload(sessionID, session.TurnCount, now, turn)
 	if err != nil {
 		return err
@@ -141,7 +127,7 @@ func (d *dependencies) AppendTurn(ctx context.Context, sessionID string, turn Tu
 		CollectionName: d.name,
 		Points: []*qdrant.PointStruct{{
 			Id:      qdrant.NewIDUUID(turnID),
-			Vectors: qdrant.NewVectors(vec...),
+			Vectors: qdrant.NewVectors(d.placeholder...),
 			Payload: payload,
 		}},
 	}); err != nil {

@@ -78,6 +78,39 @@ def snapshot_artifacts(environment):
             for path in sorted(folder.iterdir()) if path.is_file()]
 
 
+def operation_deltas(before, after):
+    """Per-operation work done between two /debug/metrics snapshots.
+
+    Each row gives the sample count, total and mean milliseconds for an
+    operation/outcome pair, which separates server stages (retrieval, model
+    load, prompt evaluation, decode) that a client-side latency lumps together.
+    Maxima in the snapshots are process-lifetime values, so they are carried
+    only as informational ``lifetime_duration_ms_max``. Unavailable snapshots
+    or a server restart between them yield no rows rather than wrong ones.
+    """
+    def index(snapshot):
+        operations = snapshot.get("operations") if isinstance(snapshot, dict) else None
+        if not isinstance(operations, list):
+            return None
+        return {(item["operation"], item["outcome"]): item for item in operations
+                if isinstance(item, dict) and "operation" in item and "outcome" in item}
+
+    first, last = index(before), index(after)
+    if first is None or last is None:
+        return []
+    rows = []
+    for (operation, outcome), current in sorted(last.items()):
+        previous = first.get((operation, outcome), {})
+        count = current.get("count", 0) - previous.get("count", 0)
+        if count <= 0:
+            continue
+        total = current.get("duration_ms_sum", 0) - previous.get("duration_ms_sum", 0)
+        rows.append({"operation": operation, "outcome": outcome, "count": count,
+                     "duration_ms_sum": round(total, 3), "duration_ms_avg": round(total / count, 3),
+                     "lifetime_duration_ms_max": current.get("duration_ms_max")})
+    return rows
+
+
 def startup_failure(directory, arguments, message, *, empty=False):
     revision, dirty = git_metadata()
     timestamp = now()

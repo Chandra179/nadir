@@ -55,11 +55,6 @@ Retrieval, chat, mixed and follow-up bypass semantic cache. Cache runs reuse it;
 existing cache entries can make the seed a hit too. Follow-up history is polled
 before the second turn because persistence can lag the seed response.
 
-Cache reuse requires at least `--top-k` reusable results. The default API admits
-at most three chunks per source file, so a one-file corpus can miss repeatedly
-at top-k 5. Index additional sources or explicitly choose a smaller top-k for
-that corpus; the workload reports a miss as a failure.
-
 Each upload uses a unique filename to prevent unchanged-file skipping. Uploaded
 documents **remain in the target index**. Use a separate
 evaluation API configured with dedicated document, cache and history collections
@@ -98,6 +93,22 @@ directory. Existing directories are rejected to preserve earlier runs. Native
 | `POST`, `GET`, `DELETE` | Individual HTTP operations, including cleanup and history polling. Stream GET latency includes consumption through the terminal event. |
 | `WORKFLOW` | Full retrieval/chat/cache/follow-up/upload attempt, including required polling and all answer tokens; cleanup runs afterward. |
 | `TTFT` | Time from the generating POST until the first nonempty token, for successful streamed answers only. Immediate answers have no TTFT sample. |
+
+The POST returns once retrieval finishes, before the model produces anything:
+the answer model is dialed afterwards, so `POST turn/chat` is the retrieval and
+setup time and the first token arrives on the stream. `TTFT` therefore remains
+the user-visible wait for text, and `POST turn/chat` is the wait for sources.
+
+`runs[].summary.server_operations` splits the server's work into stages. It is
+the difference between the `/debug/metrics` snapshots taken before and after
+the run: sample count, total and mean milliseconds per operation. Besides
+`retrieval`, `chat` and `chat_stream` it carries Ollama's own timings, so a slow
+first token can be attributed instead of guessed: `ollama.generate.load` (model
+load; a large mean means the model was evicted between requests),
+`ollama.generate.prefill` (prompt evaluation), `ollama.generate.decode` (token
+generation) and `ollama.embed.load`/`ollama.embed.total` for the embedder. The
+snapshot maxima are process-lifetime values and are labelled as such. `chat_stream`
+covers the whole generation, including the time the model takes to start.
 
 For throughput, use **`runs[].summary.completed_workflows_per_second` in `report.json`**: successful
 `WORKFLOW` completions divided by elapsed run time. Per-workload completed and

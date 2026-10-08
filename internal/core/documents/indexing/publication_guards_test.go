@@ -50,17 +50,18 @@ func TestIndexingSuspendsCacheThroughoutEveryPublicationPath(t *testing.T) {
 			t.Run(path+"/"+outcome.name, func(t *testing.T) {
 				ctx := context.Background()
 				policy, err := semanticcache.NewDependencies(semanticcache.DependenciesConfig{
-					Backend: &publicationGuardBackend{}, Embedder: fakeEmbedder{},
+					Backend: &publicationGuardBackend{},
 				})
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := policy.Set(ctx, "query", []semanticcache.Candidate{{Text: "old corpus"}}); err != nil {
+				vector := []float32{1, 2}
+				if err := policy.PrepareWrite()(ctx, "query", vector, []semanticcache.Candidate{{Text: "old corpus"}}, 5); err != nil {
 					t.Fatal(err)
 				}
-				var delayed func(context.Context, string, []semanticcache.Candidate) error
+				var delayed func(context.Context, string, []float32, []semanticcache.Candidate, int) error
 				mutate := func() error {
-					if _, hit, err := policy.Get(ctx, "query"); err != nil || hit {
+					if _, hit, err := policy.Get(ctx, vector); err != nil || hit {
 						t.Errorf("cache returned stale corpus during %s: hit=%v err=%v", path, hit, err)
 					}
 					delayed = policy.PrepareWrite()
@@ -83,16 +84,16 @@ func TestIndexingSuspendsCacheThroughoutEveryPublicationPath(t *testing.T) {
 				if delayed == nil {
 					t.Fatal("mutation did not reach storage")
 				}
-				if err := delayed(ctx, "query", []semanticcache.Candidate{{Text: "overlapping results"}}); err != nil {
+				if err := delayed(ctx, "query", vector, []semanticcache.Candidate{{Text: "overlapping results"}}, 5); err != nil {
 					t.Fatal(err)
 				}
-				if _, hit, err := policy.Get(ctx, "query"); err != nil || hit {
+				if _, hit, err := policy.Get(ctx, vector); err != nil || hit {
 					t.Fatalf("cache accepted pre-publication or overlapping results after %s: hit=%v err=%v", path, hit, err)
 				}
-				if err := policy.Set(ctx, "query", []semanticcache.Candidate{{Text: "current corpus"}}); err != nil {
+				if err := policy.PrepareWrite()(ctx, "query", vector, []semanticcache.Candidate{{Text: "current corpus"}}, 5); err != nil {
 					t.Fatal(err)
 				}
-				if results, hit, err := policy.Get(ctx, "query"); err != nil || !hit || results[0].Text != "current corpus" {
+				if results, hit, err := policy.Get(ctx, vector); err != nil || !hit || results.Results[0].Text != "current corpus" {
 					t.Fatalf("cache remained suspended after %s: results=%v hit=%v err=%v", path, results, hit, err)
 				}
 			})

@@ -140,7 +140,7 @@ func TestChatPromptBudgetFailureExplainsRecovery(t *testing.T) {
 		Generator: gen, ContextWindowTokens: 64, ReservedOutputTokens: 64,
 	})
 	turn := d.StartTurn(context.Background(), Request{Query: "Question", TopK: 5, Generate: true})
-	if !strings.Contains(turn.GenerateError, "Shorten the question or start a new conversation") || gen.got != "" {
+	if !strings.Contains(turn.GenerateError, "Shorten the question or start a new conversation") || gen.received() != "" {
 		t.Fatalf("budget failure must explain recovery before calling the provider: %+v", turn)
 	}
 }

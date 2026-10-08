@@ -22,7 +22,7 @@ func TestLiveStateRequestDeclinesWithoutTreatingExamplesAsObservations(t *testin
 		generator := &fakeGenerator{tokens: []string{"The example value is the actual value [1]."}}
 		d := NewDependencies(DependenciesConfig{History: history, Generator: generator, Searcher: &fakeSearcher{chunks: []search.Chunk{{Text: "Example value: 410"}}}})
 		turn := d.StartTurn(context.Background(), Request{Query: query, Generate: true})
-		if turn.Streaming || !turn.HasAnswer || turn.Answer != expected || generator.got != "" || len(turn.Citations) != 0 {
+		if turn.Streaming || !turn.HasAnswer || turn.Answer != expected || generator.received() != "" || len(turn.Citations) != 0 {
 			t.Fatalf("live state reached unsupported generation: query=%q turn=%+v", query, turn)
 		}
 		waitFor(t, func() bool { return len(history.turns()) == 1 })
@@ -69,7 +69,7 @@ func TestAddressLookupDeclinesAbsentLiteralButAllowsDocumentedAddress(t *testing
 		d := NewDependencies(DependenciesConfig{History: h, Generator: g, Searcher: &fakeSearcher{chunks: []search.Chunk{{Text: tc.text}}}})
 		turn := d.StartTurn(context.Background(), Request{Query: query, Generate: true})
 		if tc.decline {
-			if turn.Streaming || !turn.HasAnswer || turn.Answer != "The retrieved notes do not specify that IP address." || g.got != "" {
+			if turn.Streaming || !turn.HasAnswer || turn.Answer != "The retrieved notes do not specify that IP address." || g.received() != "" {
 				t.Fatalf("missing address became an answer: %+v", turn)
 			}
 		} else {

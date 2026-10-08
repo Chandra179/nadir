@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
 )
 
@@ -19,28 +18,24 @@ const (
 // cache policy. Persistence is supplied through the private backend seam so this Module does
 // not know which database stores its entries.
 type DependenciesConfig struct {
-	Backend     backend
-	Embedder    embedding.Embedder
-	Threshold   float32
-	TTL         time.Duration
-	QueryPrefix string
-	Version     string
-	Telemetry   *observability.Recorder
+	Backend   backend
+	Threshold float32
+	TTL       time.Duration
+	Version   string
+	Telemetry *observability.Recorder
 }
 
 // dependencies applies semantic-cache policy over the injected persistence
 // backend. The backend may be Qdrant, an in-memory store, Redis, or another
 // implementation without changing this Module.
 type dependencies struct {
-	backend     backend
-	embedder    embedding.Embedder
-	threshold   float32
-	ttl         time.Duration
-	queryPrefix string
-	version     string
-	generation  atomic.Uint64
-	mutations   atomic.Int64
-	telemetry   *observability.Recorder
+	backend    backend
+	threshold  float32
+	ttl        time.Duration
+	version    string
+	generation atomic.Uint64
+	mutations  atomic.Int64
+	telemetry  *observability.Recorder
 }
 
 var _ SemanticCache = (*dependencies)(nil)
@@ -54,15 +49,10 @@ func NewDependencies(cfg DependenciesConfig) (*dependencies, error) {
 	if cfg.Backend == nil {
 		return nil, fmt.Errorf("semantic cache backend is required")
 	}
-	if cfg.Embedder == nil {
-		return nil, fmt.Errorf("semantic cache embedder is required")
-	}
 	return &dependencies{
-		backend:     cfg.Backend,
-		embedder:    cfg.Embedder,
-		threshold:   threshold,
-		ttl:         cfg.TTL,
-		queryPrefix: cfg.QueryPrefix,
+		backend:   cfg.Backend,
+		threshold: threshold,
+		ttl:       cfg.TTL,
 		// Cache generations are process-local. A unique epoch prevents a
 		// restart from reviving persistent entries from an earlier corpus.
 		// This intentionally starts each process with a cold semantic cache.

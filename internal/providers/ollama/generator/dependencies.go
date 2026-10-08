@@ -6,6 +6,7 @@ import (
 	"time"
 
 	conversationgeneration "nadir/internal/core/conversation/generation"
+	"nadir/internal/core/observability"
 )
 
 // DependenciesConfig groups the Ollama generation endpoint and timeout.
@@ -17,6 +18,9 @@ type DependenciesConfig struct {
 	KeepAlive      string
 	Format         any
 	Options        map[string]any
+	// Telemetry receives Ollama's own load, prompt-evaluation and decode
+	// timings for each completed generation. Nil disables the recording.
+	Telemetry *observability.Recorder
 }
 
 // dependencies streams RAG answers from an Ollama chat model.
@@ -28,6 +32,7 @@ type dependencies struct {
 	keepAlive string
 	format    any
 	options   map[string]any
+	telemetry *observability.Recorder
 }
 
 var _ conversationgeneration.Generator = (*dependencies)(nil)
@@ -45,6 +50,7 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		keepAlive: cfg.KeepAlive,
 		format:    cfg.Format,
 		options:   cloneOptions(cfg.Options),
+		telemetry: cfg.Telemetry,
 		client: &http.Client{
 			Timeout: timeout,
 		},

@@ -5,6 +5,18 @@ candidate handling, optional calibrated fusion, confidence-gated optional
 reranking, diversity caps, and semantic-cache lookup. Storage and provider
 details arrive through narrow injected seams.
 
+Each question is embedded once, in one batch of its fragments. The first
+fragment is the whole question; its vector is also the semantic-cache key and
+the vector stored with a cache write, so a miss makes one model call and a hit
+makes one. The cache answers a request when the search that produced the entry
+asked for at least `top_k` results, even if the corpus or the per-file cap
+returned fewer.
+
+The per-file cap (`search.max_chunks_per_file`) runs after ranking. Each store
+leg is asked for `capOverfetchMul` times the needed candidates so the cap
+backfills from lower ranks instead of shrinking the result; the reranker's
+candidate budget is unchanged.
+
 Embedding task prefixes apply to a separate dense-input slice. Hybrid lexical
 search and optional fusion scoring receive the original query fragments, so
 embedding instructions cannot become document search terms.

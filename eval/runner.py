@@ -7,11 +7,12 @@ import hashlib
 import importlib.metadata
 import math
 from pathlib import Path
+import sys
 import uuid
 
 from eval.api import ApiClient, contexts
 from eval.dataset import dataset_snapshot, load_capture
-from eval.judge import METRICS, RagasJudge
+from eval.judge import METRICS, RagasJudge, answering_model, same_model
 from eval.report import artifact, atomic_json, git_metadata, now, write_report
 
 
@@ -110,6 +111,14 @@ async def score(run, path, config, *, judge_factory=RagasJudge):
     original_hash = hashlib.sha256(Path(path).read_bytes()).hexdigest()
     run.record["provenance"].update(judge=config.provenance(), capture=artifact(path),
                                     collection=capture["provenance"], installed_ragas=importlib.metadata.version("ragas"))
+    # A model grading its own answers tends to rate its own style highly, so say
+    # so in the report and on the console. This is a caution, not a failure.
+    answerer = answering_model(capture["provenance"])
+    self_judging = None if answerer is None else same_model(config.model, answerer)
+    run.record["provenance"]["judge"]["is_generator_model"] = self_judging
+    if self_judging:
+        print(f"warning: the judge ({config.model}) is also the answer model; scores likely favor its own "
+              "phrasing. Use a different judge before drawing conclusions.", file=sys.stderr, flush=True)
     run.record["errors"].extend(error for row in capture["samples"] for error in row["errors"]
                                 if error not in run.record["errors"])
     run.record["results"]["samples"] = [{**row, "metrics": {}} for row in capture["samples"] if row["status"] == "completed"]

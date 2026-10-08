@@ -1,10 +1,12 @@
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import io
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -101,6 +103,26 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.record["status"], "failed")
         self.assertEqual(run.record["summary"]["scored_samples"], 2)
         self.assertTrue(FakeApi.instances[-1].cleaned)
+
+    async def test_judge_that_is_the_answer_model_is_flagged_not_failed(self):
+        def readiness(model):
+            return {"api": {"readiness": {"checks": {"generator": {"model": model}}}}} if model else {}
+        for answerer, judge, expected in [("test-model", "test-model", True), ("test-model:latest", "test-model", True),
+                                          ("other-model", "test-model", False), (None, "test-model", None)]:
+            with self.subTest(answerer=answerer), tempfile.TemporaryDirectory() as folder:
+                capture = Path(folder) / "capture.json"
+                capture.write_text(json.dumps({"schema_version": 1, "producer": "nadir-eval", "provenance": readiness(answerer), "samples": [{
+                    "sample_id": "s", "user_input": "question", "reference": "ref", "response": "answer",
+                    "retrieved_contexts": ["full"], "admitted_contexts": ["short"], "status": "completed", "errors": []}]}))
+                run = Run("score", {}, Path(folder) / "output")
+                warning = io.StringIO()
+                with contextlib.redirect_stderr(warning):
+                    await score(run, capture, JudgeConfig("http://judge/v1", judge, timeout=.5), judge_factory=FakeJudge)
+                run.finish()
+                self.assertEqual(run.record["status"], "completed")
+                self.assertIs(run.record["provenance"]["judge"]["is_generator_model"], expected)
+                self.assertEqual("answer model" in warning.getvalue(), expected is True)
+                validate_report(json.loads((run.path / "report.json").read_text()))
 
     async def test_judge_failures_deadlines_and_nan(self):
         for query in ("judge-failure", "judge-timeout", "question"):

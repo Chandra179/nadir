@@ -8,6 +8,14 @@ Change here for user-visible Chat behavior or lifecycle invariants. Use
 `retrieval/` for ranking and `edge/http/chat/` for wire mapping. Verify
 with `go test -race ./internal/core/conversation/chat`.
 
+`StartTurn` returns once retrieval and prompt assembly finish. The supervisor
+goroutine then dials the answer model, which Ollama answers only after it loads
+the model and evaluates the prompt, so the sources and the stream URL reach the
+client before the first token. A failure to start the model therefore arrives as
+a stream error event (and is persisted as the turn's `GenerateError`), not in
+the POST response; a cancel or shutdown during the dial ends the turn without a
+provider error. See ADR 0037.
+
 `interface.go` contains the public `Chat` contract; the history persistence
 seam is private in `private_interfaces.go`.
 

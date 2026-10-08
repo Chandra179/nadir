@@ -1,7 +1,9 @@
 # Semantic cache policy
 
 Owns semantic cache hit/miss behavior, embedding-version compatibility, TTL,
-and invalidation generations. Persistence is injected through a private,
+and invalidation generations. The cache never calls a model: Retrieval embeds
+the question once and passes its vector to `Get` and to the prepared write,
+together with the request size that lets a short but complete result set hit. Persistence is injected through a private,
 consumer-owned backend seam; the Qdrant implementation belongs in
 `providers/qdrant/cache`.
 

@@ -30,7 +30,11 @@ curl -X POST localhost:8100/api/v1/documents
 curl -X POST localhost:8100/api/v1/turns -H 'content-type: application/json' -d '{"query":"What are the main ideas in the uploaded document?","generate":false}'
 curl -X POST localhost:8100/api/v1/documents/reset                    # safely reset the Document collection
 
-# Ragas quality evaluation (a separate API index and explicit judge)
+# Draft dataset: generate → review before evaluating the indexed corpus
+make eval-generate ARGS="--documents eval/samples --generator-base-url http://127.0.0.1:11435/v1 --generator-model phi4-mini:latest --generator-temperature 0.7 --generator-top-p 0.8 --embedding-base-url http://127.0.0.1:11435/v1 --embedding-model embeddinggemma-300m-q8:latest --ollama-gpu-only"
+.local/eval/venv/bin/python -m eval validate --dataset /absolute/path/reviewed/questions.json
+
+# Ragas quality evaluation: collect → score (separate API index and explicit judge)
 make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model qwen3.5:4b --judge-reasoning-effort none"
 ```
 
@@ -61,7 +65,7 @@ GET  /api/v1/health → liveness; GET /api/v1/ready → dependency readiness
 - `internal/bootstrap/gates/` owns process-local operation gates for indexing
   and destructive operations plus bounded background jobs; LLM/embedding
   concurrency is owned by the Ollama scheduler.
-- Root `eval/` owns capture, Ragas scoring and shared report helpers; it does not import application internals.
+- Root `eval/` owns Ragas draft generation, capture, scoring and shared report helpers; it does not import application internals.
 
 The React dashboard remains in `web/dashboard`, and the Python reranker and
 optional Docling processes remain in `sidecars/`. Compose builds `cmd/api`, so
@@ -109,8 +113,15 @@ The `gates` section configures `internal/bootstrap/gates` process-wide finite qu
 ingestion until source directories are configured; upload chosen documents in
 the dashboard paperclip instead. The base Compose stack also has no source mount; use
 `deploy/compose/compose.sources.yaml` with an explicit `DOCUMENTS_DIR` for one.
-The sample corpus and historical evaluation assets have been removed. Live
-evaluations require an explicit query set and matching source directories in a separate collection,
+Historical evaluation assets have been removed. Markdown source inputs live in
+`eval/samples/`; generation reads them without changing or ingesting them. Use
+generation → review → collect → score: generated references are unreviewed drafts,
+and baseline measurements require a separate reviewed dataset. Generation requires
+explicit generator and embedding endpoint/model pairs, independent of the judge.
+For local GPU-only inference, use `--ollama-gpu-only`, verify the actual context
+and placement, and start with one request at a time. Ollama may switch resident
+models between generation and embedding stages when VRAM cannot hold both.
+Live evaluations require an explicit query set and matching source directories in a separate collection,
 as shown above. API performance workloads live in `benchmark/`; see its README
 for the dedicated Python environment and explicit workload inputs. `scripts/`
 keeps local startup and Podman setup tools. Evaluator input definitions and
@@ -119,6 +130,6 @@ inside the evaluation tests.
 
 Evaluator and Locust outputs share the versioned run-report contract in
 `eval/run-report-contract.json`. Generated reports stay in ignored `.local/`
-by default. Historical data and the optional calibration tool are recoverable
+by default, including draft testsets, questions and generation reports. Historical data and the optional calibration tool are recoverable
 from Git revision `31c84e4` or the verified local backup recorded in the
 evaluator guide.

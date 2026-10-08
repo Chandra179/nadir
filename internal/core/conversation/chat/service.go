@@ -171,27 +171,19 @@ func (d *dependencies) StartTurn(ctx context.Context, req Request) Turn {
 	return turn
 }
 
-// startGeneration owns everything after prompt assembly: it dials the
-// generator on a context detached from the starting request, registers the
-// turn's event stream with the broker, and spawns the supervisor that drains
-// the answer and persists the final turn. The returned error is StartTurn's
-// operation outcome; every failure path also fills turn.GenerateError.
+// startGeneration owns everything after prompt assembly: it registers the
+// turn's event stream with the broker and spawns the supervisor that dials the
+// generator, drains the answer and persists the final turn. The returned error
+// is StartTurn's operation outcome; synchronous failures also fill
+// turn.GenerateError. Failures to start the model are reported by the
+// supervisor as a stream error event (ADR 0037), so the caller can return the
+// retrieved sources without waiting for the model's first token.
 func (d *dependencies) startGeneration(ctx context.Context, req Request, turn Turn, mutation historyMutation) (Turn, error) {
 	// The generation context is detached from this POST: the request that
 	// starts a turn must not be the one that can kill it. CancelTurn (not
-	// browser disconnects) is what stops generation. The Ollama dial is
-	// synchronous so a start failure is a deterministic GenerateError with
-	// no stream; only a live stream gets an ID and an event log.
+	// browser disconnects) is what stops generation.
 	generationStarted := time.Now()
 	genCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	events, err := d.generator.Generate(genCtx, turn.Prompt)
-	if err != nil {
-		cancel()
-		observability.StageContext(genCtx, d.log, "generation", "error", generationStarted, err)
-		turn.GenerateError = failureMessage("Answer generation", err)
-		d.persistStart(ctx, req, turn, mutation, false)
-		return turn, err
-	}
 
 	turn.ID = uuid.NewString()
 	stream, ok := d.broker.create(turn.ID)
@@ -219,7 +211,11 @@ func (d *dependencies) startGeneration(ctx context.Context, req Request, turn Tu
 	d.generations.Add(1)
 	go func(supervisorTurn Turn) {
 		defer d.generations.Done()
-		d.consumeGeneration(genCtx, stream, req, supervisorTurn, mutation, events, generationStarted)
+		// Ollama sends response headers with the first token, so this call
+		// blocks through model load and prompt evaluation. It runs here so the
+		// POST that started the turn can return its sources immediately.
+		events, dialErr := d.generator.Generate(genCtx, supervisorTurn.Prompt)
+		d.consumeGeneration(genCtx, stream, req, supervisorTurn, mutation, events, dialErr, generationStarted)
 	}(turn)
 	return turn, nil
 }
@@ -322,7 +318,9 @@ func (d *dependencies) beginDrain() <-chan struct{} {
 // consumeGeneration drains one in-flight answer: it maps the generator's
 // typed events onto the turn's event log and persists the final turn when
 // the stream ends. Runs on its own goroutine — no HTTP request owns this.
-func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generation.Event, started time.Time) {
+// dialErr is the generator's start failure; a cancelled context ends the turn
+// like an empty cancelled stream rather than as a provider error.
+func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream, req Request, turn Turn, mutation historyMutation, events <-chan generation.Event, dialErr error, started time.Time) {
 	ctx, operation := observability.Start(ctx, d.telemetry, d.log, "chat_stream", slog.String("turn_id", turn.ID))
 	var operationErr error
 	defer func() {
@@ -339,21 +337,28 @@ func (d *dependencies) consumeGeneration(ctx context.Context, stream *turnStream
 
 	var answer strings.Builder
 	citations := citationStream{query: turn.Query, citations: turn.Citations}
-	for ev := range events {
-		switch ev.Kind {
-		case generation.EventToken:
-			text := citations.push(ev.Text)
-			answer.WriteString(text)
-			if text != "" {
-				stream.publish(EventToken, text)
+	if dialErr != nil && ctx.Err() == nil {
+		operationErr = dialErr
+		turn.GenerateError = failureMessage("Answer generation", dialErr)
+	}
+	// A failed dial returns no channel; ranging over nil would block forever.
+	if dialErr == nil {
+		for ev := range events {
+			switch ev.Kind {
+			case generation.EventToken:
+				text := citations.push(ev.Text)
+				answer.WriteString(text)
+				if text != "" {
+					stream.publish(EventToken, text)
+				}
+			case generation.EventError:
+				operationErr = ev.Err
+				if operationErr == nil {
+					operationErr = errors.New("generation failed")
+				}
+				turn.GenerateError = failureMessage("Answer generation", operationErr)
+			case generation.EventDone:
 			}
-		case generation.EventError:
-			operationErr = ev.Err
-			if operationErr == nil {
-				operationErr = errors.New("generation failed")
-			}
-			turn.GenerateError = failureMessage("Answer generation", operationErr)
-		case generation.EventDone:
 		}
 	}
 	if pending := citations.flush(); pending != "" {

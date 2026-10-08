@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"nadir/internal/core/embedding"
+	"nadir/internal/core/observability"
 )
 
 // DependenciesConfig groups the Ollama embedding endpoint and vector shape.
@@ -15,6 +16,9 @@ type DependenciesConfig struct {
 	NumGPU         *int
 	RequestTimeout time.Duration
 	KeepAlive      string
+	// Telemetry receives Ollama's own embedding and model-load timings.
+	// Nil disables the recording.
+	Telemetry *observability.Recorder
 }
 
 // dependencies embeds text via an Ollama embedding model.
@@ -25,6 +29,7 @@ type dependencies struct {
 	client     *http.Client
 	keepAlive  string
 	numGPU     *int
+	telemetry  *observability.Recorder
 }
 
 var _ embedding.Embedder = (*dependencies)(nil)
@@ -47,5 +52,6 @@ func NewDependencies(cfg DependenciesConfig) *dependencies {
 		client:     &http.Client{Timeout: timeout},
 		keepAlive:  cfg.KeepAlive,
 		numGPU:     numGPU,
+		telemetry:  cfg.Telemetry,
 	}
 }

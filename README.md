@@ -335,6 +335,11 @@ go test -count=1 ./cmd/... ./internal/... # all Go tests (Qdrant as available)
 
 ## Evaluate Retrieval quality
 
+Generate an unreviewed question/reference draft from Markdown with
+`make eval-generate`, then review it against the supporting passages and save a
+separate accepted dataset. See the [generation and review workflow](eval/README.md#generate-and-review-a-draft)
+for explicit model settings, draft artifacts and validation.
+
 The Python [Ragas evaluator](eval/README.md) captures complete answers and source
 contexts from the public API, then scores the saved captures with an explicitly
 configured local or hosted OpenAI-compatible judge. See the guide for Python

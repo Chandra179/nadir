@@ -24,7 +24,7 @@ func (b *freshnessCacheBackend) Clear(context.Context) error { b.hit = false; re
 func TestQueryRejectsDetachedCacheWriteAfterClear(t *testing.T) {
 	ctx := context.Background()
 	backend := &freshnessCacheBackend{}
-	policy, err := cache.NewDependencies(cache.DependenciesConfig{Backend: backend, Embedder: embTestEmbedder{}, Version: "test"})
+	policy, err := cache.NewDependencies(cache.DependenciesConfig{Backend: backend, Version: "test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestQueryRejectsDetachedCacheWriteAfterClear(t *testing.T) {
 }
 
 func TestQueryDoesNotUseShortCacheEntryForLargerTopK(t *testing.T) {
-	policy := &searchTestCache{hit: true, chunks: []cache.Candidate{{Text: "one", FilePath: "a.md"}}}
+	policy := &searchTestCache{hit: true, requestedTopK: 1, chunks: []cache.Candidate{{Text: "one", FilePath: "a.md"}}}
 	store := &searchTestStore{results: []SearchCandidate{
 		{Text: "one", FilePath: "a.md", Score: 1},
 		{Text: "two", FilePath: "b.md", Score: 0.9},
@@ -115,7 +115,7 @@ func (s *clearingDocumentStore) HybridSearch(ctx context.Context, vector []float
 
 func TestQueryCapturesCacheGenerationBeforeDocumentSearch(t *testing.T) {
 	backend := &freshnessCacheBackend{}
-	policy, err := cache.NewDependencies(cache.DependenciesConfig{Backend: backend, Embedder: embTestEmbedder{}})
+	policy, err := cache.NewDependencies(cache.DependenciesConfig{Backend: backend})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestQueryCapturesCacheGenerationBeforeDocumentSearch(t *testing.T) {
 	if _, err := retriever.Query(context.Background(), Request{Query: "query", TopK: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if _, hit, err := policy.Get(context.Background(), "query"); err != nil || hit {
+	if _, hit, err := policy.Get(context.Background(), []float32{1}); err != nil || hit {
 		t.Fatalf("a search overlapping corpus invalidation cached its old results: hit=%v err=%v", hit, err)
 	}
 }

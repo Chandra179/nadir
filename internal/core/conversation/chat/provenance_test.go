@@ -20,7 +20,7 @@ func TestGenerationAndHistoryShareAdmittedCitationSnapshots(t *testing.T) {
 	d := NewDependencies(DependenciesConfig{Searcher: &fakeSearcher{chunks: chunks}, Generator: generator, History: store,
 		MaxContextTokens: 500, ContextWindowTokens: 4096, ReservedOutputTokens: 512})
 	turn := d.StartTurn(context.Background(), Request{Query: "which evidence?", Generate: true, TopK: 3})
-	if len(turn.Citations) != 3 || generator.got != turn.Prompt {
+	if len(turn.Citations) != 3 || awaitPrompt(t, generator) != turn.Prompt {
 		t.Fatalf("generation lost admitted evidence: %+v", turn)
 	}
 	if strings.Index(turn.Prompt, "[2] (source:") > strings.Index(turn.Prompt, "[3] (source:") {
@@ -36,7 +36,7 @@ func TestGenerationAndHistoryShareAdmittedCitationSnapshots(t *testing.T) {
 	}
 	waitFor(t, func() bool { return len(store.turns()) == 1 })
 	persisted := store.turns()[0]
-	if !reflect.DeepEqual(persisted.Citations, citationResults(turn.Citations)) || persisted.Prompt != generator.got {
+	if !reflect.DeepEqual(persisted.Citations, citationResults(turn.Citations)) || persisted.Prompt != awaitPrompt(t, generator) {
 		t.Fatalf("history differs from generation input: %+v", persisted)
 	}
 	if persisted.Results[1].ChunkIndex != 2 || persisted.Results[1].LineStart != 9 {
@@ -52,8 +52,8 @@ func TestModelBudgetRejectsGenerationAndPersistsFailure(t *testing.T) {
 		Generator: generator, History: store, ContextWindowTokens: 700, ReservedOutputTokens: 512,
 	})
 	turn := d.StartTurn(context.Background(), Request{Query: strings.Repeat("question ", 200), Generate: true})
-	if turn.GenerateError == "" || turn.Streaming || turn.ID != "" || generator.got != "" || len(turn.Citations) != 0 {
-		t.Fatalf("oversized request reached generation: %+v prompt=%q", turn, generator.got)
+	if turn.GenerateError == "" || turn.Streaming || turn.ID != "" || generator.received() != "" || len(turn.Citations) != 0 {
+		t.Fatalf("oversized request reached generation: %+v prompt=%q", turn, generator.received())
 	}
 	waitFor(t, func() bool { return len(store.turns()) == 1 })
 	if persisted := store.turns()[0]; persisted.GenerateError != turn.GenerateError || persisted.Prompt != "" {
@@ -74,8 +74,8 @@ func TestPartialEvidenceSnapshotMatchesGeneratedPrompt(t *testing.T) {
 		t.Fatalf("unexpected admitted evidence: %+v", turn.Citations)
 	}
 	citation := turn.Citations[0]
-	if !strings.Contains(generator.got, citationEntry(citation)) || strings.Contains(generator.got, "unadmitted evidence") || strings.Contains(generator.got, strings.Repeat("rank-one ", 100)) {
-		t.Fatalf("citation snapshot differs from actual prompt: %q citation=%+v", generator.got, citation)
+	if !strings.Contains(awaitPrompt(t, generator), citationEntry(citation)) || strings.Contains(awaitPrompt(t, generator), "unadmitted evidence") || strings.Contains(awaitPrompt(t, generator), strings.Repeat("rank-one ", 100)) {
+		t.Fatalf("citation snapshot differs from actual prompt: %q citation=%+v", awaitPrompt(t, generator), citation)
 	}
 	drain(t, d, turn)
 }

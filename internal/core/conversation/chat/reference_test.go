@@ -15,8 +15,8 @@ func TestPriorCitationNumbersCannotBecomeCurrentSources(t *testing.T) {
 	gen := &fakeGenerator{tokens: []string{"Current answer [1]."}}
 	d := NewDependencies(DependenciesConfig{History: h, Rewriter: rw, Generator: gen, Searcher: &fakeSearcher{chunks: []search.Chunk{{Text: "Current evidence"}}}})
 	turn := d.StartTurn(context.Background(), Request{Query: "Why does it matter?", SessionID: "s1", Generate: true})
-	if strings.Contains(rw.gotTurns[0].Answer, "[3, 4]") || !strings.Contains(rw.gotTurns[0].Answer, "[7, 9]") || strings.Contains(gen.got, "[3, 4]") {
-		t.Fatalf("prior citation numbers leaked into the next request: rewrite=%+v prompt=%q", rw.gotTurns, gen.got)
+	if strings.Contains(rw.gotTurns[0].Answer, "[3, 4]") || !strings.Contains(rw.gotTurns[0].Answer, "[7, 9]") || strings.Contains(awaitPrompt(t, gen), "[3, 4]") {
+		t.Fatalf("prior citation numbers leaked into the next request: rewrite=%+v prompt=%q", rw.gotTurns, awaitPrompt(t, gen))
 	}
 	drain(t, d, turn)
 }
@@ -77,8 +77,8 @@ func TestStandaloneQuestionDoesNotGiveGenerationAnUnrelatedPriorTopic(t *testing
 	gen := &fakeGenerator{tokens: []string{"Current answer"}}
 	d := NewDependencies(DependenciesConfig{History: h, Rewriter: &fakeRewriter{rewritten: query}, Generator: gen, Searcher: &fakeSearcher{chunks: []search.Chunk{{Text: "Redis evidence"}}}})
 	turn := d.StartTurn(context.Background(), Request{Query: query, SessionID: "s1", Generate: true})
-	if strings.Contains(gen.got, "TCP") || strings.Contains(gen.got, "UDP") {
-		t.Fatalf("standalone generation acquired an unrelated subject: %q", gen.got)
+	if strings.Contains(awaitPrompt(t, gen), "TCP") || strings.Contains(awaitPrompt(t, gen), "UDP") {
+		t.Fatalf("standalone generation acquired an unrelated subject: %q", awaitPrompt(t, gen))
 	}
 	drain(t, d, turn)
 }
@@ -99,8 +99,8 @@ func TestSelectedAlternativeIsExplicitDespiteAChangedRewrite(t *testing.T) {
 	if !strings.Contains(searcher.gotQuery, "Durable transfers") || strings.Contains(searcher.gotQuery, "immediate transfers fail") {
 		t.Fatalf("rewrite replaced selected alternative: %q", searcher.gotQuery)
 	}
-	if !strings.Contains(gen.got, "Resolved conversation subject: Transfers > Durable transfers") || len(turn.Citations) != 2 || turn.Query != query {
-		t.Fatalf("explicit subject, contrast evidence or raw intent lost: %+v prompt=%q", turn, gen.got)
+	if !strings.Contains(awaitPrompt(t, gen), "Resolved conversation subject: Transfers > Durable transfers") || len(turn.Citations) != 2 || turn.Query != query {
+		t.Fatalf("explicit subject, contrast evidence or raw intent lost: %+v prompt=%q", turn, awaitPrompt(t, gen))
 	}
 	drain(t, d, turn)
 }
@@ -115,8 +115,8 @@ func TestDefiniteReferenceCanUseCitedEvidenceWithoutCopyingItAsFacts(t *testing.
 	gen := &fakeGenerator{tokens: []string{"Current answer"}}
 	d := NewDependencies(DependenciesConfig{History: h, Rewriter: &fakeRewriter{rewritten: query}, Generator: gen, Searcher: searcher})
 	turn := d.StartTurn(context.Background(), Request{Query: query, SessionID: "s1", Generate: true})
-	if !strings.Contains(searcher.gotQuery, "old uploader") || strings.Contains(gen.got, "A mismatch identifies") || strings.Contains(searcher.gotQuery, "private metadata") {
-		t.Fatalf("cited reference lost or evidence/uncited details leaked: search=%q prompt=%q", searcher.gotQuery, gen.got)
+	if !strings.Contains(searcher.gotQuery, "old uploader") || strings.Contains(awaitPrompt(t, gen), "A mismatch identifies") || strings.Contains(searcher.gotQuery, "private metadata") {
+		t.Fatalf("cited reference lost or evidence/uncited details leaked: search=%q prompt=%q", searcher.gotQuery, awaitPrompt(t, gen))
 	}
 	drain(t, d, turn)
 }
@@ -146,8 +146,8 @@ func TestSelectedSubjectSurvivesADeclineAndClearsOnTopicSwitch(t *testing.T) {
 	}
 	turn = d.StartTurn(context.Background(), Request{Query: "How does Redis choose its cluster slot?", SessionID: "s1", Generate: true})
 	drain(t, d, turn)
-	if strings.Contains(gen.got, "Durable transfers") || turn.Subject != nil || searcher.gotQuery != turn.Query {
-		t.Fatalf("topic switch inherited the prior alternative: %+v prompt=%q", turn, gen.got)
+	if strings.Contains(awaitPrompt(t, gen), "Durable transfers") || turn.Subject != nil || searcher.gotQuery != turn.Query {
+		t.Fatalf("topic switch inherited the prior alternative: %+v prompt=%q", turn, awaitPrompt(t, gen))
 	}
 }
 
@@ -207,8 +207,8 @@ func TestConditionalTriggerOnlyInCompetingAlternativeCannotBecomeAnAnswer(t *tes
 	}}
 	d := NewDependencies(DependenciesConfig{History: h, Generator: gen, Searcher: searcher})
 	turn := d.StartTurn(context.Background(), Request{Query: query, SessionID: "s1", Generate: true})
-	if !turn.HasAnswer || turn.Streaming || gen.got != "" || !strings.Contains(turn.Answer, "Durable transfers") || !strings.Contains(turn.Answer, "do not establish") {
-		t.Fatalf("competing condition leaked into an answer: %+v prompt=%q", turn, gen.got)
+	if !turn.HasAnswer || turn.Streaming || gen.received() != "" || !strings.Contains(turn.Answer, "Durable transfers") || !strings.Contains(turn.Answer, "do not establish") {
+		t.Fatalf("competing condition leaked into an answer: %+v prompt=%q", turn, gen.received())
 	}
 	// Explicit coverage for the selected alternative must remain answerable.
 	waitFor(t, func() bool { return len(h.turns()) == 1 })

@@ -20,21 +20,6 @@ func TestNewDependenciesRequiresSharedClients(t *testing.T) {
 	}
 }
 
-// fakeEmbedder avoids requiring a running Ollama instance for this test —
-// only Qdrant reachability is exercised. It derives a deterministic vector
-// from the text's length so different inputs don't collide.
-type fakeEmbedder struct{}
-
-func (fakeEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
-	vec := make([]float32, testDimensions)
-	for i := range vec {
-		vec[i] = float32((len(text) + i) % 7)
-	}
-	return vec, nil
-}
-
-func (fakeEmbedder) Dimensions() int { return testDimensions }
-
 func testDependencies(t *testing.T) *dependencies {
 	t.Helper()
 	if testing.Short() {
@@ -56,7 +41,7 @@ func testDependencies(t *testing.T) *dependencies {
 	deps, err := NewDependencies(DependenciesConfig{
 		Clients:    qdrantutil.NewClients(conn),
 		Collection: "chat_history_test",
-		Embedder:   fakeEmbedder{},
+		Dimensions: testDimensions,
 	})
 	if err != nil {
 		t.Fatalf("NewDependencies: %v", err)

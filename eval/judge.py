@@ -34,6 +34,20 @@ class JudgeConfig:
                 "reasoning_effort": self.reasoning_effort}
 
 
+def same_model(left, right):
+    """Ollama lists `name` and `name:latest` as the same model."""
+    def normalize(name):
+        return str(name).strip().removesuffix(":latest")
+    return bool(left) and bool(right) and normalize(left) == normalize(right)
+
+
+def answering_model(capture_provenance):
+    """The answer model the API reported at collection time, or None if unreported."""
+    api = capture_provenance.get("api") if isinstance(capture_provenance, dict) else None
+    checks = ((api or {}).get("readiness") or {}).get("checks") or {}
+    return (checks.get("generator") or {}).get("model") or None
+
+
 class RagasJudge:
     def __init__(self, config, *, transport=None):
         config.validate()

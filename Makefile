@@ -1,4 +1,4 @@
-.PHONY: run compose compose-rerank test race vet build benchmark benchmark-ui eval check mdn generate-mocks
+.PHONY: run compose compose-rerank test race vet build benchmark benchmark-ui eval eval-generate help check mdn generate-mocks
 
 GO_PACKAGES := ./cmd/... ./internal/...
 MOCKERY_VERSION ?= v2.53.7
@@ -34,6 +34,15 @@ benchmark-ui:
 
 eval:
 	$(EVAL_PYTHON) -m eval run $(ARGS)
+
+eval-generate:
+	$(EVAL_PYTHON) -m eval generate $(ARGS)
+
+help:
+	@printf '%s\n' 'make eval-generate ARGS="--documents DIR --generator-base-url URL --generator-model MODEL --embedding-base-url URL --embedding-model MODEL"'
+	@printf '%s\n' 'make eval ARGS="--host URL --dataset FILE --judge-base-url URL --judge-model MODEL"'
+	@printf '%s\n' 'make benchmark ARGS="--host URL --query QUESTION" (headless); make benchmark-ui ARGS="..." (UI)'
+	@printf '%s\n' 'make run | compose | compose-rerank | test | race | vet | build | check | generate-mocks'
 
 check: test vet build
 

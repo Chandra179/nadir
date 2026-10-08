@@ -15,7 +15,7 @@ from locust.stats import StatsError
 import requests
 
 from benchmark.api import ApiClient, BenchmarkError, Config, Measurement
-from benchmark.report import begin, now, save, snapshot_artifacts
+from benchmark.report import begin, now, operation_deltas, save, snapshot_artifacts
 
 
 @events.init_command_line_parser.add_listener
@@ -125,6 +125,8 @@ def finish(environment, **kwargs):
     if config:
         run["provenance"].update({"corpus_after": snapshot(config.host, "/api/v1/documents", config.timeout),
                                   "metrics_after": snapshot(config.host, "/debug/metrics", config.timeout)})
+        run["summary"]["server_operations"] = operation_deltas(
+            run["provenance"].get("metrics_before"), run["provenance"]["metrics_after"])
     try:
         run["artifacts"] = snapshot_artifacts(environment)
     except Exception as error:

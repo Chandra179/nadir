@@ -60,6 +60,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 				"num_predict": cfg.Generator.MaxOutputTokens,
 				"num_ctx":     cfg.Generator.NumCtx,
 			},
+			Telemetry: graph.Telemetry,
 		})
 		log.Info("LLM generator enabled",
 			slog.String("model", cfg.Generator.Model),
@@ -104,7 +105,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		h, err := qdranthistory.NewDependencies(qdranthistory.DependenciesConfig{
 			Clients:      graph.Clients,
 			Collection:   cfg.History.Collection,
-			Embedder:     graph.Embedder,
+			Dimensions:   graph.Embedder.Dimensions(),
 			TurnPageSize: cfg.History.TurnPageSize,
 		})
 		if err != nil {

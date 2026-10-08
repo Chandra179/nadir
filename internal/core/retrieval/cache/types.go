@@ -22,4 +22,14 @@ type Entry struct {
 	Version  string
 	CachedAt time.Time
 	Results  []Candidate
+	// RequestedTopK is the result count the cached search asked for. Zero
+	// means the record predates the field; callers then treat len(Results) as
+	// the request size.
+	RequestedTopK int
+}
+
+// Lookup is a cache hit: the stored results and the request size they answer.
+type Lookup struct {
+	Results       []Candidate
+	RequestedTopK int
 }

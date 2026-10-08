@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	conversationgeneration "nadir/internal/core/conversation/generation"
+	"nadir/internal/core/observability"
 )
 
 type ollamaChatRequest struct {
@@ -31,9 +33,28 @@ type ollamaMessage struct {
 	Thinking string `json:"thinking,omitempty"`
 }
 
+// ollamaChatChunk is one NDJSON line. The final line also reports Ollama's own
+// timings, in nanoseconds: how long the model took to load, to evaluate the
+// prompt (prefill) and to generate tokens (decode).
 type ollamaChatChunk struct {
-	Message ollamaMessage `json:"message"`
-	Done    bool          `json:"done"`
+	Message            ollamaMessage `json:"message"`
+	Done               bool          `json:"done"`
+	TotalDuration      int64         `json:"total_duration"`
+	LoadDuration       int64         `json:"load_duration"`
+	PromptEvalDuration int64         `json:"prompt_eval_duration"`
+	EvalDuration       int64         `json:"eval_duration"`
+}
+
+// recordTimings aggregates a completed generation's model timings. A zero load
+// duration is recorded too: the load count is how often the model was already
+// resident versus loaded for the request.
+func recordTimings(telemetry *observability.Recorder, chunk ollamaChatChunk) {
+	if telemetry == nil || !chunk.Done || chunk.TotalDuration <= 0 {
+		return
+	}
+	telemetry.Record("ollama.generate.load", "success", time.Duration(chunk.LoadDuration))
+	telemetry.Record("ollama.generate.prefill", "success", time.Duration(chunk.PromptEvalDuration))
+	telemetry.Record("ollama.generate.decode", "success", time.Duration(chunk.EvalDuration))
 }
 
 // Generate dials Ollama and returns a live event channel, fed by a
@@ -70,13 +91,13 @@ func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conv
 	}
 
 	events := make(chan conversationgeneration.Event, 16)
-	go feed(ctx, resp.Body, events)
+	go feed(ctx, resp.Body, events, g.telemetry)
 	return events, nil
 }
 
 // feed parses the Ollama NDJSON stream into events until EOF, error, or a
 // cancelled context. It owns body and closes it.
-func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event) {
+func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgeneration.Event, telemetry *observability.Recorder) {
 	defer func() { _ = body.Close() }()
 	defer close(events)
 
@@ -106,6 +127,7 @@ func feed(ctx context.Context, body io.ReadCloser, events chan<- conversationgen
 			hasAnswer = true
 		}
 		if chunk.Done {
+			recordTimings(telemetry, chunk)
 			finish()
 			return
 		}
