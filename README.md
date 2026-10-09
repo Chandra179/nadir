@@ -2,6 +2,13 @@
 
 Semantic document search engine. Ingests text files, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation.
 
+[![Nadir chat demo: import Markdown, ask questions, inspect the search and the prompt, open a citation](docs/media/rag-chat-demo.jpg)](docs/media/rag-chat-demo.mp4)
+
+A 60-second recording at 2× speed (click the picture to play): delete all chats,
+import two Markdown files, ask a question, open **Inspect** and **Inspect context
+sent to the LLM**, click a citation, ask a follow-up, then ask a question the
+documents cannot answer.
+
 ## Run it (Linux or macOS)
 
 Install the tools below, then run these steps from the repository root. The
@@ -30,8 +37,7 @@ Open `http://localhost:3002`, click **+** → **Import Markdown or PDF**, choose
 | Ollama | [ollama.com](https://ollama.com) | [ollama.com](https://ollama.com) |
 
 The macOS column and `local.sh` on a Mac are untested here; Podman runs inside a
-`podman machine` VM there, see the [Compose guide](deploy/compose/README.md). A
-60-second [demo video](docs/media/rag-chat-demo.mp4) shows the full flow.
+`podman machine` VM there, see the [Compose guide](deploy/compose/README.md).
 
 ## Choose your models
 

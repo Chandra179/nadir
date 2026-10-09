@@ -15,15 +15,6 @@ updated: 2026-10-09
 
 RAG as a service with chat-based conversation, using an LLM as the answer generator.
 
-## Demo
-
-[![Nadir chat demo: import Markdown, ask questions, inspect the search and the prompt, open a citation](media/rag-chat-demo.jpg)](media/rag-chat-demo.mp4)
-
-A 60-second recording at 2× speed (click the picture to play): delete all chats,
-import two Markdown files, ask a question, open **Inspect** and **Inspect context
-sent to the LLM**, click a citation, ask a follow-up, then ask a question the
-documents cannot answer.
-
 ## Algorithms and approach
 
 ```text
