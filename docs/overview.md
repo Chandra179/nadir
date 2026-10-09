@@ -11,7 +11,7 @@ created: 2026-09-10
 updated: 2026-10-09
 ---
 
-# Nadir: Answers from Private Documents
+# Nadir: Retrieval Augmented Genration
 
 RAG as a service with chat-based conversation, using an LLM as the answer generator.
 
