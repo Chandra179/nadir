@@ -13,83 +13,81 @@ updated: 2026-10-09
 
 # Nadir: Answers from Private Documents
 
-Nadir answers questions from documents you choose. It finds useful text in
-those documents, then asks a language model to write an answer using it.
-
-You can import documents, inspect sources, ask follow-up questions, edit a
-conversation and stop an answer. Answers appear as they are written. Documents
-and conversations stay local when the storage and models run locally.
+RAG as a service with chat-based conversation, using an LLM as the answer generator.
 
 ## Algorithms and approach
 
 ```text
-Documents -> Markdown AST -> small pieces -> saved numbers + word counts
-                                                       |
-Question -> follow-up rewrite -> numbers + word counts -+
-                                                       |
-                                            Meaning + keyword search
-                                                       |
-                                            RRF combines rankings
-                                                       |
-                                            Reranker model (optional)
-                                                       |
-                                            Language model answer + source references
+Documents -> Markdown AST -> Chunk document -> Embed (dense vector) + word counts (BM25 sparse vector) -> Qdrant
+
+Question -> Query rewrite (optional) -+-> Embed question  -> Dense search (cosine)  -+
+                                      |                                             +-> RRF fusion
+                                      +-> Question words -> Keyword search (BM25) --+
+                                                                                    |
+                                                                       Reranker model (optional)
+                                                                                    |
+                                                                       Language model answer + source references
 ```
 
-### Parse and split documents
+1. **Parse:** Goldmark parses each Markdown document into an abstract syntax tree (AST), which structures the text into headings, lists and text blocks.
+2. **Chunk:** The text is split with recursive chunking or sentence-window chunking.
+3. **Embed and store:** An embedding model turns each chunk into a vector, and the vector is stored in Qdrant.
+4. **Rewrite (optional):** The user's question is rewritten before retrieval.
+5. **Retrieve:** Hybrid search combines vector search with **BM25 keyword search**, and **Reciprocal Rank Fusion (RRF)** merges the two rankings.
+6. **Rerank (optional):** After the top-k results are fetched, a reranker model reorders them from the highest to the lowest relevance score.
+7. **Generate:** The retrieved text is passed as context to the LLM, which generates the answer.
 
-Goldmark parses Markdown into an abstract syntax tree (AST): a tree of headings,
-lists and text blocks. Recursive splitting breaks that text at paragraph, line,
-sentence and word boundaries while keeping headings and source locations.
-Short sections can retain surrounding text to keep their meaning.
+## Chat Architecuture
 
-### Index documents
+## Chat architecture
 
-An embedding model turns each piece into a list of numbers, called an embedding
-or vector, that represents its meaning. Indexing saves these numbers, word
-counts, text and source details for searching.
+A POST request rewrites the question, searches and returns the sources. A
+background worker then runs the language model and writes the answer to an event
+log. The browser watches that log over Server-Sent Events (SSE), so a dropped
+connection does not stop the answer.
 
-### Rewrite follow-up questions
+```text
+Browser                         Chat service                                Adapters
+   |  POST question                  |
+   |-------------------------------->|  edit or new session? -> prune / create ----> History store
+   |                                 |  rewrite follow-up (uses past turns) -------> Language model
+   |                                 |  search (hybrid, cache) -------------------> Qdrant
+   |                                 |  build prompt within the token budget
+   |                                 |  shortcut answers (no model call) ----+
+   |                                 |  register turn in broker              |
+   |<--- sources + turn id ----------|  start worker (detached context)      |
+   |                                 |                                       |
+   |  GET stream (Last-Event-ID)     |        Worker (one per turn)          |
+   |-------------------------------->|          call language model -------------> Language model
+   |                                 |          tokens -> citation filter    |
+   |<=== SSE: token, token, done ====|<-------  append to event log (seq 1..n)
+   |                                 |          save finished turn ---------------> History store
+   |  drop connection                |
+   |  reconnect from last seq ======>|  replay log after seq, then go live
+   |  POST cancel ------------------>|  stop worker; keep and save partial answer
+```
 
-The language model uses recent messages to make follow-ups understandable on their own
-before searching (Rewrite-Retrieve-Read). Rules keep the selected subject when
-the question says “it” or “the second one.” First questions skip rewriting;
-failed rewrites use the original question. The answer still uses the original
-question and document text.
+Patterns used:
 
-### Search by meaning and words
-
-The same embedding model also turns the question into numbers. **Cosine similarity**
-compares those numbers with the document numbers. Higher scores suggest a
-closer match in meaning.
-
-**TF/IDF keyword search** matches words. TF counts how often a word appears;
-IDF gives words found in fewer documents more weight. This helps with exact
-names and technical terms.
-
-**Reciprocal Rank Fusion (RRF)** combines the two search rankings using each
-result's position in the lists. Text that ranks highly in both gets more weight.
-
-### Rerank the found text
-
-The optional reranker model is a **cross-encoder**: it reads each question/text
-pair, gives it a match score and reorders the text. This step is currently off;
-if it fails, the original search order is kept.
-
-### Generate an answer
-
-The language model is instructed to answer using the best text that fits within its input
-limit and add numbered source references. Those references keep the text shown
-to the model. They help you check an answer but do not guarantee correctness.
+- **Rewrite-Retrieve-Read:** follow-up questions are rewritten into standalone
+  search queries before retrieval, then the answer is read from the found text.
+- **Background worker with a publish/subscribe event log:** the worker is the
+  only publisher; any number of connections subscribe. Each event has a
+  sequence number, so a reconnecting browser resumes with `Last-Event-ID`
+  instead of losing text. A subscriber that falls behind is closed and replays.
+- **Ports and adapters (hexagonal):** the chat service depends on small
+  interfaces for search, generation and history. Qdrant, the language model
+  server and HTTP are adapters behind them.
+- **Optimistic concurrency:** editing or deleting a conversation while a turn
+  is starting or running is detected with a version token, and the turn stops
+  instead of writing into changed history.
 
 ## Evaluation with Ragas
 
 Ragas checks whether answers agree with the source text and expected answers,
 and whether search finds useful text. Scores range from 0 to 1; higher is better.
 
-October 9, 2026: 33 questions with short reference answers, answered by a small
-local language model and graded by a different local model, with an embedding
-model for search and reranking off.
+### October 9, 2026 result
 
 | Score | What it measures | Result |
 |---|---|---:|
@@ -98,23 +96,22 @@ model for search and reranking off.
 | Context precision | Useful text appears near the top of the search results | 0.96 |
 | Context recall | How much of the expected answer is supported by the found text | 0.90 |
 
-The first two scores understate quality: the grader marked several correct
-answers as wrong. Six recall scores could not be computed, and the questions
-and reference answers are not yet reviewed by a person. Run time, errors and
-next steps are in the [evaluation log](evaluation-log.md).
+**How to read this:**
 
-## Search check with a golden set
+- **Good:** context precision (0.96) and context recall (0.90) show that search
+  finds the right text and ranks it near the top.
+- **Treat as a floor:** faithfulness (0.74) and factual correctness (0.63) were
+  graded by a small local model. It failed to score some answers and marked
+  correct answers as 0. Of five low-scoring answers checked by hand, four were
+  correct, so the real quality is likely higher than shown.
+- **Weak:** one question that the documents do not answer (distractor-05) got a
+  genuinely poor answer.
+- **Limit:** the expected answers were written by the author and not reviewed by
+  another person. See the [evaluation log](evaluation-log.md).
 
-A separate check scores search alone, with no answer model and no judge. It
-asks 57 questions about 13 documents and counts where the expected passage
-appears in the results. **Hit@k** is the share of questions whose passage is in
-the top k results. **Recall@k** is the share of expected passages found.
-**MRR** (mean reciprocal rank) averages 1 divided by the rank of the first
-correct result, so 1.0 means always first. Seven questions have no answer in the
-documents and are reported apart. The author drafted the questions and the
-reviewer accepted them without edits, so the set is a starting point.
+### October 8, 2026
 
-October 8, 2026: 50 answerable questions, top 10 results, at most 3 chunks per
+50 answerable questions, top 10 results, at most 3 chunks per
 file, with and without fetching 3 times as many candidates before that limit.
 
 | Setting | Hit@1 | Hit@3 | Recall@10 | MRR | Results returned |
@@ -123,22 +120,27 @@ file, with and without fetching 3 times as many candidates before that limit.
 | 1× candidates | 0.78 | 0.94 | 0.81 | 0.843 | 5.2 |
 | 3× candidates, 5 chunks per file | 0.78 | 0.94 | 0.86 | 0.852 | 9.4 |
 
-Identical runs vary by about 0.003 MRR, so the extra candidates do not change
-ranking quality; they fill the result list. Factual questions reach Hit@3 of
-1.00. Questions that need four passages from one file score low (Recall@10 0.43)
-because only three chunks per file are allowed. Similar documents, such as two
-descriptions of rank fusion, are the other weak spot (Hit@10 0.75). Questions with
-no answer still return text with scores up to 0.83, so no score cutoff can
-reject them yet.
+**How to read this:**
 
-## Benchmark with Locust
+- **Good:** Hit@3 (0.94) means the right document is almost always in the top 3.
+  Hit@1 (0.78) means the first result is right about four times in five, with the
+  reranker off.
+- **Weak:** Recall@10 (0.81) is held down by questions that need several chunks
+  from one file, because at most 3 chunks per file are returned. Allowing 5 raises
+  it to 0.86.
+- **No gain from 3× candidates:** MRR differs by 0.004, within the 0.003 run-to-run
+  noise. The setting fills the result list (8.6 results instead of 5.2) but does not
+  improve ranking.
+- **Unanswerable questions:** results for questions the documents cannot answer
+  still score up to 0.83, so a search score alone cannot tell the system to say
+  "no answer".
 
-Locust measures how quickly search, chat, cache reuse and follow-ups
-finish, and how many complete tasks finish per second.
+## Benchmark
 
-October 8, 2026: a small local language model and embedding model, 13 documents, 60 seconds
-per level after a discarded 20-second warm-up, no failed requests. Cells show
-1 / 2 / 4 simultaneous users.
+### October 8, 2026
+
+13 documents, 60 seconds per level after a discarded 20-second warm-up,
+no failed requests. Cells show 1 / 2 / 4 simultaneous users.
 
 | Test | Median time | p95 | Tasks/s |
 |---|---|---|---|
@@ -148,13 +150,17 @@ per level after a discarded 20-second warm-up, no failed requests. Cells show
 | Chat, first text | 6.9 / 6.9 / 9.5 s | 6.9 / 8.3 / 12 s | — |
 | Follow-up | 15 / 15 / 17 s | 15 / 15 / 22 s | — |
 
-Median is the middle time; p95 estimates when 95% of tasks finish; first text is
-the wait for the first generated text. Search and cache reuse scale evenly to 4
-users. Chat does not: four times the users gives 2.75 times the tasks per second,
-and the wait for first text rises 38%. About 85% of a chat answer is spent
-waiting for the model to start. Uploads were not rerun, and a cold model (about
-4.4 seconds to load) and larger document sets are not measured. Short runs with
-few users cannot establish capacity.
+**How to read this:**
+
+- **Fast:** search (0.10 to 0.13 s) and cache reuse (about 0.2 s) barely slow down
+  as users are added.
+- **Slow:** chat takes 8 to 11 s and the first text appears after 7 to 9.5 s,
+  because the language model writes the answer. Four times the users gave only
+  2.75 times the throughput, so answer generation is the bottleneck.
+- **Follow-ups** take 15 to 17 s because the question is rewritten before search.
+  Sources are sent first, so users see them before the answer starts.
+- **Limit:** this is a small test (13 documents, 1 to 4 users). It shows relative
+  cost, not production capacity.
 
 ## Models used
 
