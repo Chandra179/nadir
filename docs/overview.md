@@ -39,8 +39,6 @@ Question -> Query rewrite (optional) -+-> Embed question  -> Dense search (cosin
 
 ## Chat Architecuture
 
-## Chat architecture
-
 A POST request rewrites the question, searches and returns the sources. A
 background worker then runs the language model and writes the answer to an event
 log. The browser watches that log over Server-Sent Events (SSE), so a dropped
@@ -96,8 +94,6 @@ and whether search finds useful text. Scores range from 0 to 1; higher is better
 | Context precision | Useful text appears near the top of the search results | 0.96 |
 | Context recall | How much of the expected answer is supported by the found text | 0.90 |
 
-**How to read this:**
-
 - **Good:** context precision (0.96) and context recall (0.90) show that search
   finds the right text and ranks it near the top.
 - **Treat as a floor:** faithfulness (0.74) and factual correctness (0.63) were
@@ -119,8 +115,6 @@ file, with and without fetching 3 times as many candidates before that limit.
 | 3× candidates (current) | 0.78 | 0.94 | 0.81 | 0.847 | 8.6 |
 | 1× candidates | 0.78 | 0.94 | 0.81 | 0.843 | 5.2 |
 | 3× candidates, 5 chunks per file | 0.78 | 0.94 | 0.86 | 0.852 | 9.4 |
-
-**How to read this:**
 
 - **Good:** Hit@3 (0.94) means the right document is almost always in the top 3.
   Hit@1 (0.78) means the first result is right about four times in five, with the
@@ -149,8 +143,6 @@ no failed requests. Cells show 1 / 2 / 4 simultaneous users.
 | Chat | 8.1 / 8.1 / 11 s | 8.1 / 9.5 / 13 s | 0.12 / 0.22 / 0.33 |
 | Chat, first text | 6.9 / 6.9 / 9.5 s | 6.9 / 8.3 / 12 s | — |
 | Follow-up | 15 / 15 / 17 s | 15 / 15 / 22 s | — |
-
-**How to read this:**
 
 - **Fast:** search (0.10 to 0.13 s) and cache reuse (about 0.2 s) barely slow down
   as users are added.
