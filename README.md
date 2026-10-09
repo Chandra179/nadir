@@ -2,6 +2,58 @@
 
 Semantic document search engine. Ingests text files, chunks + embeds them locally, stores in Qdrant, serves hybrid semantic+keyword search over HTTP, with optional cross-encoder reranking and LLM answer generation.
 
+## Run it (Linux or macOS)
+
+Install the tools below, then run these steps from the repository root. The
+two terminals stay open.
+
+```bash
+# 1. Models (Ollama must be installed and running). These are the defaults in
+#    config.yaml and can be changed, see "Choose your models".
+ollama pull embeddinggemma-300m-q8
+ollama pull qwen3.5:4b
+
+# 2. Terminal A: Qdrant + API on http://localhost:8100
+./scripts/local.sh
+
+# 3. Terminal B: dashboard on http://localhost:3002
+cd web/dashboard && npm ci && npm run dev
+```
+
+Open `http://localhost:3002`, click **+** → **Import Markdown or PDF**, choose a
+`.md` file (try `eval/samples/cache.md`), then ask a question about it.
+
+| | Linux | macOS |
+|---|---|---|
+| Podman | `./scripts/setup_podman_host.sh` (Ubuntu 24.04+), or your package manager | `brew install podman podman-compose`, then `podman machine init && podman machine start` |
+| Go 1.27+, Python 3.12+, Node 24 LTS | Package manager or the official installers | `brew install go python@3.12 node@24` |
+| Ollama | [ollama.com](https://ollama.com) | [ollama.com](https://ollama.com) |
+
+The macOS column and `local.sh` on a Mac are untested here; Podman runs inside a
+`podman machine` VM there, see the [Compose guide](deploy/compose/README.md). A
+60-second [demo video](docs/media/rag-chat-demo.mp4) shows the full flow.
+
+## Choose your models
+
+The two `ollama pull` commands pull the **defaults**, not requirements. Each model
+is set in [`config.yaml`](internal/bootstrap/configuration/config.yaml); pull
+whichever model you choose and put its name in the matching key:
+
+| Role | Config key | Default |
+|---|---|---|
+| Embeddings | `embedder.model` (and `embedder.dimensions`) | `embeddinggemma-300m-q8:latest` |
+| Answers | `generator.model` | `qwen3.5:4b` |
+| Follow-up rewriting | `rewriter.model` | `qwen3.5:4b` |
+| Index-time context (off by default) | `enrichment.contextual.model` | `qwen3.5:4b` |
+| Reranker (off by default) | `reranker.model` | `BAAI/bge-reranker-v2-m3` |
+
+Changing the embedding model changes the vector size: set `embedder.dimensions` to
+match, use a new `qdrant.collection` name or reindex, and adjust the prefixes
+(`query_prefix`, `document_prefix`) that the model expects. The answer, rewriter
+and enrichment models can be changed without reindexing, except enrichment, which
+needs a reindex. The demo video and the measured results in the docs used the
+defaults.
+
 ## Prerequisites
 
 | Tool | Required? | Purpose |
@@ -10,14 +62,9 @@ Semantic document search engine. Ingests text files, chunks + embeds them locall
 | Go 1.27+ | **Required** | Server + CLI |
 | Python 3.12+ | **Required for `local.sh`; sidecars require 3.12+** | Local startup config parsing, optional reranker and PDF conversion (the `numpy==2.5.2` pin needs 3.12) |
 | Node.js 24 LTS, or 22.x ≥22.12 | **Required for dashboard** | React dashboard and browser tests; Node 25 is unsupported |
-| [Ollama](https://ollama.com) | **Required** | Embeddings (`embeddinggemma-300m-q8`) and optional LLM features |
+| [Ollama](https://ollama.com) | **Required** | Serves the embedding and answer models (defaults: `embeddinggemma-300m-q8`, `qwen3.5:4b`; configurable) |
 
-```bash
-ollama pull embeddinggemma-300m-q8
-ollama pull qwen3.5:4b   # generation, follow-up rewriting and optional enrichment
-```
-
-The default text roles use Qwen with `think: false`. This keeps their bounded
+The default text roles use the default answer model with `think: false`. This keeps their bounded
 output budgets available for answer text and search rewrites. Each role can set
 `think: true`; omitting the setting leaves Ollama's model default in effect.
 
@@ -85,373 +132,4 @@ Set `generate` to `true` to run answer generation over the retrieved chunks:
 curl -X POST localhost:8100/api/v1/turns \
   -H 'content-type: application/json' \
   -d '{"query":"What are the main ideas in the uploaded document?","generate":true}'
-```
-
-## Daily use and corpus visibility
-
-Open **Knowledge base** in the dashboard to see indexed file names. Imports
-report processed, unchanged and failed files, including failure reasons.
-Only successful imports appear as attached files. PDF uploads fail clearly
-when Docling is disabled. The inventory survives restart; the last-import
-summary describes only the current server run.
-
-`GET /api/v1/documents` returns this inventory. `/api/v1/ready` also verifies
-that each enabled answer/rewrite model is installed at its configured Ollama
-endpoint, with an installation hint for missing models. This metadata check
-does not load the models or prove inference capacity; actual turns test that.
-
-Nadir reads indexed notes and cannot observe live system state. Explicit
-English requests for an owned system's current state receive a capability
-decline; this is a narrow guard, not a general proof of answerability.
-Check source citations before relying on an answer.
-
-## Source data
-
-The server reads Markdown and, when Docling is enabled, PDF source files from
-directories listed in `config.yaml` → `documents.paths`. Each documents path is
-walked recursively; files matching `documents.ignore_patterns` are skipped.
-Source handling is controlled by `documents.mode`: `upload-only` retains indexed
-files that are no longer present, while `mirror` removes missing files after a
-fully successful sweep. A failed conversion or embedding pass never triggers
-destructive reconciliation.
-
-The sample corpus has been removed. Documents can be any
-material you want to read, including documents written by others. To enable
-directory ingestion:
-
-```yaml
-# internal/bootstrap/configuration/config.yaml
-documents:
-  paths:
-    - "/path/to/your/docs"
-    - "/another/directory"
-```
-
-Then run `./scripts/local.sh` again (or `curl -X POST localhost:8100/api/v1/documents` on a running server). Only new/changed files are processed (SHA-256 dedup).
-
-## Run separately
-
-```bash
-# 1. Start Qdrant (reranker is optional and off by default)
-podman compose -f deploy/compose/compose.yaml up -d qdrant
-
-# 2. Start Go server
-go run ./cmd/api
-
-# 3. Ingest configured directories (or upload files using the dashboard paperclip)
-curl -X POST localhost:8100/api/v1/documents
-```
-
-## Podman Compose (Linux, Windows, macOS)
-
-The default Compose stack is CPU-safe and does not require NVIDIA. It runs the
-Go API and Qdrant under rootless Podman on Linux, or inside
-a `podman machine` VM on Windows and macOS; Ollama runs on the host and the
-container reaches it through `host.containers.internal` (injected by Podman).
-
-```bash
-podman compose -f deploy/compose/compose.yaml up -d --build
-```
-
-One-time host setup — engine, rootless subordinate IDs, the newest
-`podman-compose` provider, and the NVIDIA CDI toolchain on GPU machines:
-
-```bash
-./scripts/setup_podman_host.sh
-```
-
-The dashboard is not built or served by Compose. Start it with the local Node
-toolchain in a second terminal:
-
-```bash
-cd web/dashboard
-npm ci
-npm run dev
-```
-
-Open `http://localhost:3002` after Vite starts. Set `DASHBOARD_PORT` to choose
-another available port; Vite uses a strict port and will fail clearly if it is
-occupied.
-
-The base stack accepts uploads without a source mount. To mount an existing
-host directory, use an absolute path and the optional source override:
-
-```bash
-DOCUMENTS_DIR=/absolute/path/to/documents podman compose \
-  -f deploy/compose/compose.yaml -f deploy/compose/compose.sources.yaml up -d --build
-```
-
-On Apple Silicon, keep the default CPU reranker
-backend (`RERANKER_BACKEND=torch`); the AVX2 quantized artifact is skipped for
-portable builds. Ollama can still use Apple Metal acceleration on the host.
-
-On Linux or Windows WSL2 with an NVIDIA GPU, generate the CDI spec once and
-opt into the GPU override:
-
-```bash
-sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
-podman compose -f deploy/compose/compose.yaml -f deploy/compose/compose.gpu.yaml up -d --build
-```
-
-The GPU override is optional. Do not use it on macOS.
-
-## Config
-
-Config file: `internal/bootstrap/configuration/config.yaml`. All keys with defaults are shown there — edit directly.
-
-### Minimal config
-
-```yaml
-# internal/bootstrap/configuration/config.yaml
-documents:
-  paths:
-    - "~/documents"
-```
-
-Disabled features and bounded operational knobs have sensible defaults. Enabled
-external roles require their address/model in the config. For a full reference
-of every knob, open `internal/bootstrap/configuration/config.yaml`.
-
-### Env vars
-
-| Var | Default (Podman Compose) | Purpose |
-|-----|--------------------------|---------|
-| `QDRANT_ADDR` | `qdrant:6334` | Qdrant gRPC address |
-| `QDRANT_COLLECTION` | `documents_chunks_reading` | Qdrant collection name; older collections are not selected automatically |
-| `OLLAMA_ADDR` | `http://host.containers.internal:11434` | Ollama host |
-| `GENERATOR_ADDR` / `GENERATOR_MODEL` | same host / `qwen3.5:4b` | Explicit answer-generation endpoint and model |
-| `GENERATOR_THINK` | `false` | Request model thinking for answer generation; enabling it consumes the bounded output budget |
-| `GENERATOR_MAX_OUTPUT_TOKENS` | `512` | Maximum answer output tokens sent to Ollama as `num_predict` |
-| `REWRITE_ADDR` / `REWRITE_MODEL` | same host / `qwen3.5:4b` | Explicit follow-up-rewriting endpoint and model |
-| `REWRITE_THINK` | `false` | Request model thinking for follow-up rewrites |
-| `CONTEXTUAL_ADDR` / `CONTEXTUAL_MODEL` | same host / `qwen3.5:4b` | Explicit contextual-enrichment endpoint and model |
-| `CONTEXTUAL_THINK` | `false` | Request model thinking for optional contextual enrichment |
-| `EMBEDDER_NUM_GPU` | unset | Optional Ollama embedder placement: `0` CPU, `-1` automatic, positive GPU layer count |
-| `EMBEDDER_API_KEY` | — | Embedder API key, if required |
-| `RERANKER_ADDR` | `http://reranker:5002` | Reranker sidecar |
-| `RERANKER_ENABLED` | `false` | `true`/`1` to force-enable the reranker |
-| `RERANKER_ADAPTIVE_ENABLED` | `false` | Gate reranking on dense/lexical disagreement or a weak fused margin; keep off until release-gated quality evidence supports the tradeoff |
-| `RERANKER_ADAPTIVE_MARGIN_THRESHOLD` | `0.01` | Relative fused top-result margin below which adaptive reranking is required |
-| `LOGGER_LEVEL` | `prod` | `dev` or `prod` |
-| `SEMANTIC_CACHE_THRESHOLD` | — | Cosine similarity threshold for a cache hit |
-| `DOCUMENTS_PATHS` | empty | Comma-separated source directories; the optional Compose source override uses `/app/source` |
-| `DOCUMENTS_MODE` | `upload-only` | `upload-only` retains removed files; `mirror` reconciles configured source roots |
-| `DOCUMENTS_DIR` | unset | Existing absolute host directory required by `compose.sources.yaml` |
-| `RERANKER_BACKEND` | `torch` in CPU Compose | `torch`, `torch-int8`, `onnx`, or `openvino` |
-| `RERANKER_DEVICE` | `cpu` in CPU Compose | `cpu`, `auto`, or `cuda` |
-| `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous reranker inferences |
-| `RERANKER_QUEUE_TIMEOUT` | `30s` | Maximum time waiting for a reranker slot |
-| `INFERENCE_PROFILE` | `local` | `local` requires an explicit reranker device; `custom` permits `auto` |
-| `INFERENCE_OLLAMA_KEEP_ALIVE` | `5m` | Ollama model residency after a request is idle |
-| `RERANKER_GPU` | `0` in CPU Compose | Set to `1` only with the GPU Compose override |
-| `DOCLING_ENABLED` | `false` | Enable PDF document intake |
-| `DOCLING_ADDR` | `http://host.containers.internal:5003` in Compose | Docling sidecar address |
-
-Role-specific request timeouts are configured in `internal/bootstrap/configuration/config.yaml` under
-`embedder`, `generator`, `rewriter`, `enrichment`, `reranker`, and `docling`.
-LLM and embedding concurrency is owned by the Ollama scheduler
-(`OLLAMA_NUM_PARALLEL`) rather than a client-side gate; process-local gates
-remain for single-writer indexing and destructive operations
-(`GATES_INDEXING_*`, `GATES_DESTRUCTIVE_*`).
-When an LLM role is enabled, its address and model are required explicitly:
-`generator`, `rewriter`, and `enrichment.contextual` do not
-inherit another role's endpoint or model. Compose supplies explicit role
-environment overrides even when roles share one Ollama server.
-
-The shipped `inference.profile: local` delegates embedding and LLM concurrency
-to Ollama and runs one CPU reranker operation at a time. The profile uses role
-timeouts and finite model retention. It coordinates one API process.
-Optional `embedder.num_gpu: 0` (`EMBEDDER_NUM_GPU=0`) keeps the small embedding
-model on CPU when an answer model fills GPU memory, avoiding repeated runner
-reloads. Omission preserves normal Ollama placement; measure the hardware profile
-and retrieval before adopting it. Set an explicit CUDA device and `torch` backend only
-with the GPU Compose override after measuring GPU capacity.
-
-> `./scripts/local.sh` runs the server against `internal/bootstrap/configuration/config.yaml`'s `localhost:*` addresses directly — no env overrides needed. Compose uses Podman-internal service names and a portable CPU reranker by default.
-
-## Routes
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/documents` | Read indexed file/version inventory and last import |
-| POST | `/api/v1/documents` | Ingest multipart uploaded files or configured sources |
-| POST | `/api/v1/documents/reset` | Publish an empty Qdrant collection generation |
-| POST | `/api/v1/turns` | Start one JSON Retrieval/chat turn |
-| GET | `/api/v1/turns/:id/events` | Stream answer events over SSE |
-| POST | `/api/v1/turns/:id/cancel` | Cancel generation and keep the partial answer |
-| GET | `/api/v1/sessions` | List recent chat sessions |
-| GET | `/api/v1/sessions/:id` | Read one session and its turns |
-| DELETE | `/api/v1/sessions/:id` | Delete one session and its turns |
-| DELETE | `/api/v1/sessions` | Delete all sessions and turns |
-| GET | `/api/v1/health` | API health check |
-| GET | `/api/v1/ready` | Dependency and configured model readiness |
-
-## Architecture
-
-```
-React dashboard → JSON/SSE API → domain services
-
-POST /api/v1/documents → document intake (.md or optional .pdf→.md) → indexing pass
-                                      ├── Chunker (recursive / sentence-window)
-                                      ├── Embedder (Ollama)
-                                      └── versioned Document replacement (Qdrant)
-
-POST /api/v1/turns → chat.Service.StartTurn
-                 ├── search.Service → Embedder → hybrid search (dense + sparse → RRF) → [Reranker]
-                 ├── [Generator] supervised streaming answer over retrieved chunks
-                 └── History persist at terminal state (mutation-owned and revision-checked)
-```
-
-The in-process event broker keeps a bounded, ordered replay window for one
-server instance. If horizontal scaling is required, put the turn event log
-behind a shared backend such as Redis Streams and route or broadcast SSE
-subscribers through that shared log.
-
-The Go API and React dashboard are separate artifacts. The dashboard is run
-locally with Vite, which proxies `/api/` plus SSE traffic to the Go API. Podman
-Compose runs the backend dependencies and does not build a frontend container.
-For production, serve the dashboard's built `dist/` directory from an
-independently managed static host and proxy the versioned API/SSE paths to the
-Go API.
-
-## Documentation map
-
-- [Documentation index](docs/README.md) — all guides, conventions and maintained
-  homes for product, engineering and evaluation documentation.
-- [Overview](docs/overview.md) — what Nadir does and how users experience it.
-- [Architecture decisions](docs/adr/index.md) — accepted ADRs, including the
-  single-node design boundaries and the Podman runtime decision.
-- [Active TODO](TODO.md) — open engineering work and evaluation priorities.
-
-## Run tests
-
-### Unit tests (no containers required)
-
-```bash
-make test                       # unit tests only; excludes local Python venv
-make check                      # tests + vet + build
-go test -count=1 ./cmd/... ./internal/... # all Go tests (Qdrant as available)
-```
-
-## Evaluate Retrieval quality
-
-Generate an unreviewed question/reference draft from Markdown with
-`make eval-generate`, then review it against the supporting passages and save a
-separate accepted dataset. See the [generation and review workflow](eval/README.md#generate-and-review-a-draft)
-for explicit model settings, draft artifacts and validation.
-
-The Python [Ragas evaluator](eval/README.md) captures complete answers and source
-contexts from the public API, then scores the saved captures with an explicitly
-configured local or hosted OpenAI-compatible judge. See the guide for Python
-setup, current dataset inputs, re-scoring and the shared report format.
-
-```bash
-make eval ARGS="--host http://127.0.0.1:8200 --dataset /absolute/path/questions.json --judge-base-url http://127.0.0.1:11434/v1 --judge-model qwen3.5:4b --judge-reasoning-effort none"
-```
-
-Use [Locust](benchmark/README.md) for API performance. Both tools generate fresh
-reports under ignored `.local/` directories. Historical assets and retired tools
-are recoverable from commit `31c84e4`; see [recovery information](eval/README.md#retired-assets-and-recovery).
-
-For usefulness validation, review answers and cited passages for chosen
-documents and questions as described in [TODO](TODO.md).
-
-## API performance benchmarks
-
-Use the [Locust suite](benchmark/README.md) for retrieval, chat, mixed traffic,
-cache reuse, follow-up turns and uploads. Install its dedicated dependencies:
-
-```bash
-python3.12 -m venv .local/benchmark/venv
-.local/benchmark/venv/bin/python -m pip install -r benchmark/requirements.txt
-make benchmark ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexed document'"
-make benchmark-ui ARGS="--host http://127.0.0.1:8100 --query 'Explain the indexed document'"
-```
-
-Headless defaults are one user, one user/second, 60 seconds and a 120-second
-timeout. CSV/HTML artifacts and shared `report.json` run records go to ignored
-`.local/benchmark/`. Use `runs[].summary.completed_workflows_per_second` when
-interpreting throughput. Evaluator outputs use the same report envelope.
-Upload runs retain their documents and require a separate evaluation API.
-
-## PDF ingestion
-
-PDFs can be ingested directly when the Docling sidecar is enabled. The Go
-indexing pass keeps the original PDF path as the source identity after
-conversion.
-
-With Podman Compose:
-
-```bash
-DOCLING_ENABLED=true HOST_DOCLING_ADDR=http://docling:5003 \
-  podman compose -f deploy/compose/compose.yaml --profile pdf up -d --build
-curl -X POST localhost:8100/api/v1/documents
-```
-
-For host-side development, start the sidecar and enable it in
-`internal/bootstrap/configuration/config.yaml`:
-
-```bash
-pip install -r sidecars/document-converter/requirements.txt   # one-time: install Python deps
-python sidecars/document-converter/main.py                    # HTTP sidecar on :5003
-curl -X POST localhost:8100/api/v1/documents                 # ingests .md and .pdf sources
-```
-
-The directory CLI remains available when a separate offline conversion step
-is preferred.
-
-## Troubleshooting
-
-### `./scripts/local.sh` fails with connection errors
-
-Ensure Qdrant and Ollama are running and no other services occupy the configured
-ports (normally 6333/6334/11434/8100; 5002 when reranking is enabled). Check
-`/api/v1/ready` and the launcher logs for the failing dependency. A connection
-error does not require clearing the document index.
-
-Use `POST /api/v1/documents/reset` only when deliberately emptying the corpus.
-Re-upload documents afterward. When updating indexing policy, use a copied
-configuration with unused document/cache collection names and all source
-originals; preserve the old configuration and collections for rollback.
-
-### Ollama connection refused
-
-```bash
-curl http://localhost:11434/api/tags
-ollama serve
-```
-
-### Ollama embedding fails or the GPU is out of memory
-
-Check which models and processes are resident before changing the embedding
-model:
-
-```bash
-ollama ps
-nvidia-smi                 # NVIDIA hosts only
-ollama stop <idle-model>   # unload an unused resident model
-```
-
-The host-side local script can place the reranker on the GPU. On a small GPU,
-run the reranker in CPU mode or use the portable Compose profile so the
-generator, embedder, and reranker do not compete for the same memory. Changing
-an embedding model, vector dimension, or query/document prefix requires a full
-document reindex.
-
-### "model not found" during ingest/search
-
-```bash
-ollama pull embeddinggemma-300m-q8
-ollama pull qwen3.5:4b   # generation, follow-up rewriting and optional enrichment
-```
-
-### Qdrant gRPC errors
-
-The server uses gRPC on port 6334 (not the REST API on 6333). If you see gRPC dial errors, verify `QDRANT_ADDR` matches your Qdrant container's gRPC port.
-
-### Port already in use
-
-```bash
-lsof -i :8100
-# Change http.addr in internal/bootstrap/configuration/config.yaml if needed
 ```
