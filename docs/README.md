@@ -15,6 +15,7 @@ index maps each topic to its maintained home.
 | Architecture decisions and their history | [ADR index](adr/index.md) |
 | Evaluation commands, input definitions and result format | [Evaluator guide](../eval/README.md) |
 | Dated evaluation sessions: duration, results, issues | [Evaluation log](evaluation-log.md) |
+| Scaling limits and the order to raise them | [Scaling](scaling.md) |
 | API performance workloads and reports | [Locust benchmarks](../benchmark/README.md) |
 | Podman deployment | [Compose guide](../deploy/compose/README.md) |
 | Optional model/conversion services | [Reranker](../sidecars/reranker/README.md), [document converter](../sidecars/document-converter/README.md) |
