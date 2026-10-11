@@ -1,0 +1,13 @@
+// Static hosting on Cloudflare Workers assets for the in-browser runtime.
+// Build with `make wasm-build && npm run build:browser`, then `npx wrangler deploy`.
+// Served at https://nadir.chan179.com (custom domain; the zone must be in the
+// logged-in Cloudflare account).
+{
+  "name": "nadir",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "nadir.chan179.com", "custom_domain": true }],
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
