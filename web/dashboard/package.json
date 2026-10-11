@@ -14,9 +14,13 @@
     "test": "vitest run --configLoader runner",
     "e2e": "playwright test",
     "e2e:live": "playwright test e2e/live.spec.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:browser": "VITE_RUNTIME=browser npm run build && node scripts/prune-ort-wasm.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "@mlc-ai/web-llm": "^0.2.85",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
@@ -30,7 +34,7 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^6.1.1",
-    "eslint": "^9.39.5",
+    "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.26",
     "jsdom": "^26.1.0",

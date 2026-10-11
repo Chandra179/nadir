@@ -71,6 +71,33 @@ The React dashboard remains in `web/dashboard`, and the Python reranker and
 optional Docling processes remain in `sidecars/`. Compose builds `cmd/api`, so
 normal local and Compose startup use the same backend.
 
+## Browser runtime (WASM)
+
+`cmd/wasm` builds the same graph for the browser (ADR 0038): `make wasm-build`
+writes `.local/wasm/` and `web/dashboard/public/nadir/`; `make wasm-check`
+builds, vets and tests it under wasm plus a Node smoke test of the whole API.
+Select it in the dashboard with `?runtime=browser` (`&models=mock` for scripted
+models, `&llm=none` for retrieval only) or `VITE_RUNTIME=browser`. Keep
+`internal/bootstrap/assembly` and `internal/core/**` free of gRPC, OS and
+server-only imports so they stay buildable for js/wasm.
+
+Testing the browser runtime (`make` targets from the repo root, `npm`/`npx` from
+`web/dashboard`):
+
+| Layer | Command | Needs |
+|-------|---------|-------|
+| Go + wasm + Node API smoke test | `make wasm-check` | Go, node |
+| Store benchmark (exact vs HNSW) | `go test -run '^$' -bench HybridSearch -benchtime=100x ./internal/providers/memory/documents` | about 5 min; builds up to 50k chunks |
+| Dashboard unit tests | `npm test` | node |
+| Browser e2e, scripted models | `make wasm-build`, then `npx playwright test e2e/browser-runtime.spec.ts` | Chrome; no downloads or GPU |
+| Real embedder + reranker | `E2E_REAL_MODELS=1 npx playwright test e2e/browser-runtime-real.spec.ts` | ~330 MB download, cached in `.local/pw-real-models-profile` |
+| Real WebLLM answer | `E2E_REAL_LLM=1 npx playwright test e2e/browser-runtime-llm.spec.ts` | WebGPU and a ~1.2 GB download; set `E2E_LLM_MODEL` to change the model |
+
+Try it by hand: `make wasm-build`, then `npm run dev` and open
+`/?runtime=browser` (add `&models=mock` to skip downloads). Headless Chrome on
+Linux needs the Vulkan flags the LLM spec sets to see a GPU, and drivers without
+WebGPU `shader-f16` need a `q4f32_1` model id (default builds are `q4f16_1`).
+
 ## Key rules
 
 - Core use cases must not import `internal/edge/http/`, `internal/providers/`,
