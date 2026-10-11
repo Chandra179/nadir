@@ -1,4 +1,4 @@
-package runtime
+package assembly
 
 import (
 	"crypto/sha256"

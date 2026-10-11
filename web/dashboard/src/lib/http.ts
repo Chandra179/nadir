@@ -1,7 +1,9 @@
+import { getTransport, type EventSourceLike } from "./transport";
+
 const apiBase = import.meta.env.VITE_API_BASE ?? "";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, {
+  const response = await getTransport().fetch(`${apiBase}${path}`, {
     ...init,
     headers: {
       ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
@@ -24,4 +26,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function streamURL(path: string): string {
   return `${apiBase}${path}`;
+}
+
+/** Opens a server-sent event stream through the active transport. */
+export function openEventSource(path: string): EventSourceLike {
+  return getTransport().openEventSource(streamURL(path));
 }

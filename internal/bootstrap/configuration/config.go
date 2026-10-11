@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"os"
@@ -311,9 +312,15 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
+	return Parse(f)
+}
 
+// Parse decodes YAML from r, applies environment overrides, and validates the
+// result. Runtimes without a filesystem, such as the browser, supply their
+// configuration through it.
+func Parse(r io.Reader) (*Config, error) {
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
+	decoder := yaml.NewDecoder(r)
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, err

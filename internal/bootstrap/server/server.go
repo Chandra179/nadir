@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"nadir/internal/bootstrap/assembly"
 	"nadir/internal/bootstrap/configuration"
-	"nadir/internal/bootstrap/gates"
 	"nadir/internal/bootstrap/httpmiddleware"
 	"nadir/internal/bootstrap/logging"
 	"nadir/internal/bootstrap/readiness"
 	"nadir/internal/bootstrap/runtime"
-	"nadir/internal/core/conversation/chat"
 	"nadir/internal/core/conversation/generation"
-	"nadir/internal/core/conversation/rewriting"
-	"nadir/internal/edge/http"
 	ollamagenerator "nadir/internal/providers/ollama/generator"
 	ollamarewriter "nadir/internal/providers/ollama/rewriter"
 	qdranthistory "nadir/internal/providers/qdrant/history"
@@ -67,39 +64,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		)
 	}
 
-	chatConfig := chat.DependenciesConfig{
-		Searcher:             graph.Searcher,
-		Generator:            gen,
-		RewriteTurns:         cfg.Rewriter.Turns,
-		MaxContextTokens:     cfg.Chat.MaxContextTokens,
-		ContextWindowTokens:  cfg.Generator.NumCtx,
-		ReservedOutputTokens: cfg.Generator.MaxOutputTokens,
-		EventBuffer:          cfg.Chat.EventBuffer,
-		MaxEventLogBytes:     cfg.Chat.MaxEventLogBytes,
-		MaxRetainedTurns:     cfg.Chat.MaxRetainedTurns,
-		FinishedTurnTTL:      cfg.Chat.FinishedTurnTTL,
-		PersistTimeout:       cfg.Chat.PersistTimeout,
-		DestructiveGate:      graph.Gates.AcquireFunc(gates.Destructive),
-		Model:                cfg.Generator.Model,
-		Telemetry:            graph.Telemetry,
-		Log:                  log,
-	}
-
-	apiConfig := api.DependenciesConfig{
-		Ingest:                  graph.Ingest,
-		DocumentVersions:        graph.DocumentVersions,
-		Reset:                   graph.Reset,
-		TopK:                    cfg.Qdrant.TopK,
-		MaxTopK:                 cfg.Search.MaxTopK,
-		DocumentsPaths:          cfg.Documents.Paths,
-		DocumentsIgnorePatterns: cfg.Documents.IgnorePatterns,
-		DocumentsMode:           cfg.Documents.Mode,
-		HistorySessionPageSize:  cfg.History.SessionPageSize,
-		MaxDocumentFileBytes:    cfg.Ingest.MaxFileBytes,
-		MaxUploadBytes:          cfg.Ingest.MaxUploadBytes,
-		ReadinessTimeout:        cfg.HTTP.ReadinessTimeout,
-		Log:                     log,
-	}
+	prov := assembly.APIProviders{Generator: gen}
 
 	if cfg.History.Enabled {
 		h, err := qdranthistory.NewDependencies(qdranthistory.DependenciesConfig{
@@ -115,8 +80,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		} else {
 			// The concrete Adapter satisfies each consumer's narrow, private
 			// Interface. No aggregate history Interface is needed here.
-			chatConfig.History = h
-			apiConfig.History = h
+			prov.History = h
 			log.Info("chat history persistence enabled", slog.String("collection", cfg.History.Collection))
 		}
 	}
@@ -125,14 +89,13 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// standalone search queries against the session's recent turns before
 	// retrieval (Rewrite-Retrieve-Read). Skipped when a session has no
 	// prior turns; rewrite failures fall back to the raw query.
-	var chatRewriter rewriting.Rewriter
 	if cfg.Rewriter.Enabled {
 		rewriteEndpoint := cfg.RewriterEndpoint()
 		if rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
 			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
 				slog.String("addr", rewriteEndpoint.Addr), slog.String("model", rewriteEndpoint.Model))
 		} else {
-			chatRewriter = ollamarewriter.NewDependencies(ollamarewriter.DependenciesConfig{
+			prov.Rewriter = ollamarewriter.NewDependencies(ollamarewriter.DependenciesConfig{
 				Addr:           rewriteEndpoint.Addr,
 				Model:          rewriteEndpoint.Model,
 				Think:          cfg.Rewriter.Think,
@@ -146,11 +109,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	chatConfig.Rewriter = chatRewriter
-	chatService := chat.NewDependencies(chatConfig)
-
-	apiConfig.Chat = chatService
-	readinessChecker := readiness.NewDependencies(readiness.DependenciesConfig{Dependencies: []readiness.Dependency{
+	prov.Readiness = []readiness.Dependency{
 		{
 			Name:  "qdrant",
 			Probe: readiness.HealthProbe(graph.QdrantHealth),
@@ -192,26 +151,10 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			},
 			Disabled: graph.RerankerProbe == nil,
 		},
-	}})
-	apiConfig.Readiness = func(ctx context.Context) api.ReadinessReport {
-		report := readinessChecker.Check(ctx)
-		checks := make(map[string]api.ReadinessCheck, len(report.Checks))
-		for name, check := range report.Checks {
-			checks[name] = api.ReadinessCheck{
-				Ready:       check.Ready,
-				Model:       check.Model,
-				LoadedModel: check.LoadedModel,
-				Backend:     check.Backend,
-				Device:      check.Device,
-				Error:       check.Error,
-				Details:     check.Details,
-			}
-		}
-		return api.ReadinessReport{Ready: report.Ready, Checks: checks}
 	}
-	apiDeps := api.NewDependencies(apiConfig)
 
-	mux := api.NewRouter(http.NewServeMux(), apiDeps)
+	built := assembly.BuildAPI(cfg, graph.Runtime, prov, log)
+	mux := built.Mux
 	mux.Handle("/debug/metrics", metricsHandler(graph.Telemetry))
 	var handler http.Handler = mux
 	handler = deps.RequestLog(handler)
@@ -228,5 +171,5 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 
 	log.Info("http server starting", slog.String("addr", srv.Addr))
-	return runHTTPServer(ctx, srv, cfg.HTTP.ShutdownTimeout, srv.ListenAndServe, chatService.Drain, log)
+	return runHTTPServer(ctx, srv, cfg.HTTP.ShutdownTimeout, srv.ListenAndServe, built.Drain, log)
 }
