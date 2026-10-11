@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamURL } from "../lib/http";
+import { openEventSource } from "../lib/http";
+import { EVENT_SOURCE_CLOSED, type EventSourceLike } from "../lib/transport";
 import type { Turn } from "../lib/api-contract";
 
 type Options = {
@@ -12,7 +13,7 @@ type Options = {
 
 /** Owns browser subscription lifecycle for one domain Chat turn. */
 export function useTurnStream(options: Options) {
-  const sourceRef = useRef<EventSource | null>(null);
+  const sourceRef = useRef<EventSourceLike | null>(null);
   const optionsRef = useRef(options);
   const lastEventIDRef = useRef(0);
   const manuallyClosedRef = useRef(false);
@@ -37,7 +38,7 @@ export function useTurnStream(options: Options) {
     manuallyClosedRef.current = false;
     lastEventIDRef.current = 0;
     const turnID = turn.turn_id;
-    const source = new EventSource(streamURL(turn.stream_url));
+    const source = openEventSource(turn.stream_url);
     sourceRef.current = source;
     setActiveTurnID(turnID);
     const isNewEvent = (event: Event): boolean => {
@@ -72,7 +73,7 @@ export function useTurnStream(options: Options) {
     });
     source.onerror = () => {
       if (sourceRef.current !== source || manuallyClosedRef.current) return;
-      if (source.readyState === EventSource.CLOSED) {
+      if (source.readyState === EVENT_SOURCE_CLOSED) {
         sourceRef.current = null;
         setActiveTurnID(null);
         optionsRef.current.onDisconnected();

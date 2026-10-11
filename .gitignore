@@ -76,3 +76,7 @@ __pycache__/
 
 # Local dynamic-int8 reranker export produced by sidecars/reranker/quantize.py
 int8_avx2/
+
+# Built by `make wasm-build` for the in-browser runtime
+web/dashboard/public/nadir/
+web/dashboard/.wrangler/
