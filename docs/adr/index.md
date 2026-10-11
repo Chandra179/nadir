@@ -52,3 +52,4 @@ measured retrieval/answer policy. The table below retains the complete history.
 | [0035](0035-source-scopes-and-local-quality-candidate.md) | Preserve source scopes and selected subjects, literal attribution/comparison and finite local answer acceptance | Accepted for personal/local checklist |
 | [0036](0036-ragas-api-evaluation.md) | Capture deployed API answers and score immutable evidence with pinned Ragas | Accepted |
 | [0037](0037-early-sources-and-single-query-embedding.md) | Return sources before the model starts (start failures move to the stream), embed each question once, cache by request size, backfill the per-file cap | Accepted |
+| [0038](0038-browser-wasm-runtime.md) | Second runtime: the Go core compiled to WASM with in-memory storage and in-browser models, behind the unchanged JSON/SSE contract | Accepted |

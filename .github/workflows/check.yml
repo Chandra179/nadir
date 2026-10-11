@@ -20,6 +20,7 @@ jobs:
       - run: go test -short -race -count=1 ./cmd/... ./internal/...
       - run: go vet ./cmd/... ./internal/...
       - run: go build ./cmd/api
+      - run: make wasm-check
 
   dashboard:
     runs-on: ubuntu-latest
@@ -38,6 +39,13 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the in-browser runtime (WASM core)
+        working-directory: .
+        run: make wasm-build
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
 
