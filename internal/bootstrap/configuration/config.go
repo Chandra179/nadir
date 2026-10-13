@@ -110,6 +110,15 @@ type QdrantConfig struct {
 	Collection  string `yaml:"collection"`
 	TopK        int    `yaml:"top_k"`
 	PrefetchMul int    `yaml:"prefetch_mul"` // store-level candidate multiplier for hybrid search legs (default 5)
+
+	// HNSW tuning for the documents collection. Zero keeps Qdrant's server
+	// default. Build parameters apply only to collections created after the
+	// change (first start or a reset); HnswEf applies to every query.
+	HnswM                 int `yaml:"hnsw_m"`                   // graph degree per node
+	HnswEfConstruct       int `yaml:"hnsw_ef_construct"`        // candidate list size while building
+	HnswFullScanThreshold int `yaml:"hnsw_full_scan_threshold"` // KB; filtered segments below this scan exactly
+	IndexingThreshold     int `yaml:"indexing_threshold"`       // KB; a segment is HNSW-indexed once it exceeds this
+	HnswEf                int `yaml:"hnsw_ef"`                  // candidate list size at query time
 }
 
 // EmbedderConfig selects the embedding provider and vector contract.
@@ -336,6 +345,20 @@ func (c *Config) applyEnv() error {
 	}
 	c.envStr(&c.Profiling.Addr, "PROFILING_ADDR")
 	c.envStr(&c.Qdrant.Collection, "QDRANT_COLLECTION")
+	for _, e := range []struct {
+		dst *int
+		env string
+	}{
+		{&c.Qdrant.HnswM, "QDRANT_HNSW_M"},
+		{&c.Qdrant.HnswEfConstruct, "QDRANT_HNSW_EF_CONSTRUCT"},
+		{&c.Qdrant.HnswFullScanThreshold, "QDRANT_HNSW_FULL_SCAN_THRESHOLD"},
+		{&c.Qdrant.IndexingThreshold, "QDRANT_INDEXING_THRESHOLD"},
+		{&c.Qdrant.HnswEf, "QDRANT_HNSW_EF"},
+	} {
+		if err := c.envInt(e.dst, e.env); err != nil {
+			return err
+		}
+	}
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
 	c.envStr(&c.Embedder.Model, "EMBEDDER_MODEL")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
@@ -766,6 +789,10 @@ func (c *Config) Validate() error {
 	}
 	if c.Qdrant.TopK <= 0 {
 		return fmt.Errorf("config: qdrant.top_k must be > 0")
+	}
+	if c.Qdrant.HnswM < 0 || c.Qdrant.HnswEfConstruct < 0 || c.Qdrant.HnswFullScanThreshold < 0 ||
+		c.Qdrant.IndexingThreshold < 0 || c.Qdrant.HnswEf < 0 {
+		return fmt.Errorf("config: qdrant.hnsw_* and qdrant.indexing_threshold must be >= 0 (0 keeps the Qdrant default)")
 	}
 	if c.Search.Fusion.RRFK <= 0 || c.Search.Fusion.DenseWeight <= 0 || c.Search.Fusion.BM25Weight <= 0 {
 		return fmt.Errorf("config: search.fusion.rrf_k and rank weights must be > 0")

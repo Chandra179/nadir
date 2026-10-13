@@ -192,6 +192,8 @@ func TestApplyEnvRejectsMalformedValues(t *testing.T) {
 		{name: "adaptive margin", env: "RERANKER_ADAPTIVE_MARGIN_THRESHOLD", value: "wide"},
 		{name: "gate timeout", env: "GATES_INDEXING_QUEUE_TIMEOUT", value: "soon"},
 		{name: "history page size", env: "HISTORY_SESSION_PAGE_SIZE", value: "many"},
+		{name: "hnsw m", env: "QDRANT_HNSW_M", value: "wide"},
+		{name: "hnsw ef", env: "QDRANT_HNSW_EF", value: "high"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.env, tt.value)
@@ -464,5 +466,30 @@ func TestOllamaThinkingConfiguration(t *testing.T) {
 	}
 	if cfg.Generator.Think != nil || cfg.Rewriter.Think != nil || cfg.Enrichment.Contextual.Think != nil {
 		t.Fatal("omitted thinking settings must preserve the model defaults")
+	}
+}
+
+func TestQdrantHNSWEnvOverridesAndValidation(t *testing.T) {
+	t.Setenv("QDRANT_HNSW_M", "32")
+	t.Setenv("QDRANT_HNSW_EF_CONSTRUCT", "200")
+	t.Setenv("QDRANT_HNSW_FULL_SCAN_THRESHOLD", "500")
+	t.Setenv("QDRANT_INDEXING_THRESHOLD", "100")
+	t.Setenv("QDRANT_HNSW_EF", "128")
+	cfg := Config{Qdrant: QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1}}
+	if err := cfg.applyEnv(); err != nil {
+		t.Fatal(err)
+	}
+	q := cfg.Qdrant
+	if q.HnswM != 32 || q.HnswEfConstruct != 200 || q.HnswFullScanThreshold != 500 || q.IndexingThreshold != 100 || q.HnswEf != 128 {
+		t.Fatalf("env overrides not applied: %+v", q)
+	}
+
+	cfg = Config{
+		Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1, HnswEf: -1},
+		Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+		Chunker:  ChunkerConfig{ChunkSize: 10},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "hnsw") {
+		t.Fatalf("Validate() error = %v, want negative HNSW rejection", err)
 	}
 }

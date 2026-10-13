@@ -86,7 +86,9 @@ func (s *dependencies) validateCollectionInfo(name string, info *qdrant.Collecti
 func (s *dependencies) createCollection(ctx context.Context, name string, dimensions int) error {
 	idf := qdrant.Modifier_Idf
 	_, err := s.collection.Create(ctx, &qdrant.CreateCollection{
-		CollectionName: name,
+		CollectionName:   name,
+		HnswConfig:       s.hnswConfigDiff(),
+		OptimizersConfig: s.optimizersConfigDiff(),
 		VectorsConfig: &qdrant.VectorsConfig{
 			Config: &qdrant.VectorsConfig_Params{
 				Params: &qdrant.VectorParams{
@@ -138,6 +140,49 @@ func (s *dependencies) createCollection(ctx context.Context, name string, dimens
 		return fmt.Errorf("qdrant create active index: %w", err)
 	}
 	return nil
+}
+
+// hnswConfigDiff returns the configured HNSW build parameters, or nil when none
+// are set so Qdrant keeps its server defaults.
+func (s *dependencies) hnswConfigDiff() *qdrant.HnswConfigDiff {
+	var diff qdrant.HnswConfigDiff
+	set := false
+	for _, f := range []struct {
+		dst **uint64
+		v   int
+	}{
+		{&diff.M, s.hnsw.M},
+		{&diff.EfConstruct, s.hnsw.EfConstruct},
+		{&diff.FullScanThreshold, s.hnsw.FullScanThreshold},
+	} {
+		if f.v > 0 {
+			v := uint64(f.v)
+			*f.dst = &v
+			set = true
+		}
+	}
+	if !set {
+		return nil
+	}
+	return &diff
+}
+
+func (s *dependencies) optimizersConfigDiff() *qdrant.OptimizersConfigDiff {
+	if s.hnsw.IndexingThreshold <= 0 {
+		return nil
+	}
+	threshold := uint64(s.hnsw.IndexingThreshold)
+	return &qdrant.OptimizersConfigDiff{IndexingThreshold: &threshold}
+}
+
+// denseSearchParams sets hnsw_ef on a dense leg. Qdrant ignores top-level
+// params when a query has prefetch, so it must sit on each prefetch leg.
+func (s *dependencies) denseSearchParams() *qdrant.SearchParams {
+	if s.hnsw.Ef <= 0 {
+		return nil
+	}
+	ef := uint64(s.hnsw.Ef)
+	return &qdrant.SearchParams{HnswEf: &ef}
 }
 
 func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChunk, active bool) error {
@@ -381,6 +426,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 		CollectionName: s.activeAlias,
 		Query:          qdrant.NewQueryDense(vector),
 		Filter:         qf,
+		Params:         s.denseSearchParams(),
 		Limit:          &fetchN,
 		WithPayload:    qdrant.NewWithPayload(true),
 	}
@@ -398,7 +444,7 @@ func (s *dependencies) HybridSearch(ctx context.Context, vector []float32, query
 	}
 
 	prefetch := []*qdrant.PrefetchQuery{
-		{Query: qdrant.NewQueryDense(vector), Filter: qf, Limit: &fetchN},
+		{Query: qdrant.NewQueryDense(vector), Filter: qf, Params: s.denseSearchParams(), Limit: &fetchN},
 	}
 	if len(sparseIdx) > 0 {
 		sparseName := sparseVectorName
@@ -448,7 +494,7 @@ func (s *dependencies) hybridSearchFused(ctx context.Context, vector []float32, 
 	qf := toQdrantFilter(buildFilterConditions(filter))
 	sparseIdx, sparseVal := vectorizeSparseQuery(query)
 	prefetch := []*qdrant.PrefetchQuery{
-		{Query: qdrant.NewQueryDense(vector), Filter: qf, Limit: &fetchN},
+		{Query: qdrant.NewQueryDense(vector), Filter: qf, Params: s.denseSearchParams(), Limit: &fetchN},
 	}
 	if len(sparseIdx) > 0 {
 		sparseName := sparseVectorName

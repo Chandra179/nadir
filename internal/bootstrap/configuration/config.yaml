@@ -39,6 +39,14 @@ qdrant:
   collection: "documents_chunks_reading"
   top_k: 5
   prefetch_mul: 5  # store-level candidate multiplier for hybrid search legs
+  # HNSW tuning, documents collection only. 0 keeps the Qdrant default (m=16,
+  # ef_construct=100). Build values apply to collections created afterwards
+  # (first start or POST /api/v1/documents/reset); hnsw_ef applies to every query.
+  hnsw_m: 0
+  hnsw_ef_construct: 0
+  hnsw_full_scan_threshold: 0  # KB
+  indexing_threshold: 0        # KB; lower it to build the graph on a small corpus
+  hnsw_ef: 0
 
 embedder:
   provider: "ollama"

@@ -126,6 +126,13 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		Collection:      cfg.Qdrant.Collection,
 		PrefetchMul:     cfg.Qdrant.PrefetchMul,
 		AdaptiveSignals: cfg.Reranker.AdaptiveEnabled || cfg.Search.Fusion.Enabled,
+		HNSW: qdrantstore.HNSWConfig{
+			M:                 cfg.Qdrant.HnswM,
+			EfConstruct:       cfg.Qdrant.HnswEfConstruct,
+			FullScanThreshold: cfg.Qdrant.HnswFullScanThreshold,
+			IndexingThreshold: cfg.Qdrant.IndexingThreshold,
+			Ef:                cfg.Qdrant.HnswEf,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("qdrant store init: %w", err)

@@ -22,6 +22,7 @@ func TestCachePolicyVersionChangesWithRetrievalContract(t *testing.T) {
 		{"embedding prefixes", func(c *config.Config) { c.Embedder.DocumentPrefix = "document: " }},
 		{"document corpus", func(c *config.Config) { c.Qdrant.Collection = "other" }},
 		{"prefetch depth", func(c *config.Config) { c.Qdrant.PrefetchMul++ }},
+		{"hnsw query ef", func(c *config.Config) { c.Qdrant.HnswEf = 128 }},
 		{"fragment limit", func(c *config.Config) { c.Search.MaxFragments++ }},
 		{"file diversity", func(c *config.Config) { c.Search.MaxChunksPerFile++ }},
 		{"fusion weights", func(c *config.Config) { c.Search.Fusion.DenseWeight = 2 }},
