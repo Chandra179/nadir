@@ -11,25 +11,19 @@ Model paper: "Passage Re-ranking with BERT" (Nogueira & Cho 2019);
 bge-reranker-v2-m3 is a multilingual XLM-RoBERTa-large based cross-encoder.
 
 Inference backend, via RERANKER_BACKEND:
-    onnx       dynamic-int8 ONNX. The image bakes an int8 export of
-               the build-time model (quantize.py); a runtime-swapped model
-               falls back to fp32 ONNX unless the image is rebuilt.
-    torch-int8 PyTorch-native dynamic int8, quantized at startup. No export
-               step, works with any swappable model; boots slower and runs a
-               bit slower than the baked ONNX export.
-    openvino   fp32 OpenVINO (optional extra).
-    torch      fp32 PyTorch — the escape hatch and last-resort fallback.
+    torch      fp32 PyTorch (default).
+    torch-int8 PyTorch-native dynamic int8, quantized at startup. CPU only; no
+               export step, works with any swappable model, boots slower.
 
 Device, via RERANKER_DEVICE (auto | cpu | cuda, default cpu):
-    "auto" picks cuda when torch sees a GPU. Both int8 routes are CPU
-    artifacts (AVX2 ONNX export / dynamic int8 quantization), so on cuda
-    RERANKER_BACKEND=torch is required. Explicit cuda fails readiness when
+    "auto" picks cuda when torch sees a GPU. int8 is a CPU artifact, so on
+    cuda RERANKER_BACKEND=torch is required. Explicit cuda fails readiness when
     CUDA is unavailable instead of silently falling back to CPU. The CUDA
     build of torch comes from the GPU image
     variant (deploy/compose/compose.gpu.yaml / Containerfile GPU=1 build arg).
 
 Install:
-    pip install "sentence-transformers[onnx]" fastapi uvicorn
+    pip install sentence-transformers fastapi uvicorn
 
 Run:
     RERANKER_MODEL=BAAI/bge-reranker-v2-m3 python sidecars/reranker/main.py
@@ -66,8 +60,6 @@ TRUST_REMOTE_CODE = os.environ.get("RERANKER_TRUST_REMOTE_CODE", "false").lower(
     "yes",
 }
 MAX_CONCURRENT = max(1, int(os.environ.get("RERANKER_MAX_CONCURRENT", "1")))
-# Directory holding the build-time int8 export (see quantize.py).
-QUANTIZED_DIR = os.environ.get("RERANKER_QUANTIZED_DIR", "int8_avx2")
 
 _model: CrossEncoder | None = None
 _load_error: str | None = None
@@ -109,8 +101,7 @@ class TorchInt8Reranker:
     Quantizes Linear weights to int8 at startup (PyTorch native) — peaks at
     fp32 + int8 in memory (~2x the fp32 footprint during startup, then drops
     to roughly fp32/4 once the fp32 weights are freed), so it works on
-    machines where the ONNX route's protobuf parse OOMs. Boot cost is the
-    quantization pass itself (seconds for base-size models, a couple of
+    constrained machines. Boot cost is the quantization pass itself (seconds for base-size models, a couple of
     minutes for v2-m3).
 
     Deliberately bypasses sentence-transformers' predict plumbing, which
@@ -151,34 +142,8 @@ class TorchInt8Reranker:
         return torch.sigmoid(scores)
 
 
-def baked_quantized_file() -> str | None:
-    """Return the baked int8 onnx filename if it matches RERANKER_MODEL.
-
-    The baked export is tied to the model it was built from (recorded in
-    model_name.txt); loading it for a different model would silently score
-    with the wrong weights.
-    """
-    onnx_dir = os.path.join(QUANTIZED_DIR, "onnx")
-    try:
-        with open(os.path.join(QUANTIZED_DIR, "model_name.txt")) as f:
-            if f.read().strip() != MODEL_NAME:
-                return None
-        return next(
-            name
-            for name in os.listdir(onnx_dir)
-            if name.startswith("model_") and name.endswith(".onnx")
-        )
-    except (OSError, StopIteration):
-        return None
-
-
 def load_model() -> CrossEncoder:
-    """Load the configured backend, degrading to torch fp32 on failure.
-
-    A quantized (or ONNX) load that dies at startup would take the whole
-    sidecar — and with it retrieval quality — down with it, while a fp32
-    fallback merely costs latency.
-    """
+    """Load the configured backend (torch fp32 or torch-int8)."""
     global _loaded_backend, _loaded_device
     device = resolve_device()
     _loaded_device = device
@@ -195,30 +160,6 @@ def load_model() -> CrossEncoder:
             trust_remote_code=TRUST_REMOTE_CODE,
         )
 
-    if BACKEND == "onnx":
-        fname = baked_quantized_file()
-        if fname is not None:
-            print(f"loading baked int8 onnx model {fname!r} for {MODEL_NAME}")
-            _loaded_backend = "onnx-int8"
-            return CrossEncoder(
-                QUANTIZED_DIR,
-                backend="onnx",
-                model_kwargs={"file_name": fname},
-                max_length=MAX_LENGTH,
-                trust_remote_code=TRUST_REMOTE_CODE,
-            )
-        print(f"no baked int8 export matching {MODEL_NAME}; loading fp32 onnx")
-    if BACKEND in ("onnx", "openvino"):
-        try:
-            _loaded_backend = BACKEND
-            return CrossEncoder(
-                MODEL_NAME,
-                backend=BACKEND,
-                max_length=MAX_LENGTH,
-                trust_remote_code=TRUST_REMOTE_CODE,
-            )
-        except Exception as e:
-            print(f"backend {BACKEND!r} failed to load ({e!r}); falling back to torch fp32")
     if BACKEND == "torch-int8":
         _loaded_backend = "torch-int8"
         return TorchInt8Reranker(MODEL_NAME, MAX_LENGTH)

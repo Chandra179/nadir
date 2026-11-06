@@ -18,7 +18,6 @@ services:
       dockerfile: Containerfile
       args:
         GPU: ${RERANKER_GPU:-1}
-        BAKE_QUANTIZED: ${RERANKER_BAKE_QUANTIZED:-0}
     environment:
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cuda}
       RERANKER_BACKEND: ${RERANKER_BACKEND:-torch}

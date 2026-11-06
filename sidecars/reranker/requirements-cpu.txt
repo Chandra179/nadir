@@ -1,9 +1,4 @@
-# CPU build: torch CPU wheel keeps the image small. Optimum is explicit because
-# the sentence-transformers extra alone has not reliably installed the ONNX
-# backend in every validated environment. sentence-transformers stays on 5.x:
-# its 6.x line requires transformers>=5, which the optimum-onnx backend does
-# not support yet (it caps transformers<4.58).
+# CPU build: the torch CPU wheel keeps the image small.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.14.0+cpu
-sentence-transformers[onnx]==5.2.3
-optimum[onnxruntime]==2.1.0
+sentence-transformers==5.2.3

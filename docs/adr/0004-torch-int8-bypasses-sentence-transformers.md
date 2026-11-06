@@ -6,52 +6,45 @@
 
 ## Context
 
-The natural implementation of the `torch-int8` backend (ADR 0003) was to
-load a `CrossEncoder` and swap its inner transformers model for a
-dynamically quantized copy:
+The `torch-int8` reranker backend should have swapped a `CrossEncoder`'s inner
+model for a dynamically quantized copy:
 
 ```python
 model = CrossEncoder(name, max_length=512)
 model.model = quantize_dynamic(model.model, {torch.nn.Linear}, dtype=torch.qint8)
 ```
 
-This fails systematically — reproduced on both ms-marco-MiniLM and
-bge-reranker-v2-m3. `predict` crashes inside the transformers forward with
-`input_ids` arriving as a `BatchEncoding` object instead of a tensor:
-sentence-transformers 6's `Transformer.forward` dispatches on
-`self.model_forward_params` / module wiring that `quantize_dynamic`'s
-deepcopy invalidates, so the quantized model's forward gets called through a
-path that passes the tokenized features positionally. Verified by spying on
-the forward: the fp32 model receives correct kwargs; the quantized copy does
-not.
+This fails on both ms-marco-MiniLM and bge-reranker-v2-m3. `predict` crashes in
+the transformers forward with `input_ids` arriving as a `BatchEncoding`
+instead of a tensor: sentence-transformers 6 dispatches on module wiring that
+`quantize_dynamic`'s deepcopy invalidates, so the quantized model receives the
+tokenized features positionally.
 
 ## Decision
 
-The `torch-int8` backend does **not** use `CrossEncoder` at all.
-`TorchInt8Reranker` (in `sidecars/reranker/main.py`) is a minimal pair
-scorer that owns the whole loop:
+`torch-int8` does not use `CrossEncoder`. `TorchInt8Reranker` (in
+`sidecars/reranker/main.py`) is a minimal pair scorer:
 
 ```python
 model = AutoModelForSequenceClassification.from_pretrained(name)
 model = quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
 # predict: tokenizer(pairs, padding=True, truncation=True,
 #                    max_length=MAX_LENGTH, return_tensors="pt")
-#          → model(**inputs).logits → sigmoid → tolist()
+#          → model(**inputs).logits → sigmoid
 ```
 
-It matches `CrossEncoder` semantics for single-label rerankers (the whole
-sidecar API surface is `predict(pairs) → scores.tolist()`, sigmoid on the
-one logit for `num_labels == 1`) while depending only on transformers +
-torch for inference. The `/rerank` handler is unchanged.
+It matches `CrossEncoder` for single-label rerankers (sigmoid over the one
+logit when `num_labels == 1`) and depends only on transformers and torch. The
+`/rerank` handler is unchanged.
 
 ## Consequences
 
-- The torch-int8 route is robust across model swaps and sentence-transformers
-  version bumps — there is no private ST wiring to track.
-- Semantics parity must be maintained by hand if `CrossEncoder` ever changes
-  its activation contract (currently: sigmoid when `num_labels == 1`); the
-  evalbench A/B plus the fp32-vs-int8 score check guard this.
-- The fp32 `torch` backend and the ONNX backends keep using `CrossEncoder`;
-  only the torch-int8 route uses the custom scorer.
-- A similar bypass is the template if future quantization approaches (e.g.
-  torch.export-based) hit the same dispatch incompatibility.
+- The route survives model swaps and sentence-transformers upgrades; there is
+  no private wiring to track.
+- If `CrossEncoder` changes its activation contract, parity must be restored by
+  hand. Rerank A/Bs and an fp32-vs-int8 score check guard this.
+- The fp32 `torch` backend still uses `CrossEncoder`.
+- Measured on 34 queries (bge-v2-m3): MRR@10 0.793 → 0.765, p50 4358 ms →
+  3372 ms (1.29×), about 1.5 GB less RAM.
+- The ONNX and OpenVINO backends were later removed (see 0031), leaving `torch`
+  and `torch-int8`.

@@ -27,7 +27,7 @@ from history) is the design to rebuild against.
 
 ## Consequences
 
-- Quality decisions lean on sidecar-side reranker benchmarks (ADR 0003
+- Quality decisions lean on sidecar-side reranker benchmarks (ADR 0031
   evidence) and live manual checks.
 - `config/golden/` no longer pretends to be a config concern.
 - One binary, one entrypoint: `cmd/server`.

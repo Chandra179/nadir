@@ -89,7 +89,6 @@ services:
       args:
         RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
         GPU: ${RERANKER_GPU:-0}
-        BAKE_QUANTIZED: ${RERANKER_BAKE_QUANTIZED:-0}
     environment:
       RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
       RERANKER_DEVICE: ${RERANKER_DEVICE:-cpu}

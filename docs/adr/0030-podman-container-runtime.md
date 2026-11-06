@@ -53,7 +53,7 @@ plain CDI device name.
 - The Docker Desktop path is gone. Linux is native; macOS and Windows go
   through a `podman machine` VM, where `host.containers.internal` still
   reaches host Ollama. The GPU overlay stays Linux/WSL2-only.
-- Historical ADRs (0003, 0008, 0021, 0022, 0023) keep their Docker-era
+- Historical ADRs (0008, 0021, 0022, 0023) keep their Docker-era
   wording as records of their time; this ADR governs current practice.
 - `.github/dependabot.yml` keeps `package-ecosystem: docker` for
   `/deploy/compose` — that ecosystem tracks image references in Compose files

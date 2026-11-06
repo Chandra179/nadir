@@ -866,9 +866,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("config: resources.reranker.device must be cpu, cuda, or auto")
 	}
 	switch c.Inference.Reranker.Backend {
-	case "onnx", "torch-int8", "openvino", "torch":
+	case "torch-int8", "torch":
 	default:
-		return fmt.Errorf("config: resources.reranker.backend must be onnx, torch-int8, openvino, or torch")
+		return fmt.Errorf("config: resources.reranker.backend must be torch-int8 or torch")
 	}
 	if c.Inference.Profile == "local" && c.Inference.Reranker.Device == "auto" {
 		return fmt.Errorf("config: resources.reranker.device must be explicit for the local profile")

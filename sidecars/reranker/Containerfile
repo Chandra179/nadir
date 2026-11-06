@@ -3,9 +3,7 @@ FROM docker.io/library/python:3.12-slim
 WORKDIR /app
 
 # Model is swappable at build time via --build-arg RERANKER_MODEL=... and at
-# runtime via the RERANKER_MODEL env var (see main.py). The int8 export baked
-# below only applies to the build-time model; a runtime-swapped model degrades
-# to fp32 onnx unless the image is rebuilt with it.
+# runtime via the RERANKER_MODEL env var (see main.py).
 ARG RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ENV RERANKER_MODEL=${RERANKER_MODEL}
 
@@ -13,8 +11,6 @@ ENV RERANKER_MODEL=${RERANKER_MODEL}
 # requirements-gpu.txt); pair with the deploy/compose/compose.gpu.yaml override,
 # which sets this from RERANKER_GPU=1 and passes the host GPU through CDI.
 ARG GPU=0
-ARG BAKE_QUANTIZED=1
-ARG TARGETARCH
 
 COPY requirements.txt requirements-cpu.txt requirements-gpu.txt ./
 # --timeout/--retries: the CUDA torch wheel is a multi-hundred-MB download;
@@ -25,16 +21,8 @@ RUN if [ "$GPU" = "1" ]; then \
         pip install --no-cache-dir --timeout 120 --retries 10 -r requirements.txt -r requirements-cpu.txt; \
     fi
 
-# Pre-download the model so container start doesn't hit HuggingFace. An AVX2
-# dynamic-int8 ONNX bake is optional and only runs for amd64 builds; portable
-# CPU images use the torch backend by default.
-COPY quantize.py .
-RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('$RERANKER_MODEL')" \
- && if [ "$BAKE_QUANTIZED" = "1" ] && [ "$TARGETARCH" = "amd64" ]; then \
-        python quantize.py; \
-    else \
-        echo "Skipping AVX2 quantized bake (BAKE_QUANTIZED=$BAKE_QUANTIZED TARGETARCH=$TARGETARCH)"; \
-    fi
+# Pre-download the model so container start doesn't hit HuggingFace.
+RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('$RERANKER_MODEL')"
 
 COPY main.py .
 

@@ -17,7 +17,6 @@ measured retrieval/answer policy. The table below retains the complete history.
 |---|----------|--------|
 | [0001](0001-enricher-interface-single-home.md) | Single enrichment contract, now under `internal/core/documents/enrichment`; Ollama is a provider | Accepted |
 | [0002](0002-conversational-query-rewriting.md) | Optional follow-up rewriting for retrieval; generation keeps the original question and selected subjects bypass rewriting | Partially superseded by 0035 |
-| [0003](0003-reranker-int8-quantization-two-routes.md) | Optional ONNX/torch-int8 reranker routes with fp32 fallback; current CPU backend is torch and bake is opt-in | Partially superseded by 0030/0031 |
 | [0004](0004-torch-int8-bypasses-sentence-transformers.md) | The `torch-int8` backend uses a minimal `TorchInt8Reranker` — sentence-transformers' predict dispatch breaks under `quantize_dynamic` | Accepted |
 | [0005](0005-fresh-control-evalbench-ab.md) | Retrieval A/Bs run a fresh control alongside the treatment in the same session; stored reports are context, not baselines | Superseded by 0010 |
 | [0006](0006-chat-streams-over-domain-owned-event-log.md) | Chat turns stream over a domain-owned event log: typed generator events, supervisor-owned generation, cursor-replayable subscribers, SSE adapter, cancel command | Accepted |
@@ -45,7 +44,7 @@ measured retrieval/answer policy. The table below retains the complete history.
 | [0028](0028-annotated-retrieval-golden-set.md) | Version the Retrieval fixture with query types, evidence distractors, and generation-faithfulness annotations | Accepted |
 | [0029](0029-ollama-scheduler-owns-llm-concurrency.md) | Ollama's scheduler owns LLM/embedding concurrency; admission only for indexing and destructive mutations | Accepted |
 | [0030](0030-podman-container-runtime.md) | Podman (rootless) is the supported engine: `compose.yaml`/`Containerfile` naming, `HOST_*` variables, `host.containers.internal`, CDI GPU overlay | Accepted |
-| [0031](0031-default-retrieval-profile-torch-cpu.md) | Optional reranker uses torch fp32 on CPU; int8 missed its latency bar; reranking enablement is superseded by 0034 | Accepted |
+| [0031](0031-default-retrieval-profile-torch-cpu.md) | Optional reranker uses torch fp32 on CPU; int8 ONNX missed its latency bar and the ONNX/OpenVINO backends were removed; reranking enablement is superseded by 0034 | Accepted |
 | [0032](0032-default-embedder-embeddinggemma.md) | Default dense embedder is EmbeddingGemma-300m (task-instruction prefixes, 768 dims), chosen by two isolated full-reindex comparisons; upgrade requires a full reindex | Accepted |
 | [0033](0033-default-chunker-recursive.md) | Default chunker stays recursive: sentence-window failed the pre-registered HitRate@5 bar and its segmenter degenerates on bullet-list markdown; revisit requires a real segmenter first | Accepted |
 | [0034](0034-chunker-fixes-and-size.md) | Chunker correctness fixes (code blocks, list separators, oversized re-split, result identity, original-query fragment) adopted; chunk size stays 512 runes; answer model moves to gemma3:4b | Accepted |

@@ -53,29 +53,23 @@ Compose readiness check.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | Hugging Face model to load |
-| `RERANKER_BACKEND` | `torch` | `onnx`, `torch-int8`, `openvino`, or `torch` |
+| `RERANKER_BACKEND` | `torch` | `torch` (fp32) or `torch-int8` (CPU only) |
 | `RERANKER_DEVICE` | `cpu` | `auto`, `cpu`, or `cuda` |
 | `RERANKER_TRUST_REMOTE_CODE` | `false` | Explicitly allow a model's custom Transformers code |
 | `RERANKER_PORT` | `5002` | HTTP listen port |
 | `RERANKER_MAX_CONCURRENT` | `1` | Maximum simultaneous model calls |
 | `RERANKER_MAX_LENGTH` | `512` | Maximum token length per query/passage pair |
-| `RERANKER_QUANTIZED_DIR` | `int8_avx2` | Directory containing an optional baked ONNX model |
 
 The model is downloaded at startup when running locally. The container image
-pre-downloads the build-time model; changing `RERANKER_MODEL` at runtime may
-require rebuilding the image to use a matching baked quantized model. The
-build-time int8 bake (`BAKE_QUANTIZED=1`) exports the model to ONNX and
-transiently needs more than 10 GB of host RAM for the current default model —
-16 GB laptops with a desktop session should keep the Compose default
-(`BAKE_QUANTIZED=0`, `RERANKER_BAKE_QUANTIZED=0`) and use the torch backend.
+pre-downloads the build-time model; a different `RERANKER_MODEL` at runtime is
+downloaded on first start.
 
 ## CPU, GPU, and platform behavior
 
 - The base Compose stack is CPU-safe and sets the portable `torch` backend.
-- On CPU, the loader can use a baked int8 ONNX model, fp32 ONNX, torch-int8,
-  or fp32 torch depending on the selected backend and available artifacts.
+- On CPU, the backend is fp32 torch or torch-int8, as selected.
 - With `RERANKER_DEVICE=cuda`, a CUDA-capable host uses fp32 torch on
-  the GPU. The int8 routes are CPU artifacts and are not used on CUDA.
+  the GPU. `torch-int8` is CPU only and is rejected on CUDA.
 - Explicit `cuda` fails readiness when CUDA is unavailable instead of silently
   falling back to CPU. `auto` is available only for custom deployments.
 - The local profile uses one CPU reranker call at a time. Requests above that
