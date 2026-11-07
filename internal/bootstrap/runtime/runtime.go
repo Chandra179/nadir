@@ -13,14 +13,11 @@ import (
 	config "nadir/internal/bootstrap/configuration"
 	"nadir/internal/bootstrap/gates"
 	"nadir/internal/core/documents/chunking"
-	"nadir/internal/core/documents/enrichment"
 	"nadir/internal/core/documents/indexing"
 	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
 	"nadir/internal/core/retrieval/cache"
 	"nadir/internal/core/retrieval/search"
-	cloudflarechat "nadir/internal/providers/cloudflare/chat"
-	ollamachat "nadir/internal/providers/ollama/chat"
 	ollamaembedding "nadir/internal/providers/ollama/embedding"
 	qdrantcache "nadir/internal/providers/qdrant/cache"
 	qdrantstore "nadir/internal/providers/qdrant/documents"
@@ -46,7 +43,7 @@ type Runtime struct {
 	Reset            func(context.Context) error
 	DocumentVersions func(context.Context) (map[string]string, error)
 	QdrantHealth     func(context.Context) error
-	EmbeddingProbe   func(context.Context) (ollamaembedding.ProbeResult, error)
+	EmbeddingProbe   func(context.Context) (embedding.ProbeResult, error)
 	RerankerProbe    func(context.Context) (reranker.ProbeResult, error)
 	Close            func() error
 }
@@ -75,10 +72,6 @@ func retrievalFusionConfig(cfg config.FusionConfig) search.FusionConfig {
 		Profiles:         profiles,
 	}
 }
-
-// contextualMaxTokens bounds one contextual chunk intro (a sentence under 30
-// words) while leaving slack for models that emit a little preamble.
-const contextualMaxTokens = 256
 
 // NewDependencies builds the shared Qdrant, embedding, indexing, cache, and
 // retrieval graph and validates its collections before returning. The caller
@@ -238,27 +231,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		log.Info("sentence-window chunker enabled", slog.Int("window_size", cfg.Chunker.WindowSize))
 	}
 
-	var enricher enrichment.Enricher
-	if cfg.Enrichment.Contextual.Enabled && cfg.Enrichment.Contextual.Provider == "cloudflare" {
-		cf, err := cloudflarechat.New(cloudflarechat.Config{
-			AccountID:      cfg.Cloudflare.AccountID,
-			APIToken:       cfg.Cloudflare.APIToken,
-			Model:          cfg.Enrichment.Contextual.Model,
-			RequestTimeout: cfg.Enrichment.RequestTimeout,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("cloudflare contextual enrichment: %w", err)
-		}
-		enricher = enrichment.NewLLM(cf.Completer(contextualMaxTokens, 0.2))
-	} else if cfg.Enrichment.Contextual.Enabled {
-		enricher = enrichment.NewLLM(ollamachat.New(ollamachat.Config{
-			Addr:           cfg.Enrichment.Contextual.OllamaAddr,
-			Model:          cfg.Enrichment.Contextual.Model,
-			Think:          cfg.Enrichment.Contextual.Think,
-			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			RequestTimeout: cfg.Enrichment.RequestTimeout,
-			Temperature:    0.2,
-		}).Complete)
+	enricher, err := newEnricher(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	converter := documentIntake(cfg.Docling, log)

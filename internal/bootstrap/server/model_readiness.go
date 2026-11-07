@@ -20,26 +20,16 @@ func modelReadiness(addr, model string, timeout time.Duration) readiness.Probe {
 	}
 }
 
-// generatorReadiness probes the configured answer provider. Workers AI is a
-// hosted API: probing it would spend quota and could fail on a transient
-// network error, so readiness reports only that the account and model are
-// configured; an actual generated turn establishes reachability.
+// generatorReadiness probes the configured answer provider.
 func generatorReadiness(cfg *config.Config) readiness.Probe {
-	if cfg.Generator.Provider != "cloudflare" {
-		return modelReadiness(cfg.Generator.OllamaAddr, cfg.Generator.Model, cfg.HTTP.ReadinessTimeout)
-	}
-	return func(context.Context) (readiness.Check, error) {
-		return readiness.Check{
-			Model:   cfg.Generator.Model,
-			Backend: "workers-ai",
-			Details: "credentials and model configured; reachability is checked by actual turns",
-		}, nil
-	}
+	return roleReadiness(cfg.Generator.Provider, cfg.Generator.OllamaAddr, cfg.Generator.Model, cfg.HTTP.ReadinessTimeout)
 }
 
-// hostedOrOllamaReadiness is the per-role form of generatorReadiness: Workers
-// AI roles report configuration only, Ollama roles inspect installed models.
-func hostedOrOllamaReadiness(provider, addr, model string, timeout time.Duration) readiness.Probe {
+// roleReadiness probes one LLM role. Workers AI is a hosted API: probing it
+// would spend quota and could fail on a transient network error, so cloudflare
+// roles report configuration only and an actual request establishes
+// reachability. Ollama roles inspect installed model metadata.
+func roleReadiness(provider, addr, model string, timeout time.Duration) readiness.Probe {
 	if provider != "cloudflare" {
 		return modelReadiness(addr, model, timeout)
 	}

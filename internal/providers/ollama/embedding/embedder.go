@@ -8,14 +8,12 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"nadir/internal/core/embedding"
 )
 
 // ProbeResult describes the embedding runtime observed by Probe.
-type ProbeResult struct {
-	ConfiguredModel string
-	LoadedModel     string
-	Dimensions      int
-}
+type ProbeResult = embedding.ProbeResult
 
 func (e *dependencies) Dimensions() int { return e.dimensions }
 

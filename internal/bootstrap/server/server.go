@@ -12,20 +12,11 @@ import (
 	"nadir/internal/bootstrap/readiness"
 	"nadir/internal/bootstrap/runtime"
 	"nadir/internal/core/conversation/chat"
-	"nadir/internal/core/conversation/generation"
-	"nadir/internal/core/conversation/rewriting"
 	"nadir/internal/edge/http"
-	cloudflarechat "nadir/internal/providers/cloudflare/chat"
-	cloudflaregenerator "nadir/internal/providers/cloudflare/generator"
-	ollamachat "nadir/internal/providers/ollama/chat"
-	ollamagenerator "nadir/internal/providers/ollama/generator"
 	qdranthistory "nadir/internal/providers/qdrant/history"
 
 	"log/slog"
 )
-
-// rewriteMaxTokens bounds one query rewrite, matching the Ollama num_predict.
-const rewriteMaxTokens = 128
 
 // Server builds and runs the API HTTP process until ctx is cancelled.
 func Server(ctx context.Context, cfg *config.Config) error {
@@ -51,43 +42,9 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		}
 	}()
 
-	var gen generation.Generator
-	if cfg.Generator.Enabled && cfg.Generator.Provider == "cloudflare" {
-		cfGen, err := cloudflaregenerator.NewDependencies(cloudflaregenerator.DependenciesConfig{
-			AccountID:       cfg.Cloudflare.AccountID,
-			APIToken:        cfg.Cloudflare.APIToken,
-			Model:           cfg.Generator.Model,
-			RequestTimeout:  cfg.Generator.RequestTimeout,
-			MaxOutputTokens: cfg.Generator.MaxOutputTokens,
-			Telemetry:       graph.Telemetry,
-		})
-		if err != nil {
-			return fmt.Errorf("cloudflare generator: %w", err)
-		}
-		gen = cfGen
-		log.Info("LLM generator enabled",
-			slog.String("provider", "cloudflare"),
-			slog.String("model", cfg.Generator.Model),
-		)
-	} else if cfg.Generator.Enabled {
-		generatorEndpoint := cfg.GeneratorEndpoint()
-		gen = ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
-			Addr:           generatorEndpoint.Addr,
-			Model:          generatorEndpoint.Model,
-			Think:          cfg.Generator.Think,
-			RequestTimeout: cfg.Generator.RequestTimeout,
-			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			Options: map[string]any{
-				"temperature": 0,
-				"num_predict": cfg.Generator.MaxOutputTokens,
-				"num_ctx":     cfg.Generator.NumCtx,
-			},
-			Telemetry: graph.Telemetry,
-		})
-		log.Info("LLM generator enabled",
-			slog.String("provider", "ollama"),
-			slog.String("model", cfg.Generator.Model),
-		)
+	gen, err := newGenerator(cfg, graph.Telemetry, log)
+	if err != nil {
+		return err
 	}
 
 	chatConfig := chat.DependenciesConfig{
@@ -148,42 +105,10 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// standalone search queries against the session's recent turns before
 	// retrieval (Rewrite-Retrieve-Read). Skipped when a session has no
 	// prior turns; rewrite failures fall back to the raw query.
-	var chatRewriter rewriting.Rewriter
-	if cfg.Rewriter.Enabled {
-		if cfg.Rewriter.Provider == "cloudflare" {
-			cf, err := cloudflarechat.New(cloudflarechat.Config{
-				AccountID:      cfg.Cloudflare.AccountID,
-				APIToken:       cfg.Cloudflare.APIToken,
-				Model:          cfg.Rewriter.Model,
-				RequestTimeout: cfg.Rewriter.RequestTimeout,
-			})
-			if err != nil {
-				return fmt.Errorf("cloudflare rewriter: %w", err)
-			}
-			chatRewriter = rewriting.NewLLM(cf.Completer(rewriteMaxTokens, 0))
-			log.Info("conversational query rewriting enabled",
-				slog.String("provider", "cloudflare"),
-				slog.String("model", cfg.Rewriter.Model),
-				slog.Int("turns", cfg.Rewriter.Turns))
-		} else if rewriteEndpoint := cfg.RewriterEndpoint(); rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
-			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
-				slog.String("addr", rewriteEndpoint.Addr), slog.String("model", rewriteEndpoint.Model))
-		} else {
-			chatRewriter = rewriting.NewLLM(ollamachat.New(ollamachat.Config{
-				Addr:           rewriteEndpoint.Addr,
-				Model:          rewriteEndpoint.Model,
-				Think:          cfg.Rewriter.Think,
-				KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-				RequestTimeout: cfg.Rewriter.RequestTimeout,
-				MaxTokens:      rewriteMaxTokens,
-			}).Complete)
-			log.Info("conversational query rewriting enabled",
-				slog.String("model", rewriteEndpoint.Model),
-				slog.String("addr", rewriteEndpoint.Addr),
-				slog.Int("turns", cfg.Rewriter.Turns))
-		}
+	chatRewriter, err := newRewriter(cfg, log)
+	if err != nil {
+		return err
 	}
-
 	chatConfig.Rewriter = chatRewriter
 	chatService := chat.NewDependencies(chatConfig)
 
@@ -211,7 +136,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		},
 		{
 			Name:     "rewriter",
-			Probe:    hostedOrOllamaReadiness(cfg.Rewriter.Provider, cfg.Rewriter.OllamaAddr, cfg.Rewriter.Model, cfg.HTTP.ReadinessTimeout),
+			Probe:    roleReadiness(cfg.Rewriter.Provider, cfg.Rewriter.OllamaAddr, cfg.Rewriter.Model, cfg.HTTP.ReadinessTimeout),
 			Disabled: !cfg.Rewriter.Enabled || !cfg.History.Enabled,
 		},
 		{
