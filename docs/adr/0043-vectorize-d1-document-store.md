@@ -35,8 +35,9 @@ Adapter (`internal/providers/cloudflare/documents`) splits the work:
   more atomic than the alias switch. Ids carry the generation. The old
   generation is cleaned afterwards; failure is a retryable `PublicationError`.
 - **Search** runs the dense leg (Vectorize, resolved through D1) and the keyword
-  leg (FTS5 `bm25`) concurrently and fuses with client-side RRF, `k = 2` to match
-  Qdrant's native RRF. The query-term rules (tokenizing, question stopwords,
+  leg (FTS5 `bm25`) concurrently and fuses with client-side RRF with `k = 2`, the
+  constant I believe Qdrant's native RRF uses; that was not checked against the
+  deployed Qdrant version, so fused scores and tie order may differ. The query-term rules (tokenizing, question stopwords,
   contextual text) are shared with the Qdrant store in `providers/lexical`.
 - **Filters** use Vectorize metadata equality on 16-character hashes of
   `file_path`, `header` and `source_sha` (a string metadata index covers only the

@@ -31,7 +31,9 @@ const (
 	defaultPrefetchMul = 5
 	// maxQueryTopK is Vectorize's cap for a query that returns ids only.
 	maxQueryTopK = 100
-	// rrfK is the reciprocal-rank-fusion constant, matching Qdrant's native RRF.
+	// rrfK is the reciprocal-rank-fusion constant. It is intended to match
+	// Qdrant's native RRF (k=2), which was not verified against the deployed
+	// Qdrant version.
 	rrfK = 2
 	// Batch sizes keep every request under D1's 100-bound-parameter statement
 	// limit and Vectorize's request limits.
