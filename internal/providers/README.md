@@ -11,6 +11,8 @@ session, or generation policy.
 |---|---|---|
 | PDF-to-Markdown intake | `docling/` | `core/documents/indexing/`, configuration |
 | Ollama embeddings or LLM calls | `ollama/` | the consuming seam and config |
+| Documents in Vectorize and D1 | `cloudflare/documents/` | `core/documents/indexing/`, `core/retrieval/search/`, config, ADR 0043 |
+| Shared keyword (BM25) text rules | `lexical/` | `qdrant/documents/`, `cloudflare/documents/` |
 | Semantic cache in Vectorize and KV | `cloudflare/cache/` (adapter), `cloudflare/vectorize/`, `cloudflare/kv/` | `core/retrieval/cache/`, config, ADR 0042 |
 | Chat history in D1 | `cloudflare/history/` (rows) and `cloudflare/d1/` (REST client) | `core/conversation/chat/`, config, ADR 0041 |
 | Workers AI embeddings | `cloudflare/embedding/` | `core/embedding/`, config, ADR 0040 |

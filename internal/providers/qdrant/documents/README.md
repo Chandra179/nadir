@@ -8,5 +8,7 @@ The default hybrid path uses one Qdrant RRF query. When adaptive reranking is
 explicitly enabled, the Adapter uses one Qdrant batch request to return the
 fused result plus dense and lexical leg rankings for confidence gating.
 
+Tokenizing and question-word rules for the keyword leg are shared with the Cloudflare store in `providers/lexical`.
+
 Change here for Qdrant schema, payload, search, or reset mechanics. Verify
 with the package tests and Qdrant integration tests for schema changes.
