@@ -3,8 +3,10 @@ package cfapi
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -130,5 +132,52 @@ func TestRetryStatusesAreConfigurable(t *testing.T) {
 	status = http.StatusTooManyRequests
 	if err := only429.PostJSON(context.Background(), "/x", 1, new(any)); err == nil || calls.Load() != 3 {
 		t.Fatalf("calls=%d, want 3: 429 is retried", calls.Load())
+	}
+}
+
+func TestDoSendsMethodQueryBodyAndContentType(t *testing.T) {
+	var method, rawQuery, contentType, body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, rawQuery, contentType = r.Method, r.URL.RawQuery, r.Header.Get("Content-Type")
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = w.Write([]byte("raw bytes"))
+	}))
+	defer srv.Close()
+	c, _ := New(Config{AccountID: "a", APIToken: "t", BaseURL: srv.URL})
+	resp, err := c.Do(context.Background(), Request{
+		Method: http.MethodPut, Path: "/storage/kv/x", Query: url.Values{"expiration_ttl": {"60"}},
+		ContentType: "application/octet-stream", Body: []byte("payload"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if method != "PUT" || rawQuery != "expiration_ttl=60" || contentType != "application/octet-stream" || body != "payload" || string(got) != "raw bytes" {
+		t.Fatalf("method=%s query=%s ct=%s body=%q resp=%q", method, rawQuery, contentType, body, got)
+	}
+}
+
+func TestDoReplaysTheBodyOnRetry(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(raw))
+		if len(bodies) == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c, _ := New(Config{AccountID: "a", APIToken: "t", BaseURL: srv.URL, RetryDelay: time.Millisecond})
+	resp, err := c.Do(context.Background(), Request{Method: http.MethodPut, Path: "/x", Body: []byte("same")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if len(bodies) != 2 || bodies[0] != "same" || bodies[1] != "same" {
+		t.Fatalf("bodies = %q", bodies)
 	}
 }

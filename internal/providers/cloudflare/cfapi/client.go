@@ -116,23 +116,39 @@ func New(cfg Config) (*Client, error) {
 	}, nil
 }
 
-// Post sends body as JSON to path, relative to the account, (for example "/ai/v1/chat/completions") and
-// returns the open 200 response; the caller must close it. extraHeaders are
-// added to the request. Non-200 responses return a *StatusError; 429 and 503
-// are retried first, honoring Retry-After.
-func (c *Client) Post(ctx context.Context, path string, body any, extraHeaders map[string]string) (*http.Response, error) {
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("encode request: %w", err)
+// Request is one account-scoped HTTP request. Path is relative to the account
+// (for example "/storage/kv/namespaces/{id}/values/{key}").
+type Request struct {
+	Method      string
+	Path        string
+	Query       url.Values
+	ContentType string // empty sends no Content-Type
+	Body        []byte
+	Headers     map[string]string
+}
+
+// Do sends r and returns the open 200 response; the caller must close it.
+// Non-200 responses return a *StatusError; the retry statuses are retried
+// first, honoring Retry-After.
+func (c *Client) Do(ctx context.Context, r Request) (*http.Response, error) {
+	target := c.base + r.Path
+	if len(r.Query) > 0 {
+		target += "?" + r.Query.Encode()
 	}
 	for attempt := 0; ; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(payload))
+		var body io.Reader
+		if r.Body != nil {
+			body = bytes.NewReader(r.Body)
+		}
+		req, err := http.NewRequestWithContext(ctx, r.Method, target, body)
 		if err != nil {
 			return nil, fmt.Errorf("build request: %w", err)
 		}
-		req.Header.Set("Content-Type", "application/json")
+		if r.ContentType != "" {
+			req.Header.Set("Content-Type", r.ContentType)
+		}
 		req.Header.Set("Authorization", "Bearer "+c.apiToken)
-		for k, v := range extraHeaders {
+		for k, v := range r.Headers {
 			req.Header.Set(k, v)
 		}
 		resp, err := c.http.Do(req)
@@ -146,8 +162,7 @@ func (c *Client) Post(ctx context.Context, path string, body any, extraHeaders m
 		statusErr := &StatusError{Code: resp.StatusCode, Detail: errorDetail(resp.Body)}
 		retryAfter := resp.Header.Get("Retry-After")
 		_ = resp.Body.Close()
-		retryable := c.retryOn[resp.StatusCode]
-		if !retryable || attempt >= c.maxRetries {
+		if !c.retryOn[resp.StatusCode] || attempt >= c.maxRetries {
 			return nil, statusErr
 		}
 		timer := time.NewTimer(c.backoff(attempt, retryAfter))
@@ -158,6 +173,17 @@ func (c *Client) Post(ctx context.Context, path string, body any, extraHeaders m
 		case <-timer.C:
 		}
 	}
+}
+
+// Post sends body as JSON to path, relative to the account, and returns the
+// open 200 response; the caller must close it. extraHeaders are added to the
+// request. See Do for errors and retry.
+func (c *Client) Post(ctx context.Context, path string, body any, extraHeaders map[string]string) (*http.Response, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("encode request: %w", err)
+	}
+	return c.Do(ctx, Request{Method: http.MethodPost, Path: path, ContentType: "application/json", Body: payload, Headers: extraHeaders})
 }
 
 // PostJSON posts body and decodes the JSON response into out (at most 8 MiB).
