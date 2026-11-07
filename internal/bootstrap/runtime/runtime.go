@@ -20,8 +20,8 @@ import (
 	"nadir/internal/core/retrieval/cache"
 	"nadir/internal/core/retrieval/search"
 	cloudflarechat "nadir/internal/providers/cloudflare/chat"
+	ollamachat "nadir/internal/providers/ollama/chat"
 	ollamaembedding "nadir/internal/providers/ollama/embedding"
-	ollamaenrichment "nadir/internal/providers/ollama/enrichment"
 	qdrantcache "nadir/internal/providers/qdrant/cache"
 	qdrantstore "nadir/internal/providers/qdrant/documents"
 	"nadir/internal/providers/qdrant/shared"
@@ -249,15 +249,16 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		if err != nil {
 			return nil, fmt.Errorf("cloudflare contextual enrichment: %w", err)
 		}
-		enricher = ollamaenrichment.NewWithCompleter(cf.Completer(contextualMaxTokens, 0.2))
+		enricher = enrichment.NewLLM(cf.Completer(contextualMaxTokens, 0.2))
 	} else if cfg.Enrichment.Contextual.Enabled {
-		enricher = ollamaenrichment.NewDependencies(ollamaenrichment.DependenciesConfig{
-			ContextualAddr:  cfg.Enrichment.Contextual.OllamaAddr,
-			ContextualModel: cfg.Enrichment.Contextual.Model,
-			Think:           cfg.Enrichment.Contextual.Think,
-			RequestTimeout:  cfg.Enrichment.RequestTimeout,
-			KeepAlive:       cfg.Inference.Ollama.KeepAlive.String(),
-		})
+		enricher = enrichment.NewLLM(ollamachat.New(ollamachat.Config{
+			Addr:           cfg.Enrichment.Contextual.OllamaAddr,
+			Model:          cfg.Enrichment.Contextual.Model,
+			Think:          cfg.Enrichment.Contextual.Think,
+			KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
+			RequestTimeout: cfg.Enrichment.RequestTimeout,
+			Temperature:    0.2,
+		}).Complete)
 	}
 
 	converter := documentIntake(cfg.Docling, log)

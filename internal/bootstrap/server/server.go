@@ -17,8 +17,8 @@ import (
 	"nadir/internal/edge/http"
 	cloudflarechat "nadir/internal/providers/cloudflare/chat"
 	cloudflaregenerator "nadir/internal/providers/cloudflare/generator"
+	ollamachat "nadir/internal/providers/ollama/chat"
 	ollamagenerator "nadir/internal/providers/ollama/generator"
-	ollamarewriter "nadir/internal/providers/ollama/rewriter"
 	qdranthistory "nadir/internal/providers/qdrant/history"
 
 	"log/slog"
@@ -160,7 +160,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			if err != nil {
 				return fmt.Errorf("cloudflare rewriter: %w", err)
 			}
-			chatRewriter = ollamarewriter.NewWithCompleter(cf.Completer(rewriteMaxTokens, 0))
+			chatRewriter = rewriting.NewLLM(cf.Completer(rewriteMaxTokens, 0))
 			log.Info("conversational query rewriting enabled",
 				slog.String("provider", "cloudflare"),
 				slog.String("model", cfg.Rewriter.Model),
@@ -169,13 +169,14 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
 				slog.String("addr", rewriteEndpoint.Addr), slog.String("model", rewriteEndpoint.Model))
 		} else {
-			chatRewriter = ollamarewriter.NewDependencies(ollamarewriter.DependenciesConfig{
+			chatRewriter = rewriting.NewLLM(ollamachat.New(ollamachat.Config{
 				Addr:           rewriteEndpoint.Addr,
 				Model:          rewriteEndpoint.Model,
 				Think:          cfg.Rewriter.Think,
-				RequestTimeout: cfg.Rewriter.RequestTimeout,
 				KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-			})
+				RequestTimeout: cfg.Rewriter.RequestTimeout,
+				MaxTokens:      rewriteMaxTokens,
+			}).Complete)
 			log.Info("conversational query rewriting enabled",
 				slog.String("model", rewriteEndpoint.Model),
 				slog.String("addr", rewriteEndpoint.Addr),

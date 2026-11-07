@@ -48,7 +48,8 @@ record still documents the single-home rule that remains in force.
 ## Current location (2026-10-03)
 
 The contextual enrichment contract now lives in
-`internal/core/documents/enrichment`; its Ollama adapter is under
-`internal/providers/ollama/enrichment`. The original paths above are historical.
+`internal/core/documents/enrichment`, including its prompt logic; the model call
+goes through a `Completer` implemented by `internal/providers/ollama/chat` or
+`internal/providers/cloudflare/chat`. The original paths above are historical.
 Package ownership and private consumer seams follow [0022](0022-bounded-context-layout.md)
 and [0025](0025-context-owned-value-contracts.md).

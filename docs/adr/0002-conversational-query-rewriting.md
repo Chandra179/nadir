@@ -69,6 +69,7 @@ Constraints and tradeoffs from the research pass recorded in the TODO roadmap:
 this decision: rewriting is optional retrieval assistance, generation keeps
 the original question, and an explicitly selected persisted subject bypasses
 LLM rewriting. Reference resolution also works when rewriting is disabled.
-The contract is in `internal/core/conversation/rewriting`, with its Ollama
-adapter in `internal/providers/ollama/rewriter`. The original paths, generation
+The contract and prompt logic are in `internal/core/conversation/rewriting`;
+the model call goes through a `Completer` implemented by
+`internal/providers/ollama/chat` or `internal/providers/cloudflare/chat`. The original paths, generation
 query policy and per-follow-up cost above describe the earlier implementation.

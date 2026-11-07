@@ -13,6 +13,8 @@ session, or generation policy.
 | Ollama embeddings or LLM calls | `ollama/` | the consuming seam and config |
 | Workers AI answer generation | `cloudflare/generator/` | `core/conversation/chat/`, config |
 | Workers AI rewrite and enrichment completions | `cloudflare/chat/` | rewriter and enrichment seams, config |
+| Workers AI HTTP, auth, retry | `cloudflare/workersai/` | every `cloudflare/` adapter |
+| Ollama rewrite and enrichment completions | `ollama/chat/` | rewriter and enrichment seams, config |
 | Qdrant persistence or schema | `qdrant/` | the owning context and reset rules |
 | Cross-encoder reranking | `reranker/` | `core/retrieval/search/` |
 | A distributed event backend | a new Adapter after design approval | `core/conversation/chat/`, `docs/architecture.md` |
