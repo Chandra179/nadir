@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/google/uuid"
 	qdrant "github.com/qdrant/go-client/qdrant"
@@ -16,6 +15,7 @@ import (
 
 	indexing "nadir/internal/core/documents/indexing"
 	"nadir/internal/core/retrieval/search"
+	"nadir/internal/providers/lexical"
 	"nadir/internal/providers/qdrant/shared"
 )
 
@@ -191,7 +191,7 @@ func (s *dependencies) upsert(ctx context.Context, chunks []indexing.IndexedChun
 		id := pointID(c)
 		sparseSrc := c.SparseText
 		if sparseSrc == "" {
-			sparseSrc = contextualSparseText(c.FilePath, c.Header, c.Text)
+			sparseSrc = lexical.ContextualText(c.FilePath, c.Header, c.Text)
 		}
 		sparseIdx, sparseVal := vectorizeSparse(sparseSrc)
 		ingestedAt := c.IngestedAt
@@ -629,20 +629,6 @@ func matchKeywordCondition(key, value string) *qdrant.Condition {
 	}
 }
 
-// contextualSparseText mirrors the chunker's ContextualText format so the
-// BM25 leg indexes the same context the dense leg embeds.
-func contextualSparseText(filePath, header, text string) string {
-	var sb strings.Builder
-	sb.WriteString(filePath)
-	if header != "" {
-		sb.WriteString(" > ")
-		sb.WriteString(header)
-	}
-	sb.WriteString("\n")
-	sb.WriteString(text)
-	return sb.String()
-}
-
 func chunkFromPayload(p map[string]*qdrant.Value) search.SearchCandidate {
 	return search.SearchCandidate{
 		Text:        qdrantutil.StringFromPayload(p, "text"),
@@ -664,21 +650,10 @@ func vectorizeSparse(text string) (indices []uint32, values []float32) {
 	return vectorizeSparseTokens(tokenize(text))
 }
 
-// Natural questions need their topic words in the lexical leg. Common English
-// function words otherwise give unrelated passages an RRF rank contribution.
-// Document vectors and explicit keyword lookups retain every indexed term.
+// vectorizeSparseQuery encodes a natural-language question; see
+// lexical.QueryTerms for which words the lexical leg drops.
 func vectorizeSparseQuery(query string) (indices []uint32, values []float32) {
-	var terms []string
-	for _, term := range tokenize(query) {
-		switch term {
-		case "a", "an", "the", "i", "it", "its", "we", "our", "my", "me", "you", "your",
-			"what", "which", "how", "why", "do", "does", "did", "is", "are", "was", "were",
-			"can", "could", "should", "would", "to", "of", "for", "from", "at", "on", "in", "and", "or", "with", "while", "when":
-			continue
-		}
-		terms = append(terms, term)
-	}
-	return vectorizeSparseTokens(terms)
+	return vectorizeSparseTokens(lexical.QueryTerms(query))
 }
 
 func vectorizeSparseTokens(terms []string) (indices []uint32, values []float32) {
@@ -698,8 +673,4 @@ func vectorizeSparseTokens(terms []string) (indices []uint32, values []float32) 
 	return indices, values
 }
 
-func tokenize(text string) []string {
-	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-}
+func tokenize(text string) []string { return lexical.Tokens(text) }
