@@ -180,3 +180,37 @@ func TestThinkingControlPreservesExplicitFalseTrueAndModelDefault(t *testing.T) 
 		})
 	}
 }
+
+// TestRewriteRequestPayloadIsStable pins the exact Ollama request so a later
+// transport refactor cannot silently change what the model is asked.
+func TestRewriteRequestPayloadIsStable(t *testing.T) {
+	var got map[string]any
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]string{"content": "q?"}})
+	}))
+	defer srv.Close()
+	off := false
+	d := NewDependencies(DependenciesConfig{Addr: srv.URL, Model: "m", Think: &off, KeepAlive: "5m0s"})
+	if _, err := d.Rewrite(context.Background(), []Turn{{Query: "a", Answer: "b"}}, "c?"); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/chat" {
+		t.Fatalf("path = %s", path)
+	}
+	msgs, _ := got["messages"].([]any)
+	if got["model"] != "m" || got["stream"] != false || got["think"] != false || got["keep_alive"] != "5m0s" || len(msgs) != 2 {
+		t.Fatalf("payload = %v", got)
+	}
+	opts, _ := got["options"].(map[string]any)
+	if len(opts) != 2 || opts["temperature"] != float64(0) || opts["num_predict"] != float64(128) {
+		t.Fatalf("options = %v", opts)
+	}
+	system, _ := msgs[0].(map[string]any)
+	user, _ := msgs[1].(map[string]any)
+	if system["role"] != "system" || system["content"] != systemPrompt || user["role"] != "user" || user["content"] != buildPrompt([]Turn{{Query: "a", Answer: "b"}}, "c?") {
+		t.Fatalf("messages = %v", msgs)
+	}
+}

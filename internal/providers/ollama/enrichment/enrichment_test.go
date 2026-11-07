@@ -132,3 +132,37 @@ func TestThinkingControlPreservesExplicitFalseTrueAndModelDefault(t *testing.T) 
 		})
 	}
 }
+
+// TestEnrichmentRequestPayloadIsStable pins the exact Ollama request so a later
+// transport refactor cannot silently change what the model is asked.
+func TestEnrichmentRequestPayloadIsStable(t *testing.T) {
+	var got map[string]any
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]string{"content": "intro"}})
+	}))
+	defer srv.Close()
+	off := false
+	d := NewDependencies(DependenciesConfig{ContextualAddr: srv.URL, ContextualModel: "m", Think: &off, KeepAlive: "5m0s"})
+	if _, err := d.ContextualIntro(context.Background(), "excerpt", "chunk"); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/chat" {
+		t.Fatalf("path = %s", path)
+	}
+	msgs, _ := got["messages"].([]any)
+	if got["model"] != "m" || got["stream"] != false || got["think"] != false || got["keep_alive"] != "5m0s" || len(msgs) != 2 {
+		t.Fatalf("payload = %v", got)
+	}
+	opts, _ := got["options"].(map[string]any)
+	if len(opts) != 1 || opts["temperature"] != 0.2 {
+		t.Fatalf("options = %v (enrichment sends no num_predict)", opts)
+	}
+	system, _ := msgs[0].(map[string]any)
+	user, _ := msgs[1].(map[string]any)
+	if system["role"] != "system" || system["content"] != contextualSystemPrompt || user["role"] != "user" || user["content"] != "Document excerpt:\nexcerpt\n\nChunk:\nchunk" {
+		t.Fatalf("messages = %v", msgs)
+	}
+}
