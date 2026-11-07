@@ -34,8 +34,8 @@ shared Workers AI client (ADR 0039) supplies auth, errors and 429 retry.
   is the same, so existing vectors are not comparable with new query vectors.
   There is no automatic guard: reset and reindex, or point `qdrant.collection`
   at a new collection. The semantic cache invalidates itself because its policy
-  fingerprint includes `embedder`. Chat history vectors are also in the old
-  space; use a new `history.collection` when keeping history.
+  fingerprint includes `embedder`. Chat history stores no embeddings (its
+  Qdrant points carry a constant placeholder vector), so it is unaffected.
 - Document text, chunks and every search query leave the machine. Every query
   now pays a network round trip before retrieval.
 - Workers AI embedding models have small input limits (512 tokens for

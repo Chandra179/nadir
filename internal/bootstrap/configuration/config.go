@@ -44,6 +44,9 @@ type Config struct {
 type CloudflareConfig struct {
 	AccountID string `yaml:"account_id"` // CLOUDFLARE_ACCOUNT_ID
 	APIToken  string `yaml:"-"`          // CLOUDFLARE_API_TOKEN, env only
+	// D1DatabaseID identifies the D1 database used when history.provider is
+	// "d1". It is an identifier, not a secret.
+	D1DatabaseID string `yaml:"d1_database_id"` // CLOUDFLARE_D1_DATABASE_ID
 }
 
 // ChatConfig tunes the chat use-case (ADR 0006): prompt assembly and the
@@ -282,12 +285,14 @@ type GeneratorConfig struct {
 	NumCtx int `yaml:"num_ctx"`
 }
 
-// HistoryConfig persists chat sessions/turns to a dedicated Qdrant
-// collection (reuses the same Qdrant instance as document search/semantic
-// cache, no extra infra required).
+// HistoryConfig persists chat sessions/turns. Provider "qdrant" (default) uses
+// a dedicated Qdrant collection on the same instance as document search; "d1"
+// uses a Cloudflare D1 database (cloudflare.d1_database_id). Switching provider
+// starts with empty history: existing sessions are not migrated.
 type HistoryConfig struct {
 	Enabled         bool   `yaml:"enabled"`
-	Collection      string `yaml:"collection"`
+	Provider        string `yaml:"provider"`
+	Collection      string `yaml:"collection"` // qdrant provider only
 	SessionPageSize int    `yaml:"session_page_size"`
 	TurnPageSize    int    `yaml:"turn_page_size"`
 }
@@ -403,6 +408,7 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
 	c.envStr(&c.Cloudflare.AccountID, "CLOUDFLARE_ACCOUNT_ID")
 	c.envStr(&c.Cloudflare.APIToken, "CLOUDFLARE_API_TOKEN")
+	c.envStr(&c.Cloudflare.D1DatabaseID, "CLOUDFLARE_D1_DATABASE_ID")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	if err := c.envOptionalBool(&c.Generator.Think, "GENERATOR_THINK"); err != nil {
 		return err
@@ -473,6 +479,7 @@ func (c *Config) applyEnv() error {
 	if err := c.envBool(&c.History.Enabled, "HISTORY_ENABLED"); err != nil {
 		return err
 	}
+	c.envStr(&c.History.Provider, "HISTORY_PROVIDER")
 	c.envStr(&c.History.Collection, "HISTORY_COLLECTION")
 	if err := c.envInt(&c.History.SessionPageSize, "HISTORY_SESSION_PAGE_SIZE"); err != nil {
 		return err
@@ -765,6 +772,9 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if strings.TrimSpace(c.History.Provider) == "" {
+		c.History.Provider = "qdrant"
+	}
 	if strings.TrimSpace(c.Rewriter.Provider) == "" {
 		c.Rewriter.Provider = "ollama"
 	}
@@ -968,8 +978,22 @@ func (c *Config) Validate() error {
 	if err := c.validateRole("enrichment.contextual", c.Enrichment.Contextual.Enabled, c.Enrichment.Contextual.Provider, c.Enrichment.Contextual.OllamaAddr, c.Enrichment.Contextual.Model); err != nil {
 		return err
 	}
-	if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
-		return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
+	switch c.History.Provider {
+	case "qdrant":
+		if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
+			return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
+		}
+	case "d1":
+		if c.History.Enabled {
+			if err := c.requireCloudflare("history"); err != nil {
+				return err
+			}
+			if strings.TrimSpace(c.Cloudflare.D1DatabaseID) == "" {
+				return fmt.Errorf("config: cloudflare.d1_database_id (CLOUDFLARE_D1_DATABASE_ID) must not be empty for the d1 history provider")
+			}
+		}
+	default:
+		return fmt.Errorf("config: history.provider must be qdrant or d1")
 	}
 	if c.Docling.Enabled && strings.TrimSpace(c.Docling.Addr) == "" {
 		return fmt.Errorf("config: docling.addr must not be empty when docling.enabled is true")

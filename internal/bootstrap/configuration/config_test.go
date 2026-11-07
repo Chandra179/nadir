@@ -673,3 +673,69 @@ func TestShippedEmbedderDefaultsToOllama(t *testing.T) {
 		t.Fatalf("shipped embedder.provider = %q, want ollama", cfg.Embedder.Provider)
 	}
 }
+
+func TestHistoryD1Provider(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:     QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder:   EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:    ChunkerConfig{ChunkSize: 10},
+			Cloudflare: CloudflareConfig{AccountID: "acct", APIToken: "token", D1DatabaseID: "db-id"},
+			History:    HistoryConfig{Enabled: true, Provider: "d1"},
+		}
+	}
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("d1 history without a qdrant collection must validate: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":  {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
+		"database": {"cloudflare.d1_database_id", func(c *Config) { c.Cloudflare.D1DatabaseID = "" }},
+		"provider": {"history.provider", func(c *Config) { c.History.Provider = "sqlite" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+	disabled := base()
+	disabled.History.Enabled = false
+	disabled.Cloudflare = CloudflareConfig{}
+	if err := disabled.Validate(); err != nil {
+		t.Fatalf("disabled history must not require D1: %v", err)
+	}
+	qdrant := base()
+	qdrant.History = HistoryConfig{Enabled: true, Provider: "qdrant"}
+	if err := qdrant.Validate(); err == nil || !strings.Contains(err.Error(), "history.collection") {
+		t.Fatalf("qdrant history without a collection: %v", err)
+	}
+
+	t.Setenv("HISTORY_PROVIDER", "d1")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "token")
+	t.Setenv("CLOUDFLARE_D1_DATABASE_ID", "db-id")
+	loaded, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.History.Provider != "d1" || loaded.Cloudflare.D1DatabaseID != "db-id" {
+		t.Fatalf("env overrides not applied: %+v %+v", loaded.History, loaded.Cloudflare)
+	}
+}
+
+func TestShippedHistoryDefaultsToQdrant(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.History.Provider != "qdrant" {
+		t.Fatalf("shipped history.provider = %q, want qdrant", cfg.History.Provider)
+	}
+}

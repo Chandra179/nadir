@@ -146,6 +146,7 @@ cloudflare:
   # Workers AI account shared by every role with provider: cloudflare. The API
   # token is never read from YAML: set CLOUDFLARE_API_TOKEN in the environment.
   account_id: ""   # CLOUDFLARE_ACCOUNT_ID
+  d1_database_id: ""  # CLOUDFLARE_D1_DATABASE_ID; only for history.provider: d1
 
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
@@ -181,10 +182,11 @@ rewriter:
   think: false       # a bounded rewrite must return the search query
 
 history:
-  enabled: true              # persists chat sessions/turns to Qdrant, no extra infra
-  collection: "chat_history"
+  enabled: true              # persists chat sessions/turns
+  provider: "qdrant"         # qdrant | d1 (Cloudflare D1; needs the cloudflare section incl. d1_database_id and a token that can edit D1). Switching starts with empty history
+  collection: "chat_history" # qdrant provider only
   session_page_size: 50      # sidebar sessions returned per request
-  turn_page_size: 500        # Qdrant scroll page used while loading one session
+  turn_page_size: 500        # page used while loading one session (Qdrant scroll or D1 LIMIT)
 
 docling:
   enabled: false             # enable PDF intake when the Docling sidecar is available

@@ -13,7 +13,6 @@ import (
 	"nadir/internal/bootstrap/runtime"
 	"nadir/internal/core/conversation/chat"
 	"nadir/internal/edge/http"
-	qdranthistory "nadir/internal/providers/qdrant/history"
 
 	"log/slog"
 )
@@ -82,22 +81,15 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}
 
 	if cfg.History.Enabled {
-		h, err := qdranthistory.NewDependencies(qdranthistory.DependenciesConfig{
-			Clients:      graph.Clients,
-			Collection:   cfg.History.Collection,
-			Dimensions:   graph.Embedder.Dimensions(),
-			TurnPageSize: cfg.History.TurnPageSize,
-		})
+		h, location, err := newHistory(startupCtx, cfg, graph)
 		if err != nil {
-			log.Error("history init failed", slog.Any("error", err))
-		} else if err := h.EnsureCollection(startupCtx); err != nil {
-			log.Error("history ensure collection failed", slog.Any("error", err))
+			log.Error("history unavailable; chat history is disabled", slog.String("provider", cfg.History.Provider), slog.Any("error", err))
 		} else {
 			// The concrete Adapter satisfies each consumer's narrow, private
-			// Interface. No aggregate history Interface is needed here.
+			// Interface.
 			chatConfig.History = h
 			apiConfig.History = h
-			log.Info("chat history persistence enabled", slog.String("collection", cfg.History.Collection))
+			log.Info("chat history persistence enabled", slog.String("provider", cfg.History.Provider), slog.String("location", location))
 		}
 	}
 

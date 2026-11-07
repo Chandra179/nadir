@@ -54,3 +54,4 @@ measured retrieval/answer policy. The table below retains the complete history.
 | [0038](0038-explicit-hnsw-parameters.md) | Optional, explicit HNSW build parameters (applied at collection creation) and query-time `hnsw_ef` for the documents collection; cache and history unchanged | Accepted |
 | [0039](0039-workers-ai-generator-provider.md) | Optional Workers AI answer-generation provider selected by `generator.provider`; token env-only; Ollama stays the default until a Ragas comparison | Accepted |
 | [0040](0040-workers-ai-embedding-provider.md) | Optional Workers AI embedding provider selected by `embedder.provider`; per-response dimension check; provider change requires reset and reindex; Ollama stays the default until a Ragas comparison | Accepted |
+| [0041](0041-d1-chat-history.md) | Optional Cloudflare D1 chat-history provider selected by `history.provider`; count-derived turn totals; 429-only retry; no migration; Qdrant stays the default | Accepted |

@@ -11,10 +11,12 @@ session, or generation policy.
 |---|---|---|
 | PDF-to-Markdown intake | `docling/` | `core/documents/indexing/`, configuration |
 | Ollama embeddings or LLM calls | `ollama/` | the consuming seam and config |
+| Chat history in D1 | `cloudflare/history/` (rows) and `cloudflare/d1/` (REST client) | `core/conversation/chat/`, config, ADR 0041 |
 | Workers AI embeddings | `cloudflare/embedding/` | `core/embedding/`, config, ADR 0040 |
 | Workers AI answer generation | `cloudflare/generator/` | `core/conversation/chat/`, config |
 | Workers AI rewrite and enrichment completions | `cloudflare/chat/` | rewriter and enrichment seams, config |
-| Workers AI HTTP, auth, retry | `cloudflare/workersai/` | every `cloudflare/` adapter |
+| Cloudflare REST transport (auth, errors, retry) | `cloudflare/cfapi/` | `cloudflare/workersai/`, `cloudflare/d1/` |
+| Workers AI HTTP client (`/ai/v1`) | `cloudflare/workersai/` | every Workers AI adapter |
 | Ollama rewrite and enrichment completions | `ollama/chat/` | rewriter and enrichment seams, config |
 | Qdrant persistence or schema | `qdrant/` | the owning context and reset rules |
 | Cross-encoder reranking | `reranker/` | `core/retrieval/search/` |
