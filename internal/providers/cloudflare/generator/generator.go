@@ -6,13 +6,11 @@ package generator
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -53,52 +51,20 @@ type streamChunk struct {
 // cancelling ctx stops generation at the next event boundary. The caller must
 // drain or cancel to avoid pinning the feed goroutine.
 func (g *dependencies) Generate(ctx context.Context, prompt string) (<-chan conversationgeneration.Event, error) {
-	body, err := json.Marshal(chatRequest{
+	start := time.Now()
+	resp, err := g.client.Post(ctx, "/chat/completions", chatRequest{
 		Model:     g.model,
 		Messages:  []chatMessage{{Role: "user", Content: prompt}},
 		Stream:    true,
 		MaxTokens: g.maxOutputTokens,
-	})
+	}, map[string]string{"Accept": "text/event-stream"})
 	if err != nil {
-		return nil, fmt.Errorf("generator encode request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("generator build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+g.apiToken)
-
-	start := time.Now()
-	resp, err := g.client.Do(req)
-	if err != nil {
-		// net/http errors carry the URL, never request headers.
-		return nil, fmt.Errorf("generator request: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		defer func() { _ = resp.Body.Close() }()
-		return nil, fmt.Errorf("generator: status %d%s", resp.StatusCode, errorDetail(resp.Body))
+		return nil, fmt.Errorf("generator: %w", err)
 	}
 
 	events := make(chan conversationgeneration.Event, 16)
 	go feed(ctx, resp.Body, events, g.telemetry, start)
 	return events, nil
-}
-
-// errorDetail extracts a short provider message from a non-success body.
-func errorDetail(body io.Reader) string {
-	raw, _ := io.ReadAll(io.LimitReader(body, 512))
-	var parsed struct {
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if json.Unmarshal(raw, &parsed) == nil && len(parsed.Errors) > 0 && parsed.Errors[0].Message != "" {
-		return ": " + parsed.Errors[0].Message
-	}
-	return ""
 }
 
 // feed parses the SSE stream into events until [DONE], a finish reason, an
