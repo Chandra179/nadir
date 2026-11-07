@@ -293,9 +293,12 @@ type RewriterConfig struct {
 	Enabled        bool          `yaml:"enabled"`
 	Turns          int           `yaml:"turns"` // prior turns fed to the rewriter (default 4)
 	RequestTimeout time.Duration `yaml:"request_timeout"`
-	OllamaAddr     string        `yaml:"ollama_addr"`
-	Model          string        `yaml:"model"`
-	Think          *bool         `yaml:"think"`
+	// Provider is "ollama" (default) or "cloudflare" (Workers AI). Cloudflare
+	// reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN.
+	Provider   string `yaml:"provider"`
+	OllamaAddr string `yaml:"ollama_addr"`
+	Model      string `yaml:"model"`
+	Think      *bool  `yaml:"think"`
 }
 
 // EnrichmentConfig controls index-time LLM enrichment. It costs one-time
@@ -310,7 +313,10 @@ type EnrichmentConfig struct {
 // LLM-written situational summary is prepended to each chunk before it is
 // embedded/indexed.
 type ContextualConfig struct {
-	Enabled    bool   `yaml:"enabled"`
+	Enabled bool `yaml:"enabled"`
+	// Provider is "ollama" (default) or "cloudflare" (Workers AI). Cloudflare
+	// reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN.
+	Provider   string `yaml:"provider"`
 	OllamaAddr string `yaml:"ollama_addr"`
 	Model      string `yaml:"model"`
 	Think      *bool  `yaml:"think"`
@@ -469,6 +475,7 @@ func (c *Config) applyEnv() error {
 	if err := c.envBool(&c.Enrichment.Contextual.Enabled, "CONTEXTUAL_ENABLED"); err != nil {
 		return err
 	}
+	c.envStr(&c.Enrichment.Contextual.Provider, "CONTEXTUAL_PROVIDER")
 	c.envStr(&c.Enrichment.Contextual.OllamaAddr, "CONTEXTUAL_ADDR")
 	c.envStr(&c.Enrichment.Contextual.Model, "CONTEXTUAL_MODEL")
 	if err := c.envOptionalBool(&c.Enrichment.Contextual.Think, "CONTEXTUAL_THINK"); err != nil {
@@ -477,6 +484,7 @@ func (c *Config) applyEnv() error {
 	if err := c.envBool(&c.Rewriter.Enabled, "REWRITE_ENABLED"); err != nil {
 		return err
 	}
+	c.envStr(&c.Rewriter.Provider, "REWRITE_PROVIDER")
 	c.envStr(&c.Rewriter.OllamaAddr, "REWRITE_ADDR")
 	c.envStr(&c.Rewriter.Model, "REWRITE_MODEL")
 	if err := c.envOptionalBool(&c.Rewriter.Think, "REWRITE_THINK"); err != nil {
@@ -749,6 +757,12 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if strings.TrimSpace(c.Rewriter.Provider) == "" {
+		c.Rewriter.Provider = "ollama"
+	}
+	if strings.TrimSpace(c.Enrichment.Contextual.Provider) == "" {
+		c.Enrichment.Contextual.Provider = "ollama"
+	}
 	if strings.TrimSpace(c.Generator.Provider) == "" {
 		c.Generator.Provider = "ollama"
 	}
@@ -932,17 +946,11 @@ func (c *Config) Validate() error {
 	if c.Generator.MaxOutputTokens <= 0 || c.Generator.MaxOutputTokens > 4096 {
 		return fmt.Errorf("config: generator.max_output_tokens must be > 0 and <= 4096")
 	}
-	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.OllamaAddr) == "" {
-		return fmt.Errorf("config: rewriter.ollama_addr must not be empty when rewriter.enabled is true")
+	if err := c.validateRole("rewriter", c.Rewriter.Enabled, c.Rewriter.Provider, c.Rewriter.OllamaAddr, c.Rewriter.Model); err != nil {
+		return err
 	}
-	if c.Rewriter.Enabled && strings.TrimSpace(c.Rewriter.Model) == "" {
-		return fmt.Errorf("config: rewriter.model must not be empty when rewriter.enabled is true")
-	}
-	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.OllamaAddr) == "" {
-		return fmt.Errorf("config: enrichment.contextual.ollama_addr must not be empty when enrichment.contextual.enabled is true")
-	}
-	if c.Enrichment.Contextual.Enabled && strings.TrimSpace(c.Enrichment.Contextual.Model) == "" {
-		return fmt.Errorf("config: enrichment.contextual.model must not be empty when enrichment.contextual.enabled is true")
+	if err := c.validateRole("enrichment.contextual", c.Enrichment.Contextual.Enabled, c.Enrichment.Contextual.Provider, c.Enrichment.Contextual.OllamaAddr, c.Enrichment.Contextual.Model); err != nil {
+		return err
 	}
 	if c.History.Enabled && strings.TrimSpace(c.History.Collection) == "" {
 		return fmt.Errorf("config: history.collection must not be empty when history.enabled is true")
@@ -963,4 +971,29 @@ func isLoopbackAddr(addr string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// validateRole checks an auxiliary LLM role (rewriter, contextual enrichment)
+// against its provider. Cloudflare roles share the generator's account id and
+// the env-only API token.
+func (c Config) validateRole(name string, enabled bool, provider, ollamaAddr, model string) error {
+	switch provider {
+	case "ollama":
+		if enabled && strings.TrimSpace(ollamaAddr) == "" {
+			return fmt.Errorf("config: %s.ollama_addr must not be empty when %s.enabled is true", name, name)
+		}
+	case "cloudflare":
+		if enabled && strings.TrimSpace(c.Generator.CloudflareAccountID) == "" {
+			return fmt.Errorf("config: generator.cloudflare_account_id (CLOUDFLARE_ACCOUNT_ID) must not be empty for the cloudflare %s provider", name)
+		}
+		if enabled && strings.TrimSpace(c.Generator.CloudflareAPIToken) == "" {
+			return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare %s provider", name)
+		}
+	default:
+		return fmt.Errorf("config: %s.provider must be ollama or cloudflare", name)
+	}
+	if enabled && strings.TrimSpace(model) == "" {
+		return fmt.Errorf("config: %s.model must not be empty when %s.enabled is true", name, name)
+	}
+	return nil
 }

@@ -89,6 +89,9 @@ func cleanQuery(out string) string {
 // assistant message content. Temperature 0 keeps rewrites deterministic —
 // drift here silently changes what gets searched.
 func (d *dependencies) chat(ctx context.Context, system, user string) (string, error) {
+	if d.complete != nil {
+		return d.complete(ctx, system, user)
+	}
 	payload := map[string]any{
 		"model": d.model,
 		"messages": []map[string]string{

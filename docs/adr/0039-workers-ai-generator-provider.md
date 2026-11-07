@@ -27,13 +27,22 @@ change to Conversation.
 - Ollama stays the default. Making Workers AI the default requires a Ragas
   comparison on the reviewed dataset against the current answer model
   (ADR 0035, 0036), because the available models differ.
-- The rewriter and contextual enrichment still use Ollama; they can reuse the
-  adapter later.
+- `rewriter.provider` and `enrichment.contextual.provider` select `ollama`
+  (default) or `cloudflare` independently. They share the generator's account id
+  and `CLOUDFLARE_API_TOKEN`, use their own `model`, and call the non-streaming
+  `internal/providers/cloudflare/chat` client through a `Completer` seam in the
+  existing rewriter and enrichment packages, so prompts and output cleanup stay
+  unchanged. Output caps are 128 tokens (rewrite) and 256 (contextual intro).
+  Contextual enrichment changes chunk text, so switching its provider needs a
+  reindex.
 
 ## Consequences
 
 - Prompts, retrieved document text and answers leave the machine for Cloudflare
   when the provider is `cloudflare`.
+- A rewrite adds a network round trip before retrieval; its 8s timeout and
+  fallback to the raw query still apply. Indexing sends every chunk and its
+  document excerpt to Cloudflare when contextual enrichment uses `cloudflare`.
 - Every answer is a network round trip and is billed in Workers AI neurons
   after the free allocation; text generation defaults to 300 requests per minute
   per account.

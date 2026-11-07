@@ -127,6 +127,7 @@ enrichment:
   request_timeout: 120s
   contextual:
     enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
+    provider: "ollama"      # ollama | cloudflare (Workers AI; reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN; model is a Workers AI id)
     ollama_addr: "http://localhost:11434"
     model: "qwen3.5:4b"
     think: false             # request final context text without a reasoning trace
@@ -165,6 +166,7 @@ rewriter:
   enabled: true
   turns: 4           # prior turns fed to the rewriter
   request_timeout: 8s
+  provider: "ollama" # ollama | cloudflare (Workers AI; reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN; model is a Workers AI id)
   ollama_addr: "http://localhost:11434"
   model: "qwen3.5:4b"
   think: false       # a bounded rewrite must return the search query

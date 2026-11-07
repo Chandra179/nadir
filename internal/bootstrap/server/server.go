@@ -15,6 +15,7 @@ import (
 	"nadir/internal/core/conversation/generation"
 	"nadir/internal/core/conversation/rewriting"
 	"nadir/internal/edge/http"
+	cloudflarechat "nadir/internal/providers/cloudflare/chat"
 	cloudflaregenerator "nadir/internal/providers/cloudflare/generator"
 	ollamagenerator "nadir/internal/providers/ollama/generator"
 	ollamarewriter "nadir/internal/providers/ollama/rewriter"
@@ -22,6 +23,9 @@ import (
 
 	"log/slog"
 )
+
+// rewriteMaxTokens bounds one query rewrite, matching the Ollama num_predict.
+const rewriteMaxTokens = 128
 
 // Server builds and runs the API HTTP process until ctx is cancelled.
 func Server(ctx context.Context, cfg *config.Config) error {
@@ -146,8 +150,22 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	// prior turns; rewrite failures fall back to the raw query.
 	var chatRewriter rewriting.Rewriter
 	if cfg.Rewriter.Enabled {
-		rewriteEndpoint := cfg.RewriterEndpoint()
-		if rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
+		if cfg.Rewriter.Provider == "cloudflare" {
+			cf, err := cloudflarechat.New(cloudflarechat.Config{
+				AccountID:      cfg.Generator.CloudflareAccountID,
+				APIToken:       cfg.Generator.CloudflareAPIToken,
+				Model:          cfg.Rewriter.Model,
+				RequestTimeout: cfg.Rewriter.RequestTimeout,
+			})
+			if err != nil {
+				return fmt.Errorf("cloudflare rewriter: %w", err)
+			}
+			chatRewriter = ollamarewriter.NewWithCompleter(cf.Completer(rewriteMaxTokens, 0))
+			log.Info("conversational query rewriting enabled",
+				slog.String("provider", "cloudflare"),
+				slog.String("model", cfg.Rewriter.Model),
+				slog.Int("turns", cfg.Rewriter.Turns))
+		} else if rewriteEndpoint := cfg.RewriterEndpoint(); rewriteEndpoint.Addr == "" || rewriteEndpoint.Model == "" {
 			log.Warn("rewriter enabled but no Ollama addr/model resolved; follow-ups will not be rewritten",
 				slog.String("addr", rewriteEndpoint.Addr), slog.String("model", rewriteEndpoint.Model))
 		} else {
@@ -192,7 +210,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		},
 		{
 			Name:     "rewriter",
-			Probe:    modelReadiness(cfg.Rewriter.OllamaAddr, cfg.Rewriter.Model, cfg.HTTP.ReadinessTimeout),
+			Probe:    hostedOrOllamaReadiness(cfg.Rewriter.Provider, cfg.Rewriter.OllamaAddr, cfg.Rewriter.Model, cfg.HTTP.ReadinessTimeout),
 			Disabled: !cfg.Rewriter.Enabled || !cfg.History.Enabled,
 		},
 		{

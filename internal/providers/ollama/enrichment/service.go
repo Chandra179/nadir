@@ -16,7 +16,13 @@ const contextualSystemPrompt = `You write document context lines. Given an excer
 
 func (d *dependencies) ContextualIntro(ctx context.Context, documentExcerpt, chunkText string) (string, error) {
 	prompt := fmt.Sprintf("Document excerpt:\n%s\n\nChunk:\n%s", documentExcerpt, chunkText)
-	out, err := d.chat(ctx, d.contextualAddr, d.contextualModel, contextualSystemPrompt, prompt)
+	var out string
+	var err error
+	if d.complete != nil {
+		out, err = d.complete(ctx, contextualSystemPrompt, prompt)
+	} else {
+		out, err = d.chat(ctx, d.contextualAddr, d.contextualModel, contextualSystemPrompt, prompt)
+	}
 	if err != nil {
 		return "", err
 	}

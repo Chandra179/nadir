@@ -36,3 +36,18 @@ func generatorReadiness(cfg *config.Config) readiness.Probe {
 		}, nil
 	}
 }
+
+// hostedOrOllamaReadiness is the per-role form of generatorReadiness: Workers
+// AI roles report configuration only, Ollama roles inspect installed models.
+func hostedOrOllamaReadiness(provider, addr, model string, timeout time.Duration) readiness.Probe {
+	if provider != "cloudflare" {
+		return modelReadiness(addr, model, timeout)
+	}
+	return func(context.Context) (readiness.Check, error) {
+		return readiness.Check{
+			Model:   model,
+			Backend: "workers-ai",
+			Details: "credentials and model configured; reachability is checked by actual requests",
+		}, nil
+	}
+}

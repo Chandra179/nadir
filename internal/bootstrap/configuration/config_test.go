@@ -574,3 +574,47 @@ func TestShippedGeneratorDefaultsToOllamaAndTokenIsEnvOnly(t *testing.T) {
 		t.Fatalf("env overrides not applied: %+v", cfg.Generator)
 	}
 }
+
+func TestAuxiliaryRolesCloudflareProvider(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:    QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder:  EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:   ChunkerConfig{ChunkSize: 10},
+			Generator: GeneratorConfig{Provider: "ollama", CloudflareAccountID: "acct", CloudflareAPIToken: "token"},
+			Rewriter:  RewriterConfig{Enabled: true, Provider: "cloudflare", Model: "@cf/test/rewrite"},
+			Enrichment: EnrichmentConfig{Contextual: ContextualConfig{
+				Enabled: true, Provider: "cloudflare", Model: "@cf/test/context",
+			}},
+		}
+	}
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cloudflare roles without ollama_addr must validate: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":             {"cloudflare_account_id", func(c *Config) { c.Generator.CloudflareAccountID = "" }},
+		"token":               {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Generator.CloudflareAPIToken = "" }},
+		"rewriter model":      {"rewriter.model", func(c *Config) { c.Rewriter.Model = "" }},
+		"contextual model":    {"enrichment.contextual.model", func(c *Config) { c.Enrichment.Contextual.Model = "" }},
+		"rewriter provider":   {"rewriter.provider", func(c *Config) { c.Rewriter.Provider = "vertex" }},
+		"contextual provider": {"enrichment.contextual.provider", func(c *Config) { c.Enrichment.Contextual.Provider = "vertex" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+	disabled := base()
+	disabled.Rewriter.Enabled, disabled.Enrichment.Contextual.Enabled = false, false
+	disabled.Generator.CloudflareAPIToken = ""
+	if err := disabled.Validate(); err != nil {
+		t.Fatalf("disabled roles must not require credentials: %v", err)
+	}
+}
