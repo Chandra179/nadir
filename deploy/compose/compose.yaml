@@ -14,6 +14,7 @@ services:
       QDRANT_ADDR: ${HOST_QDRANT_ADDR:-qdrant:6334}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-documents_chunks_reading}
       OLLAMA_ADDR: ${HOST_OLLAMA_ADDR:-http://host.containers.internal:11434}
+      EMBEDDER_PROVIDER: ${EMBEDDER_PROVIDER:-ollama}
       EMBEDDER_MODEL: ${EMBEDDER_MODEL:-embeddinggemma-300m-q8:latest}
       EMBEDDER_DIMENSIONS: ${EMBEDDER_DIMENSIONS:-768}
       EMBEDDER_QUERY_PREFIX: "${EMBEDDER_QUERY_PREFIX:-task: search result | query: }"

@@ -131,9 +131,12 @@ type QdrantConfig struct {
 }
 
 // EmbedderConfig selects the embedding provider and vector contract.
+// Provider is "ollama" or "cloudflare" (Workers AI, using the shared cloudflare
+// section). Changing provider or model changes the vector space: reset and
+// reindex, and use a new qdrant.collection when keeping the old index.
 type EmbedderConfig struct {
 	Provider   string `yaml:"provider"`
-	Model      string `yaml:"model"`
+	Model      string `yaml:"model"` // Ollama tag or Workers AI model id
 	APIKey     string `yaml:"api_key"`
 	OllamaAddr string `yaml:"ollama_addr"`
 	Dimensions int    `yaml:"dimensions"`
@@ -377,6 +380,7 @@ func (c *Config) applyEnv() error {
 			return err
 		}
 	}
+	c.envStr(&c.Embedder.Provider, "EMBEDDER_PROVIDER")
 	c.envStr(&c.Embedder.OllamaAddr, "OLLAMA_ADDR")
 	c.envStr(&c.Embedder.Model, "EMBEDDER_MODEL")
 	c.envStr(&c.Embedder.APIKey, "EMBEDDER_API_KEY")
@@ -804,8 +808,17 @@ func (c *Config) Validate() error {
 	if c.Embedder.Model == "" {
 		return fmt.Errorf("config: embedder.model must not be empty")
 	}
-	if strings.EqualFold(c.Embedder.Provider, "ollama") && strings.TrimSpace(c.Embedder.OllamaAddr) == "" {
-		return fmt.Errorf("config: embedder.ollama_addr must not be empty for the ollama provider")
+	switch strings.ToLower(strings.TrimSpace(c.Embedder.Provider)) {
+	case "", "ollama":
+		if strings.EqualFold(c.Embedder.Provider, "ollama") && strings.TrimSpace(c.Embedder.OllamaAddr) == "" {
+			return fmt.Errorf("config: embedder.ollama_addr must not be empty for the ollama provider")
+		}
+	case "cloudflare":
+		if err := c.requireCloudflare("embedder"); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("config: embedder.provider must be ollama or cloudflare")
 	}
 	if c.Embedder.Dimensions <= 0 {
 		return fmt.Errorf("config: embedder.dimensions must be > 0")

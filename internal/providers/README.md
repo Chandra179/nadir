@@ -11,6 +11,7 @@ session, or generation policy.
 |---|---|---|
 | PDF-to-Markdown intake | `docling/` | `core/documents/indexing/`, configuration |
 | Ollama embeddings or LLM calls | `ollama/` | the consuming seam and config |
+| Workers AI embeddings | `cloudflare/embedding/` | `core/embedding/`, config, ADR 0040 |
 | Workers AI answer generation | `cloudflare/generator/` | `core/conversation/chat/`, config |
 | Workers AI rewrite and enrichment completions | `cloudflare/chat/` | rewriter and enrichment seams, config |
 | Workers AI HTTP, auth, retry | `cloudflare/workersai/` | every `cloudflare/` adapter |

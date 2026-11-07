@@ -619,3 +619,57 @@ func TestAuxiliaryRolesCloudflareProvider(t *testing.T) {
 		t.Fatalf("disabled roles must not require credentials: %v", err)
 	}
 }
+
+func TestEmbedderCloudflareProvider(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:     QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder:   EmbedderConfig{Provider: "cloudflare", Model: "@cf/test/embed", Dimensions: 768},
+			Chunker:    ChunkerConfig{ChunkSize: 10},
+			Cloudflare: CloudflareConfig{AccountID: "acct", APIToken: "token"},
+		}
+	}
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cloudflare embedder without ollama_addr must validate: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":  {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
+		"model":    {"embedder.model", func(c *Config) { c.Embedder.Model = "" }},
+		"provider": {"embedder.provider", func(c *Config) { c.Embedder.Provider = "vertex" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+
+	t.Setenv("EMBEDDER_PROVIDER", "cloudflare")
+	t.Setenv("EMBEDDER_MODEL", "@cf/test/embed")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "token")
+	loaded, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Embedder.Provider != "cloudflare" || loaded.Embedder.Model != "@cf/test/embed" {
+		t.Fatalf("env overrides not applied: %+v", loaded.Embedder)
+	}
+}
+
+func TestShippedEmbedderDefaultsToOllama(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Embedder.Provider != "ollama" {
+		t.Fatalf("shipped embedder.provider = %q, want ollama", cfg.Embedder.Provider)
+	}
+}

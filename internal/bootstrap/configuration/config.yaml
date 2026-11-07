@@ -49,6 +49,10 @@ qdrant:
   hnsw_ef: 0
 
 embedder:
+  # ollama | cloudflare (Workers AI; uses the cloudflare section; model is a Workers AI id and
+  # dimensions must match it). Changing provider or model changes the vector space: reset
+  # and reindex, using a new qdrant.collection to keep the old index. With cloudflare also
+  # lower max_input_chars to the model's token limit (about 4 chars per token).
   provider: "ollama"
   model: "embeddinggemma-300m-q8:latest"
   ollama_addr: "http://localhost:11434"

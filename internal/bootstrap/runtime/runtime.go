@@ -18,7 +18,6 @@ import (
 	"nadir/internal/core/observability"
 	"nadir/internal/core/retrieval/cache"
 	"nadir/internal/core/retrieval/search"
-	ollamaembedding "nadir/internal/providers/ollama/embedding"
 	qdrantcache "nadir/internal/providers/qdrant/cache"
 	qdrantstore "nadir/internal/providers/qdrant/documents"
 	"nadir/internal/providers/qdrant/shared"
@@ -136,15 +135,10 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		return nil, fmt.Errorf("qdrant store init: %w", err)
 	}
 
-	emb := ollamaembedding.NewDependencies(ollamaembedding.DependenciesConfig{
-		Addr:           cfg.Embedder.OllamaAddr,
-		Model:          cfg.Embedder.Model,
-		Dimensions:     cfg.Embedder.Dimensions,
-		NumGPU:         cfg.Embedder.NumGPU,
-		RequestTimeout: cfg.Embedder.RequestTimeout,
-		KeepAlive:      cfg.Inference.Ollama.KeepAlive.String(),
-		Telemetry:      telemetry,
-	})
+	emb, embeddingProbe, err := newEmbedder(cfg, telemetry)
+	if err != nil {
+		return nil, err
+	}
 	if err := store.EnsureCollection(ctx, emb.Dimensions()); err != nil {
 		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
 	}
@@ -297,7 +291,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 			_, err := qdrantHealth.HealthCheck(ctx, &qdrant.HealthCheckRequest{})
 			return err
 		},
-		EmbeddingProbe: emb.Probe,
+		EmbeddingProbe: embeddingProbe,
 		RerankerProbe:  rerankerProbe,
 		Close:          closeRuntime,
 	}, nil
