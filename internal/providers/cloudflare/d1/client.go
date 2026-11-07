@@ -162,5 +162,17 @@ func (r Row) Int(key string) int64 {
 	return 0
 }
 
+// Float returns a numeric column, or 0 when it is NULL, absent or not numeric.
+func (r Row) Float(key string) float64 {
+	switch v := r[key].(type) {
+	case json.Number:
+		f, _ := v.Float64()
+		return f
+	case float64:
+		return v
+	}
+	return 0
+}
+
 // Bool returns an integer column read as a boolean (non-zero is true).
 func (r Row) Bool(key string) bool { return r.Int(key) != 0 }
