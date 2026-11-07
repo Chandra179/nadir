@@ -11,6 +11,7 @@ session, or generation policy.
 |---|---|---|
 | PDF-to-Markdown intake | `docling/` | `core/documents/indexing/`, configuration |
 | Ollama embeddings or LLM calls | `ollama/` | the consuming seam and config |
+| Workers AI answer generation | `cloudflare/` | `core/conversation/chat/`, config |
 | Qdrant persistence or schema | `qdrant/` | the owning context and reset rules |
 | Cross-encoder reranking | `reranker/` | `core/retrieval/search/` |
 | A distributed event backend | a new Adapter after design approval | `core/conversation/chat/`, `docs/architecture.md` |

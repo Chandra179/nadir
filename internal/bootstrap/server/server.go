@@ -15,6 +15,7 @@ import (
 	"nadir/internal/core/conversation/generation"
 	"nadir/internal/core/conversation/rewriting"
 	"nadir/internal/edge/http"
+	cloudflaregenerator "nadir/internal/providers/cloudflare/generator"
 	ollamagenerator "nadir/internal/providers/ollama/generator"
 	ollamarewriter "nadir/internal/providers/ollama/rewriter"
 	qdranthistory "nadir/internal/providers/qdrant/history"
@@ -47,7 +48,24 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	}()
 
 	var gen generation.Generator
-	if cfg.Generator.Enabled {
+	if cfg.Generator.Enabled && cfg.Generator.Provider == "cloudflare" {
+		cfGen, err := cloudflaregenerator.NewDependencies(cloudflaregenerator.DependenciesConfig{
+			AccountID:       cfg.Generator.CloudflareAccountID,
+			APIToken:        cfg.Generator.CloudflareAPIToken,
+			Model:           cfg.Generator.Model,
+			RequestTimeout:  cfg.Generator.RequestTimeout,
+			MaxOutputTokens: cfg.Generator.MaxOutputTokens,
+			Telemetry:       graph.Telemetry,
+		})
+		if err != nil {
+			return fmt.Errorf("cloudflare generator: %w", err)
+		}
+		gen = cfGen
+		log.Info("LLM generator enabled",
+			slog.String("provider", "cloudflare"),
+			slog.String("model", cfg.Generator.Model),
+		)
+	} else if cfg.Generator.Enabled {
 		generatorEndpoint := cfg.GeneratorEndpoint()
 		gen = ollamagenerator.NewDependencies(ollamagenerator.DependenciesConfig{
 			Addr:           generatorEndpoint.Addr,
@@ -63,6 +81,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 			Telemetry: graph.Telemetry,
 		})
 		log.Info("LLM generator enabled",
+			slog.String("provider", "ollama"),
 			slog.String("model", cfg.Generator.Model),
 		)
 	}
@@ -168,7 +187,7 @@ func Server(ctx context.Context, cfg *config.Config) error {
 		},
 		{
 			Name:     "generator",
-			Probe:    modelReadiness(cfg.Generator.OllamaAddr, cfg.Generator.Model, cfg.HTTP.ReadinessTimeout),
+			Probe:    generatorReadiness(cfg),
 			Disabled: !cfg.Generator.Enabled,
 		},
 		{

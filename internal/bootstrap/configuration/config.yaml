@@ -139,12 +139,13 @@ semantic_cache:
 
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
+  provider: "ollama" # ollama | cloudflare (Workers AI). cloudflare needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (env only), a Workers AI model id in `model`, and a Ragas comparison before it becomes the default
   ollama_addr: "http://localhost:11434"
   model: "qwen3.5:4b"  # explicitly configured answer model; evaluation commands are in eval/README.md; no automatic model fallback
   think: false          # keep the bounded output budget for the answer
   request_timeout: 120s
   max_output_tokens: 512 # bound answer generation; prevents an unending stream
-  num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX)
+  num_ctx: 4096          # pin the Ollama context window: prompt budget + instructions + output must fit (GENERATOR_NUM_CTX); with provider cloudflare it is only the prompt budget
 
 chat:
   # Chat use-case tuning: prompt assembly and the streaming turn lifecycle.

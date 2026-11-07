@@ -255,12 +255,20 @@ type SemanticCacheConfig struct {
 
 // GeneratorConfig controls the optional answer-generation LLM.
 type GeneratorConfig struct {
-	Enabled         bool          `yaml:"enabled"`
-	OllamaAddr      string        `yaml:"ollama_addr"`
-	Model           string        `yaml:"model"` // explicitly selected Ollama answer model
-	Think           *bool         `yaml:"think"` // nil uses the model default; false reserves the output budget for answers
-	RequestTimeout  time.Duration `yaml:"request_timeout"`
-	MaxOutputTokens int           `yaml:"max_output_tokens"`
+	Enabled bool `yaml:"enabled"`
+	// Provider selects the answer backend: "ollama" (default) or "cloudflare"
+	// (Workers AI, OpenAI-compatible chat completions).
+	Provider   string `yaml:"provider"`
+	OllamaAddr string `yaml:"ollama_addr"`
+	// Cloudflare settings apply only to provider "cloudflare". The account id
+	// is not secret; the API token is read from CLOUDFLARE_API_TOKEN only and
+	// is never loaded from YAML.
+	CloudflareAccountID string        `yaml:"cloudflare_account_id"`
+	CloudflareAPIToken  string        `yaml:"-"`
+	Model               string        `yaml:"model"` // explicitly selected answer model (Ollama tag or Workers AI id)
+	Think               *bool         `yaml:"think"` // nil uses the model default; false reserves the output budget for answers
+	RequestTimeout      time.Duration `yaml:"request_timeout"`
+	MaxOutputTokens     int           `yaml:"max_output_tokens"`
 	// NumCtx pins the Ollama context window so the assembled prompt
 	// (instructions + context budget + question) plus the output never
 	// silently truncate against the model's default window.
@@ -377,7 +385,10 @@ func (c *Config) applyEnv() error {
 	if err := c.envInt(&c.Embedder.MaxInputChars, "EMBEDDER_MAX_INPUT_CHARS"); err != nil {
 		return err
 	}
+	c.envStr(&c.Generator.Provider, "GENERATOR_PROVIDER")
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
+	c.envStr(&c.Generator.CloudflareAccountID, "CLOUDFLARE_ACCOUNT_ID")
+	c.envStr(&c.Generator.CloudflareAPIToken, "CLOUDFLARE_API_TOKEN")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	if err := c.envOptionalBool(&c.Generator.Think, "GENERATOR_THINK"); err != nil {
 		return err
@@ -738,6 +749,9 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if strings.TrimSpace(c.Generator.Provider) == "" {
+		c.Generator.Provider = "ollama"
+	}
 	if c.Generator.MaxOutputTokens <= 0 {
 		c.Generator.MaxOutputTokens = 512
 	}
@@ -897,8 +911,20 @@ func (c *Config) Validate() error {
 	if c.SemanticCache.Enabled && strings.TrimSpace(c.SemanticCache.Collection) == "" {
 		return fmt.Errorf("config: semantic_cache.collection must not be empty when semantic_cache.enabled is true")
 	}
-	if c.Generator.Enabled && strings.TrimSpace(c.Generator.OllamaAddr) == "" {
-		return fmt.Errorf("config: generator.ollama_addr must not be empty when generator.enabled is true")
+	switch c.Generator.Provider {
+	case "ollama":
+		if c.Generator.Enabled && strings.TrimSpace(c.Generator.OllamaAddr) == "" {
+			return fmt.Errorf("config: generator.ollama_addr must not be empty when generator.enabled is true")
+		}
+	case "cloudflare":
+		if c.Generator.Enabled && strings.TrimSpace(c.Generator.CloudflareAccountID) == "" {
+			return fmt.Errorf("config: generator.cloudflare_account_id (CLOUDFLARE_ACCOUNT_ID) must not be empty for the cloudflare provider")
+		}
+		if c.Generator.Enabled && strings.TrimSpace(c.Generator.CloudflareAPIToken) == "" {
+			return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare generator provider")
+		}
+	default:
+		return fmt.Errorf("config: generator.provider must be ollama or cloudflare")
 	}
 	if c.Generator.Enabled && strings.TrimSpace(c.Generator.Model) == "" {
 		return fmt.Errorf("config: generator.model must not be empty when generator.enabled is true")

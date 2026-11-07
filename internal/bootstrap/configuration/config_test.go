@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -491,5 +492,85 @@ func TestQdrantHNSWEnvOverridesAndValidation(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "hnsw") {
 		t.Fatalf("Validate() error = %v, want negative HNSW rejection", err)
+	}
+}
+
+func TestGeneratorCloudflareProvider(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:  ChunkerConfig{ChunkSize: 10},
+			Generator: GeneratorConfig{
+				Enabled: true, Provider: "cloudflare", Model: "@cf/test/model",
+				CloudflareAccountID: "acct", CloudflareAPIToken: "token",
+			},
+		}
+	}
+
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cloudflare generator without ollama_addr must validate: %v", err)
+	}
+
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":  {"cloudflare_account_id", func(c *Config) { c.Generator.CloudflareAccountID = "" }},
+		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Generator.CloudflareAPIToken = "" }},
+		"model":    {"generator.model", func(c *Config) { c.Generator.Model = "" }},
+		"provider": {"generator.provider", func(c *Config) { c.Generator.Provider = "vertex" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+
+	disabled := base()
+	disabled.Generator.Enabled = false
+	disabled.Generator.CloudflareAPIToken = ""
+	if err := disabled.Validate(); err != nil {
+		t.Fatalf("disabled generator must not require credentials: %v", err)
+	}
+}
+
+func TestShippedGeneratorDefaultsToOllamaAndTokenIsEnvOnly(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Generator.Provider != "ollama" {
+		t.Fatalf("shipped generator.provider = %q, want ollama", cfg.Generator.Provider)
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	data, err := os.ReadFile("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An API token in YAML must be rejected, not silently loaded.
+	data = bytes.Replace(data, []byte(`provider: "ollama"`), []byte("provider: \"cloudflare\"\n  cloudflare_api_token: \"leaked\""), 1)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load must reject cloudflare_api_token in YAML")
+	}
+
+	t.Setenv("GENERATOR_PROVIDER", "cloudflare")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "token")
+	cfg, err = Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Generator.Provider != "cloudflare" || cfg.Generator.CloudflareAccountID != "acct" || cfg.Generator.CloudflareAPIToken != "token" {
+		t.Fatalf("env overrides not applied: %+v", cfg.Generator)
 	}
 }
