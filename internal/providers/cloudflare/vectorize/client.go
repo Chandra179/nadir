@@ -37,8 +37,9 @@ type Config struct {
 
 // Client runs operations against one Vectorize index.
 type Client struct {
-	api  *cfapi.Client
-	base string
+	api       *cfapi.Client
+	base      string
+	pollEvery time.Duration
 }
 
 // Match is one query result. Score is the index metric's similarity.
@@ -66,7 +67,7 @@ func New(cfg Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{api: api, base: "/vectorize/v2/indexes/" + url.PathEscape(cfg.Index)}, nil
+	return &Client{api: api, base: "/vectorize/v2/indexes/" + url.PathEscape(cfg.Index), pollEvery: 500 * time.Millisecond}, nil
 }
 
 type envelope struct {
@@ -119,12 +120,28 @@ func (c *Client) Describe(ctx context.Context) (IndexConfig, error) {
 	return IndexConfig{Dimensions: out.Result.Config.Dimensions, Metric: out.Result.Config.Metric}, nil
 }
 
+// QueryOptions narrows a query. Filter keys are indexed metadata properties and
+// each must equal its value; the index must have a metadata index for the key
+// before vectors carrying it are inserted.
+type QueryOptions struct {
+	TopK   int
+	Filter map[string]string
+}
+
 // Query returns up to topK nearest vectors, best first, without values or
 // metadata.
 func (c *Client) Query(ctx context.Context, vector []float32, topK int) ([]Match, error) {
-	body, err := json.Marshal(map[string]any{
-		"vector": vector, "topK": topK, "returnValues": false, "returnMetadata": "none",
-	})
+	return c.QueryWith(ctx, vector, QueryOptions{TopK: topK})
+}
+
+// QueryWith is Query with a metadata equality filter. A query returns ids only,
+// which Vectorize allows up to a higher topK than a query returning metadata.
+func (c *Client) QueryWith(ctx context.Context, vector []float32, opts QueryOptions) ([]Match, error) {
+	request := map[string]any{"vector": vector, "topK": opts.TopK, "returnValues": false, "returnMetadata": "none"}
+	if len(opts.Filter) > 0 {
+		request["filter"] = opts.Filter
+	}
+	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("vectorize query: encode request: %w", err)
 	}
@@ -150,19 +167,122 @@ func (c *Client) Query(ctx context.Context, vector []float32, topK int) ([]Match
 	return matches, nil
 }
 
+// Vector is one vector to store. Metadata values must be strings.
+type Vector struct {
+	ID       string
+	Values   []float32
+	Metadata map[string]string
+}
+
 // Upsert inserts or replaces the vector with this id. The write is accepted
 // immediately and applied asynchronously.
 func (c *Client) Upsert(ctx context.Context, id string, vector []float32) error {
-	line, err := json.Marshal(map[string]any{"id": id, "values": vector})
-	if err != nil {
-		return fmt.Errorf("vectorize upsert: encode request: %w", err)
+	_, err := c.UpsertMany(ctx, []Vector{{ID: id, Values: vector}})
+	return err
+}
+
+// UpsertMany inserts or replaces vectors in one NDJSON request and returns the
+// mutation id, which WaitForMutation can wait on. The write is accepted
+// immediately and applied asynchronously.
+func (c *Client) UpsertMany(ctx context.Context, vectors []Vector) (string, error) {
+	if len(vectors) == 0 {
+		return "", nil
 	}
-	var out envelope
-	req := cfapi.Request{Method: http.MethodPost, Path: c.base + "/upsert", ContentType: "application/x-ndjson", Body: append(line, '\n')}
+	var body bytes.Buffer
+	for _, v := range vectors {
+		line := map[string]any{"id": v.ID, "values": v.Values}
+		if len(v.Metadata) > 0 {
+			line["metadata"] = v.Metadata
+		}
+		raw, err := json.Marshal(line)
+		if err != nil {
+			return "", fmt.Errorf("vectorize upsert: encode request: %w", err)
+		}
+		body.Write(raw)
+		body.WriteByte('\n')
+	}
+	var out struct {
+		envelope
+		Result struct {
+			MutationID string `json:"mutationId"`
+		} `json:"result"`
+	}
+	req := cfapi.Request{Method: http.MethodPost, Path: c.base + "/upsert", ContentType: "application/x-ndjson", Body: body.Bytes()}
 	if err := c.send(ctx, "upsert", req, &out); err != nil {
-		return err
+		return "", err
 	}
-	return out.err("upsert")
+	if err := out.err("upsert"); err != nil {
+		return "", err
+	}
+	return out.Result.MutationID, nil
+}
+
+// MetadataIndex is an indexed metadata property.
+type MetadataIndex struct {
+	Property string
+	Type     string
+}
+
+// MetadataIndexes lists the index's metadata indexes.
+func (c *Client) MetadataIndexes(ctx context.Context) ([]MetadataIndex, error) {
+	var out struct {
+		envelope
+		Result struct {
+			Indexes []struct {
+				PropertyName string `json:"propertyName"`
+				IndexType    string `json:"indexType"`
+			} `json:"metadataIndexes"`
+		} `json:"result"`
+	}
+	if err := c.send(ctx, "metadata indexes", cfapi.Request{Method: http.MethodGet, Path: c.base + "/metadata_index/list"}, &out); err != nil {
+		return nil, err
+	}
+	if err := out.err("metadata indexes"); err != nil {
+		return nil, err
+	}
+	indexes := make([]MetadataIndex, len(out.Result.Indexes))
+	for i, m := range out.Result.Indexes {
+		indexes[i] = MetadataIndex{Property: m.PropertyName, Type: m.IndexType}
+	}
+	return indexes, nil
+}
+
+// WaitForMutation polls the index until the mutation has been applied, so a
+// vector written with it can be found by queries. It returns false when the
+// timeout passes first; callers decide whether that is fatal. An empty
+// mutation id returns true at once.
+func (c *Client) WaitForMutation(ctx context.Context, mutationID string, timeout time.Duration) (bool, error) {
+	if mutationID == "" {
+		return true, nil
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		var out struct {
+			envelope
+			Result struct {
+				ProcessedUpToMutation string `json:"processedUpToMutation"`
+			} `json:"result"`
+		}
+		if err := c.send(ctx, "info", cfapi.Request{Method: http.MethodGet, Path: c.base + "/info"}, &out); err != nil {
+			return false, err
+		}
+		if err := out.err("info"); err != nil {
+			return false, err
+		}
+		if out.Result.ProcessedUpToMutation == mutationID {
+			return true, nil
+		}
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+		timer := time.NewTimer(c.pollEvery)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 // DeleteByIDs removes vectors, splitting into requests of at most 1000 ids.
