@@ -19,6 +19,7 @@ middleware:
     level: dev  # dev | prod
 
 documents:
+  store: "qdrant"          # qdrant | cloudflare (vectors in Vectorize; manifest, chunk text and BM25 keyword index in D1). Switching starts with an empty corpus: reset and reindex. See ADR 0043 for what changes
   mode: "upload-only"       # upload-only | mirror; mirror removes missing files under documents.paths
   paths: []               # upload documents in the dashboard; add source directories for automatic ingestion
   ignore_patterns: []
@@ -150,6 +151,7 @@ cloudflare:
   d1_database_id: ""  # CLOUDFLARE_D1_DATABASE_ID; only for history.provider: d1
   vectorize_index: "" # CLOUDFLARE_VECTORIZE_INDEX; existing cosine index with embedder.dimensions; only for semantic_cache.provider: cloudflare
   kv_namespace_id: "" # CLOUDFLARE_KV_NAMESPACE_ID; only for semantic_cache.provider: cloudflare
+  documents_index: "" # CLOUDFLARE_DOCUMENTS_INDEX; cosine index with embedder.dimensions and string metadata indexes file_key, header_key, sha_key; only for documents.store: cloudflare
 
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true

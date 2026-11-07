@@ -809,3 +809,84 @@ func TestShippedSemanticCacheDefaultsToQdrant(t *testing.T) {
 		t.Fatalf("shipped semantic_cache.provider = %q, want qdrant", cfg.SemanticCache.Provider)
 	}
 }
+
+func TestDocumentsCloudflareStore(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:  ChunkerConfig{ChunkSize: 10},
+			Cloudflare: CloudflareConfig{
+				AccountID: "acct", APIToken: "token", D1DatabaseID: "db-id", DocumentsIndex: "docs-index",
+			},
+			Documents: DocumentsConfig{Store: "cloudflare"},
+		}
+	}
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cloudflare document store must validate: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":  {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
+		"database": {"cloudflare.d1_database_id", func(c *Config) { c.Cloudflare.D1DatabaseID = "" }},
+		"index":    {"cloudflare.documents_index", func(c *Config) { c.Cloudflare.DocumentsIndex = "" }},
+		"hnsw":     {"do not apply to the cloudflare document store", func(c *Config) { c.Qdrant.HnswEf = 64 }},
+		"store":    {"documents.store", func(c *Config) { c.Documents.Store = "pinecone" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+
+	// With no component on Qdrant, its address and collection are not needed.
+	allCloud := base()
+	allCloud.Qdrant = QdrantConfig{TopK: 1}
+	allCloud.History = HistoryConfig{Enabled: true, Provider: "d1"}
+	allCloud.SemanticCache = SemanticCacheConfig{Enabled: true, Provider: "cloudflare"}
+	allCloud.Cloudflare.VectorizeIndex, allCloud.Cloudflare.KVNamespaceID = "cache-index", "kv-ns"
+	if allCloud.UsesQdrant() {
+		t.Fatal("UsesQdrant() = true with every component on Cloudflare")
+	}
+	if err := allCloud.Validate(); err != nil {
+		t.Fatalf("an all-Cloudflare configuration must not require Qdrant: %v", err)
+	}
+	mixed := allCloud
+	mixed.History = HistoryConfig{Enabled: true, Provider: "qdrant", Collection: "chat_history"}
+	if !mixed.UsesQdrant() {
+		t.Fatal("UsesQdrant() = false with history on Qdrant")
+	}
+	if err := mixed.Validate(); err == nil || !strings.Contains(err.Error(), "qdrant.addr") {
+		t.Fatalf("a component still on Qdrant needs its address: %v", err)
+	}
+
+	t.Setenv("DOCUMENTS_STORE", "cloudflare")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "token")
+	t.Setenv("CLOUDFLARE_D1_DATABASE_ID", "db-id")
+	t.Setenv("CLOUDFLARE_DOCUMENTS_INDEX", "docs-index")
+	loaded, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Documents.Store != "cloudflare" || loaded.Cloudflare.DocumentsIndex != "docs-index" {
+		t.Fatalf("env overrides not applied: %+v %+v", loaded.Documents, loaded.Cloudflare)
+	}
+}
+
+func TestShippedDocumentsStoreDefaultsToQdrant(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Documents.Store != "qdrant" || !cfg.UsesQdrant() {
+		t.Fatalf("shipped documents.store = %q, UsesQdrant = %v, want qdrant and true", cfg.Documents.Store, cfg.UsesQdrant())
+	}
+}

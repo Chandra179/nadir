@@ -51,6 +51,11 @@ type CloudflareConfig struct {
 	// (cosine, embedder.dimensions) and KV namespace used when
 	// semantic_cache.provider is "cloudflare". They are identifiers, not secrets.
 	VectorizeIndex string `yaml:"vectorize_index"` // CLOUDFLARE_VECTORIZE_INDEX
+	// DocumentsIndex is the existing Vectorize index (cosine, embedder.dimensions,
+	// string metadata indexes file_key, header_key, sha_key) that holds document
+	// vectors when documents.store is "cloudflare". The semantic cache uses its
+	// own index; the document tables live in the d1_database_id database.
+	DocumentsIndex string `yaml:"documents_index"` // CLOUDFLARE_DOCUMENTS_INDEX
 	KVNamespaceID  string `yaml:"kv_namespace_id"` // CLOUDFLARE_KV_NAMESPACE_ID
 }
 
@@ -97,6 +102,10 @@ type LoggerConfig struct {
 
 // DocumentsConfig points to one or more local directories of text files.
 type DocumentsConfig struct {
+	// Store selects where indexed chunks live: "qdrant" (default) or
+	// "cloudflare" (vectors in Vectorize; manifest, chunk text and the keyword
+	// index in D1). Switching starts with an empty corpus: reset and reindex.
+	Store          string   `yaml:"store"`
 	Paths          []string `yaml:"paths"`
 	IgnorePatterns []string `yaml:"ignore_patterns"`
 	Mode           string   `yaml:"mode"` // upload-only | mirror
@@ -420,6 +429,8 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Cloudflare.APIToken, "CLOUDFLARE_API_TOKEN")
 	c.envStr(&c.Cloudflare.D1DatabaseID, "CLOUDFLARE_D1_DATABASE_ID")
 	c.envStr(&c.Cloudflare.VectorizeIndex, "CLOUDFLARE_VECTORIZE_INDEX")
+	c.envStr(&c.Cloudflare.DocumentsIndex, "CLOUDFLARE_DOCUMENTS_INDEX")
+	c.envStr(&c.Documents.Store, "DOCUMENTS_STORE")
 	c.envStr(&c.Cloudflare.KVNamespaceID, "CLOUDFLARE_KV_NAMESPACE_ID")
 	c.envStr(&c.SemanticCache.Provider, "SEMANTIC_CACHE_PROVIDER")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
@@ -785,6 +796,9 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if strings.TrimSpace(c.Documents.Store) == "" {
+		c.Documents.Store = "qdrant"
+	}
 	if strings.TrimSpace(c.SemanticCache.Provider) == "" {
 		c.SemanticCache.Provider = "qdrant"
 	}
@@ -852,10 +866,29 @@ func (c *Config) Validate() error {
 	if c.Embedder.NumGPU != nil && *c.Embedder.NumGPU < -1 {
 		return fmt.Errorf("config: embedder.num_gpu must be -1 (automatic), 0 (CPU), or a positive layer count")
 	}
-	if c.Qdrant.Addr == "" {
+	switch c.Documents.Store {
+	case "qdrant":
+	case "cloudflare":
+		if err := c.requireCloudflare("documents"); err != nil {
+			return err
+		}
+		if strings.TrimSpace(c.Cloudflare.D1DatabaseID) == "" {
+			return fmt.Errorf("config: cloudflare.d1_database_id (CLOUDFLARE_D1_DATABASE_ID) must not be empty for the cloudflare document store")
+		}
+		if strings.TrimSpace(c.Cloudflare.DocumentsIndex) == "" {
+			return fmt.Errorf("config: cloudflare.documents_index (CLOUDFLARE_DOCUMENTS_INDEX) must not be empty for the cloudflare document store")
+		}
+		if c.Qdrant.HnswM != 0 || c.Qdrant.HnswEfConstruct != 0 || c.Qdrant.HnswFullScanThreshold != 0 ||
+			c.Qdrant.IndexingThreshold != 0 || c.Qdrant.HnswEf != 0 {
+			return fmt.Errorf("config: qdrant.hnsw_* and qdrant.indexing_threshold tune Qdrant and do not apply to the cloudflare document store; remove them")
+		}
+	default:
+		return fmt.Errorf("config: documents.store must be qdrant or cloudflare")
+	}
+	if c.UsesQdrant() && c.Qdrant.Addr == "" {
 		return fmt.Errorf("config: qdrant.addr must not be empty")
 	}
-	if c.Qdrant.Collection == "" {
+	if c.Documents.Store == "qdrant" && c.Qdrant.Collection == "" {
 		return fmt.Errorf("config: qdrant.collection must not be empty")
 	}
 	if c.Qdrant.TopK <= 0 {
@@ -1080,4 +1113,12 @@ func (c Config) requireCloudflare(role string) error {
 		return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare %s provider", role)
 	}
 	return nil
+}
+
+// UsesQdrant reports whether any enabled component stores data in Qdrant. When
+// none does, Qdrant is not needed at all.
+func (c Config) UsesQdrant() bool {
+	return c.Documents.Store == "qdrant" ||
+		(c.History.Enabled && c.History.Provider == "qdrant") ||
+		(c.SemanticCache.Enabled && c.SemanticCache.Provider == "qdrant")
 }

@@ -17,7 +17,6 @@ import (
 	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
 	"nadir/internal/core/retrieval/search"
-	qdrantstore "nadir/internal/providers/qdrant/documents"
 	"nadir/internal/providers/qdrant/shared"
 	"nadir/internal/providers/reranker"
 
@@ -116,29 +115,13 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		slog.String("reranker_backend", cfg.Inference.Reranker.Backend),
 	)
 	qdrantHealth := qdrant.NewQdrantClient(conn)
-	store, err := qdrantstore.NewDependencies(qdrantstore.DependenciesConfig{
-		Clients:         clients,
-		Collection:      cfg.Qdrant.Collection,
-		PrefetchMul:     cfg.Qdrant.PrefetchMul,
-		AdaptiveSignals: cfg.Reranker.AdaptiveEnabled || cfg.Search.Fusion.Enabled,
-		HNSW: qdrantstore.HNSWConfig{
-			M:                 cfg.Qdrant.HnswM,
-			EfConstruct:       cfg.Qdrant.HnswEfConstruct,
-			FullScanThreshold: cfg.Qdrant.HnswFullScanThreshold,
-			IndexingThreshold: cfg.Qdrant.IndexingThreshold,
-			Ef:                cfg.Qdrant.HnswEf,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("qdrant store init: %w", err)
-	}
-
 	emb, embeddingProbe, err := newEmbedder(cfg, telemetry)
 	if err != nil {
 		return nil, err
 	}
-	if err := store.EnsureCollection(ctx, emb.Dimensions()); err != nil {
-		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
+	store, err := newDocumentStore(ctx, cfg, clients, emb.Dimensions())
+	if err != nil {
+		return nil, err
 	}
 
 	semanticCache := newSemanticCache(ctx, cfg, clients, emb.Dimensions(), telemetry, log)

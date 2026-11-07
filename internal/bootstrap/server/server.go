@@ -107,8 +107,19 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	apiConfig.Chat = chatService
 	readinessChecker := readiness.NewDependencies(readiness.DependenciesConfig{Dependencies: []readiness.Dependency{
 		{
-			Name:  "qdrant",
-			Probe: readiness.HealthProbe(graph.QdrantHealth),
+			Name:     "qdrant",
+			Probe:    readiness.HealthProbe(graph.QdrantHealth),
+			Disabled: !cfg.UsesQdrant(),
+		},
+		{
+			Name: "documents",
+			Probe: func(context.Context) (readiness.Check, error) {
+				return readiness.Check{
+					Backend: "cloudflare",
+					Details: "d1 and vectorize verified at startup; reachability is checked by actual requests",
+				}, nil
+			},
+			Disabled: cfg.Documents.Store != "cloudflare",
 		},
 		{
 			Name: "embedding",
