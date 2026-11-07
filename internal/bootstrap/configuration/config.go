@@ -47,6 +47,11 @@ type CloudflareConfig struct {
 	// D1DatabaseID identifies the D1 database used when history.provider is
 	// "d1". It is an identifier, not a secret.
 	D1DatabaseID string `yaml:"d1_database_id"` // CLOUDFLARE_D1_DATABASE_ID
+	// VectorizeIndex and KVNamespaceID identify the existing Vectorize index
+	// (cosine, embedder.dimensions) and KV namespace used when
+	// semantic_cache.provider is "cloudflare". They are identifiers, not secrets.
+	VectorizeIndex string `yaml:"vectorize_index"` // CLOUDFLARE_VECTORIZE_INDEX
+	KVNamespaceID  string `yaml:"kv_namespace_id"` // CLOUDFLARE_KV_NAMESPACE_ID
 }
 
 // ChatConfig tunes the chat use-case (ADR 0006): prompt assembly and the
@@ -261,9 +266,14 @@ type RerankerResourceConfig struct {
 }
 
 // SemanticCacheConfig controls persistence and matching for cached searches.
+// Provider "qdrant" (default) stores entries in a Qdrant collection; "cloudflare"
+// stores vectors in Vectorize and entries in KV (cloudflare.vectorize_index and
+// cloudflare.kv_namespace_id). New entries can take a short time to become
+// findable on Cloudflare, so repeated queries may miss briefly after a write.
 type SemanticCacheConfig struct {
 	Enabled    bool          `yaml:"enabled"`
-	Collection string        `yaml:"collection"` // Qdrant collection name for cache (default: search_cache)
+	Provider   string        `yaml:"provider"`
+	Collection string        `yaml:"collection"` // qdrant provider only (default: search_cache)
 	Threshold  float32       `yaml:"threshold"`  // cosine similarity cutoff, e.g. 0.90
 	TTL        time.Duration `yaml:"ttl"`        // zero = no expiry
 }
@@ -409,6 +419,9 @@ func (c *Config) applyEnv() error {
 	c.envStr(&c.Cloudflare.AccountID, "CLOUDFLARE_ACCOUNT_ID")
 	c.envStr(&c.Cloudflare.APIToken, "CLOUDFLARE_API_TOKEN")
 	c.envStr(&c.Cloudflare.D1DatabaseID, "CLOUDFLARE_D1_DATABASE_ID")
+	c.envStr(&c.Cloudflare.VectorizeIndex, "CLOUDFLARE_VECTORIZE_INDEX")
+	c.envStr(&c.Cloudflare.KVNamespaceID, "CLOUDFLARE_KV_NAMESPACE_ID")
+	c.envStr(&c.SemanticCache.Provider, "SEMANTIC_CACHE_PROVIDER")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	if err := c.envOptionalBool(&c.Generator.Think, "GENERATOR_THINK"); err != nil {
 		return err
@@ -772,6 +785,9 @@ func (c *Config) applyDefaults() {
 	if c.Generator.RequestTimeout <= 0 {
 		c.Generator.RequestTimeout = 120 * time.Second
 	}
+	if strings.TrimSpace(c.SemanticCache.Provider) == "" {
+		c.SemanticCache.Provider = "qdrant"
+	}
 	if strings.TrimSpace(c.History.Provider) == "" {
 		c.History.Provider = "qdrant"
 	}
@@ -949,8 +965,25 @@ func (c *Config) Validate() error {
 	if c.SemanticCache.Threshold < 0 || c.SemanticCache.Threshold > 1 {
 		return fmt.Errorf("config: semantic_cache.threshold must be > 0 and <= 1")
 	}
-	if c.SemanticCache.Enabled && strings.TrimSpace(c.SemanticCache.Collection) == "" {
-		return fmt.Errorf("config: semantic_cache.collection must not be empty when semantic_cache.enabled is true")
+	switch c.SemanticCache.Provider {
+	case "qdrant":
+		if c.SemanticCache.Enabled && strings.TrimSpace(c.SemanticCache.Collection) == "" {
+			return fmt.Errorf("config: semantic_cache.collection must not be empty when semantic_cache.enabled is true")
+		}
+	case "cloudflare":
+		if c.SemanticCache.Enabled {
+			if err := c.requireCloudflare("semantic_cache"); err != nil {
+				return err
+			}
+			if strings.TrimSpace(c.Cloudflare.VectorizeIndex) == "" {
+				return fmt.Errorf("config: cloudflare.vectorize_index (CLOUDFLARE_VECTORIZE_INDEX) must not be empty for the cloudflare semantic_cache provider")
+			}
+			if strings.TrimSpace(c.Cloudflare.KVNamespaceID) == "" {
+				return fmt.Errorf("config: cloudflare.kv_namespace_id (CLOUDFLARE_KV_NAMESPACE_ID) must not be empty for the cloudflare semantic_cache provider")
+			}
+		}
+	default:
+		return fmt.Errorf("config: semantic_cache.provider must be qdrant or cloudflare")
 	}
 	switch c.Generator.Provider {
 	case "ollama":

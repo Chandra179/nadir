@@ -138,7 +138,8 @@ enrichment:
 
 semantic_cache:
   enabled: true     # set true to enable; requires no extra infra (reuses Qdrant)
-  collection: "search_cache_reading"
+  provider: "qdrant"  # qdrant | cloudflare (Vectorize for vectors, KV for entries; needs the cloudflare section and a token with Vectorize and KV edit access). New entries can take a short time to become findable
+  collection: "search_cache_reading"  # qdrant provider only
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
 
@@ -147,6 +148,8 @@ cloudflare:
   # token is never read from YAML: set CLOUDFLARE_API_TOKEN in the environment.
   account_id: ""   # CLOUDFLARE_ACCOUNT_ID
   d1_database_id: ""  # CLOUDFLARE_D1_DATABASE_ID; only for history.provider: d1
+  vectorize_index: "" # CLOUDFLARE_VECTORIZE_INDEX; existing cosine index with embedder.dimensions; only for semantic_cache.provider: cloudflare
+  kv_namespace_id: "" # CLOUDFLARE_KV_NAMESPACE_ID; only for semantic_cache.provider: cloudflare
 
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true

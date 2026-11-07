@@ -739,3 +739,73 @@ func TestShippedHistoryDefaultsToQdrant(t *testing.T) {
 		t.Fatalf("shipped history.provider = %q, want qdrant", cfg.History.Provider)
 	}
 }
+
+func TestSemanticCacheCloudflareProvider(t *testing.T) {
+	base := func() Config {
+		return Config{
+			Qdrant:   QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder: EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:  ChunkerConfig{ChunkSize: 10},
+			Cloudflare: CloudflareConfig{
+				AccountID: "acct", APIToken: "token", VectorizeIndex: "cache-index", KVNamespaceID: "kv-ns",
+			},
+			SemanticCache: SemanticCacheConfig{Enabled: true, Provider: "cloudflare", Threshold: 0.9},
+		}
+	}
+	cfg := base()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cloudflare cache without a qdrant collection must validate: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		want string
+		edit func(*Config)
+	}{
+		"account":   {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":     {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
+		"index":     {"cloudflare.vectorize_index", func(c *Config) { c.Cloudflare.VectorizeIndex = "" }},
+		"namespace": {"cloudflare.kv_namespace_id", func(c *Config) { c.Cloudflare.KVNamespaceID = "" }},
+		"provider":  {"semantic_cache.provider", func(c *Config) { c.SemanticCache.Provider = "redis" }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base()
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+	disabled := base()
+	disabled.SemanticCache.Enabled = false
+	disabled.Cloudflare = CloudflareConfig{}
+	if err := disabled.Validate(); err != nil {
+		t.Fatalf("a disabled cache must not require Cloudflare: %v", err)
+	}
+	qdrant := base()
+	qdrant.SemanticCache.Provider = "qdrant"
+	if err := qdrant.Validate(); err == nil || !strings.Contains(err.Error(), "semantic_cache.collection") {
+		t.Fatalf("qdrant cache without a collection: %v", err)
+	}
+
+	t.Setenv("SEMANTIC_CACHE_PROVIDER", "cloudflare")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "token")
+	t.Setenv("CLOUDFLARE_VECTORIZE_INDEX", "cache-index")
+	t.Setenv("CLOUDFLARE_KV_NAMESPACE_ID", "kv-ns")
+	loaded, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.SemanticCache.Provider != "cloudflare" || loaded.Cloudflare.VectorizeIndex != "cache-index" || loaded.Cloudflare.KVNamespaceID != "kv-ns" {
+		t.Fatalf("env overrides not applied: %+v %+v", loaded.SemanticCache, loaded.Cloudflare)
+	}
+}
+
+func TestShippedSemanticCacheDefaultsToQdrant(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SemanticCache.Provider != "qdrant" {
+		t.Fatalf("shipped semantic_cache.provider = %q, want qdrant", cfg.SemanticCache.Provider)
+	}
+}

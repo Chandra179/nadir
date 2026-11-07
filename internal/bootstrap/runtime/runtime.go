@@ -16,9 +16,7 @@ import (
 	"nadir/internal/core/documents/indexing"
 	"nadir/internal/core/embedding"
 	"nadir/internal/core/observability"
-	"nadir/internal/core/retrieval/cache"
 	"nadir/internal/core/retrieval/search"
-	qdrantcache "nadir/internal/providers/qdrant/cache"
 	qdrantstore "nadir/internal/providers/qdrant/documents"
 	"nadir/internal/providers/qdrant/shared"
 	"nadir/internal/providers/reranker"
@@ -143,34 +141,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 		return nil, fmt.Errorf("qdrant ensure collection: %w", err)
 	}
 
-	var semanticCache cache.SemanticCache
-	if cfg.SemanticCache.Enabled {
-		backend, cacheErr := qdrantcache.NewDependencies(qdrantcache.DependenciesConfig{
-			Clients:    clients,
-			Collection: cfg.SemanticCache.Collection,
-		})
-		if cacheErr != nil {
-			log.Error("semantic cache backend init failed", slog.Any("error", cacheErr))
-		} else if cacheErr = backend.EnsureCollection(ctx, emb.Dimensions()); cacheErr != nil {
-			log.Error("semantic cache ensure collection failed", slog.Any("error", cacheErr))
-		} else {
-			candidate, candidateErr := cache.NewDependencies(cache.DependenciesConfig{
-				Backend:   backend,
-				Threshold: cfg.SemanticCache.Threshold,
-				TTL:       cfg.SemanticCache.TTL,
-				Telemetry: telemetry,
-				Version:   cachePolicyVersion(cfg),
-			})
-			if candidateErr != nil {
-				log.Error("semantic cache init failed", slog.Any("error", candidateErr))
-			} else {
-				semanticCache = candidate
-				log.Info("semantic cache enabled",
-					slog.String("collection", cfg.SemanticCache.Collection),
-					slog.Float64("threshold", float64(cfg.SemanticCache.Threshold)))
-			}
-		}
-	}
+	semanticCache := newSemanticCache(ctx, cfg, clients, emb.Dimensions(), telemetry, log)
 
 	cacheWrites := gates.NewBackgroundRunner(2, 10*time.Second)
 	defer func() {
