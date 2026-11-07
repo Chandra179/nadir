@@ -28,13 +28,18 @@ change to Conversation.
   comparison on the reviewed dataset against the current answer model
   (ADR 0035, 0036), because the available models differ.
 - `rewriter.provider` and `enrichment.contextual.provider` select `ollama`
-  (default) or `cloudflare` independently. They share the generator's account id
-  and `CLOUDFLARE_API_TOKEN`, use their own `model`, and call the non-streaming
-  `internal/providers/cloudflare/chat` client through a `Completer` seam in the
-  existing rewriter and enrichment packages, so prompts and output cleanup stay
-  unchanged. Output caps are 128 tokens (rewrite) and 256 (contextual intro).
-  Contextual enrichment changes chunk text, so switching its provider needs a
-  reindex.
+  (default) or `cloudflare` independently, each with its own `model`. All
+  Cloudflare roles share the top-level `cloudflare.account_id` and
+  `CLOUDFLARE_API_TOKEN`.
+- Rewrite and enrichment prompts live in `core/conversation/rewriting` and
+  `core/documents/enrichment`, which own a `Completer` seam. `ollama/chat` and
+  `cloudflare/chat` are the two completer adapters; output caps are 128 tokens
+  (rewrite) and 256 (contextual intro). Contextual enrichment changes chunk
+  text, so switching its provider needs a reindex.
+- `cloudflare/workersai` is the one HTTP client under every Cloudflare adapter:
+  account-scoped URL, bearer auth, status-error decoding, and retry of 429/503
+  honoring `Retry-After` (two retries), because per-chunk enrichment can exceed
+  the text-generation rate limit.
 
 ## Consequences
 

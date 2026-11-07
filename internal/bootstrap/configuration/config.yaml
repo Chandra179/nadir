@@ -127,7 +127,7 @@ enrichment:
   request_timeout: 120s
   contextual:
     enabled: false          # Anthropic-style LLM-written situational context prepended to each chunk before embedding
-    provider: "ollama"      # ollama | cloudflare (Workers AI; reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN; model is a Workers AI id)
+    provider: "ollama"      # ollama | cloudflare (Workers AI; reuses the cloudflare section; model is a Workers AI id)
     ollama_addr: "http://localhost:11434"
     model: "qwen3.5:4b"
     think: false             # request final context text without a reasoning trace
@@ -138,9 +138,14 @@ semantic_cache:
   threshold: 0.90    # cosine similarity cutoff (0.85=permissive, 0.95=strict)
   ttl: 24h           # 0 = no expiry
 
+cloudflare:
+  # Workers AI account shared by every role with provider: cloudflare. The API
+  # token is never read from YAML: set CLOUDFLARE_API_TOKEN in the environment.
+  account_id: ""   # CLOUDFLARE_ACCOUNT_ID
+
 generator:
   enabled: true      # set true + ensure the Ollama model is pulled; the dashboard or POST /api/v1/turns with generate=true
-  provider: "ollama" # ollama | cloudflare (Workers AI). cloudflare needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (env only), a Workers AI model id in `model`, and a Ragas comparison before it becomes the default
+  provider: "ollama" # ollama | cloudflare (Workers AI). cloudflare needs the cloudflare section (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN env only), a Workers AI model id in `model`, and a Ragas comparison before it becomes the default
   ollama_addr: "http://localhost:11434"
   model: "qwen3.5:4b"  # explicitly configured answer model; evaluation commands are in eval/README.md; no automatic model fallback
   think: false          # keep the bounded output budget for the answer
@@ -166,7 +171,7 @@ rewriter:
   enabled: true
   turns: 4           # prior turns fed to the rewriter
   request_timeout: 8s
-  provider: "ollama" # ollama | cloudflare (Workers AI; reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN; model is a Workers AI id)
+  provider: "ollama" # ollama | cloudflare (Workers AI; reuses the cloudflare section; model is a Workers AI id)
   ollama_addr: "http://localhost:11434"
   model: "qwen3.5:4b"
   think: false       # a bounded rewrite must return the search query

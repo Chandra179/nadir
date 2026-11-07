@@ -29,12 +29,21 @@ type Config struct {
 	Inference     InferenceConfig     `yaml:"inference"`
 	Gates         GatesConfig         `yaml:"gates"`
 	SemanticCache SemanticCacheConfig `yaml:"semantic_cache"`
+	Cloudflare    CloudflareConfig    `yaml:"cloudflare"`
 	Generator     GeneratorConfig     `yaml:"generator"`
 	Chat          ChatConfig          `yaml:"chat"`
 	Rewriter      RewriterConfig      `yaml:"rewriter"`
 	History       HistoryConfig       `yaml:"history"`
 	Enrichment    EnrichmentConfig    `yaml:"enrichment"`
 	Docling       DoclingConfig       `yaml:"docling"`
+}
+
+// CloudflareConfig holds the Workers AI account shared by every role whose
+// provider is "cloudflare". The account id is not secret; the API token is read
+// from CLOUDFLARE_API_TOKEN only and is never loaded from YAML.
+type CloudflareConfig struct {
+	AccountID string `yaml:"account_id"` // CLOUDFLARE_ACCOUNT_ID
+	APIToken  string `yaml:"-"`          // CLOUDFLARE_API_TOKEN, env only
 }
 
 // ChatConfig tunes the chat use-case (ADR 0006): prompt assembly and the
@@ -258,17 +267,12 @@ type GeneratorConfig struct {
 	Enabled bool `yaml:"enabled"`
 	// Provider selects the answer backend: "ollama" (default) or "cloudflare"
 	// (Workers AI, OpenAI-compatible chat completions).
-	Provider   string `yaml:"provider"`
-	OllamaAddr string `yaml:"ollama_addr"`
-	// Cloudflare settings apply only to provider "cloudflare". The account id
-	// is not secret; the API token is read from CLOUDFLARE_API_TOKEN only and
-	// is never loaded from YAML.
-	CloudflareAccountID string        `yaml:"cloudflare_account_id"`
-	CloudflareAPIToken  string        `yaml:"-"`
-	Model               string        `yaml:"model"` // explicitly selected answer model (Ollama tag or Workers AI id)
-	Think               *bool         `yaml:"think"` // nil uses the model default; false reserves the output budget for answers
-	RequestTimeout      time.Duration `yaml:"request_timeout"`
-	MaxOutputTokens     int           `yaml:"max_output_tokens"`
+	Provider        string        `yaml:"provider"`
+	OllamaAddr      string        `yaml:"ollama_addr"`
+	Model           string        `yaml:"model"` // explicitly selected answer model (Ollama tag or Workers AI id)
+	Think           *bool         `yaml:"think"` // nil uses the model default; false reserves the output budget for answers
+	RequestTimeout  time.Duration `yaml:"request_timeout"`
+	MaxOutputTokens int           `yaml:"max_output_tokens"`
 	// NumCtx pins the Ollama context window so the assembled prompt
 	// (instructions + context budget + question) plus the output never
 	// silently truncate against the model's default window.
@@ -294,7 +298,7 @@ type RewriterConfig struct {
 	Turns          int           `yaml:"turns"` // prior turns fed to the rewriter (default 4)
 	RequestTimeout time.Duration `yaml:"request_timeout"`
 	// Provider is "ollama" (default) or "cloudflare" (Workers AI). Cloudflare
-	// reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN.
+	// uses the shared cloudflare section.
 	Provider   string `yaml:"provider"`
 	OllamaAddr string `yaml:"ollama_addr"`
 	Model      string `yaml:"model"`
@@ -315,7 +319,7 @@ type EnrichmentConfig struct {
 type ContextualConfig struct {
 	Enabled bool `yaml:"enabled"`
 	// Provider is "ollama" (default) or "cloudflare" (Workers AI). Cloudflare
-	// reuses generator.cloudflare_account_id and CLOUDFLARE_API_TOKEN.
+	// uses the shared cloudflare section.
 	Provider   string `yaml:"provider"`
 	OllamaAddr string `yaml:"ollama_addr"`
 	Model      string `yaml:"model"`
@@ -393,8 +397,8 @@ func (c *Config) applyEnv() error {
 	}
 	c.envStr(&c.Generator.Provider, "GENERATOR_PROVIDER")
 	c.envStr(&c.Generator.OllamaAddr, "GENERATOR_ADDR")
-	c.envStr(&c.Generator.CloudflareAccountID, "CLOUDFLARE_ACCOUNT_ID")
-	c.envStr(&c.Generator.CloudflareAPIToken, "CLOUDFLARE_API_TOKEN")
+	c.envStr(&c.Cloudflare.AccountID, "CLOUDFLARE_ACCOUNT_ID")
+	c.envStr(&c.Cloudflare.APIToken, "CLOUDFLARE_API_TOKEN")
 	c.envStr(&c.Generator.Model, "GENERATOR_MODEL")
 	if err := c.envOptionalBool(&c.Generator.Think, "GENERATOR_THINK"); err != nil {
 		return err
@@ -931,11 +935,10 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("config: generator.ollama_addr must not be empty when generator.enabled is true")
 		}
 	case "cloudflare":
-		if c.Generator.Enabled && strings.TrimSpace(c.Generator.CloudflareAccountID) == "" {
-			return fmt.Errorf("config: generator.cloudflare_account_id (CLOUDFLARE_ACCOUNT_ID) must not be empty for the cloudflare provider")
-		}
-		if c.Generator.Enabled && strings.TrimSpace(c.Generator.CloudflareAPIToken) == "" {
-			return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare generator provider")
+		if c.Generator.Enabled {
+			if err := c.requireCloudflare("generator"); err != nil {
+				return err
+			}
 		}
 	default:
 		return fmt.Errorf("config: generator.provider must be ollama or cloudflare")
@@ -983,17 +986,28 @@ func (c Config) validateRole(name string, enabled bool, provider, ollamaAddr, mo
 			return fmt.Errorf("config: %s.ollama_addr must not be empty when %s.enabled is true", name, name)
 		}
 	case "cloudflare":
-		if enabled && strings.TrimSpace(c.Generator.CloudflareAccountID) == "" {
-			return fmt.Errorf("config: generator.cloudflare_account_id (CLOUDFLARE_ACCOUNT_ID) must not be empty for the cloudflare %s provider", name)
-		}
-		if enabled && strings.TrimSpace(c.Generator.CloudflareAPIToken) == "" {
-			return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare %s provider", name)
+		if enabled {
+			if err := c.requireCloudflare(name); err != nil {
+				return err
+			}
 		}
 	default:
 		return fmt.Errorf("config: %s.provider must be ollama or cloudflare", name)
 	}
 	if enabled && strings.TrimSpace(model) == "" {
 		return fmt.Errorf("config: %s.model must not be empty when %s.enabled is true", name, name)
+	}
+	return nil
+}
+
+// requireCloudflare checks the shared Workers AI credentials for a role that
+// uses the cloudflare provider.
+func (c Config) requireCloudflare(role string) error {
+	if strings.TrimSpace(c.Cloudflare.AccountID) == "" {
+		return fmt.Errorf("config: cloudflare.account_id (CLOUDFLARE_ACCOUNT_ID) must not be empty for the cloudflare %s provider", role)
+	}
+	if strings.TrimSpace(c.Cloudflare.APIToken) == "" {
+		return fmt.Errorf("config: CLOUDFLARE_API_TOKEN must not be empty for the cloudflare %s provider", role)
 	}
 	return nil
 }

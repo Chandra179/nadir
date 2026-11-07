@@ -54,8 +54,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	var gen generation.Generator
 	if cfg.Generator.Enabled && cfg.Generator.Provider == "cloudflare" {
 		cfGen, err := cloudflaregenerator.NewDependencies(cloudflaregenerator.DependenciesConfig{
-			AccountID:       cfg.Generator.CloudflareAccountID,
-			APIToken:        cfg.Generator.CloudflareAPIToken,
+			AccountID:       cfg.Cloudflare.AccountID,
+			APIToken:        cfg.Cloudflare.APIToken,
 			Model:           cfg.Generator.Model,
 			RequestTimeout:  cfg.Generator.RequestTimeout,
 			MaxOutputTokens: cfg.Generator.MaxOutputTokens,
@@ -152,8 +152,8 @@ func Server(ctx context.Context, cfg *config.Config) error {
 	if cfg.Rewriter.Enabled {
 		if cfg.Rewriter.Provider == "cloudflare" {
 			cf, err := cloudflarechat.New(cloudflarechat.Config{
-				AccountID:      cfg.Generator.CloudflareAccountID,
-				APIToken:       cfg.Generator.CloudflareAPIToken,
+				AccountID:      cfg.Cloudflare.AccountID,
+				APIToken:       cfg.Cloudflare.APIToken,
 				Model:          cfg.Rewriter.Model,
 				RequestTimeout: cfg.Rewriter.RequestTimeout,
 			})

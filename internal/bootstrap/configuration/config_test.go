@@ -503,8 +503,8 @@ func TestGeneratorCloudflareProvider(t *testing.T) {
 			Chunker:  ChunkerConfig{ChunkSize: 10},
 			Generator: GeneratorConfig{
 				Enabled: true, Provider: "cloudflare", Model: "@cf/test/model",
-				CloudflareAccountID: "acct", CloudflareAPIToken: "token",
 			},
+			Cloudflare: CloudflareConfig{AccountID: "acct", APIToken: "token"},
 		}
 	}
 
@@ -517,8 +517,8 @@ func TestGeneratorCloudflareProvider(t *testing.T) {
 		want string
 		edit func(*Config)
 	}{
-		"account":  {"cloudflare_account_id", func(c *Config) { c.Generator.CloudflareAccountID = "" }},
-		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Generator.CloudflareAPIToken = "" }},
+		"account":  {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":    {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
 		"model":    {"generator.model", func(c *Config) { c.Generator.Model = "" }},
 		"provider": {"generator.provider", func(c *Config) { c.Generator.Provider = "vertex" }},
 	} {
@@ -533,7 +533,7 @@ func TestGeneratorCloudflareProvider(t *testing.T) {
 
 	disabled := base()
 	disabled.Generator.Enabled = false
-	disabled.Generator.CloudflareAPIToken = ""
+	disabled.Cloudflare.APIToken = ""
 	if err := disabled.Validate(); err != nil {
 		t.Fatalf("disabled generator must not require credentials: %v", err)
 	}
@@ -555,12 +555,12 @@ func TestShippedGeneratorDefaultsToOllamaAndTokenIsEnvOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An API token in YAML must be rejected, not silently loaded.
-	data = bytes.Replace(data, []byte(`provider: "ollama"`), []byte("provider: \"cloudflare\"\n  cloudflare_api_token: \"leaked\""), 1)
+	data = bytes.Replace(data, []byte("cloudflare:\n"), []byte("cloudflare:\n  api_token: \"leaked\"\n"), 1)
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Load(path); err == nil {
-		t.Fatal("Load must reject cloudflare_api_token in YAML")
+		t.Fatal("Load must reject cloudflare.api_token in YAML")
 	}
 
 	t.Setenv("GENERATOR_PROVIDER", "cloudflare")
@@ -570,7 +570,7 @@ func TestShippedGeneratorDefaultsToOllamaAndTokenIsEnvOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Generator.Provider != "cloudflare" || cfg.Generator.CloudflareAccountID != "acct" || cfg.Generator.CloudflareAPIToken != "token" {
+	if cfg.Generator.Provider != "cloudflare" || cfg.Cloudflare.AccountID != "acct" || cfg.Cloudflare.APIToken != "token" {
 		t.Fatalf("env overrides not applied: %+v", cfg.Generator)
 	}
 }
@@ -578,11 +578,12 @@ func TestShippedGeneratorDefaultsToOllamaAndTokenIsEnvOnly(t *testing.T) {
 func TestAuxiliaryRolesCloudflareProvider(t *testing.T) {
 	base := func() Config {
 		return Config{
-			Qdrant:    QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
-			Embedder:  EmbedderConfig{Model: "embed", Dimensions: 3},
-			Chunker:   ChunkerConfig{ChunkSize: 10},
-			Generator: GeneratorConfig{Provider: "ollama", CloudflareAccountID: "acct", CloudflareAPIToken: "token"},
-			Rewriter:  RewriterConfig{Enabled: true, Provider: "cloudflare", Model: "@cf/test/rewrite"},
+			Qdrant:     QdrantConfig{Addr: "qdrant:6334", Collection: "documents", TopK: 1},
+			Embedder:   EmbedderConfig{Model: "embed", Dimensions: 3},
+			Chunker:    ChunkerConfig{ChunkSize: 10},
+			Generator:  GeneratorConfig{Provider: "ollama"},
+			Cloudflare: CloudflareConfig{AccountID: "acct", APIToken: "token"},
+			Rewriter:   RewriterConfig{Enabled: true, Provider: "cloudflare", Model: "@cf/test/rewrite"},
 			Enrichment: EnrichmentConfig{Contextual: ContextualConfig{
 				Enabled: true, Provider: "cloudflare", Model: "@cf/test/context",
 			}},
@@ -596,8 +597,8 @@ func TestAuxiliaryRolesCloudflareProvider(t *testing.T) {
 		want string
 		edit func(*Config)
 	}{
-		"account":             {"cloudflare_account_id", func(c *Config) { c.Generator.CloudflareAccountID = "" }},
-		"token":               {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Generator.CloudflareAPIToken = "" }},
+		"account":             {"cloudflare.account_id", func(c *Config) { c.Cloudflare.AccountID = "" }},
+		"token":               {"CLOUDFLARE_API_TOKEN", func(c *Config) { c.Cloudflare.APIToken = "" }},
 		"rewriter model":      {"rewriter.model", func(c *Config) { c.Rewriter.Model = "" }},
 		"contextual model":    {"enrichment.contextual.model", func(c *Config) { c.Enrichment.Contextual.Model = "" }},
 		"rewriter provider":   {"rewriter.provider", func(c *Config) { c.Rewriter.Provider = "vertex" }},
@@ -613,7 +614,7 @@ func TestAuxiliaryRolesCloudflareProvider(t *testing.T) {
 	}
 	disabled := base()
 	disabled.Rewriter.Enabled, disabled.Enrichment.Contextual.Enabled = false, false
-	disabled.Generator.CloudflareAPIToken = ""
+	disabled.Cloudflare.APIToken = ""
 	if err := disabled.Validate(); err != nil {
 		t.Fatalf("disabled roles must not require credentials: %v", err)
 	}

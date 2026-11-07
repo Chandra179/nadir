@@ -241,8 +241,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 	var enricher enrichment.Enricher
 	if cfg.Enrichment.Contextual.Enabled && cfg.Enrichment.Contextual.Provider == "cloudflare" {
 		cf, err := cloudflarechat.New(cloudflarechat.Config{
-			AccountID:      cfg.Generator.CloudflareAccountID,
-			APIToken:       cfg.Generator.CloudflareAPIToken,
+			AccountID:      cfg.Cloudflare.AccountID,
+			APIToken:       cfg.Cloudflare.APIToken,
 			Model:          cfg.Enrichment.Contextual.Model,
 			RequestTimeout: cfg.Enrichment.RequestTimeout,
 		})
